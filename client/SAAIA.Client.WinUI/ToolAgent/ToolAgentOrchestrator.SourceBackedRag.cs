@@ -111,7 +111,7 @@ public sealed partial class ToolAgentOrchestrator
         EmitRagTrace(
             "source_backed_pipeline.active.start",
             ("intent", pipelineIntent),
-            ("entry", entryPoint),
+            ("source_step", entryPoint),
             ("allows_partial_answer", allowsPartialAnswer),
             ("router_tools", routerPlan.ToolCalls.Select(static call => call.Name).ToArray()));
 
@@ -149,24 +149,14 @@ public sealed partial class ToolAgentOrchestrator
             ("intake_reference_has_directory", requestedDocumentName?.IndexOfAny(['/', '\\']) >= 0 ? 1 : 0),
             ("uses_focused_document", routerPlan.SourceBackedMission?.UsesFocusedDocument == true ? 1 : 0),
             ("llm_origin", routerPlan.Origin == RouterPlanOrigin.Llm ? 1 : 0));
-        var intake = new SourceBackedIntake(
-            effectiveUserMessage,
-            pipelineIntent,
-            routerPlan.RiskFlags?.ToArray() ?? Array.Empty<string>(),
-            Array.Empty<string>(),
-            AllowsPartialAnswer: allowsPartialAnswer,
-            routerPlan.Language,
-            BuildSourceBackedCatalogHints(),
-            BuildSourceBackedMemoryContext(),
-            QuestionFocus: NullIfBlankSourceBackedMissionValue(
-                routerPlan.SourceBackedMission?.QuestionFocus),
-            RequestedDocumentName: requestedDocumentName,
-            InitialToolCalls: BuildSourceBackedRouterInitialActions(routerPlan),
-            InitialSemanticMission:
-            BuildSourceBackedRouterSemanticMission(routerPlan),
-            NamedReferenceKind: ResolveSourceBackedNamedReferenceKind(
-                effectiveUserMessage,
-                routerPlan));
+        var intake = SourceBackedIntakeFactory.Create(
+            effectiveUserMessage, pipelineIntent, routerPlan, allowsPartialAnswer,
+            BuildSourceBackedCatalogHints(), BuildSourceBackedMemoryContext(), requestedDocumentName,
+            ResolveSourceBackedNamedReferenceKind(effectiveUserMessage, routerPlan)) with
+        {
+            InitialToolCalls = BuildSourceBackedRouterInitialActions(routerPlan),
+            InitialSemanticMission = BuildSourceBackedRouterSemanticMission(routerPlan)
+        };
         SourceBackedPipelineResult result;
         try
         {
@@ -190,7 +180,7 @@ public sealed partial class ToolAgentOrchestrator
                 EmitRagTrace(
                     "source_backed_pipeline.advanced_provider_budget_exhausted",
                     ("intent", pipelineIntent),
-                    ("entry", entryPoint),
+                    ("source_step", entryPoint),
                     ("provider_mode", ActiveProviderDescriptor?.Mode.ToString() ?? "unknown"),
                     ("reason", ex.Reason));
                 return await CompleteFailedSourceBackedPipelineAsync(
@@ -221,7 +211,7 @@ public sealed partial class ToolAgentOrchestrator
             EmitRagTrace(
                 "source_backed_pipeline.active.failed",
                 ("intent", pipelineIntent),
-                ("entry", entryPoint),
+                ("source_step", entryPoint),
                 ("reason", ex is LocalLlmUnavailableException
                     ? LocalLlmUnavailableException.ReasonCode : "pipeline_execution_failed"));
             return await CompleteFailedSourceBackedPipelineAsync(
@@ -243,7 +233,7 @@ public sealed partial class ToolAgentOrchestrator
             EmitRagTrace(
                 "source_backed_pipeline.active.skipped",
                 ("intent", pipelineIntent),
-                ("entry", entryPoint),
+                ("source_step", entryPoint),
                 ("verified", result.IsSourceVerified),
                 ("decision", result.JudgeDecision.Decision),
                 ("evidence_items", result.EvidenceBundle.Items.Count),

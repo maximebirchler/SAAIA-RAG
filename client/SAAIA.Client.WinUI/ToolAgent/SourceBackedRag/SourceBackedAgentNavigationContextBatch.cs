@@ -229,6 +229,11 @@ public sealed partial class SourceBackedAgentV2Runner
                 type = "object",
                 properties = new
                 {
+                    categoryPath = new
+                    {
+                        type = "string",
+                        description = "Choose an exact visible category for this new route, or an empty string to search without a category. The initial research scope is a revisable hypothesis; mandatory user restrictions remain enforced."
+                    },
                     documentFocusEvidenceId = new
                     {
                         type = "string",
@@ -264,6 +269,7 @@ public sealed partial class SourceBackedAgentV2Runner
                 required = new[]
                 {
                     "documentFocusEvidenceId",
+                    "categoryPath",
                     "query",
                     "navigationKind",
                     "limit"
@@ -285,6 +291,11 @@ public sealed partial class SourceBackedAgentV2Runner
                 type = "object",
                 properties = new
                 {
+                    categoryPath = new
+                    {
+                        type = "string",
+                        description = "Choose an exact visible category for this new route, or an empty string to search without a category. The initial research scope is a revisable hypothesis; mandatory user restrictions remain enforced."
+                    },
                     query = new
                     {
                         type = "string",
@@ -307,7 +318,7 @@ public sealed partial class SourceBackedAgentV2Runner
                         maximum
                     }
                 },
-                required = new[] { "query", "inventoryMode", "limit" },
+                required = new[] { "categoryPath", "query", "inventoryMode", "limit" },
                 additionalProperties = false
             }, ClientJson.CamelCase)));
         tools.Add(new SourceBackedAgentToolDefinition(
@@ -321,6 +332,11 @@ public sealed partial class SourceBackedAgentV2Runner
                 type = "object",
                 properties = new
                 {
+                    categoryPath = new
+                    {
+                        type = "string",
+                        description = "Choose an exact visible category for this new route, or an empty string to search without a category. The initial research scope is a revisable hypothesis; mandatory user restrictions remain enforced."
+                    },
                     query = new
                     {
                         type = "string",
@@ -336,7 +352,7 @@ public sealed partial class SourceBackedAgentV2Runner
                         maximum
                     }
                 },
-                required = new[] { "query", "limit" },
+                required = new[] { "categoryPath", "query", "limit" },
                 additionalProperties = false
             }, ClientJson.CamelCase)));
         return tools;

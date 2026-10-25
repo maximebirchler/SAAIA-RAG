@@ -786,7 +786,7 @@ public sealed partial class ToolAgentOrchestrator
                         ClientLog.Info(
                             "ToolAgent rag.multi_search category probe query start: " +
                             $"scope={FormatRagTraceValue(item.Scope)}|index={probeQueryEntry.Index + 1}/{effectiveProbeQueries.Length}|" +
-                            $"query={FormatRagTraceValue(probeQuery, 160)}");
+                            $"query={ClientLog.Content(probeQuery, 160)}");
                         EmitRagTrace(
                             "rag.multi_search.category_probe.query.start",
                             ("scope", item.Scope),
@@ -836,7 +836,7 @@ public sealed partial class ToolAgentOrchestrator
                                 "ToolAgent rag.multi_search category probe query end: " +
                                 $"scope={FormatRagTraceValue(item.Scope)}|index={probeQueryEntry.Index + 1}/{effectiveProbeQueries.Length}|" +
                                 $"hits={queryHitCount}|error={FormatRagTraceValue(queryError, 160)}|ms={querySw.ElapsedMilliseconds}|" +
-                                $"query={FormatRagTraceValue(probeQuery, 140)}");
+                                $"query={ClientLog.Content(probeQuery, 140)}");
                             EmitRagTrace(
                                 "rag.multi_search.category_probe.query.end",
                                 ("scope", item.Scope),
@@ -1032,7 +1032,7 @@ public sealed partial class ToolAgentOrchestrator
                     "ToolAgent rag.multi_search query start: " +
                     $"scope={FormatRagTraceValue(scope)}|index={index + 1}/{selectedQueries.Length}|" +
                     $"timeoutMs={(perQueryTimeout.HasValue ? (int)Math.Round(perQueryTimeout.Value.TotalMilliseconds) : 0)}|" +
-                    $"query={FormatRagTraceValue(q, 180)}");
+                    $"query={ClientLog.Content(q, 180)}");
                 EmitRagTrace(
                     "rag.multi_search.query.start",
                     ("scope", scope),
@@ -1092,7 +1092,7 @@ public sealed partial class ToolAgentOrchestrator
                         "ToolAgent rag.multi_search query end: " +
                         $"scope={FormatRagTraceValue(scope)}|index={index + 1}/{selectedQueries.Length}|hits={hitCount}|" +
                         $"busy={busy}|error={FormatRagTraceValue(error, 180)}|degraded={localDegradedRetrievers.Count}|" +
-                        $"ms={querySw.ElapsedMilliseconds}|query={FormatRagTraceValue(q, 140)}");
+                        $"ms={querySw.ElapsedMilliseconds}|query={ClientLog.Content(q, 140)}");
                     EmitRagTrace(
                         "rag.multi_search.query.end",
                         ("scope", scope),
@@ -1127,7 +1127,7 @@ public sealed partial class ToolAgentOrchestrator
                         "ToolAgent rag.multi_search query end: " +
                         $"scope={FormatRagTraceValue(scope)}|index={index + 1}/{selectedQueries.Length}|ok=false|" +
                         $"error={TruncateForPrompt(ex.GetType().Name + ": " + ex.Message, 260)}|ms={querySw.ElapsedMilliseconds}|" +
-                        $"query={FormatRagTraceValue(q, 140)}");
+                        $"query={ClientLog.Content(q, 140)}");
                     EmitRagTrace(
                         "rag.multi_search.query.end",
                         ("scope", scope),

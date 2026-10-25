@@ -30,7 +30,7 @@ public sealed partial class SourceBackedAgentV2Runner
             selectedCandidate.Representative.EvidenceId;
         var context = new StringBuilder()
             .Append("DEMANDE: ")
-            .AppendLine(TrimPromptValue(intake.UserQuestion, 500))
+            .AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion))
             .Append("CANDIDAT_SELECTIONNE: [")
             .Append(selectedEvidenceId)
             .Append("] ")

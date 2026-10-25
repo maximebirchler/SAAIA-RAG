@@ -246,6 +246,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             HandoffId = handoff.HandoffId,
             CreatedAtUtc = handoff.CreatedAtUtc,
             RequestText = handoff.RequestText ?? string.Empty,
+            ConversationContext = handoff.ConversationContext,
             Language = handoff.Language,
             OriginIntent = handoff.OriginIntent,
             ReasonCode = handoff.ReasonCode,

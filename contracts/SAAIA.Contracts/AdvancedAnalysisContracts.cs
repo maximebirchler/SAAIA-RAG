@@ -14,6 +14,8 @@ public sealed class AdvancedAnalysisHandoffEnvelope
 
     public string RequestText { get; init; } = string.Empty;
 
+    public AdvancedAnalysisConversationContext? ConversationContext { get; init; }
+
     public string Language { get; init; } = "fr";
 
     public string OriginIntent { get; init; } = string.Empty;

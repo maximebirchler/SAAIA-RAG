@@ -60,7 +60,7 @@ public sealed partial class ToolAgentOrchestrator
             ClientLog.Info(
                 "ToolAgent rag.search category scope rejected: " +
                 $"requested={FormatRagTraceValue(rejectedCategoryScope)}|reason={FormatRagTraceValue(rejectedCategoryScopeReason)}|" +
-                $"query={FormatRagTraceValue(query, 180)}");
+                $"query={ClientLog.Content(query, 180)}");
             EmitRagTrace(
                 "rag.search.scope.rejected",
                 ("requested_category", rejectedCategoryScope),

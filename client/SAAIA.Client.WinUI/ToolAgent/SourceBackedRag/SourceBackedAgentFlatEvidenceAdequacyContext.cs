@@ -43,7 +43,7 @@ public sealed partial class SourceBackedAgentV2Runner
     {
         var context = new StringBuilder();
         context.Append("DEMANDE ORIGINALE: ")
-            .AppendLine(TrimPromptValue(intake.UserQuestion, 420));
+            .AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion));
         context.Append("CIBLE PROVISOIRE DU ROUTEUR: ")
             .Append(provisionalTarget)
             .AppendLine(

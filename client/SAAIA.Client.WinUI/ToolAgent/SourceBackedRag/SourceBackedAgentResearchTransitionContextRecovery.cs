@@ -22,7 +22,7 @@ public sealed partial class SourceBackedAgentV2Runner
         var context = new StringBuilder();
         context.AppendLine("CONTEXTE COMPACT DE RECUPERATION");
         context.Append("OBJECTIF UTILISATEUR: ")
-            .AppendLine(TrimPromptValue(intake.UserQuestion, 320));
+            .AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion));
         context.Append("ETAT: ")
             .Append(approvedSourceCount)
             .Append(" preuves approuvees sur ")

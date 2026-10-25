@@ -70,7 +70,8 @@ public sealed partial class ToolAgentOrchestrator
             reason: IsSafeMetadataTraceValue(reason) ? reason : null, measurements: fields
             .Where(field => field.Value is int or long)
             .GroupBy(field => field.Key).ToDictionary(group => group.Key, group => (long?)Convert.ToInt64(group.Last().Value)),
-            identifiers: fields.Where(field => IsSourceTraceMetadataField(field.Key)
+            identifiers: fields.Where(field => (IsSourceTraceMetadataField(field.Key)
+                    || ClientRoutingTracePolicy.Allows(field.Key, field.Value))
                     && field.Value is string && IsSafeMetadataTraceValue(field.Value))
                 .GroupBy(field => field.Key).ToDictionary(group => group.Key, group => (string)group.Last().Value!));
         var traceId = EnsureRagTraceId();
@@ -131,7 +132,7 @@ public sealed partial class ToolAgentOrchestrator
                 continue;
 
             if (!ClientDiagnostics.IncludeContent && value is not (null or bool or int or long or double or float or decimal or TimeSpan)
-                && (!IsMetadataTraceField(safeKey) || !IsSafeMetadataTraceValue(value)))
+                && ((!IsMetadataTraceField(safeKey) && !ClientRoutingTracePolicy.Allows(safeKey, value)) || !IsSafeMetadataTraceValue(value)))
                 continue;
 
             sb.Append(' ');

@@ -75,7 +75,7 @@ public sealed partial class SourceBackedAgentV2Runner
     {
         var prompt = new StringBuilder()
             .AppendLine("DEMANDE UTILISATEUR:")
-            .AppendLine(TrimPromptValue(intake.UserQuestion, 600))
+            .AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion))
             .AppendLine("ROLES SEMANTIQUES DES COLONNES DU LOT:");
         foreach (var column in claims
                      .Select(static claim => claim.ColumnHeader)

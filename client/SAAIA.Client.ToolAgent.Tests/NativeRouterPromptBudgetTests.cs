@@ -4,10 +4,11 @@ using SAAIA.Client.WinUI.Services.ToolAgent;
 using SAAIA.Client.WinUI.Services.ToolAgent.NativeRouting;
 using SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace SAAIA.Client.ToolAgent.Tests;
 
-public sealed class NativeRouterPromptBudgetTests
+public sealed class NativeRouterPromptBudgetTests(ITestOutputHelper output)
 {
     [Fact]
     public void Pure_native_routing_builders_have_one_owner_outside_the_orchestrator()
@@ -366,6 +367,10 @@ public sealed class NativeRouterPromptBudgetTests
             NativeRouterPrompts.BuildNativeRouterSystemPrompt("fr", disallowMetaSetLanguage: false);
         var tools = NativeRouterToolCatalog.BuildNativeRouterTools();
 
+        output.WriteLine("Native router system characters={0}; unchanged limit=4000", prompt.Length);
+        foreach (var tool in tools)
+            output.WriteLine("Actual serialized schema {0}: characters={1}; unchanged per-schema limit=3500", tool.Name, tool.Parameters.GetRawText().Length);
+
         Assert.Equal(
             new[]
             {
@@ -399,13 +404,16 @@ public sealed class NativeRouterPromptBudgetTests
             new[]
             {
                 "tool", "intent", "query", "answerUnitType",
-                "answerUnitMode", "selectionPolicy",
+                "answerUnitMode", "selectionPolicy", "scopePolicy", "scopeUserAnchor",
                 "useFocusedDocument", "questionFocus",
                 "namedReferenceKind", "document",
                 "pool", "count"
             },
             sourceRequired);
         var sourceProperties = sourceTool.Parameters.GetProperty("properties");
+        Assert.Equal(new[] { "hypothesis", "user_restriction" }, sourceProperties.GetProperty("scopePolicy")
+            .GetProperty("enum").EnumerateArray().Select(item => item.GetString()));
+        Assert.Contains("exact user span", sourceProperties.GetProperty("scopeUserAnchor").GetProperty("description").GetString());
         Assert.False(sourceProperties.TryGetProperty("sourceItemType", out _));
         Assert.False(sourceProperties.TryGetProperty("sourceItemMode", out _));
         Assert.Contains(
@@ -439,6 +447,8 @@ public sealed class NativeRouterPromptBudgetTests
         Assert.Contains("rowHeader", gridRequired);
         Assert.Contains("rows", gridRequired);
         Assert.Contains("columns", gridRequired);
+        Assert.Contains("scopePolicy", gridRequired);
+        Assert.Contains("scopeUserAnchor", gridRequired);
         Assert.DoesNotContain("query", gridRequired);
         Assert.True(gridTool.Parameters
             .GetProperty("properties")

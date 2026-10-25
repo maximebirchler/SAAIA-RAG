@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -570,7 +570,7 @@ public sealed partial class ToolAgentOrchestrator
                     + $"|totalHits={observedHits.Count}"
                     + $"|keys={keys.Count}"
                     + $"|ms={elapsedMs}"
-                    + $"|lastDoc={FormatPlanningTraceValue(hit.DocName ?? hit.DocPath)}"
+                    + $"|lastDoc={FormatPlanningLogValue(hit.DocName ?? hit.DocPath)}"
                     + $"|lastPage={hit.PageStart}");
                 lastHitTitleProgressMs = elapsedMs;
             }

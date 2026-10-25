@@ -127,7 +127,7 @@ public sealed partial class SourceBackedAgentV2Runner
     {
         var prompt = new StringBuilder()
             .Append("DEMANDE: ")
-            .AppendLine(TrimPromptValue(intake.UserQuestion, 420))
+            .AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion))
             .Append("MISSION: ")
             .AppendLine(TrimPromptValue(semanticPlan, 420));
         if (!string.IsNullOrWhiteSpace(candidateObjectType)
@@ -236,7 +236,7 @@ public sealed partial class SourceBackedAgentV2Runner
         var compact = candidates.Count > 24;
         var prompt = new StringBuilder()
             .Append("DEMANDE ORIGINALE: ")
-            .AppendLine(TrimPromptValue(intake.UserQuestion, compact ? 360 : 500))
+            .AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion))
             .Append("MISSION STRUCTUREE: ")
             .AppendLine(TrimPromptValue(semanticPlan, compact ? 300 : 520));
         if (!string.IsNullOrWhiteSpace(candidateObjectType)

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 namespace SAAIA.Client.WinUI.Services.ToolAgent;
 
@@ -25,6 +25,7 @@ public sealed partial class ToolAgentOrchestrator
         _lastToolDurations = new List<(string tool, long durationMs, bool ok)>();
         _lastAnswerSource = "unknown";
         _lastAdvancedAnalysisHandoff = null;
+        _turnConversationContext = null;
         ResetRagTraceTurn();
         _mem.Execution.LastRagEvidenceExploration = new();
         _mem.Execution.LastRagInferredCategoryScope = null;

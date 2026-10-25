@@ -26,7 +26,7 @@ using Xunit;
 
 namespace SAAIA.Backend.Tests;
 
-public sealed class AdvancedAnalysisEndpointsTests
+public sealed partial class AdvancedAnalysisEndpointsTests
 {
     [Fact]
     public void Validator_accepts_the_server_safe_A756_contract()

@@ -65,9 +65,7 @@ public sealed partial class SourceBackedAgentV2Runner
                 "structured_candidate_writer_evidence_id_invalid";
             return false;
         }
-        if (indexedAssignments.Select(static item => item.EvidenceId)
-                .Distinct(StringComparer.OrdinalIgnoreCase).Count()
-            != expectedCellCount)
+        if (SourceBackedSelectionMultiplicity.HasDuplicates(indexedAssignments.Select(static item => item.EvidenceId)))
         {
             failureReason =
                 "structured_candidate_writer_assignment_duplicate";
@@ -80,17 +78,13 @@ public sealed partial class SourceBackedAgentV2Runner
         var selected = orderedAssignments
             .Select(item => bundle.ById[item.EvidenceId])
             .ToArray();
-        if (selected.Select(static item => item.VisibleSourceKey)
-                .Distinct(StringComparer.OrdinalIgnoreCase).Count()
-            != expectedCellCount)
+        if (SourceBackedSelectionMultiplicity.HasDuplicates(selected.Select(static item => item.VisibleSourceKey)))
         {
             failureReason =
                 "structured_candidate_writer_visible_source_duplicate";
             return false;
         }
-        if (selected.Select(GetEvidenceDisplayValue)
-                .Distinct(StringComparer.OrdinalIgnoreCase).Count()
-            != expectedCellCount)
+        if (SourceBackedSelectionMultiplicity.HasDuplicates(selected.Select(GetEvidenceDisplayValue)))
         {
             failureReason =
                 "structured_candidate_writer_display_value_duplicate";

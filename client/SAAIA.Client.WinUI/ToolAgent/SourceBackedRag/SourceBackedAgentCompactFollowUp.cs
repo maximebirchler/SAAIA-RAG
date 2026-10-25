@@ -148,7 +148,7 @@ public sealed partial class SourceBackedAgentV2Runner
     {
         var context = new StringBuilder();
         context.Append("DEMANDE: ")
-            .AppendLine(TrimPromptValue(intake.UserQuestion, 600));
+            .AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion));
         AppendQuestionFocusContext(context, intake);
 
         var atomicEvidenceExpectation = semanticPlan
@@ -323,7 +323,7 @@ public sealed partial class SourceBackedAgentV2Runner
     {
         var context = new StringBuilder();
         context.Append("DEMANDE: ")
-            .AppendLine(TrimPromptValue(intake.UserQuestion, 500));
+            .AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion));
         var atomicEvidenceExpectation = semanticPlan
             .Split(
                 new[] { '\r', '\n' },

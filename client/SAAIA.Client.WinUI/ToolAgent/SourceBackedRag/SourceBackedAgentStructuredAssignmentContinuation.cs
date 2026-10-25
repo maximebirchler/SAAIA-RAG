@@ -197,7 +197,7 @@ public sealed partial class SourceBackedAgentV2Runner
     {
         var prompt = new StringBuilder()
             .AppendLine("DEMANDE UTILISATEUR:")
-            .AppendLine(TrimPromptValue(intake.UserQuestion, 300))
+            .AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion))
             .AppendLine("FRONTIERES DES COLONNES CONCERNEES:");
         foreach (var columnHeader in rejectedIndexes
                      .Select(index => claims[index].ColumnHeader)

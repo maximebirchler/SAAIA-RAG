@@ -41,7 +41,7 @@ public sealed partial class SourceBackedAgentV2Runner
             : candidateObjectType;
         var prompt = new StringBuilder()
             .Append("DEMANDE ORIGINALE: ")
-            .AppendLine(TrimPromptValue(intake.UserQuestion, 500))
+            .AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion))
             .Append("MISSION STRUCTUREE: ")
             .AppendLine(TrimPromptValue(semanticPlan, 520))
             .Append("TYPE ATOMIQUE DECIDE PAR LE LLM: ")

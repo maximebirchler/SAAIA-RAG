@@ -162,8 +162,8 @@ public sealed partial class ToolAgentOrchestrator
                 "ToolAgent planning candidate selection: trace_path=rag.planning.candidate_selection|trace_step=primary_filter.rejections|stage=primary_filter.rejections"
                 + $"|removed={primaryFilterInput.Count(static item => !string.IsNullOrWhiteSpace(item.RejectionReason))}"
                 + $"|kept={primaryFilterInput.Count(static item => string.IsNullOrWhiteSpace(item.RejectionReason))}"
-                + $"|reasons={FormatPlanningTraceValue(string.Join(",", reasonCounts))}"
-                + $"|samples={FormatPlanningTraceValue(string.Join("; ", removedSamples))}"
+                + $"|reasons={FormatPlanningLogValue(string.Join(",", reasonCounts))}"
+                + $"|samples={FormatPlanningLogValue(string.Join("; ", removedSamples))}"
                 + $"|ms={selectionStopwatch!.ElapsedMilliseconds}");
         }
 
@@ -263,7 +263,7 @@ public sealed partial class ToolAgentOrchestrator
                         + $"|rawFallbackCandidates={rawFallbackCandidates.Count}"
                         + $"|currentCandidates={candidates.Count}"
                         + $"|ms={elapsedMs}"
-                        + $"|lastDoc={FormatPlanningTraceValue(hit.DocName ?? hit.DocPath)}"
+                        + $"|lastDoc={FormatPlanningLogValue(hit.DocName ?? hit.DocPath)}"
                         + $"|lastPage={hit.PageStart}");
                     lastFallbackProgressMs = elapsedMs;
                 }
@@ -325,7 +325,7 @@ public sealed partial class ToolAgentOrchestrator
         {
             ClientLog.Info(
                 "ToolAgent planning candidate selection: trace_path=rag.planning.candidate_selection|trace_step=fallback_filter.dominant_scope|stage=fallback_filter.dominant_scope"
-                + $"|remaining={fallbackDominantScope.Count}|removed={fallbackNotNoisy.Count - fallbackDominantScope.Count}|scope={FormatPlanningTraceValue(dominantTopLevelScope)}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", fallbackDominantScope.Take(8).Select(static candidate => candidate.Title))}");
+                + $"|remaining={fallbackDominantScope.Count}|removed={fallbackNotNoisy.Count - fallbackDominantScope.Count}|scope={FormatPlanningLogValue(dominantTopLevelScope)}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", fallbackDominantScope.Take(8).Select(static candidate => candidate.Title))}");
         }
 
         var fallbackConcreteTitle = fallbackDominantScope
@@ -416,8 +416,8 @@ public sealed partial class ToolAgentOrchestrator
                 "ToolAgent planning candidate selection: trace_path=rag.planning.candidate_selection|trace_step=final_filter.rejections|stage=final_filter.rejections"
                 + $"|removed={finalFilterInput.Count(static item => !string.IsNullOrWhiteSpace(item.RejectionReason))}"
                 + $"|kept={finalFilterInput.Count(static item => string.IsNullOrWhiteSpace(item.RejectionReason))}"
-                + $"|reasons={FormatPlanningTraceValue(string.Join(",", reasonCounts))}"
-                + $"|samples={FormatPlanningTraceValue(string.Join("; ", removedSamples))}"
+                + $"|reasons={FormatPlanningLogValue(string.Join(",", reasonCounts))}"
+                + $"|samples={FormatPlanningLogValue(string.Join("; ", removedSamples))}"
                 + $"|ms={selectionStopwatch!.ElapsedMilliseconds}");
         }
 

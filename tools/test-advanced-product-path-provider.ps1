@@ -85,6 +85,8 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot "openai-paid-tier-guard.ps1")
 . (Join-Path $PSScriptRoot "reference-corpus-seal.ps1")
+. (Join-Path $PSScriptRoot 'validation-paid/PaidCampaign.Common.ps1')
+Assert-LegacyPaidAuthorization -Model $ModelId -BudgetUsd $AuthorizedBudgetUsd
 
 if (-not ("System.Security.Cryptography.ProtectedData" -as [type])) {
     Add-Type -AssemblyName System.Security
@@ -253,11 +255,7 @@ if ([string]::IsNullOrWhiteSpace($ProviderBaseUrl)) {
     }
 }
 if ([string]::IsNullOrWhiteSpace($ModelId)) {
-    if ($Provider -eq "OpenAI") {
-        $ModelId = "gpt-5.6-terra"
-    } else {
-        throw "ModelId is required for RunPod."
-    }
+    throw 'ModelId is required; no provider model is selected implicitly.'
 }
 if (-not [Uri]::IsWellFormedUriString($ProviderBaseUrl, [UriKind]::Absolute) -or
     ([Uri]$ProviderBaseUrl).Scheme -ne "https") {
@@ -267,7 +265,7 @@ if ($Provider -eq "OpenAI") {
     $verifiedProviderTierAt = Assert-OpenAiPaidTierObservation `
         -ObservedOrganizationTier $ProviderAccountTier `
         -TierObservedAtUtc $ProviderAccountTierObservedAtUtc
-    if ($AuthorizedBudgetUsd -le 0) { $AuthorizedBudgetUsd = 25 }
+    if ($AuthorizedBudgetUsd -le 0) { throw 'AuthorizedBudgetUsd must be explicit and positive.' }
     if ($InputUsdPerMillionTokens -le 0 -or
         $CachedInputUsdPerMillionTokens -le 0 -or
         $OutputUsdPerMillionTokens -le 0) {

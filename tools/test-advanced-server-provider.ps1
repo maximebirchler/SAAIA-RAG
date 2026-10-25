@@ -30,6 +30,8 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot "openai-paid-tier-guard.ps1")
+. (Join-Path $PSScriptRoot 'validation-paid/PaidCampaign.Common.ps1')
+Assert-LegacyPaidAuthorization -Model $ModelId -BudgetUsd $AuthorizedBudgetUsd
 
 if (-not ("System.Security.Cryptography.ProtectedData" -as [type])) {
     Add-Type -AssemblyName System.Security
@@ -49,14 +51,13 @@ if ([string]::IsNullOrWhiteSpace($BaseUrl)) {
     else { throw "BaseUrl is required for RunPod." }
 }
 if ([string]::IsNullOrWhiteSpace($ModelId)) {
-    if ($Provider -eq "OpenAI") { $ModelId = "gpt-5.6-terra" }
-    else { throw "ModelId is required for RunPod." }
+    throw 'ModelId is required; no provider model is selected implicitly.'
 }
 if ($Provider -eq "OpenAI") {
     $verifiedProviderTierAt = Assert-OpenAiPaidTierObservation `
         -ObservedOrganizationTier $ObservedOrganizationTier `
         -TierObservedAtUtc $TierObservedAtUtc
-    if ($AuthorizedBudgetUsd -le 0) { $AuthorizedBudgetUsd = 25 }
+    if ($AuthorizedBudgetUsd -le 0) { throw 'AuthorizedBudgetUsd must be explicit and positive.' }
     if ($InputUsdPerMillionTokens -le 0 -or
         $CachedInputUsdPerMillionTokens -le 0 -or
         $OutputUsdPerMillionTokens -le 0) {
@@ -237,12 +238,16 @@ try {
     $testOutput = & dotnet test $project `
         -c $Configuration `
         --filter "FullyQualifiedName=SAAIA.Backend.Tests.LiveAdvancedAnalysisProviderTests.Advanced_provider_builds_complete_synthetic_meal_grid_when_explicitly_enabled" `
-        --logger "console;verbosity=normal" 2>&1
+        --results-directory $ArtifactDirectory `
+        --logger 'trx;LogFileName=live-provider.trx' 2>&1
     $testExit = $LASTEXITCODE
     $testOutput | Set-Content -LiteralPath (Join-Path $ArtifactDirectory "test-output.log") -Encoding utf8
     if ($testExit -ne 0) {
         throw "Advanced server provider probe failed with exit code $testExit."
     }
+    $executionEvidence = Assert-LiveTestEvidence -TrxPath (Join-Path $ArtifactDirectory 'live-provider.trx') `
+        -ResultPath (Join-Path $ArtifactDirectory 'result.json')
+    $executionEvidence | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $ArtifactDirectory 'executed-test-evidence.json')
 }
 finally {
     foreach ($name in $tracked) {

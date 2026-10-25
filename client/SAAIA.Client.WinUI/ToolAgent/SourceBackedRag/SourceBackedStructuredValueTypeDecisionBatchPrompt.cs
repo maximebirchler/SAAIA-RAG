@@ -77,7 +77,7 @@ internal static class SourceBackedStructuredValueTypeDecisionBatchPrompt
         IReadOnlyList<SourceBackedStructuredValueTypeCandidate> candidates)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("USER_QUESTION: " + Trim(intake.UserQuestion, 900));
+        sb.AppendLine("USER_QUESTION: " + SourceBackedUserRequestPrompt.Render(intake.UserQuestion));
         sb.AppendLine("LANGUAGE: " + Trim(intake.Language, 20));
         sb.AppendLine("VALUE_CANDIDATES:");
         foreach (var candidate in candidates)

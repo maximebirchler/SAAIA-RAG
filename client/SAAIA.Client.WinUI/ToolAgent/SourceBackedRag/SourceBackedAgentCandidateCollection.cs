@@ -96,11 +96,10 @@ public sealed partial class SourceBackedAgentV2Runner
             int maximumWorkingEvidenceItems,
             SourceBackedIntake? intake = null)
     {
-        var scopedToolSource = candidateScopePaths.Any(static path =>
-                !string.IsNullOrWhiteSpace(path))
+        var scopedToolSource = intake?.RequiredCategoryPaths is { Count: > 0 } mandatoryScopes
             ? SourceBackedAgentToolCatalog.Build(
                 useConstrainedContextDescriptions: true,
-                allowedCategoryPaths: candidateScopePaths,
+                allowedCategoryPaths: mandatoryScopes,
                 includeCategoryPathEnums: true)
             : turnTools;
         var documentaryTools = scopedToolSource

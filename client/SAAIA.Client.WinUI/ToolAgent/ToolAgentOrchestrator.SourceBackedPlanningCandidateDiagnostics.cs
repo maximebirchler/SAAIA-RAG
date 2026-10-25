@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -133,6 +133,9 @@ public sealed partial class ToolAgentOrchestrator
             .Replace("\r", " ", StringComparison.Ordinal)
             .Replace("\n", " ", StringComparison.Ordinal);
     }
+
+    private static string FormatPlanningLogValue(string? value)
+        => FormatPlanningTraceValue(ClientLog.Content(value, 140));
 
     private static string FormatStructuredPlanningSlotPoolCounts(
         IReadOnlyList<string> labels,

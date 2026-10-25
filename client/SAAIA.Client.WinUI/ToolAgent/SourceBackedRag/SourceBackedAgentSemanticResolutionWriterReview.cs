@@ -190,7 +190,7 @@ public sealed partial class SourceBackedAgentV2Runner
         IReadOnlyList<FastEvidenceCandidate> candidates)
     {
         var context = new StringBuilder();
-        context.Append("DEMANDE: ").AppendLine(TrimPromptValue(intake.UserQuestion, 600));
+        context.Append("DEMANDE: ").AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion));
         context.Append("MISSION_SEMANTIQUE: ").AppendLine(TrimPromptValue(semanticPlan, 600));
         context.Append("LANGUE: ").AppendLine(TrimPromptValue(intake.Language, 40));
         if (intake.ExplicitConstraints.Count > 0)

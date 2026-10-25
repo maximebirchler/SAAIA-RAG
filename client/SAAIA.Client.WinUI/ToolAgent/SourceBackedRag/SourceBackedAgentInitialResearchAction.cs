@@ -210,7 +210,7 @@ public sealed partial class SourceBackedAgentV2Runner
 
         var context = new StringBuilder();
         context.Append("DEMANDE_ORIGINALE: ")
-            .AppendLine(TrimPromptValue(intake.UserQuestion, 700));
+            .AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion));
         context.AppendLine("MISSION_DEJA_INTERPRETEE:");
         foreach (var line in semanticPlan
                      .Split(

@@ -262,8 +262,11 @@ public sealed partial class SourceBackedAgentV2Tests
                 == "llm_candidate_discovery");
     }
 
-    [Fact]
-    public async Task RouterGridMission_PreservesTheNarrowerLlmInitialScopeAndNavigationState()
+    [Theory]
+    [InlineData("Cuisine")]
+    [InlineData("Catalogue commercial")]
+    [InlineData("")]
+    public async Task RouterGridMission_PreservesNavigationStateButLetsTheModelReviseItsResearchScope(string followUpScope)
     {
         var intake = Intake("Construis une grille sourcee demandee.") with
         {
@@ -319,6 +322,7 @@ public sealed partial class SourceBackedAgentV2Tests
                 })),
             Completion(Call("follow-up", "start_content_card_research", new
             {
+                categoryPath = followUpScope,
                 query = "",
                 inventoryMode = "representative",
                 limit = 4,
@@ -348,7 +352,7 @@ public sealed partial class SourceBackedAgentV2Tests
             executor.ToolNames);
         Assert.Equal("navigation_entry", executor.Arguments[0]
             .GetProperty("kind").GetString());
-        Assert.Equal("Cuisine", executor.Arguments[1]
+        Assert.Equal(string.IsNullOrEmpty(followUpScope) ? null : followUpScope, executor.Arguments[1]
             .GetProperty("categoryPath").GetString());
         var followUpToolSetIndex = llm.ToolSets.FindIndex(static toolSet =>
             toolSet.Any(static tool =>
@@ -366,7 +370,7 @@ public sealed partial class SourceBackedAgentV2Tests
         var followUpCards = Assert.Single(
             llm.ToolSets[followUpToolSetIndex],
             static tool => tool.Name == "start_content_card_research");
-        Assert.False(followUpCards.Parameters
+        Assert.True(followUpCards.Parameters
             .GetProperty("properties")
             .TryGetProperty("categoryPath", out _));
         Assert.Contains(result.TraceEvents, static trace =>

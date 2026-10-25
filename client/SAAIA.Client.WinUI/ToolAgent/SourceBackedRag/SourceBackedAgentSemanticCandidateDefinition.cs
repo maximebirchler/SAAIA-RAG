@@ -254,7 +254,7 @@ public sealed partial class SourceBackedAgentV2Runner
                 StringComparison.OrdinalIgnoreCase));
         return new StringBuilder()
             .AppendLine("DEMANDE_ORIGINALE:")
-            .AppendLine(TrimPromptValue(intake.UserQuestion, 700))
+            .AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion))
             .AppendLine("DESCRIPTION_DU_LIVRABLE (orientation, pas type de preuve):")
             .AppendLine(TrimPromptValue(
                 deliverableDescription ?? semanticPlan,

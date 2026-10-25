@@ -20,7 +20,7 @@ public sealed partial class SourceBackedAgentV2Runner
     {
         var user = new StringBuilder()
             .AppendLine("DEMANDE:")
-            .AppendLine(TrimPromptValue(intake.UserQuestion, 700))
+            .AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion))
             .Append("NOMBRE_MINIMUM: ")
             .AppendLine(requiredAtomicEvidenceCount.ToString(
                 System.Globalization.CultureInfo.InvariantCulture))

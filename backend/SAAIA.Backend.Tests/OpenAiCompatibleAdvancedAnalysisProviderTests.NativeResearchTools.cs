@@ -188,7 +188,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var last = File.ReadAllLines(options.ExternalUsageLedgerPath).Last();
         using var charge = JsonDocument.Parse(last);
         Assert.Equal("reserved_upper_bound", charge.RootElement.GetProperty("usageSource").GetString());
-        Assert.Equal((int)Math.Ceiling(factory.Requests[3].Body.Length / 4d), charge.RootElement.GetProperty("inputTokens").GetInt32());
+        Assert.True(charge.RootElement.GetProperty("inputTokens").GetInt32() >= System.Text.Encoding.UTF8.GetByteCount(factory.Requests[3].Body),
+            "Missing usage must reserve the entire serialized request, including tools and history, rather than a chars/4 average.");
         using var request = JsonDocument.Parse(factory.Requests[3].Body);
         Assert.True(request.RootElement.TryGetProperty("tools", out _));
         Assert.Equal(4, request.RootElement.GetProperty("messages").GetArrayLength());

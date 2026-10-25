@@ -15,8 +15,9 @@ param(
     [int]$MaximumJobAttempts = 3,
     [ValidateRange(1000, 900000)]
     [int]$MaximumJobRetryDelayMilliseconds = 600000,
+    [Parameter(Mandatory = $true)]
     [ValidateSet("gpt-5.6-terra", "gpt-5.6-luna")]
-    [string]$OpenAiModel = "gpt-5.6-terra",
+    [string]$OpenAiModel,
     [ValidateSet("low", "medium", "high")]
     [string]$ReasoningEffort = "low",
     [ValidateSet("", "low", "medium", "high")]
@@ -28,10 +29,11 @@ param(
     [ValidateSet("Free", "Tier1", "Tier2", "Tier3", "Tier4", "Tier5")]
     [string]$ObservedOrganizationTier = "Free",
     [string]$TierObservedAtUtc = "",
+    [Parameter(Mandatory = $true)]
     [ValidateRange(0.01, 1000)]
-    [decimal]$AuthorizedBudgetUsd = 25,
-    [decimal]$SoftLimitUsd = 20,
-    [decimal]$HardLimitUsd = 24,
+    [decimal]$AuthorizedBudgetUsd,
+    [decimal]$SoftLimitUsd = 0,
+    [decimal]$HardLimitUsd = 0,
     [decimal]$MaximumCostPerJobUsd = 0.50,
     [ValidateRange(1, 32)]
     [int]$MaximumCallsPerJob = 4,

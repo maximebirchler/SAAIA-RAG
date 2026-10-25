@@ -392,52 +392,83 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
             _options.HeartbeatMilliseconds,
             25,
             Math.Max(25, leaseSeconds * 500));
+        // Preparation can outlive the original claim. Recheck ownership before
+        // starting any provider work, including a potentially billed request.
+        var initialState = await RenewLeaseAsync().ConfigureAwait(false);
+        if (initialState != AdvancedAnalysisLeaseState.Active)
+            return new ProviderExecution(initialState, null);
+
         using var providerCancellation = CancellationTokenSource
             .CreateLinkedTokenSource(stoppingToken);
         var providerTask = _provider.ExecuteAsync(
             request,
             tools,
             providerCancellation.Token);
-
-        while (!providerTask.IsCompleted)
+        try
         {
-            var delay = Task.Delay(heartbeatMilliseconds, stoppingToken);
-            if (await Task.WhenAny(providerTask, delay).ConfigureAwait(false)
-                == providerTask)
+            while (!providerTask.IsCompleted)
             {
-                break;
+                var delay = Task.Delay(heartbeatMilliseconds, stoppingToken);
+                if (await Task.WhenAny(providerTask, delay).ConfigureAwait(false)
+                    == providerTask)
+                    break;
+
+                var state = await RenewLeaseAsync().ConfigureAwait(false);
+                if (state != AdvancedAnalysisLeaseState.Active)
+                    return new ProviderExecution(state, null);
             }
 
-            AdvancedAnalysisLeaseState state;
+            return new ProviderExecution(
+                AdvancedAnalysisLeaseState.Active,
+                await providerTask.ConfigureAwait(false));
+        }
+        finally
+        {
+            // Losing a lease by exception must close the same child lifetime as
+            // a returned Lost/Canceled state. Disposing a CTS alone does not
+            // cancel its task. Observe completion before another attempt runs.
+            using var lifetimeProbe = BackendDiagnostics.Start("advanced.provider_cleanup", _logger);
+            lifetimeProbe.Set("job_id", jobId);
+            lifetimeProbe.Set("cancel_requested", !providerTask.IsCompleted);
+            if (!providerTask.IsCompleted)
+            {
+                try { providerCancellation.Cancel(); }
+                catch (Exception exception) { lifetimeProbe.Set("cancellation_callback_failure", exception.GetType().Name); }
+            }
+            try
+            {
+                await providerTask.ConfigureAwait(false);
+                lifetimeProbe.Complete();
+            }
+            catch (OperationCanceledException) when (providerCancellation.IsCancellationRequested)
+            {
+                lifetimeProbe.Complete("cancelled", "provider_cancellation_observed");
+            }
+            catch (Exception exception)
+            {
+                // A cleanup fault must not replace the original lease failure
+                // or the provider exception already propagating from the try.
+                lifetimeProbe.Fail(exception, "provider_completion_observed");
+            }
+            lifetimeProbe.Set("completion_observed", true);
+        }
+
+        async Task<AdvancedAnalysisLeaseState> RenewLeaseAsync()
+        {
             using (var heartbeatProbe = BackendDiagnostics.Start("advanced.lease_renew", _logger))
             {
                 heartbeatProbe.Set("job_id", jobId);
                 try
                 {
-                    state = await _store.RenewAndReadStateAsync(jobId, _workerId, leaseSeconds, stoppingToken).ConfigureAwait(false);
+                    var state = await _store.RenewAndReadStateAsync(jobId, _workerId, leaseSeconds, stoppingToken).ConfigureAwait(false);
                     _runtimeState.WorkerHeartbeat("executing");
                     heartbeatProbe.Complete(state == AdvancedAnalysisLeaseState.Active ? "success"
                         : state == AdvancedAnalysisLeaseState.Canceled ? "cancelled" : "lease_lost");
+                    return state;
                 }
                 catch (Exception ex) { heartbeatProbe.Fail(ex); throw; }
             }
-            if (state == AdvancedAnalysisLeaseState.Active)
-                continue;
-
-            providerCancellation.Cancel();
-            try
-            {
-                await providerTask.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (providerCancellation.IsCancellationRequested)
-            {
-            }
-            return new ProviderExecution(state, null);
         }
-
-        return new ProviderExecution(
-            AdvancedAnalysisLeaseState.Active,
-            await providerTask.ConfigureAwait(false));
     }
 
     private async Task FailAsync(

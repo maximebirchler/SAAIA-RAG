@@ -69,17 +69,35 @@ public static class AdvancedAnalysisEndpoints
             1,
             1_000);
 
+        using var probe = BackendDiagnostics.Start("advanced.job_create", logger);
+        probe.Set("tenant_id", tenantId);
+        probe.Set("session_id", request.SessionId);
+        probe.Set("commit_acknowledged", false);
+        probe.Set("failure_phase", "begin_transaction");
+
         await using var connection = await dataSource
             .OpenConnectionAsync(cancellationToken)
             .ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        // The quota spans every discussion of this tenant/user. A transaction
+        // lock serializes count+insert across backend processes, while unrelated
+        // owners retain independent admission. A hash collision only narrows
+        // concurrency; it cannot weaken the quota.
+        probe.Set("failure_phase", "admission_lock");
+        await connection.ExecuteAsync(new CommandDefinition(
+            "SELECT pg_advisory_xact_lock(hashtextextended(@scope, 0));",
+            new { scope = $"saaia.advanced.jobs:{tenantId:D}:{userId}" },
+            transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
 
+        probe.Set("failure_phase", "session_identity");
         const string sessionSql = """
             SELECT 1
             FROM chat_sessions
             WHERE tenant_id=@tenant
               AND session_id=@session
               AND user_id=@user_id
-            LIMIT 1;
+            FOR KEY SHARE;
             """;
         var sessionExists = await connection.ExecuteScalarAsync<int?>(
             new CommandDefinition(
@@ -90,19 +108,30 @@ public static class AdvancedAnalysisEndpoints
                     session = request.SessionId,
                     user_id = userId
                 },
+                transaction,
                 cancellationToken: cancellationToken));
         if (sessionExists is null)
+        {
+            probe.Complete("not_found", "chat_session_not_found");
             return Results.NotFound(new { error = "chat_session_not_found" });
+        }
 
+        probe.Set("failure_phase", "idempotence");
         var existing = await ReadByHandoffAsync(
             connection,
             tenantId,
             userId,
             request.Handoff.HandoffId,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken, transaction).ConfigureAwait(false);
         if (existing is not null)
+        {
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            probe.Set("commit_acknowledged", true);
+            probe.Complete("success", "idempotent_handoff");
             return Results.Ok(ToDto(existing));
+        }
 
+        probe.Set("failure_phase", "queue_quota");
         const string pendingCountSql = """
             SELECT count(*)
             FROM advanced_analysis_jobs
@@ -115,9 +144,12 @@ public static class AdvancedAnalysisEndpoints
             new CommandDefinition(
                 pendingCountSql,
                 new { tenant = tenantId, user_id = userId },
+                transaction,
                 cancellationToken: cancellationToken));
+        probe.Set("pending_job_count", pendingCount);
         if (pendingCount >= maximumQueuedJobs)
         {
+            probe.Complete("rejected", "queue_limit_reached");
             context.Response.Headers.RetryAfter = "5";
             return Results.Json(
                 new
@@ -129,6 +161,8 @@ public static class AdvancedAnalysisEndpoints
         }
 
         var jobId = Guid.NewGuid();
+        probe.Set("job_id", jobId);
+        probe.Set("failure_phase", "job_insert");
         var handoffJson = JsonSerializer.Serialize(request.Handoff, JsonOptions);
         const string insertSql = """
             INSERT INTO advanced_analysis_jobs(
@@ -174,6 +208,7 @@ public static class AdvancedAnalysisEndpoints
                     diagnostic_turn_id = RequestIdMiddleware.ReadSafeIdentifier(context.Request.Headers["X-SAAIA-Turn-Id"].ToString()),
                     diagnostic_session_id = RequestIdMiddleware.ReadSafeIdentifier(context.Request.Headers["X-SAAIA-Session-Id"].ToString())
                 },
+                transaction,
                 cancellationToken: cancellationToken));
 
         var stored = inserted ?? await ReadByHandoffAsync(
@@ -181,12 +216,13 @@ public static class AdvancedAnalysisEndpoints
             tenantId,
             userId,
             request.Handoff.HandoffId,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken, transaction).ConfigureAwait(false);
         if (stored is null)
             throw new InvalidOperationException("advanced_analysis_job_insert_failed");
 
         if (inserted is not null)
         {
+            probe.Set("failure_phase", "audit_insert");
             await AuditWriter.WriteAsync(
                 connection,
                 tenantId,
@@ -203,7 +239,15 @@ public static class AdvancedAnalysisEndpoints
                     request.Handoff.TransferStage
                 },
                 ip: context.Connection.RemoteIpAddress?.ToString(),
-                ct: cancellationToken).ConfigureAwait(false);
+                ct: cancellationToken,
+                tx: transaction).ConfigureAwait(false);
+        }
+        probe.Set("failure_phase", "commit");
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        probe.Set("commit_acknowledged", true);
+        probe.Complete("success", inserted is null ? "idempotent_handoff" : "job_created");
+        if (inserted is not null)
+        {
             logger.LogInformation(
                 "Advanced analysis job {JobId} queued for tenant {TenantId} and user {UserId}",
                 stored.JobId,
@@ -261,9 +305,16 @@ public static class AdvancedAnalysisEndpoints
 
         var tenantId = context.GetTenantId();
         var cancellationToken = context.RequestAborted;
+        using var probe = BackendDiagnostics.Start("advanced.job_cancel", logger);
+        probe.Set("tenant_id", tenantId);
+        probe.Set("job_id", jobId);
+        probe.Set("commit_acknowledged", false);
+        probe.Set("failure_phase", "begin_transaction");
         await using var connection = await dataSource
             .OpenConnectionAsync(cancellationToken)
             .ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        probe.Set("failure_phase", "job_update");
         const string sql = """
             UPDATE advanced_analysis_jobs
             SET status = CASE
@@ -319,10 +370,15 @@ public static class AdvancedAnalysisEndpoints
                     user_id = normalizedUserId,
                     job_id = jobId
                 },
+                transaction,
                 cancellationToken: cancellationToken));
         if (row is null)
+        {
+            probe.Complete("not_found", "advanced_analysis_job_not_found");
             return Results.NotFound(new { error = "advanced_analysis_job_not_found" });
+        }
 
+        probe.Set("failure_phase", "audit_insert");
         await AuditWriter.WriteAsync(
             connection,
             tenantId,
@@ -332,7 +388,12 @@ public static class AdvancedAnalysisEndpoints
             target: jobId.ToString(),
             payload: new { userId = normalizedUserId, status = row.Status },
             ip: context.Connection.RemoteIpAddress?.ToString(),
-            ct: cancellationToken).ConfigureAwait(false);
+            ct: cancellationToken,
+            tx: transaction).ConfigureAwait(false);
+        probe.Set("failure_phase", "commit");
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        probe.Set("commit_acknowledged", true);
+        probe.Complete("success", "cancel_resolved");
         logger.LogInformation(
             "Advanced analysis job {JobId} cancel resolved as {Status}",
             jobId,
@@ -380,6 +441,9 @@ public static class AdvancedAnalysisEndpoints
             return AdvancedAnalysisValidationResult.Invalid(
                 "handoff_section_required");
         }
+        var conversationError = AdvancedAnalysisConversationContextPolicy.Validate(handoff.ConversationContext);
+        if (conversationError is not null)
+            return AdvancedAnalysisValidationResult.Invalid(conversationError);
         if (handoff.Load.AnswerUnitCount is < 0 or > MaximumAnswerUnits
             || handoff.Load.RowCount is < 0 or > MaximumAnswerUnits
             || handoff.Load.ColumnCount is < 0 or > MaximumAnswerUnits
@@ -446,8 +510,8 @@ public static class AdvancedAnalysisEndpoints
                && research.ExecutedQueries.Count <= MaximumResearchItems
                && research.Attempts.Count <= MaximumResearchItems
                && load.CandidateScopePaths.Count <= MaximumResearchItems
-               && load.RowLabels.Count <= MaximumResearchItems
-               && load.Columns.Count <= MaximumResearchItems
+               && load.RowLabels.Count <= AdvancedAnalysisClientLayoutLimits.MaximumRows
+               && load.Columns.Count <= AdvancedAnalysisClientLayoutLimits.MaximumColumns
                && research.Attempts.All(static attempt =>
                    attempt is not null
                    && attempt.Queries is not null
@@ -476,7 +540,8 @@ public static class AdvancedAnalysisEndpoints
         Guid tenantId,
         string userId,
         Guid handoffId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        NpgsqlTransaction? transaction = null)
         => connection.QuerySingleOrDefaultAsync<JobRow>(new CommandDefinition(
             SelectProjection + """
 
@@ -491,6 +556,7 @@ public static class AdvancedAnalysisEndpoints
                 user_id = userId,
                 handoff_id = handoffId
             },
+            transaction,
             cancellationToken: cancellationToken));
 
     private static Task<JobRow?> ReadByJobIdAsync(

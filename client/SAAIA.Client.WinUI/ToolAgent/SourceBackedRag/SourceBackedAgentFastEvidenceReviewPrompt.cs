@@ -60,7 +60,7 @@ public sealed partial class SourceBackedAgentV2Runner
             .ToArray();
         var context = new StringBuilder();
         context.Append("DEMANDE: ")
-            .AppendLine(TrimPromptValue(intake.UserQuestion, 500));
+            .AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion));
         if (intake.ExplicitConstraints.Count > 0)
         {
             context.Append("CONTRAINTES EXPLICITES: ")

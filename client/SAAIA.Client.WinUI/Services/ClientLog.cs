@@ -28,11 +28,19 @@ internal static class ClientLog
     public static void Warn(string message) => Write("WARN", message);
     public static void Error(string message) => Write("ERROR", message);
 
+    internal static string Content(string? value, int maximumCharacters = 180)
+    {
+        value ??= string.Empty;
+        return ClientDiagnostics.IncludeContent
+            ? value[..Math.Min(value.Length, Math.Max(0, maximumCharacters))]
+            : $"[content omitted; chars={value.Length}]";
+    }
+
     public static void Exception(string context, Exception ex)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"[{context}] {ex.GetType().FullName}: {ex.Message}");
-        sb.AppendLine(ex.ToString());
+        sb.AppendLine($"[{context}] {ex.GetType().FullName}");
+        if (ClientDiagnostics.IncludeContent) sb.AppendLine(ex.ToString());
         Write("EX", sb.ToString());
     }
 

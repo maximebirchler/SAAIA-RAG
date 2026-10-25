@@ -262,7 +262,7 @@ public sealed partial class SourceBackedAgentV2Runner
     {
         var context = new StringBuilder();
         context.Append("DEMANDE: ")
-            .AppendLine(TrimPromptValue(intake.UserQuestion, 600));
+            .AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion));
         context.Append("MISSION_SEMANTIQUE: ")
             .AppendLine(TrimPromptValue(semanticPlan, 600));
         context.Append("LANGUE: ")

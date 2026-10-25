@@ -211,6 +211,8 @@ internal static class NativeRouterToolCatalog
                             2,
                             120,
                             "Exact category. Omit when open."),
+                        scopePolicy = BuildCategoryScopePolicySchema(),
+                        scopeUserAnchor = BoundedNativeRouterString(0, 180, "Copy the exact user span that explicitly limits the corpus when scopePolicy=user_restriction; otherwise return an empty string."),
                         useFocusedDocument = new
                         {
                             type = "boolean",
@@ -253,7 +255,7 @@ internal static class NativeRouterToolCatalog
                     required = new[]
                     {
                         "tool", "intent", "query", "answerUnitType",
-                        "answerUnitMode", "selectionPolicy",
+                        "answerUnitMode", "selectionPolicy", "scopePolicy", "scopeUserAnchor",
                         "useFocusedDocument", "questionFocus",
                         "namedReferenceKind", "document",
                         "pool", "count"
@@ -335,6 +337,8 @@ internal static class NativeRouterToolCatalog
                             2,
                             120,
                             "One exact CATEGORY_HINTS category when semantically clear; omit when genuinely open."),
+                        scopePolicy = BuildCategoryScopePolicySchema(),
+                        scopeUserAnchor = BoundedNativeRouterString(0, 180, "Copy the exact user span that explicitly limits the corpus when scopePolicy=user_restriction; otherwise return an empty string."),
                         count = new
                         {
                             type = "integer",
@@ -359,12 +363,12 @@ internal static class NativeRouterToolCatalog
                             type = "array",
                             items = BoundedNativeRouterString(1, 60),
                             minItems = 1,
-                            maxItems = 40
+                            maxItems = 12
                         }
                     },
                     required = new[]
                     {
-                        "tool", "pool", "sourceItemType", "sourceItemMode", "selectionPolicy", "intent", "count",
+                        "tool", "pool", "sourceItemType", "sourceItemMode", "selectionPolicy", "scopePolicy", "scopeUserAnchor", "intent", "count",
                         "rowHeader", "rows", "columns", "questionFocus",
                         "useFocusedDocument", "namedReferenceKind", "document"
                     },
@@ -577,5 +581,12 @@ internal static class NativeRouterToolCatalog
                 required = new[] { "question", "userTextAnchor", "missingInformation", "resumeRoute" },
                 additionalProperties = false
             }, ClientJson.CamelCase));
+
+    private static object BuildCategoryScopePolicySchema() => new
+    {
+        type = "string",
+        @enum = new[] { "hypothesis", "user_restriction" },
+        description = "Use user_restriction only when the user explicitly requires staying inside the selected corpus category. Otherwise use hypothesis: the category is a revisable research strategy, including a category you inferred from the subject. Never invent a licence or access restriction. Document identity and server ACLs are enforced separately."
+    };
 
 }

@@ -100,7 +100,7 @@ public sealed partial class ToolAgentOrchestrator
                 ("args", arguments.GetRawText()));
             ClientLog.Info(
                 "ToolAgent source-backed native tool start: " +
-                $"name={toolName}|args={TruncateForPrompt(arguments.GetRawText(), 420)}");
+                $"name={toolName}|args={ClientLog.Content(arguments.GetRawText(), 420)}");
             try
             {
                 var result = toolName switch

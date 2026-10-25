@@ -216,13 +216,12 @@ public sealed partial class SourceBackedAgentV2Runner
             bool compactContext,
             bool usesStructuredContract)
     {
-        var questionLimit = compactContext ? 360 : 600;
         var roleLimit = compactContext ? 180 : 320;
         var displayLimit = compactContext ? 100 : 160;
         var excerptLimit = compactContext ? 110 : 220;
         var prompt = new StringBuilder()
             .AppendLine("DEMANDE UTILISATEUR:")
-            .AppendLine(TrimPromptValue(intake.UserQuestion, questionLimit))
+            .AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion))
             .AppendLine("CELLULES A REAFFECTER:");
         foreach (var index in rejectedIndexes)
         {

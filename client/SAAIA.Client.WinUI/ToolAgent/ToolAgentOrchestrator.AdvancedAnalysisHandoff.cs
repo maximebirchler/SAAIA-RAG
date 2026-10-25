@@ -9,6 +9,7 @@ public sealed partial class ToolAgentOrchestrator
     private const int AdvancedHandoffMaximumEvidenceReferences = 64;
 
     private AdvancedAnalysisHandoffEnvelope? _lastAdvancedAnalysisHandoff;
+    private AdvancedAnalysisConversationContext? _turnConversationContext;
 
     public AdvancedAnalysisHandoffEnvelope? LastAdvancedAnalysisHandoff
         => _lastAdvancedAnalysisHandoff;
@@ -74,6 +75,7 @@ public sealed partial class ToolAgentOrchestrator
             HandoffId = Guid.NewGuid(),
             CreatedAtUtc = DateTimeOffset.UtcNow,
             RequestText = requestText ?? string.Empty,
+            ConversationContext = _turnConversationContext,
             Language = string.IsNullOrWhiteSpace(plan.Language) ? "fr" : plan.Language.Trim(),
             OriginIntent = plan.Intent ?? string.Empty,
             ReasonCode = reasonCode ?? string.Empty,
@@ -98,10 +100,10 @@ public sealed partial class ToolAgentOrchestrator
                     AdvancedHandoffMaximumResearchItems),
                 RowLabels = DistinctNonBlank(
                     mission?.RowLabels,
-                    AdvancedHandoffMaximumResearchItems),
+                    AdvancedAnalysisClientLayoutLimits.MaximumRows),
                 Columns = DistinctNonBlank(
                     mission?.Columns,
-                    AdvancedHandoffMaximumResearchItems)
+                    AdvancedAnalysisClientLayoutLimits.MaximumColumns)
             },
             ResearchState = new AdvancedAnalysisResearchState
             {

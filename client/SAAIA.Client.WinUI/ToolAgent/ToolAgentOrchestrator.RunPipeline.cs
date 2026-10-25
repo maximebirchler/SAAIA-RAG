@@ -39,6 +39,7 @@ public sealed partial class ToolAgentOrchestrator
         ResetLastTurnDiagnostics();
         chatHistory ??= Array.Empty<(string role, string content)>();
         userMessage ??= string.Empty;
+        _turnConversationContext = AdvancedConversationContextBuilder.Build(chatHistory, userMessage);
         BeginRagTraceTurn(userMessage, chatHistory);
         using var telemetryScope = SourceBackedTelemetryContext.Push(
             EnsureRagTraceId());
@@ -68,7 +69,7 @@ public sealed partial class ToolAgentOrchestrator
             $"planning={FormatPlanningTraceBool(LooksLikeAnyDocumentaryPlanningRequest(userMessage))}|" +
             $"history={chatHistory.Count}|" +
             $"chars={userMessage.Length}|" +
-            $"query={TruncateForPrompt(userMessage, 180)}");
+            $"query={ClientLog.Content(userMessage, 180)}");
 
         if (TryDetectExplicitLanguageSwitch(userMessage, out var requestedLanguage))
         {
@@ -458,8 +459,7 @@ public sealed partial class ToolAgentOrchestrator
                 plan.Language);
             BuildAndRememberAdvancedAnalysisHandoff(
                 plan,
-                capabilityBoundary.PlanKind is "user_instance_context" or "user_reference_context"
-                    ? IncludeUserInstanceContext(chatHistory, effectiveUserMessage) : effectiveUserMessage,
+                effectiveUserMessage,
                 capabilityBoundary.ReasonCode,
                 "before_retrieval",
                 capabilityBoundary.AnswerUnitCount);

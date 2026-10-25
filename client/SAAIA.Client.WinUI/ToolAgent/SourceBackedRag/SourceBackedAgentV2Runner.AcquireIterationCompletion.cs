@@ -403,6 +403,7 @@ public sealed partial class SourceBackedAgentV2Runner
                             SourceBackedPipelineStep.IterationController,
                             "source_backed_agent_v2.context.preflight_blocked",
                             ("turn", runState.turn),
+                            ("user_request_characters", runState.intake.UserQuestion.Length),
                             ("input_tokens", measuredInputTokens),
                             ("minimum_output_tokens", 64),
                             ("safety_reserve_tokens", ContextSafetyReserveTokens),

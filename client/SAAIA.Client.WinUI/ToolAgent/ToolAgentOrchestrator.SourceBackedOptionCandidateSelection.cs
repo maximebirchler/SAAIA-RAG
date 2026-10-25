@@ -145,10 +145,10 @@ public sealed partial class ToolAgentOrchestrator
         {
             ClientLog.Info(
                 "ToolAgent option candidate selection: trace_path=rag.source_backed.option_candidate_selection|trace_step=anchor_scope|stage=anchor_scope"
-                + $"|rawAnchors={FormatPlanningTraceValue(string.Join(",", rawQueryAnchorTerms))}"
-                + $"|activeAnchors={FormatPlanningTraceValue(string.Join(",", queryAnchorTerms))}"
-                + $"|suppressedGenericAnchors={FormatPlanningTraceValue(string.Join(",", suppressedAnchorTerms))}"
-                + $"|objectAnchors={FormatPlanningTraceValue(string.Join(",", objectAnchorTerms))}"
+                + $"|rawAnchors={FormatPlanningLogValue(string.Join(",", rawQueryAnchorTerms))}"
+                + $"|activeAnchors={FormatPlanningLogValue(string.Join(",", queryAnchorTerms))}"
+                + $"|suppressedGenericAnchors={FormatPlanningLogValue(string.Join(",", suppressedAnchorTerms))}"
+                + $"|objectAnchors={FormatPlanningLogValue(string.Join(",", objectAnchorTerms))}"
                 + $"|willFilter={hasSourceBackedAnchorEvidence}"
                 + $"|ms={optionStopwatch!.ElapsedMilliseconds}");
         }
@@ -192,7 +192,7 @@ public sealed partial class ToolAgentOrchestrator
                         + $"|totalHits={sourceHits.Count}"
                         + $"|rawCandidates={rawCandidates.Count}"
                         + $"|ms={elapsedMs}"
-                        + $"|lastDoc={FormatPlanningTraceValue(hit.DocName ?? hit.DocPath)}"
+                        + $"|lastDoc={FormatPlanningLogValue(hit.DocName ?? hit.DocPath)}"
                         + $"|lastPage={hit.PageStart}");
                     lastRawCandidateProgressMs = elapsedMs;
                 }
@@ -301,7 +301,7 @@ public sealed partial class ToolAgentOrchestrator
                     + $"|candidates={candidates.Count}"
                     + $"|removed={candidatesBeforeAnchorFilter.Count - candidates.Count}"
                     + $"|anchorTerms={queryAnchorTerms.Length}"
-                    + $"|anchors={FormatPlanningTraceValue(string.Join(",", queryAnchorTerms))}"
+                    + $"|anchors={FormatPlanningLogValue(string.Join(",", queryAnchorTerms))}"
                     + $"|kept={FormatSourceBackedOptionCandidateTraceSamples(candidates)}"
                     + $"|removedSamples={FormatSourceBackedOptionCandidateTraceSamples(removedByAnchorFilter)}"
                     + $"|ms={optionStopwatch!.ElapsedMilliseconds}");
@@ -312,8 +312,8 @@ public sealed partial class ToolAgentOrchestrator
             ClientLog.Info(
                 "ToolAgent option candidate selection: trace_path=rag.source_backed.option_candidate_selection|trace_step=anchor_filter.skipped|stage=anchor_filter.skipped"
                 + $"|reason={(queryAnchorTerms.Length == 0 ? "no_active_specific_anchor" : "no_concrete_anchor_evidence")}"
-                + $"|activeAnchors={FormatPlanningTraceValue(string.Join(",", queryAnchorTerms))}"
-                + $"|suppressedGenericAnchors={FormatPlanningTraceValue(string.Join(",", suppressedAnchorTerms))}"
+                + $"|activeAnchors={FormatPlanningLogValue(string.Join(",", queryAnchorTerms))}"
+                + $"|suppressedGenericAnchors={FormatPlanningLogValue(string.Join(",", suppressedAnchorTerms))}"
                 + $"|ms={optionStopwatch!.ElapsedMilliseconds}");
         }
 

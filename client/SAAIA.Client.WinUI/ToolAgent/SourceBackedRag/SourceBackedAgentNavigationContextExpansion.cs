@@ -176,6 +176,7 @@ public sealed partial class SourceBackedAgentV2Runner
                         docPath = focusedEvidence?.DocPath,
                         docRef = focusedEvidence?.DocName,
                         q = navigationQuery.Length > 0 ? navigationQuery : null,
+                        categoryPath = NullIfBlankScope(call.Arguments),
                         kind = navigationKind == "all"
                             ? null
                             : navigationKind,
@@ -204,6 +205,7 @@ public sealed partial class SourceBackedAgentV2Runner
                     Arguments = JsonSerializer.SerializeToElement(new
                     {
                         q = cardQuery.Length > 0 ? cardQuery : null,
+                        categoryPath = NullIfBlankScope(call.Arguments),
                         inventoryMode = cardQuery.Length == 0
                             && inventoryMode is "ordered" or "representative"
                                 ? inventoryMode
@@ -235,6 +237,7 @@ public sealed partial class SourceBackedAgentV2Runner
                     Arguments = JsonSerializer.SerializeToElement(new
                     {
                         query = searchQuery,
+                        categoryPath = NullIfBlankScope(call.Arguments),
                         topK = searchLimit
                     }, ClientJson.CamelCase)
                 };
@@ -243,6 +246,12 @@ public sealed partial class SourceBackedAgentV2Runner
                 error = "research_transition_tool_invalid";
                 return false;
         }
+    }
+
+    private static string? NullIfBlankScope(JsonElement arguments)
+    {
+        var scope = GetString(arguments, "categoryPath")?.Trim();
+        return string.IsNullOrWhiteSpace(scope) ? null : scope;
     }
 
     private static bool TryReadResearchTransitionLimit(

@@ -47,7 +47,9 @@ public sealed partial class ToolAgentOrchestrator
         string pipelineIntent, string entryPoint, CancellationToken ct,
         Action<string>? onPhase, Action<string>? onProgress)
     {
-        var options = SourceBackedAgentV2Options.ResolveFromEnvironment();
+        var options = SourceBackedAgentV2Options.ResolveFromEnvironment(
+            ActiveProviderDescriptor?.ContextWindowTokens,
+            ActiveProviderDescriptor?.Mode is LlmProviderMode.OpenAiDev or LlmProviderMode.RunPodBench);
         if (_llm is not ISourceBackedAgentLlmClient nativeToolLlm)
         {
             EmitRagTrace(
@@ -68,10 +70,11 @@ public sealed partial class ToolAgentOrchestrator
             MaximumContextTokens =
                 runtimeContextTokens ?? configuredContextTokens
         };
+        var effectiveBudget = SourceBackedLlmCumulativeBudgetContext.Current?.GetSnapshot();
         EmitRagTrace(
             "source_backed_agent_v2.active",
             ("intent", pipelineIntent),
-            ("entry", entryPoint),
+            ("source_step", entryPoint),
             ("max_turns", options.MaximumTurns),
             ("max_tool_calls", options.MaximumToolCalls),
             ("candidate_definition_enabled",
@@ -81,13 +84,13 @@ public sealed partial class ToolAgentOrchestrator
             ("candidate_audit_batch_size",
                 options.MaximumSemanticCandidatesPerAuditBatch),
             ("maximum_cumulative_llm_tokens",
-                options.MaximumCumulativeLlmTokens),
+                effectiveBudget?.MaximumTokens ?? options.MaximumCumulativeLlmTokens),
             ("maximum_cumulative_llm_elapsed_ms",
-                options.MaximumCumulativeLlmElapsedMilliseconds),
+                effectiveBudget?.MaximumElapsedMilliseconds ?? options.MaximumCumulativeLlmElapsedMilliseconds),
             ("cumulative_llm_terminal_reserve_tokens",
-                options.CumulativeLlmTerminalReserveTokens),
+                effectiveBudget?.TerminalReserveTokens ?? options.CumulativeLlmTerminalReserveTokens),
             ("cumulative_llm_terminal_reserve_ms",
-                options.CumulativeLlmTerminalReserveMilliseconds),
+                effectiveBudget?.TerminalReserveMilliseconds ?? options.CumulativeLlmTerminalReserveMilliseconds),
             ("context_tokens", options.MaximumContextTokens),
             ("configured_context_tokens", configuredContextTokens),
             ("runtime_context_tokens", runtimeContextTokens),

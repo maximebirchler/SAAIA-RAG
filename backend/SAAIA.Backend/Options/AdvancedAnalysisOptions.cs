@@ -53,26 +53,26 @@ sealed class AdvancedAnalysisOptions
 
     public int MaximumEvidencePromptCharacters { get; set; } = 14_000;
 
-    public decimal ExternalBudgetAuthorizedUsd { get; set; } = 25m;
+    // A historical campaign must never become the authorization for a new one.
+    public decimal ExternalBudgetAuthorizedUsd { get; set; }
 
-    public decimal ExternalBudgetSoftLimitUsd { get; set; } = 20m;
+    public decimal ExternalBudgetSoftLimitUsd { get; set; }
 
-    public decimal ExternalBudgetHardLimitUsd { get; set; } = 24m;
+    public decimal ExternalBudgetHardLimitUsd { get; set; }
 
     public decimal ExternalMaximumCostPerJobUsd { get; set; } = 0.50m;
 
     public int ExternalMaximumCallsPerJob { get; set; } = 4;
 
-    public decimal ExternalInputUsdPerMillionTokens { get; set; } = 2m;
+    public decimal ExternalInputUsdPerMillionTokens { get; set; }
 
-    public decimal ExternalCachedInputUsdPerMillionTokens { get; set; } = 0.20m;
+    public decimal ExternalCachedInputUsdPerMillionTokens { get; set; }
 
     public decimal? ExternalCacheWriteInputUsdPerMillionTokens { get; set; }
 
-    public decimal ExternalOutputUsdPerMillionTokens { get; set; } = 12m;
+    public decimal ExternalOutputUsdPerMillionTokens { get; set; }
 
-    public string ExternalUsageLedgerPath { get; set; } =
-        "data/advanced-analysis/openai-terra-usage.jsonl";
+    public string ExternalUsageLedgerPath { get; set; } = string.Empty;
 
     public string DevelopmentTraceDirectory { get; set; } = string.Empty;
 

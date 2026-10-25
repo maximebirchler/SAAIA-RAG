@@ -1,5 +1,4 @@
-using System.Globalization;
-using System.Text.Json;
+using System.Text;
 
 namespace SAAIA.Backend.AdvancedAnalysis;
 
@@ -39,23 +38,14 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
         int MaximumOutputTokens,
         decimal ReservedCostUsd);
 
-    private sealed class JobState
-    {
-        public int Calls;
-        public decimal ChargedUsd;
-        public decimal ReservedUsd;
-    }
-
     private readonly object _gate = new();
     private readonly AdvancedAnalysisOptions _options;
     private readonly string _providerKey;
     private readonly string _modelId;
     private readonly decimal _cacheWriteRateUsdPerMillionTokens;
-    private readonly Dictionary<Guid, JobState> _jobs = new();
+    private readonly AdvancedAnalysisBudgetLedger _ledger;
     private readonly Dictionary<long, Reservation> _reservations = new();
     private long _nextReservationId;
-    private decimal _recordedCostUsd;
-    private decimal _reservedCostUsd;
 
     internal AdvancedAnalysisExternalBudgetGuard(
         AdvancedAnalysisOptions options,
@@ -69,7 +59,8 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
             ?? (string.Equals(providerKey, "openai-dev", StringComparison.OrdinalIgnoreCase)
                 ? options.ExternalInputUsdPerMillionTokens * 1.25m
                 : options.ExternalInputUsdPerMillionTokens);
-        _recordedCostUsd = ReadRecordedCost(options.ExternalUsageLedgerPath);
+        _ledger = new AdvancedAnalysisBudgetLedger(options.ExternalUsageLedgerPath);
+        _ledger.Locked(snapshot => snapshot.Charged); // Fail closed before the first call on corrupt history.
     }
 
     internal Reservation Reserve(
@@ -78,8 +69,16 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
         int inputCharacters,
         int maximumOutputTokens)
     {
-        var estimatedInputTokens = Math.Max(1,
-            (int)Math.Ceiling(Math.Max(0, inputCharacters) / 4d));
+        // Legacy callers only know UTF-16 length: at most three UTF-8 bytes per
+        // code unit, plus protocol overhead. Never use chars/4 as an upper bound.
+        return ReserveTokens(jobId, role, checked(Math.Max(0, inputCharacters) * 3 + 256), maximumOutputTokens);
+    }
+
+    internal Reservation Reserve(Guid jobId, string role, string serializedPayload, int maximumOutputTokens)
+        => ReserveTokens(jobId, role, checked(Encoding.UTF8.GetByteCount(serializedPayload) + 256), maximumOutputTokens);
+
+    private Reservation ReserveTokens(Guid jobId, string role, int estimatedInputTokens, int maximumOutputTokens)
+    {
         maximumOutputTokens = Math.Max(1, maximumOutputTokens);
         var reservedCost = CalculateCost(
             estimatedInputTokens,
@@ -90,39 +89,34 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
 
         lock (_gate)
         {
-            if (!_jobs.TryGetValue(jobId, out var job))
+            return _ledger.Locked(snapshot =>
             {
-                job = ReadRecordedJobState(
-                    _options.ExternalUsageLedgerPath,
-                    jobId);
-                _jobs.Add(jobId, job);
-            }
-            if (job.Calls >= _options.ExternalMaximumCallsPerJob)
-                throw Exceeded("advanced_external_budget_job_call_limit");
-            if (job.ChargedUsd + job.ReservedUsd + reservedCost
-                > _options.ExternalMaximumCostPerJobUsd)
-            {
-                throw Exceeded("advanced_external_budget_job_cost_limit");
-            }
-            if (_recordedCostUsd + _reservedCostUsd + reservedCost
-                > _options.ExternalBudgetHardLimitUsd)
-            {
-                throw Exceeded("advanced_external_budget_campaign_hard_limit");
-            }
+                var job = snapshot.Job(jobId);
+                if (job.Calls >= _options.ExternalMaximumCallsPerJob)
+                    throw Exceeded("advanced_external_budget_job_call_limit");
+                if (job.Charged + job.Reserved + reservedCost
+                    > _options.ExternalMaximumCostPerJobUsd)
+                {
+                    throw Exceeded("advanced_external_budget_job_cost_limit");
+                }
+                if (snapshot.Charged + snapshot.Reserved + reservedCost
+                    > _options.ExternalBudgetHardLimitUsd)
+                {
+                    throw Exceeded("advanced_external_budget_campaign_hard_limit");
+                }
 
-            var reservation = new Reservation(
-                ++_nextReservationId,
-                Guid.NewGuid().ToString("N"),
-                jobId,
-                role,
-                estimatedInputTokens,
-                maximumOutputTokens,
-                reservedCost);
-            _reservations.Add(reservation.Id, reservation);
-            _reservedCostUsd += reservedCost;
-            job.Calls++;
-            job.ReservedUsd += reservedCost;
-            return reservation;
+                var reservation = new Reservation(
+                    ++_nextReservationId,
+                    Guid.NewGuid().ToString("N"),
+                    jobId,
+                    role,
+                    estimatedInputTokens,
+                    maximumOutputTokens,
+                    reservedCost);
+                _ledger.AppendStart(reservation);
+                _reservations.Add(reservation.Id, reservation);
+                return reservation;
+            });
         }
     }
 
@@ -177,14 +171,17 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
         AdvancedAnalysisLlmUsage usage,
         long elapsedMilliseconds = 0,
         int httpAttemptCount = 1)
-        => Close(
+    {
+        var hasProviderUsage = usage.InputTokens is >= 0 && usage.OutputTokens is >= 0;
+        Close(
             reservation,
-            usage,
-            "provider_usage",
+            hasProviderUsage ? usage : new(reservation.EstimatedInputTokens, reservation.MaximumOutputTokens, 0),
+            hasProviderUsage ? "provider_usage" : "reserved_upper_bound",
             success: false,
             errorCode,
             elapsedMilliseconds,
             httpAttemptCount);
+    }
 
     internal void Reject(
         Reservation reservation,
@@ -209,7 +206,12 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
             if (_reservations.Values.Any(item => item.JobId == jobId))
                 throw new InvalidOperationException(
                     "Advanced-analysis budget job ended with an open reservation.");
-            _jobs.Remove(jobId);
+            _ledger.Locked(snapshot =>
+            {
+                if (snapshot.Job(jobId).Reserved > 0)
+                    throw new InvalidOperationException("Advanced-analysis budget job ended with an unresolved durable reservation.");
+                return true;
+            });
         }
     }
 
@@ -226,12 +228,11 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
     {
         lock (_gate)
         {
-            if (!_reservations.Remove(reservation.Id))
+            if (!_reservations.TryGetValue(reservation.Id, out var owned) || owned != reservation)
             {
                 throw new InvalidOperationException(
                     "Unknown advanced-analysis budget reservation.");
             }
-            var job = _jobs[reservation.JobId];
             var cost = CalculateCost(
                 usage.InputTokens ?? reservation.EstimatedInputTokens,
                 usage.OutputTokens ?? reservation.MaximumOutputTokens,
@@ -243,44 +244,48 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
                 && !usage.CacheWriteTokens.HasValue
                 && _cacheWriteRateUsdPerMillionTokens > _options.ExternalInputUsdPerMillionTokens)
                 usageSource = "provider_usage_cache_write_upper_bound";
-            _reservedCostUsd -= reservation.ReservedCostUsd;
-            job.ReservedUsd -= reservation.ReservedCostUsd;
-            job.ChargedUsd += cost;
-            _recordedCostUsd += cost;
-            AppendLedger(new
+            _ledger.Locked(snapshot =>
             {
-                timestampUtc = DateTimeOffset.UtcNow,
-                requestId = reservation.RequestId,
-                traceId = reservation.JobId,
-                jobId = reservation.JobId,
-                provider = _providerKey,
-                modelId = _modelId,
-                observedModelId = NormalizeObservedModelId(observedModelId),
-                role = reservation.Role,
-                inputTokens = usage.InputTokens,
-                outputTokens = usage.OutputTokens,
-                cachedInputTokens = usage.CachedInputTokens,
-                cacheWriteTokens = usage.CacheWriteTokens,
-                cacheWriteInputUsdPerMillionTokens = _cacheWriteRateUsdPerMillionTokens,
-                costUsd = cost,
-                softLimitReached = _recordedCostUsd
-                    >= _options.ExternalBudgetSoftLimitUsd,
-                success,
-                usageSource,
-                errorCode,
-                elapsedMilliseconds = Math.Max(0, elapsedMilliseconds),
-                timeToFirstTokenMilliseconds = (long?)null,
-                httpAttemptCount = Math.Max(0, httpAttemptCount),
-                retryCount = Math.Max(0, httpAttemptCount - 1),
-                providerRequestId = rateLimit?.ProviderRequestId,
-                rateLimitRequestLimit = rateLimit?.RequestLimit,
-                rateLimitRequestRemaining = rateLimit?.RequestRemaining,
-                rateLimitRequestReset = rateLimit?.RequestReset,
-                rateLimitTokenLimit = rateLimit?.TokenLimit,
-                rateLimitTokenRemaining = rateLimit?.TokenRemaining,
-                rateLimitTokenReset = rateLimit?.TokenReset,
-                retryAfterMilliseconds = rateLimit?.RetryAfterMilliseconds
+                if (!snapshot.OpenRequests.Contains(reservation.RequestId))
+                    throw new InvalidOperationException("Advanced-analysis budget reservation is not open in the durable ledger.");
+                _ledger.AppendCharge(new
+                {
+                    timestampUtc = DateTimeOffset.UtcNow,
+                    requestId = reservation.RequestId,
+                    traceId = reservation.JobId,
+                    jobId = reservation.JobId,
+                    provider = _providerKey,
+                    modelId = _modelId,
+                    observedModelId = NormalizeObservedModelId(observedModelId),
+                    role = reservation.Role,
+                    inputTokens = usage.InputTokens,
+                    outputTokens = usage.OutputTokens,
+                    cachedInputTokens = usage.CachedInputTokens,
+                    cacheWriteTokens = usage.CacheWriteTokens,
+                    cacheWriteInputUsdPerMillionTokens = _cacheWriteRateUsdPerMillionTokens,
+                    costUsd = cost,
+                    softLimitReached = snapshot.Charged + cost
+                        >= _options.ExternalBudgetSoftLimitUsd,
+                    success,
+                    usageSource,
+                    errorCode,
+                    elapsedMilliseconds = Math.Max(0, elapsedMilliseconds),
+                    timeToFirstTokenMilliseconds = (long?)null,
+                    httpAttemptCount = Math.Max(0, httpAttemptCount),
+                    retryCount = Math.Max(0, httpAttemptCount - 1),
+                    providerRequestId = rateLimit?.ProviderRequestId,
+                    rateLimitRequestLimit = rateLimit?.RequestLimit,
+                    rateLimitRequestRemaining = rateLimit?.RequestRemaining,
+                    rateLimitRequestReset = rateLimit?.RequestReset,
+                    rateLimitTokenLimit = rateLimit?.TokenLimit,
+                    rateLimitTokenRemaining = rateLimit?.TokenRemaining,
+                    rateLimitTokenReset = rateLimit?.TokenReset,
+                    retryAfterMilliseconds = rateLimit?.RetryAfterMilliseconds
+                });
+                return true;
             });
+            // A failed append must leave the durable and in-memory reservation open.
+            _reservations.Remove(reservation.Id);
             return new AdvancedAnalysisBudgetCharge(usage, cost, usageSource);
         }
     }
@@ -320,84 +325,6 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
             MidpointRounding.AwayFromZero);
     }
 
-    private void AppendLedger(object entry)
-    {
-        var path = Path.GetFullPath(_options.ExternalUsageLedgerPath);
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrWhiteSpace(directory))
-            Directory.CreateDirectory(directory);
-        File.AppendAllText(
-            path,
-            JsonSerializer.Serialize(entry) + Environment.NewLine);
-    }
-
-    private static decimal ReadRecordedCost(string rawPath)
-    {
-        var path = Path.GetFullPath(rawPath);
-        if (!File.Exists(path))
-            return 0m;
-        decimal total = 0m;
-        foreach (var line in File.ReadLines(path))
-        {
-            if (string.IsNullOrWhiteSpace(line))
-                continue;
-            try
-            {
-                using var document = JsonDocument.Parse(line);
-                if (document.RootElement.TryGetProperty("costUsd", out var value)
-                    && value.TryGetDecimal(out var cost)
-                    && cost >= 0)
-                {
-                    total += cost;
-                }
-            }
-            catch (JsonException)
-            {
-                throw new InvalidOperationException(
-                    "The advanced-analysis usage ledger is invalid and must be reviewed before paid calls resume.");
-            }
-        }
-        return total;
-    }
-
-    private static JobState ReadRecordedJobState(string rawPath, Guid jobId)
-    {
-        var state = new JobState();
-        var path = Path.GetFullPath(rawPath);
-        if (!File.Exists(path))
-            return state;
-        foreach (var line in File.ReadLines(path))
-        {
-            if (string.IsNullOrWhiteSpace(line))
-                continue;
-            try
-            {
-                using var document = JsonDocument.Parse(line);
-                var root = document.RootElement;
-                if (!root.TryGetProperty("jobId", out var rawJobId)
-                    || rawJobId.ValueKind != JsonValueKind.String
-                    || !Guid.TryParse(rawJobId.GetString(), out var parsedJobId)
-                    || parsedJobId != jobId)
-                {
-                    continue;
-                }
-                state.Calls++;
-                if (root.TryGetProperty("costUsd", out var rawCost)
-                    && rawCost.TryGetDecimal(out var cost)
-                    && cost >= 0)
-                {
-                    state.ChargedUsd += cost;
-                }
-            }
-            catch (JsonException)
-            {
-                throw new InvalidOperationException(
-                    "The advanced-analysis usage ledger is invalid and must be reviewed before paid calls resume.");
-            }
-        }
-        return state;
-    }
-
     private static AdvancedAnalysisOptions Validate(AdvancedAnalysisOptions options)
     {
         if (options.ExternalBudgetAuthorizedUsd <= 0
@@ -411,10 +338,13 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
             || options.ExternalMaximumCostPerJobUsd
                 > options.ExternalBudgetHardLimitUsd
             || options.ExternalMaximumCallsPerJob <= 0
-            || options.ExternalInputUsdPerMillionTokens < 0
+            || options.ExternalInputUsdPerMillionTokens <= 0
             || options.ExternalCachedInputUsdPerMillionTokens < 0
+            || options.ExternalCachedInputUsdPerMillionTokens > Math.Max(
+                options.ExternalInputUsdPerMillionTokens,
+                options.ExternalCacheWriteInputUsdPerMillionTokens ?? options.ExternalInputUsdPerMillionTokens)
             || options.ExternalCacheWriteInputUsdPerMillionTokens is < 0
-            || options.ExternalOutputUsdPerMillionTokens < 0
+            || options.ExternalOutputUsdPerMillionTokens <= 0
             || string.IsNullOrWhiteSpace(options.ExternalUsageLedgerPath))
         {
             throw new InvalidOperationException(

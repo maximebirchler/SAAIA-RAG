@@ -14,6 +14,8 @@ param (
     [switch]$AuthorizePaid,
     [switch]$AuthorizeCorpusTransmission,
     [decimal]$PaidCapUsd = 0,
+    [string]$PaidSecretStorePath = '',
+    [string]$PaidPythonExecutable = '',
     [ValidateSet('Free', 'Tier1', 'Tier2', 'Tier3', 'Tier4', 'Tier5')][string]$ObservedOrganizationTier = 'Free',
     [string]$TierObservedAtUtc = ''
 )
@@ -239,8 +241,13 @@ try {
         }
 
         $campaign = Get-Content -LiteralPath $CampaignProfilePath -Raw | ConvertFrom-Json
-        if ($campaign.schemaVersion -ne 'saaia-openai-terra-final-campaign-v1') {
+        $isLocalLuna = $campaign.schemaVersion -eq 'saaia-local-openai-paid-campaign.v1'
+        if (-not $isLocalLuna -and $campaign.schemaVersion -ne 'saaia-openai-terra-final-campaign-v1') {
             throw 'Unsupported guarded paid campaign profile. No model call was made.'
+        }
+        if ($isLocalLuna) {
+            . (Join-Path $PSScriptRoot 'validation-paid/PaidCampaign.Common.ps1')
+            $validatedCampaign = Get-ValidatedLunaCampaignProfile -ProfilePath $CampaignProfilePath -RepositoryRoot $repo
         }
 
         if ([decimal]$campaign.budget.hardStopUsd -gt $PaidCapUsd) {
@@ -259,11 +266,12 @@ try {
             model = $campaign.provider.model
         }
 
-        $manifest.corpus = @{
-            state = 'campaign_profile'
-            bank = $campaign.bank.path
-            bankSha256 = $campaign.bank.sha256
-        }
+        $manifest.corpus = if ($isLocalLuna) { @{
+            state = 'local_pdf_campaign_profile'; path = $campaign.corpus.path; sha256 = $campaign.corpus.sha256
+            retrievalAdapterLimit = 'Local TEI/Qdrant protocol substitutes; canonical SQL tools and PDF text are real.'
+        } } else { @{
+            state = 'campaign_profile'; bank = $campaign.bank.path; bankSha256 = $campaign.bank.sha256
+        } }
 
         Set-ScopedEnvironment 'SAAIA_TEST_PAID_AUTHORIZED' '1'
         Set-ScopedEnvironment 'SAAIA_TEST_TRANSMISSION_AUTHORIZED' '1'
@@ -274,8 +282,23 @@ try {
             throw 'Execution requires ExecutePaidCampaign; preparing a profile is not execution authorization.'
         } else {
             $campaignDirectory = Join-Path $outDir "paid-campaign-$runId"
-            & (Join-Path $PSScriptRoot 'test-openai-terra-campaign-profile.ps1') -ProfilePath $CampaignProfilePath -Execute -ArtifactDirectory $campaignDirectory -ObservedOrganizationTier $ObservedOrganizationTier -TierObservedAtUtc $TierObservedAtUtc
-            $exitCode = $LASTEXITCODE
+            if ($isLocalLuna) {
+                & (Join-Path $PSScriptRoot 'validation-paid/invoke-local-luna-campaign.ps1') `
+                    -ProfilePath $CampaignProfilePath -OutputDirectory $campaignDirectory -Execute `
+                    -AuthorizePaid:$AuthorizePaid -AuthorizeCorpusTransmission:$AuthorizeCorpusTransmission `
+                    -PaidCapUsd $PaidCapUsd -SecretStorePath $PaidSecretStorePath -PythonExecutable $PaidPythonExecutable
+                $executionProof = Get-Content -LiteralPath (Join-Path $campaignDirectory 'campaign-result.json') -Raw | ConvertFrom-Json
+                if (-not $executionProof.executed -or -not $executionProof.completed -or
+                    -not $executionProof.cleanup.zeroActiveJobs -or -not $executionProof.cleanup.ownedEnvironmentStopped) {
+                    throw 'The local paid campaign lacks durable execution and cleanup proof.'
+                }
+                $exitCode = 0
+            } else {
+                & (Join-Path $PSScriptRoot 'test-openai-terra-campaign-profile.ps1') -ProfilePath $CampaignProfilePath -Execute -ArtifactDirectory $campaignDirectory -ObservedOrganizationTier $ObservedOrganizationTier -TierObservedAtUtc $TierObservedAtUtc
+                $exitCode = $LASTEXITCODE
+                $shutdown = Get-Content -LiteralPath (Join-Path $campaignDirectory 'run/resource-shutdown.json') -Raw | ConvertFrom-Json
+                if (-not $shutdown.completed) { throw 'The historical campaign did not record completed execution.' }
+            }
             $results.Add(@{
                     project = 'guarded_paid_campaign'
                     exitCode = $exitCode

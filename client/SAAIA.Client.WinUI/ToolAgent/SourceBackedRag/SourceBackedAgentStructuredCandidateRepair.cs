@@ -219,7 +219,7 @@ public sealed partial class SourceBackedAgentV2Runner
     {
         var prompt = new StringBuilder()
             .AppendLine("DEMANDE UTILISATEUR:")
-            .AppendLine(TrimPromptValue(intake.UserQuestion, 600))
+            .AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion))
             .AppendLine("CELLULES EN CONFLIT A REAFFECTER:");
         foreach (var cellIndex in repair.ConflictCellIndexes)
         {

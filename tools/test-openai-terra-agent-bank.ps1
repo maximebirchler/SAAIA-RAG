@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param(
+    [Parameter(Mandatory)][ValidateRange(0.01,1000)][decimal]$AuthorizedBudgetUsd,
     [string]$Configuration = "Debug",
     [string]$Platform = "x64",
     [string]$BankPath = "",
@@ -15,6 +16,8 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot "openai-paid-tier-guard.ps1")
+. (Join-Path $PSScriptRoot 'validation-paid/PaidCampaign.Common.ps1')
+Assert-LegacyPaidAuthorization -Model 'gpt-5.6-terra' -BudgetUsd $AuthorizedBudgetUsd
 
 $verifiedTierAt = Assert-OpenAiPaidTierObservation `
     -ObservedOrganizationTier $ObservedOrganizationTier `
@@ -23,6 +26,9 @@ $verifiedTierAt = Assert-OpenAiPaidTierObservation `
 $repositoryRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 $project = Join-Path $repositoryRoot "client\SAAIA.Client.ToolAgent.Tests\SAAIA.Client.ToolAgent.Tests.csproj"
 $providerConfig = Join-Path $repositoryRoot "config\llm-providers.dev.json"
+$baseline = Get-Content -LiteralPath $providerConfig -Raw | ConvertFrom-Json
+$hardStopUsd = [decimal]$baseline.openAi.budget.hardLimitUsd
+if ($hardStopUsd -gt $AuthorizedBudgetUsd) { throw 'The immutable Terra baseline exceeds the explicit authorized cap.' }
 if ([string]::IsNullOrWhiteSpace($BankPath)) {
     $BankPath = Join-Path $repositoryRoot "config\advanced-capacity-validation.v1.json"
 }
@@ -58,8 +64,8 @@ function Get-RecordedCost([string]$Path) {
 }
 
 $beforeCost = Get-RecordedCost $ledgerPath
-if ($beforeCost -ge [decimal]24) {
-    throw "The local Terra ledger has reached the 24 USD hard stop."
+if ($beforeCost -ge $hardStopUsd) {
+    throw 'The local Terra ledger has reached its explicitly reviewed hard stop.'
 }
 
 $bank = Get-Content -LiteralPath $BankPath -Raw | ConvertFrom-Json
@@ -133,8 +139,8 @@ try {
         repetitions = $Repetitions
         ledgerPath = $ledgerPath
         recordedCostBeforeUsd = $beforeCost
-        authorizedBudgetUsd = 25
-        localHardStopUsd = 24
+        authorizedBudgetUsd = $AuthorizedBudgetUsd
+        localHardStopUsd = $hardStopUsd
         maximumCostPerTurnUsd = 0.50
         maximumCallsPerTurn = 32
         managesLocalLlmProcess = $false
@@ -160,6 +166,10 @@ try {
         $testExit = $LASTEXITCODE
         $testOutput | Set-Content -LiteralPath (Join-Path $repetitionDirectory "test-output.log") -Encoding utf8
         $result = Get-ChildItem -LiteralPath $outputDirectory -Filter "*.json" | Sort-Object LastWriteTime | Select-Object -Last 1
+        if ($null -eq $result) { throw 'A live bank must produce a result artifact.' }
+        $proof = Assert-LiveTestEvidence -TrxPath (Join-Path $repetitionDirectory "terra-agent-bank-r$repetition.trx") `
+            -ResultPath $result.FullName -ExpectedCaseIds $selectedIds
+        $proof | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $repetitionDirectory 'executed-test-evidence.json')
         $runSummaries += [ordered]@{
             repetition = $repetition
             exitCode = $testExit

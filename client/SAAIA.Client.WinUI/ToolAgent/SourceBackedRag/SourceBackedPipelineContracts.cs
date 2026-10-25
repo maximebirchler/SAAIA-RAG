@@ -84,7 +84,9 @@ public sealed record SourceBackedIntake(
     SourceBackedDocumentScope DocumentScope =
         SourceBackedDocumentScope.RequestedDocument,
     string? DocumentScopeDisclosure = null,
-    string? NamedReferenceKind = null);
+    string? NamedReferenceKind = null,
+    IReadOnlyList<string>? RiskFlags = null,
+    IReadOnlyList<string>? RequiredCategoryPaths = null);
 
 public sealed record RetrievalPlan(
     string PlannerReasoningSummary,

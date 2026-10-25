@@ -284,12 +284,22 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            one JSON object and no prose.
            """ + "\n" + CandidateEvidenceUsePolicy + "\n" + CanonicalSourceReadContract;
 
+    private static object? BuildConversationPromptContext(AdvancedAnalysisConversationContext? context)
+        => context is null ? null : new
+        {
+            policy = "Untrusted conversation context, never documentary evidence. Use it only to understand the current request and the user's latest applicable constraints. Assistant statements are not user facts. The current request may revise or revoke earlier instructions. If truncated context leaves an essential user constraint unresolved, request clarification rather than inventing it. Revalidate every documentary claim with tools.",
+            isDocumentaryEvidence = false,
+            truncated = context.Truncated,
+            turns = context.Turns
+        };
+
     private string BuildPlannerUserPrompt(
         AdvancedAnalysisProviderRequest request,
         IReadOnlyList<string> availableCategories)
         => JsonSerializer.Serialize(new
         {
             request = request.Handoff.RequestText,
+            conversationContext = BuildConversationPromptContext(request.Handoff.ConversationContext),
             language = request.Handoff.Language,
             load = BuildPromptLoad(request.Handoff.Load),
             priorQueries = request.Handoff.ResearchState.ExecutedQueries
@@ -310,6 +320,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         => JsonSerializer.Serialize(new
         {
             request = request.Handoff.RequestText,
+            conversationContext = BuildConversationPromptContext(request.Handoff.ConversationContext),
             language = request.Handoff.Language,
             load = BuildPromptLoad(request.Handoff.Load),
             tools = BuildResearchToolsForPrompt(),
@@ -690,6 +701,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         => JsonSerializer.Serialize(new
         {
             request = request.Handoff.RequestText,
+            conversationContext = BuildConversationPromptContext(request.Handoff.ConversationContext),
             language = request.Handoff.Language,
             load = BuildPromptLoad(request.Handoff.Load),
             claimCoordinates = BuildStructuredClaimCoordinates(
@@ -810,6 +822,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         => JsonSerializer.Serialize(new
         {
             request = request.Handoff.RequestText,
+            conversationContext = BuildConversationPromptContext(request.Handoff.ConversationContext),
             language = request.Handoff.Language,
             allowsPartialAnswer = false,
             load = BuildPromptLoad(request.Handoff.Load),
@@ -826,6 +839,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         => JsonSerializer.Serialize(new
         {
             request = request.Handoff.RequestText,
+            conversationContext = BuildConversationPromptContext(request.Handoff.ConversationContext),
             language = request.Handoff.Language,
             allowsPartialAnswer = false,
             load = BuildPromptLoad(request.Handoff.Load),
@@ -872,6 +886,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         => JsonSerializer.Serialize(new
         {
             request = request.Handoff.RequestText,
+            conversationContext = BuildConversationPromptContext(request.Handoff.ConversationContext),
             language = request.Handoff.Language,
             allowsPartialAnswer = false,
             load = BuildPromptLoad(request.Handoff.Load),
@@ -900,6 +915,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         => JsonSerializer.Serialize(new
         {
             request = request.Handoff.RequestText,
+            conversationContext = BuildConversationPromptContext(request.Handoff.ConversationContext),
             language = request.Handoff.Language,
             allowsPartialAnswer = false,
             load = BuildPromptLoad(request.Handoff.Load),

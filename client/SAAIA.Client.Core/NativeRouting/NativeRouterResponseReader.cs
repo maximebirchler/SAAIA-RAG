@@ -46,7 +46,7 @@ public static class NativeRouterResponseReader
         return rowHeader.Length is >= 1 and <= 60
                && IsStructurallyValidNativeRouterLabel(rowHeader)
                && rowLabels.Count is >= 1 and <= 80
-               && columns.Count is >= 1 and <= 40
+               && columns.Count is >= 1 and <= 12
                && rowLabels.All(static label => label.Length is >= 1 and <= 60)
                && columns.All(static label => label.Length is >= 1 and <= 60)
                && rowLabels.All(IsStructurallyValidNativeRouterLabel)

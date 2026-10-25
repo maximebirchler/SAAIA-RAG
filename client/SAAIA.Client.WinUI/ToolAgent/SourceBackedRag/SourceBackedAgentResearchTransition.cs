@@ -53,7 +53,7 @@ public sealed partial class SourceBackedAgentV2Runner
 
         var context = new StringBuilder();
         context.Append("OBJECTIF UTILISATEUR: ")
-            .AppendLine(TrimPromptValue(intake.UserQuestion, 420));
+            .AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion));
         context.Append("BESOIN DOCUMENTAIRE: ")
             .Append(approvedSourceCount)
             .Append(" preuves approuvees sur ")

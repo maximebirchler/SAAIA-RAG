@@ -68,4 +68,15 @@ public sealed class NativeRouterResponseReaderTests
         Assert.Empty(rows);
         Assert.Empty(columns);
     }
+
+    [Theory]
+    [InlineData(12, true)]
+    [InlineData(13, false)]
+    public void Grid_column_limit_is_explicit_and_never_clips_the_model_axes(int count, bool accepted)
+    {
+        var supplied = Enumerable.Range(1, count).Select(i => "Column " + i).ToArray();
+        var root = JsonSerializer.SerializeToElement(new { rowHeader = "Row", rows = new[] { "A" }, columns = supplied });
+        Assert.Equal(accepted, NativeRouterResponseReader.TryReadNativeRouterLayout(root, "grid", count, out _, out _, out var columns));
+        Assert.Equal(supplied, columns);
+    }
 }

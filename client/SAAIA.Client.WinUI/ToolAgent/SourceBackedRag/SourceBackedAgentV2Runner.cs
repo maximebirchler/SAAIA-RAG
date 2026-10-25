@@ -7,6 +7,7 @@ public sealed partial class SourceBackedAgentV2Runner
     public async Task<SourceBackedPipelineResult> RunAsync(
         SourceBackedIntake intake, CancellationToken ct)
     {
+        using var budgetScope = SourceBackedRunBudgetScope.Enter(_options);
         var lifecycle = new AgentRunLifecycle(transition => ClientDiagnostics.Journal.Emit(
             "agent.lifecycle." + transition.To.ToString().ToLowerInvariant(),
             transition.To == AgentRunPhase.Failed ? "failed" : transition.To == AgentRunPhase.Cancelled ? "cancelled" : "success",

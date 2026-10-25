@@ -195,7 +195,7 @@ public sealed partial class SourceBackedAgentV2Runner
                         runState.consecutiveDocumentaryNoProgressTurns,
                         runState.evidenceState.ResolvedNavigationEvidenceIds, runState.evidenceState.ExecutedRequests, runState.evidenceState.ExecutedCallKeys,
                         runState.totalToolCalls, runState.candidateCollectionOpen,
-                        runState.semanticCandidateStrategyOutcome, iteration.hasCitableEvidence,
+                        iteration.hasCitableEvidence,
                         runState.transientProtocolFeedback, runState.evidenceState.SemanticallyAuditedEvidenceIds,
                         runState.evidenceState.PendingSemanticCandidateIds, ct)
                     .ConfigureAwait(false);

@@ -576,9 +576,7 @@ public sealed partial class SourceBackedAgentV2Runner
     {
         var builder = new StringBuilder();
         builder.Append("DEMANDE: ")
-            .AppendLine(TrimPromptValue(
-                intake.UserQuestion,
-                emergencyContextRecovery ? 600 : 900));
+            .AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion));
         builder.AppendLine("LANGUE: " + intake.Language);
         AppendQuestionFocusContext(builder, intake);
         AppendNamedDocumentResolutionContext(builder, intake);

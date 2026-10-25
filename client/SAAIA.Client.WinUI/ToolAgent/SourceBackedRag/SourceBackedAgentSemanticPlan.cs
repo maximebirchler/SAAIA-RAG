@@ -190,7 +190,7 @@ public sealed partial class SourceBackedAgentV2Runner
     {
         var user = new StringBuilder();
         user.AppendLine("DEMANDE_ORIGINALE:");
-        user.AppendLine(TrimPromptValue(intake.UserQuestion, 1000));
+        user.AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion));
         user.AppendLine("LANGUE: " + TrimPromptValue(intake.Language, 20));
         user.AppendLine("TYPE_DE_TACHE: " + TrimPromptValue(intake.TaskKind, 80));
         if (intake.ExplicitConstraints.Count > 0)

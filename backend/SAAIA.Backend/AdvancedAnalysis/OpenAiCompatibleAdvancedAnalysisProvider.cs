@@ -773,6 +773,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         LlmPayloadDiagnostics.AnnotateRequest(callProbe, userPrompt, serializedPayload);
         AdvancedAnalysisExternalBudgetGuard.Reservation? reservation = null;
         string? rejectedErrorCode = null;
+        var knownUnbilledRejection = false;
         AdvancedAnalysisRateLimitTelemetry? responseRateLimit = null;
         var stopwatch = Stopwatch.StartNew();
         var httpAttemptCount = 0;
@@ -780,11 +781,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         {
             if (_budget is not null)
             {
-                reservation = _budget.Reserve(jobId, role,
-                    nativeResponses || nativeFunctions is not null || nativeToolTurnMessages is { Count: > 0 }
-                        ? serializedPayload.Length : systemPrompt.Length + userPrompt.Length,
-                    maximumOutputTokens);
+                reservation = _budget.Reserve(jobId, role, serializedPayload, maximumOutputTokens);
                 callProbe.Set("budget_request_id", reservation.RequestId);
+                callProbe.Set("budget_input_token_bound", reservation.EstimatedInputTokens);
+                callProbe.Set("budget_reserved_cost_usd", reservation.ReservedCostUsd);
             }
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken);
@@ -870,6 +870,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 callProbe.Set("provider_request_id", responseRateLimit.ProviderRequestId);
                 if (!response.IsSuccessStatusCode)
                 {
+                    // A server/timeout failure can arrive after work was done.
+                    // Only known pre-generation rejections refund the reservation.
+                    knownUnbilledRejection = (int)response.StatusCode is 400 or 401 or 403 or 404 or 422 or 429;
                     var terminalQuotaError = (int)response.StatusCode == 429
                         && responseErrorBody is { Text: not null, Truncated: false }
                         && IsTerminalProviderQuotaError(responseErrorBody.Text);
@@ -1080,7 +1083,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             callProbe.Fail(ex, ex.ErrorCode);
             if (reservation is not null)
             {
-                if (rejectedErrorCode is not null)
+                if (rejectedErrorCode is not null && knownUnbilledRejection)
                     _budget!.Reject(
                         reservation,
                         rejectedErrorCode,

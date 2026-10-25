@@ -37,10 +37,16 @@ public sealed class ClassifiedSourceWorkContractTests
         Assert.Equal("before_retrieval", handoff.TransferStage);
         Assert.Equal("user_instance_context_outside_local_envelope", handoff.ReasonCode);
         Assert.Equal("user_instance_context", handoff.Load.QuestionFocus);
-        Assert.Contains(context, handoff.RequestText);
+        Assert.Equal("Notre dispositif peut-il être mis en service maintenant ?", handoff.RequestText);
         Assert.DoesNotContain("already certified", handoff.RequestText);
         Assert.DoesNotContain("everything approved", handoff.RequestText);
-        Assert.Contains("not documentary evidence", handoff.RequestText);
+        Assert.NotNull(handoff.ConversationContext);
+        Assert.False(handoff.ConversationContext.IsDocumentaryEvidence);
+        var userFacts = handoff.ConversationContext.Turns.Where(turn => turn.Role == "user").Select(turn => turn.Text).ToArray();
+        Assert.Contains(context, userFacts);
+        Assert.DoesNotContain(userFacts, text => text.Contains("already certified") || text.Contains("everything approved"));
+        Assert.All(handoff.ConversationContext.Turns.Where(turn => turn.Text.Contains("fabricated", StringComparison.OrdinalIgnoreCase)),
+            turn => Assert.Equal("assistant", turn.Role));
         Assert.Empty(memory.LastToolNames);
         Assert.Null(result.sourcesPayload);
         Assert.Equal(1, llm.NativeCalls);

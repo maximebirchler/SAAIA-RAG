@@ -370,7 +370,18 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
         var callNumber = 0;
         var admitted = false;
         Stopwatch? stopwatch = null;
+        long? chargedElapsedMilliseconds = null;
         var requestForTrace = request;
+        long ChargeElapsedOnce()
+        {
+            if (chargedElapsedMilliseconds is { } previous)
+                return previous;
+            stopwatch?.Stop();
+            var elapsed = stopwatch?.ElapsedMilliseconds ?? 0;
+            _elapsedMilliseconds = checked(_elapsedMilliseconds + elapsed);
+            chargedElapsedMilliseconds = elapsed;
+            return elapsed;
+        }
         try
         {
             callNumber = checked(_toolCallCount + 1);
@@ -380,6 +391,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                 throw new AdvancedAnalysisToolException("tool_time_limit_exceeded");
             _toolCallCount = callNumber;
             admitted = true;
+            stopwatch = Stopwatch.StartNew();
 
             using var admission = await _bulkhead
                 .AcquireAsync(cancellationToken)
@@ -410,7 +422,6 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             {
                 DocPath = NormalizePath(effectiveDocPath)
             };
-            stopwatch = Stopwatch.StartNew();
             IReadOnlyList<AdvancedAnalysisEvidenceReference> references;
             IReadOnlyList<string> degraded;
             if (request.Operation == "find_source_text")
@@ -473,10 +484,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                 degraded = response.DegradedRetrievers ?? [];
                 requestForTrace = requestForTrace with { RetrievalDiagnostic = response.Diagnostics };
             }
-            stopwatch.Stop();
-            _elapsedMilliseconds = checked(
-                _elapsedMilliseconds + stopwatch.ElapsedMilliseconds);
-            if (_elapsedMilliseconds > _maximumElapsedMilliseconds)
+            if (_elapsedMilliseconds + stopwatch.ElapsedMilliseconds > _maximumElapsedMilliseconds)
                 throw new AdvancedAnalysisToolException("tool_time_limit_exceeded");
 
             var revalidated = await _resolver.ResolveAsync(
@@ -495,6 +503,8 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             {
                 throw new AdvancedAnalysisToolException("canonical_search_source_identity_changed");
             }
+            if (_elapsedMilliseconds + stopwatch.ElapsedMilliseconds > _maximumElapsedMilliseconds)
+                throw new AdvancedAnalysisToolException("tool_time_limit_exceeded");
 
             var resolvedEvidence = request.Operation switch
             {
@@ -560,28 +570,32 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                 observationEvidence.Add(canonical);
             }
 
+            // Freeze the admitted work duration once for memory, the returned
+            // observation and durable replay. Trace persistence is measured by
+            // its own operation and is not recursively charged into that row.
+            var workElapsedMilliseconds = ChargeElapsedOnce();
             await PersistEventAsync(
                 "succeeded",
                 requestForTrace,
                 observationEvidence,
                 degraded,
-                stopwatch.ElapsedMilliseconds,
+                workElapsedMilliseconds,
                 errorCode: null,
                 cancellationToken).ConfigureAwait(false);
             return new AdvancedAnalysisSearchObservation(
                 request.Query.Trim(),
                 observationEvidence,
                 degraded,
-                stopwatch.ElapsedMilliseconds,
+                workElapsedMilliseconds,
                 callNumber,
                 requestForTrace.ReadDiagnostic,
                 requestForTrace.FindDiagnostic);
         }
         catch (Exception ex)
         {
-            stopwatch?.Stop();
             if (admitted)
             {
+                var workElapsedMilliseconds = ChargeElapsedOnce();
                 var errorCode = ex is AdvancedAnalysisToolException toolException
                     ? toolException.ErrorCode
                     : "retrieval_tool_failed";
@@ -590,7 +604,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                     requestForTrace,
                     [],
                     [],
-                    stopwatch?.ElapsedMilliseconds ?? 0,
+                    workElapsedMilliseconds,
                     errorCode,
                     cancellationToken).ConfigureAwait(false);
             }
@@ -598,6 +612,8 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
         }
         finally
         {
+            if (admitted)
+                ChargeElapsedOnce();
             _serialGate.Release();
         }
     }
@@ -846,21 +862,37 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
         if (string.IsNullOrWhiteSpace(_workerId) || _attemptCount < 1)
             throw new AdvancedAnalysisToolException("tool_trace_context_invalid");
 
-        var sequence = await _eventStore.TryAppendToolEventAsync(
-            _tenantId,
-            _jobId,
-            _workerId,
-            _attemptCount,
-            _maximumToolCalls,
-            status,
-            request,
-            evidence.Select(static item => item.Reference).ToList(),
-            degradedRetrievers,
-            elapsedMilliseconds,
-            errorCode,
-            cancellationToken).ConfigureAwait(false);
-        if (!sequence.HasValue)
-            throw new AdvancedAnalysisToolException("tool_trace_persistence_failed");
+        using var probe = BackendDiagnostics.Start("advanced.tool_trace_persistence",
+            _services?.GetService<ILoggerFactory>()?.CreateLogger("SAAIA.Backend.AdvancedAnalysis"));
+        probe.Set("job_id", _jobId);
+        probe.Set("attempt", _attemptCount);
+        probe.Set("work_elapsed_ms", elapsedMilliseconds);
+        probe.Set("evidence_count", evidence.Count);
+        try
+        {
+            var sequence = await _eventStore.TryAppendToolEventAsync(
+                _tenantId,
+                _jobId,
+                _workerId,
+                _attemptCount,
+                _maximumToolCalls,
+                status,
+                request,
+                evidence.Select(static item => item.Reference).ToList(),
+                degradedRetrievers,
+                elapsedMilliseconds,
+                errorCode,
+                cancellationToken).ConfigureAwait(false);
+            if (!sequence.HasValue)
+                throw new AdvancedAnalysisToolException("tool_trace_persistence_failed");
+            probe.Set("event_sequence", sequence.Value);
+            probe.Complete();
+        }
+        catch (Exception exception)
+        {
+            probe.Fail(exception);
+            throw;
+        }
     }
 
     private void ValidateRequest(AdvancedAnalysisSearchRequest request)

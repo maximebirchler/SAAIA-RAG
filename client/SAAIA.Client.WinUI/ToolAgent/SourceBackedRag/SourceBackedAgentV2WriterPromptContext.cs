@@ -42,7 +42,7 @@ public sealed partial class SourceBackedAgentV2Runner
             2200);
         var context = new StringBuilder();
         context.AppendLine("DEMANDE ORIGINALE:");
-        context.AppendLine(TrimPromptValue(intake.UserQuestion, 900));
+        context.AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion));
         AppendQuestionFocusContext(context, intake);
         if (intake.ExplicitConstraints.Count > 0)
         {

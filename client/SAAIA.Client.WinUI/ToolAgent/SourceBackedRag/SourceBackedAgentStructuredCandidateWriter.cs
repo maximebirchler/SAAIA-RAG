@@ -332,7 +332,7 @@ public sealed partial class SourceBackedAgentV2Runner
     {
         var context = new StringBuilder()
             .AppendLine("DEMANDE UTILISATEUR:")
-            .AppendLine(TrimPromptValue(intake.UserQuestion, 800))
+            .AppendLine(SourceBackedUserRequestPrompt.Render(intake.UserQuestion))
             .AppendLine("GRILLE A PRODUIRE:")
             .Append("- en-tete des lignes: ")
             .AppendLine(TrimPromptValue(rowHeader, 60))

@@ -21,6 +21,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot 'validation-paid/PaidCampaign.Common.ps1')
+Assert-LegacyPaidAuthorization -Model $ExpectedAdvancedModel -BudgetUsd ([decimal]$env:SAAIA_TEST_PAID_CAP_USD)
 Set-StrictMode -Version Latest
 
 if ($env:SAAIA_TEST_PROFILE -ne "LivePaid" -or
@@ -165,6 +167,10 @@ try {
         $resultFile = Get-ChildItem -LiteralPath $outputDirectory -Filter "*.json" |
             Sort-Object LastWriteTime | Select-Object -Last 1
         if ($null -eq $resultFile) { throw "No result JSON was produced for repetition $repetition." }
+        $executionEvidence = Assert-LiveTestEvidence `
+            -TrxPath (Join-Path $repetitionDirectory "advanced-analysis-r$repetition.trx") `
+            -ResultPath $resultFile.FullName -ExpectedCaseIds $selectedIds
+        $executionEvidence | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $repetitionDirectory 'executed-test-evidence.json')
         $result = Get-Content -LiteralPath $resultFile.FullName -Raw | ConvertFrom-Json
         $rows = @($result.rows)
         $invalid = @($rows | Where-Object {

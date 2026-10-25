@@ -309,6 +309,21 @@ public sealed partial class ToolAgentOrchestrator
             .ToList();
         var requestedCategoryScope =
             ReadNativeRouterString(arguments, "scope");
+        var scopePolicy = ReadNativeRouterString(arguments, "scopePolicy");
+        var scopeUserAnchor = ReadNativeRouterString(arguments, "scopeUserAnchor");
+        if (scopePolicy.Length == 0) scopePolicy = "hypothesis"; // Older native replies carry a research hint only.
+        if (scopePolicy is not ("hypothesis" or "user_restriction")
+            || scopePolicy == "user_restriction" && requestedCategoryScope.Length == 0)
+        {
+            failureReason = "native_source_scope_policy_invalid";
+            return false;
+        }
+        if (scopePolicy == "user_restriction" && (scopeUserAnchor.Length == 0
+            || !sourceRequest.Contains(scopeUserAnchor, StringComparison.OrdinalIgnoreCase)))
+        {
+            failureReason = "native_source_scope_user_anchor_invalid";
+            return false;
+        }
         if (!TryResolveNativeRouterCategoryScope(
                 sourceRequest,
                 requestedCategoryScope,
@@ -316,6 +331,11 @@ public sealed partial class ToolAgentOrchestrator
                 prevalidatedCategoryScope,
                 out var categoryPath))
         {
+            if (scopePolicy == "user_restriction")
+            {
+                failureReason = "mandatory_category_scope_unavailable";
+                return false;
+            }
             EmitRagTrace(
                 "router.native.mechanical_adjustment",
                 ("adjustment", "unsupported_category_scope_removed"),
@@ -917,6 +937,10 @@ public sealed partial class ToolAgentOrchestrator
             CandidateScopePaths = categoryPath.Length > 0
                 ? new List<string> { categoryPath }
                 : new List<string>(),
+            CategoryScopePolicy = scopePolicy,
+            CategoryScopeUserAnchor = scopeUserAnchor,
+            RequiredCategoryPaths = scopePolicy == "user_restriction"
+                ? new List<string> { categoryPath } : new List<string>(),
             RowHeader = rowHeader,
             RowLabels = rowLabels,
             Columns = columns,

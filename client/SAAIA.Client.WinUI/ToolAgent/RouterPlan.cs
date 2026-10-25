@@ -61,6 +61,9 @@ public sealed class RouterPlan
         public string RequestedDocumentName { get; set; } = "";
         public bool BoundedNamedDocumentExtraction { get; set; }
         public List<string> CandidateScopePaths { get; set; } = new();
+        public string CategoryScopePolicy { get; set; } = "hypothesis";
+        public string CategoryScopeUserAnchor { get; set; } = "";
+        public List<string> RequiredCategoryPaths { get; set; } = new();
         public string RowHeader { get; set; } = "";
         public List<string> RowLabels { get; set; } = new();
         public List<string> Columns { get; set; } = new();

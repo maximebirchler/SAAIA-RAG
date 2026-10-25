@@ -100,5 +100,5 @@ public sealed partial class SourceBackedAgentV2Runner
            Toute reponse sans appel d'outil doit contenir uniquement le livrable final destine
            a l'utilisateur: aucun raisonnement, aucune auto-evaluation, aucune discussion du
            plan, des outils, du juge ou des regles. Pour une grille, prefere un tableau concis.
-           """;
+           """ + "\n" + SourceBackedSelectionMultiplicity.AgentContract;
 }

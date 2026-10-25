@@ -3665,6 +3665,12 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             AdaptiveResearchEnabled = false,
             MaximumPlanQueries = 8,
             MaximumEvidencePromptCharacters = 64_000,
+            ExternalBudgetAuthorizedUsd = 25m,
+            ExternalBudgetSoftLimitUsd = 20m,
+            ExternalBudgetHardLimitUsd = 24m,
+            ExternalInputUsdPerMillionTokens = 2m,
+            ExternalCachedInputUsdPerMillionTokens = 0.2m,
+            ExternalOutputUsdPerMillionTokens = 12m,
             ExternalUsageLedgerPath = Path.Combine(
                 Path.GetTempPath(),
                 "saaia-advanced-test-" + Guid.NewGuid().ToString("N") + ".jsonl")

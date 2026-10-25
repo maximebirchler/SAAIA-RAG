@@ -45,7 +45,6 @@ public sealed partial class SourceBackedAgentV2Runner
             HashSet<string> executedCallKeys,
             int totalToolCalls,
             bool candidateCollectionOpen,
-            SemanticCandidateStrategyOutcome semanticCandidateStrategyOutcome,
             bool hasCitableEvidence,
             string? transientProtocolFeedback,
             HashSet<string> semanticallyAuditedEvidenceIds,
@@ -182,17 +181,8 @@ public sealed partial class SourceBackedAgentV2Runner
             }
             if (protocolError is null)
             {
-                normalizedCall =
-                    ApplyMechanicalToolArgumentAdjustments(
-                        normalizedCall,
-                        internalToolName,
-                        candidateCollectionOpen
-                            ? semanticCandidateStrategyOutcome.CandidateScopePaths
-                            : Array.Empty<string>(),
-                        traces,
-                        traceId,
-                        ref traceSequence,
-                        turn);
+                protocolError = SourceBackedResearchScopePolicy.ValidateMandatoryScope(
+                    intake, internalToolName, normalizedCall.Arguments, bundle);
             }
             if (protocolError is not null)
             {

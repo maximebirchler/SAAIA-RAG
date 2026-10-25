@@ -159,9 +159,9 @@ public sealed partial class ToolAgentOrchestrator
 
         ClientLog.Info(
             "ToolAgent option candidate selection: trace_path=rag.source_backed.card_candidate|trace_step=skip|stage=card_candidate.skip"
-            + $"|reason={FormatPlanningTraceValue(reason)}"
-            + $"|title={FormatPlanningTraceValue(title)}"
-            + $"|doc={FormatPlanningTraceValue(hit.DocPath)}"
+            + $"|reason={FormatPlanningLogValue(reason)}"
+            + $"|title={FormatPlanningLogValue(title)}"
+            + $"|doc={FormatPlanningLogValue(hit.DocPath)}"
             + $"|page={hit.PageStart}");
     }
 
@@ -175,9 +175,9 @@ public sealed partial class ToolAgentOrchestrator
 
         ClientLog.Info(
             "ToolAgent option candidate selection: trace_path=rag.source_backed.card_candidate|trace_step=inspect|stage=card_candidate.inspect"
-            + $"|title={FormatPlanningTraceValue(card.Title)}"
-            + $"|kind={FormatPlanningTraceValue(card.Kind)}"
-            + $"|doc={FormatPlanningTraceValue(hit.DocPath)}"
+            + $"|title={FormatPlanningLogValue(card.Title)}"
+            + $"|kind={FormatPlanningLogValue(card.Kind)}"
+            + $"|doc={FormatPlanningLogValue(hit.DocPath)}"
             + $"|page={hit.PageStart}");
     }
 
@@ -194,13 +194,13 @@ public sealed partial class ToolAgentOrchestrator
         ClientLog.Info(
             "ToolAgent option candidate selection: trace_path=rag.source_backed.card_candidate|trace_step=skip_title_variant|stage=card_candidate.skip"
             + "|reason=no_usable_title_variant"
-            + $"|rawTitle={FormatPlanningTraceValue(rawTitle)}"
-            + $"|cleaned={FormatPlanningTraceValue(cleaned)}"
+            + $"|rawTitle={FormatPlanningLogValue(rawTitle)}"
+            + $"|cleaned={FormatPlanningLogValue(cleaned)}"
             + $"|useful={FormatPlanningTraceBool(IsUsefulSourceBackedDisplayTitle(cleaned))}"
             + $"|planNoise={FormatPlanningTraceBool(LooksLikePlanItemNoise(cleaned))}"
             + $"|weak={FormatPlanningTraceBool(LooksLikeWeakSourceBackedOptionTitle(cleaned))}"
             + $"|procedure={FormatPlanningTraceBool(LooksLikeProcedureSentenceTitle(normalized))}"
-            + $"|doc={FormatPlanningTraceValue(hit.DocPath)}"
+            + $"|doc={FormatPlanningLogValue(hit.DocPath)}"
             + $"|page={hit.PageStart}");
     }
 
@@ -222,8 +222,8 @@ public sealed partial class ToolAgentOrchestrator
         var signalBridgePageHits = CountContentCardSignalBridgePageHits(signalBridgeTerms, normalizedPageEvidence);
         ClientLog.Info(
             "ToolAgent option candidate selection: trace_path=rag.planning.card_candidate|trace_step=proof_state|stage=card_candidate.proof_state"
-            + $"|title={FormatPlanningTraceValue(title)}"
-            + $"|kind={FormatPlanningTraceValue(card.Kind)}"
+            + $"|title={FormatPlanningLogValue(title)}"
+            + $"|kind={FormatPlanningLogValue(card.Kind)}"
             + $"|explicitPage={FormatPlanningTraceBool(SourceBackedContentCardHasExplicitPageAnchor(card))}"
             + $"|anchorKind={FormatPlanningTraceBool(ContentCardKindLooksLikeStructuredPlanningTitleAnchor(card))}"
             + $"|pageChars={normalizedPageEvidence.Length}"
@@ -243,7 +243,7 @@ public sealed partial class ToolAgentOrchestrator
             + $"|signalTerms={signalBridgeTerms.Length}"
             + $"|signalPageHits={signalBridgePageHits}"
             + $"|navNoise={FormatPlanningTraceBool(LooksLikeStructuredPlanningNavigationOrIndexNoise(rawPageEvidence))}"
-            + $"|doc={FormatPlanningTraceValue(hit.DocPath)}"
+            + $"|doc={FormatPlanningLogValue(hit.DocPath)}"
             + $"|page={hit.PageStart}");
     }
 

@@ -50,7 +50,7 @@ public sealed partial class ToolAgentOrchestrator
                 ("args", call.Args.GetRawText()));
             ClientLog.Info(
                 "ToolAgent tool start: " +
-                $"name={call.Name}|args={TruncateForPrompt(call.Args.GetRawText(), 420)}");
+                $"name={call.Name}|args={ClientLog.Content(call.Args.GetRawText(), 420)}");
             try
             {
                 if (!ToolManifest.IsKnownTool(call.Name))
