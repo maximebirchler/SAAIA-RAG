@@ -26,6 +26,8 @@ public sealed partial class ToolAgentOrchestrator
     {
         if (plan is null)
             return false;
+        if (ShouldSkipDocumentaryFallbackForExplicitGeneral(plan, "documentary_probe_fallback"))
+            return false;
         if (!string.Equals(plan.Intent, "chat.general", StringComparison.OrdinalIgnoreCase))
             return false;
         if (plan.ToolCalls.Count > 0 || plan.NeedClarification)

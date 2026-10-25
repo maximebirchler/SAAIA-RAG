@@ -80,7 +80,8 @@ public sealed partial class ToolAgentOrchestrator
         Action<string>? onDelta,
         Action<string>? onProgress)
     {
-        if (!ShouldRouteExactItemFallbackThroughSourceBackedRagPipeline(effectiveUserMessage))
+        if (ShouldSkipDocumentaryFallbackForExplicitGeneral(routerPlan, "exact_item_fallback")
+            || !ShouldRouteExactItemFallbackThroughSourceBackedRagPipeline(effectiveUserMessage))
             return (false, string.Empty, null);
 
         return await RunSourceBackedRagPipelineAsync(
@@ -94,6 +95,18 @@ public sealed partial class ToolAgentOrchestrator
             onPhase,
             onDelta,
             onProgress).ConfigureAwait(false);
+    }
+
+    private bool ShouldSkipDocumentaryFallbackForExplicitGeneral(RouterPlan plan, string entryPoint)
+    {
+        if (!ShouldRespectLlmRouterGeneralWithoutTools(plan))
+            return false;
+
+        // Lexical recovery still applies to an unreliable/local fallback. It
+        // cannot reinterpret a general route already accepted from the LLM.
+        EmitRagTrace("source_backed_fallback.skipped",
+            ("reason", "router_general_no_tools"), ("entry", entryPoint), ("intent", plan.Intent));
+        return true;
     }
 
     private static bool ShouldRouteExactItemFallbackThroughSourceBackedRagPipeline(string effectiveUserMessage)

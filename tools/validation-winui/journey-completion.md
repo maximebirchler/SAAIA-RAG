@@ -95,6 +95,31 @@ claim→evidence et l'unicité du marqueur. Il ne teste pas WinUI. Pour la séqu
 native, le handoff doit conserver cette charge à une assertion non structurée.
 Le résultat contrôlé ne qualifie pas la qualité sémantique du modèle serveur.
 
+Pour W21, dont le prérequis est un job déjà terminal, on peut ensuite préparer
+la réhydratation de ce même job sans provoquer artificiellement un routage local
+vers l'avancé :
+
+```powershell
+& ./tools/validation-winui/prepare-advanced-terminal-resume.ps1 -OutputDirectory '<nouvelle racine>' -Execute
+```
+
+Ce helper exige le précontrôle `answered` réussi et son utilisateur distinct du
+profil natif principal. Il crée le profil nommé `advanced-terminal` et un seul
+assistant contrôlé dans la session de précontrôle encore vide. Le message porte
+un jeton **périmé queued/révision1 réellement observé au début du précontrôle**
+avec les vrais jobId/handoffId/sessionId. Son texte est un simple avertissement
+de reprise ; ses sources sont vides. Aucun texte final, source terminale ou
+originTraceId natif n'est fabriqué. Le job existant reste succeeded/révision4.
+
+Après fermeture du profil courant, lancer ce profil avec `start-client.ps1
+-ProfileName advanced-terminal` et un nouveau nom de preuve. Le vrai tracker du
+client doit récupérer le job, valider son résultat, puis remplacer et PATCHer
+le **même assistant** avec la réponse et la carte canonique. Après fermeture et
+redémarrage, comparer jobId/messageId/révision/hash et cartes. Le compteur de
+jobs et les appels au fournisseur doivent rester inchangés. Cette variante
+qualifie la reprise/présentation/persistance ; elle ne prétend pas qu'une nouvelle
+création de job ou son routage initial ont eu lieu dans cette séquence UI.
+
 ## Lien ambigu entre deux versions
 
 Après préparation des deux PDF et du catalogue :
