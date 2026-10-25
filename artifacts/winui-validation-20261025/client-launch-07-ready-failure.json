@@ -1,0 +1,12 @@
+{
+  "startedAtUtc": "2026-10-25T12:26:05.7505310+00:00",
+  "pid": 23776,
+  "executable": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+  "assemblySha256": "6BF253DBD539DBAFA1F3F12E2FB51208FCDA54F62075AAEBBEADD4AEF74239C1",
+  "clientDataRoot": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\local-fixture-02\\runtime\\client-data",
+  "documentsRoot": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\local-fixture-02\\runtime\\documents",
+  "providerMode": "Local",
+  "externalPolicy": "ProductionLocal",
+  "inheritedProviderEnvironmentRemoved": true,
+  "purpose": "Launch only; no UI automation. Native interactions are performed separately through Computer Use."
+}

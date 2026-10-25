@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "saaia-winui-final-stop-precheck.v1",
+  "capturedAtUtc": "2026-10-25T13:35:49.5184450+00:00",
+  "clientWinUiActiveCount": 0,
+  "readOnlySql": true,
+  "ownedDataDirectoryVerified": true,
+  "activeAdvancedJobs": 0,
+  "ownedDatabaseJobTotal": 5,
+  "ownedJobsByStatus": {
+    "succeeded": 5
+  },
+  "ownedAllUserSessionCount": 17,
+  "ownedAllUserMessageCount": 42,
+  "postgres5432": [
+    {
+      "port": 5432,
+      "pid": 7844,
+      "address": "::"
+    },
+    {
+      "port": 5432,
+      "pid": 7844,
+      "address": "0.0.0.0"
+    }
+  ],
+  "allChecksPassed": true,
+  "stopAttempted": false,
+  "dataDeleted": false
+}

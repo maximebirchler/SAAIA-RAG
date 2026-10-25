@@ -1,0 +1,19 @@
+SAAIA — validation du client WinUI, point depuis le précédent rapport
+
+Ce qui est maintenant vérifié dans la vraie application :
+• Le démarrage manuel propose une action de connexion et fonctionne même lorsque la connexion automatique est désactivée.
+• Les réglages et la configuration sont bloqués pendant un envoi. L’annulation en cours apparaît comme désactivée, sans permettre un second envoi.
+• Une erreur d’enregistrement conserve la saisie et affiche un avertissement visible. Un serveur volontairement retardé de45s rend la main après30,039s ; aucun appel modèle ne part sur ce tour. Une écriture tardive reste possible côté serveur : l’interface demande donc de vérifier l’historique avant de réessayer.
+• Le changement de discussion après une erreur500 conserve l’ancien historique ; un réessai charge ensuite la bonne discussion.
+• L’aide retrouve les deux PDF synthétiques portant le même nom dans deux dossiers. Un clic réel a ouvert le PDF du bon dossier, page1 vérifiée visuellement.
+• Un vrai appel au Qwen local a entraîné un relais vers le parcours avancé : création, suivi running puis succeeded et affichage ont réellement eu lieu. Le modèle du worker est simulé, donc cela valide le transport et le suivi, pas la qualité de sa réponse.
+
+Défauts encore en correction :
+1. Appliquer une nouvelle URL dans l’assistant sauvegardait le paramètre mais la conversation continuait sur l’ancienne connexion. Correction de la reconnexion et de l’isolement des suivis entre serveurs en cours.
+2. Un chargement de discussion en erreur n’affichait aucune explication, malgré l’historique conservé. Une alerte visible est ajoutée et sera retestée.
+3. La question documentaire avec un chemin explicite provoque une clarification inutile. Une cause concrète a été trouvée : le code réduisait le chemin au seul nom du fichier avant résolution. Correction et preuves en cours.
+4. Certaines sondes perdaient les noms des étapes internes et masquaient cette causalité. Ajout de métadonnées limitées, sans texte de documents.
+
+Intégrité et limites : aucune utilisation de Terra/API payante ; SQL, corpus et configuration de validation sont isolés. La vérification du profil normal montre secure.json inchangé, mais un journal a reçu des lignes de tests automatisés avant l’essai UI. L’outillage de tests est corrigé pour isoler aussi ces journaux ; je ne présente donc pas le profil comme totalement inchangé.
+
+Suite : nouvelle compilation après corrections, répétition des cas défaillants dans WinUI, cartes sources/page2, reprise des travaux avancés après fermeture, puis régressions complètes et rapport de validation. Le planning Terra attend toujours la validation de ce parcours.

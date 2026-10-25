@@ -1,0 +1,15 @@
+{
+  "atUtc": "2026-10-25T12:56:47.352Z",
+  "method": "Native PDF viewer UIA and displayed pixels inspected",
+  "scenario": "Missing path, exact SHA256 version recovery",
+  "source": "Controlled source-card fixture, no model answer",
+  "sourceFile": "Validation/Guide-Validation.pdf",
+  "requestedPage": 2,
+  "observedPageSelector": "2 of 2",
+  "observedVisibleMarker": "VALIDATION WINUI - PAGE 2 - CODE ORION 4826",
+  "wrongHomonymousArchiveNotOpened": true,
+  "oracleCorrection": "Missing supplied path does not mean file absent everywhere; exact hash recovery is allowed",
+  "privateScreenshotExcludedFromGit": true,
+  "screenshotSha256": "8544fd8cf78706789e0f5f99ca30b606969cf58880da3cdc448dd87a607a663c",
+  "sourceOpenTrace": "058c77b68a4acde2e56a2f26829f216e"
+}

@@ -1,0 +1,261 @@
+{
+  "schemaVersion": "saaia-winui-polling-fault-proof.v1",
+  "capturedAtUtc": "2026-10-25T13:27:13.7053215+00:00",
+  "status": "MECHANICAL_POLLING_FAULTS_VALIDATED",
+  "readOnly": true,
+  "jobId": "9ecf8795-7faf-4225-a6a7-d264a36c21a2",
+  "sessionId": "837cb889-a736-44e2-a32f-43c17e2397b8",
+  "assistantMessageId": "188f3c2a-89bc-465c-98a9-3bbae50217cf",
+  "traceId": "32a5776014ec5345b4a56672434e7a2e",
+  "baselineSha256": "A14D7C5B7CF9C3E51799E4C8E39F578B59ABA29182ACE1DB615568AF0AC0D5C0",
+  "afterSnapshotSha256": "22D82D1CA7B30564F365E4DF3CEFBA07D2C2C58C3C239E562B39E3A5270BE437",
+  "sourcePollerSha256": "B15CBEFC3C0481B5F14F17453597F758599FD995FD663CF8A41305B32F05514D",
+  "proxySourceSha256": "91CD41B38430C2E4A65B3418490399976910B90BEA118A31081735792AA03AD1",
+  "jobs": {
+    "after": 3,
+    "targetReferences": 1,
+    "terminalRevision": 4,
+    "forTargetSession": 1,
+    "before": 2,
+    "terminalStatus": "succeeded",
+    "attemptCount": 1
+  },
+  "controlledResponses": [
+    {
+      "method": "GET",
+      "path": "/advanced-analysis/jobs/9ecf8795-7faf-4225-a6a7-d264a36c21a2",
+      "phase": "completed",
+      "jobId": "9ecf8795-7faf-4225-a6a7-d264a36c21a2",
+      "mode": "http503",
+      "upstreamStatus": 200,
+      "status": 503,
+      "responseSha256": "5cd72264660d6798e53892802346ddc12f9b4e79b798faa8214f0c971ca8cc1b",
+      "traceparent": "00-32a5776014ec5345b4a56672434e7a2e-9027b629e72f759e-00",
+      "turnId": "4592ce2493c948d8bc8d4f273f9a77f8",
+      "upstreamJobStatus": "running",
+      "upstreamRevision": 2,
+      "upstreamSessionId": "837cb889-a736-44e2-a32f-43c17e2397b8",
+      "atUtc": "2026-10-25T13:22:12Z"
+    },
+    {
+      "method": "GET",
+      "path": "/advanced-analysis/jobs/9ecf8795-7faf-4225-a6a7-d264a36c21a2",
+      "phase": "completed",
+      "jobId": "9ecf8795-7faf-4225-a6a7-d264a36c21a2",
+      "mode": "http503",
+      "upstreamStatus": 200,
+      "status": 503,
+      "responseSha256": "5cd72264660d6798e53892802346ddc12f9b4e79b798faa8214f0c971ca8cc1b",
+      "traceparent": "00-32a5776014ec5345b4a56672434e7a2e-9027b629e72f759e-00",
+      "turnId": "4592ce2493c948d8bc8d4f273f9a77f8",
+      "upstreamJobStatus": "running",
+      "upstreamRevision": 2,
+      "upstreamSessionId": "837cb889-a736-44e2-a32f-43c17e2397b8",
+      "atUtc": "2026-10-25T13:22:14Z"
+    },
+    {
+      "method": "GET",
+      "path": "/advanced-analysis/jobs/9ecf8795-7faf-4225-a6a7-d264a36c21a2",
+      "phase": "completed",
+      "jobId": "9ecf8795-7faf-4225-a6a7-d264a36c21a2",
+      "mode": "regressive_revision",
+      "upstreamStatus": 200,
+      "status": 200,
+      "responseSha256": "7865ef00dbc457edc185d55d89921266d8a3b0f29d633a171edf652fa0b96d1b",
+      "traceparent": "00-32a5776014ec5345b4a56672434e7a2e-9027b629e72f759e-00",
+      "turnId": "4592ce2493c948d8bc8d4f273f9a77f8",
+      "upstreamJobStatus": "running",
+      "upstreamRevision": 2,
+      "upstreamSessionId": "837cb889-a736-44e2-a32f-43c17e2397b8",
+      "injectedRevision": 1,
+      "atUtc": "2026-10-25T13:22:35Z"
+    },
+    {
+      "method": "GET",
+      "path": "/advanced-analysis/jobs/9ecf8795-7faf-4225-a6a7-d264a36c21a2",
+      "phase": "completed",
+      "jobId": "9ecf8795-7faf-4225-a6a7-d264a36c21a2",
+      "mode": "session_mismatch",
+      "upstreamStatus": 200,
+      "status": 200,
+      "responseSha256": "c742992ebd0b3270eb0abb6adb4471faef9854133f8ad64d2abf20ee74347092",
+      "traceparent": "00-32a5776014ec5345b4a56672434e7a2e-f52ca25dc4ba0096-00",
+      "turnId": "5c7f522d046749b9a3ae9f92aa5a5d6c",
+      "upstreamJobStatus": "running",
+      "upstreamRevision": 3,
+      "upstreamSessionId": "837cb889-a736-44e2-a32f-43c17e2397b8",
+      "injectedSessionId": "00000000-0000-4000-8000-000000000024",
+      "atUtc": "2026-10-25T13:22:59Z"
+    }
+  ],
+  "turns": [
+    {
+      "begins": 1,
+      "ends": 1,
+      "turnId": "4592ce2493c948d8bc8d4f273f9a77f8",
+      "createAttempts": 1
+    },
+    {
+      "begins": 1,
+      "ends": 1,
+      "turnId": "5c7f522d046749b9a3ae9f92aa5a5d6c",
+      "createAttempts": 0
+    }
+  ],
+  "otherSessions": [
+    {
+      "unchanged": true,
+      "sessionId": "f8d12da3-ba30-4cb8-9ef0-bea786980a76",
+      "beforeSha256": "56399df4e729edd2ff834de964869bbc46b6effe8475d1575260dc4389883aaf",
+      "afterSha256": "56399df4e729edd2ff834de964869bbc46b6effe8475d1575260dc4389883aaf"
+    },
+    {
+      "unchanged": true,
+      "sessionId": "03957eeb-5d79-42a5-892b-bdaab7d150bd",
+      "beforeSha256": "04d24555beddc84a1f111352f41f251fd04e557cfb516e6583e72e775269c8d5",
+      "afterSha256": "04d24555beddc84a1f111352f41f251fd04e557cfb516e6583e72e775269c8d5"
+    },
+    {
+      "unchanged": true,
+      "sessionId": "f0c2e4a3-485e-4384-aec5-5bb4dba2f116",
+      "beforeSha256": "4d2cc59367fd7db5cf301e0a12d3d3596e823984ee9d3597d279936a1d860b74",
+      "afterSha256": "4d2cc59367fd7db5cf301e0a12d3d3596e823984ee9d3597d279936a1d860b74"
+    },
+    {
+      "unchanged": true,
+      "sessionId": "a0ab9a07-0d79-4c82-8f0b-10e52d5a7870",
+      "beforeSha256": "77476c3bccd0a42fb82bdab0af4cf486f7970b2211dc31f4ce4d1f942f3dd45e",
+      "afterSha256": "77476c3bccd0a42fb82bdab0af4cf486f7970b2211dc31f4ce4d1f942f3dd45e"
+    },
+    {
+      "unchanged": true,
+      "sessionId": "d430c3b2-2865-468d-ad06-a854a6341236",
+      "beforeSha256": "a64ca4dd99842c74a4b13c696c0b38f50c95a55a24e2b9de12d7d86461f9b609",
+      "afterSha256": "a64ca4dd99842c74a4b13c696c0b38f50c95a55a24e2b9de12d7d86461f9b609"
+    },
+    {
+      "unchanged": true,
+      "sessionId": "c2d1813e-7123-46b9-832f-87853cce8020",
+      "beforeSha256": "24def4d012184968acff2637a1b383e74ec68dba61693c768fa822cec612d146",
+      "afterSha256": "24def4d012184968acff2637a1b383e74ec68dba61693c768fa822cec612d146"
+    },
+    {
+      "unchanged": true,
+      "sessionId": "3b26721e-2cfe-4351-88c8-3132c4805614",
+      "beforeSha256": "fd45d1833adbca35cd756c369b8a3f22b5f4975b5f377f25ca06269fb8af35f5",
+      "afterSha256": "fd45d1833adbca35cd756c369b8a3f22b5f4975b5f377f25ca06269fb8af35f5"
+    },
+    {
+      "unchanged": true,
+      "sessionId": "2dccd468-b196-4533-8de7-809868c208fa",
+      "beforeSha256": "457069eacda1d2615b07cae54c6e117d8128e3b0909eff606dd99d1e42f0d5bc",
+      "afterSha256": "457069eacda1d2615b07cae54c6e117d8128e3b0909eff606dd99d1e42f0d5bc"
+    },
+    {
+      "unchanged": true,
+      "sessionId": "d75f4812-8065-4683-a33a-16941fae93ab",
+      "beforeSha256": "3ba5d730ae471db1fe6302377ca99850b0d7287989ba38793d0aaafaf7a4597e",
+      "afterSha256": "3ba5d730ae471db1fe6302377ca99850b0d7287989ba38793d0aaafaf7a4597e"
+    },
+    {
+      "unchanged": true,
+      "sessionId": "f23536a9-2296-4a1c-96b4-0b4c02a79e4b",
+      "beforeSha256": "8b7a6d2ff9f91233c64eb0caaee8e23757e10eee256f747ff68ed08c679207ed",
+      "afterSha256": "8b7a6d2ff9f91233c64eb0caaee8e23757e10eee256f747ff68ed08c679207ed"
+    },
+    {
+      "unchanged": true,
+      "sessionId": "8d6d3555-1c24-4750-91d1-ec4801ed13bc",
+      "beforeSha256": "5d495968fc2b19043d41b41c1709c90ac54a81ae3fdd8136dd1c2b99e0f5360b",
+      "afterSha256": "5d495968fc2b19043d41b41c1709c90ac54a81ae3fdd8136dd1c2b99e0f5360b"
+    },
+    {
+      "unchanged": true,
+      "sessionId": "d7683d16-3a3e-4360-b9ce-9db55ea2b5cb",
+      "beforeSha256": "b0207f5e7a22729f0302847c58c64a4aa26495d61d2655fd8eba396fe76eb1cd",
+      "afterSha256": "b0207f5e7a22729f0302847c58c64a4aa26495d61d2655fd8eba396fe76eb1cd"
+    }
+  ],
+  "durableTransitions": [
+    {
+      "eventName": "queued",
+      "status": "queued",
+      "attemptCount": 0,
+      "sessionId": "837cb889-a736-44e2-a32f-43c17e2397b8",
+      "clientSessionMismatch": false,
+      "atUtc": "2026-10-25T14:22:01.473088+01:00"
+    },
+    {
+      "eventName": "lease_acquired",
+      "status": "running",
+      "attemptCount": 1,
+      "sessionId": "837cb889-a736-44e2-a32f-43c17e2397b8",
+      "clientSessionMismatch": false,
+      "atUtc": "2026-10-25T14:22:01.615465+01:00"
+    },
+    {
+      "eventName": "succeeded",
+      "status": "succeeded",
+      "attemptCount": 1,
+      "sessionId": "837cb889-a736-44e2-a32f-43c17e2397b8",
+      "clientSessionMismatch": false,
+      "atUtc": "2026-10-25T14:23:31.661269+01:00"
+    }
+  ],
+  "checks": [
+    {
+      "passed": true,
+      "name": "owned_data_directory_verified"
+    },
+    {
+      "passed": true,
+      "name": "one_real_job_created_since_baseline"
+    },
+    {
+      "passed": true,
+      "name": "one_assistant_reference_same_session"
+    },
+    {
+      "passed": true,
+      "name": "other_sessions_hashes_unchanged"
+    },
+    {
+      "passed": true,
+      "name": "only_expected_session_added_with_two_messages"
+    },
+    {
+      "passed": true,
+      "name": "two_503_responses_and_two_client_retries"
+    },
+    {
+      "passed": true,
+      "name": "regression_injected_and_rejected_at_previous_revision"
+    },
+    {
+      "passed": true,
+      "name": "wrong_session_injected_and_rejected"
+    },
+    {
+      "passed": true,
+      "name": "invalid_snapshot_checked_before_state_and_persistence_callback"
+    },
+    {
+      "passed": true,
+      "name": "real_terminal_revision_and_identity_persisted"
+    },
+    {
+      "passed": true,
+      "name": "all_target_wire_responses_correlated"
+    },
+    {
+      "passed": true,
+      "name": "both_turns_have_one_begin_and_end"
+    }
+  ],
+  "limits": [
+    "Injected GET snapshots test transport/identity handling; the real worker job and final status come from the owned production backend and deterministic provider fixture.",
+    "Current SQL and message hashes establish the final durable state. Invalid snapshots never reach onSnapshot under the inspected poller control flow; no independent statement-by-statement historical SQL audit is claimed.",
+    "A turn.end success records completion of that client workflow, while invalid advanced.poll.validation/result.validation events remain explicit rejections.",
+    "No visual UI claim or semantic meal-planning acceptance is made by this read-only verifier."
+  ]
+}

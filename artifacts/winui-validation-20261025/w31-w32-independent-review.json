@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "saaia.winui-w31-w32-independent-review.v1",
+  "reviewedAtUtc": "2026-10-25T12:45:23.1019711+00:00",
+  "mode": "read_only_source_review",
+  "productMutatedByReview": false,
+  "buildExecutedByReview": false,
+  "uiExecutedByReview": false,
+  "modelExecutedByReview": false,
+  "verdict": "NO_ADDITIONAL_BLOCKING_DEFECT_PROVEN_AFTER_ADMIN_REVISION_FIX",
+  "w31": {
+    "endpointUserAndApiKeySnapshotBeforeBackgroundWork": true,
+    "latePersistenceUsesOwnedApi": true,
+    "foregroundUiChecksConnectionIdentity": true,
+    "resetStopsBothTrackerFamilies": true,
+    "adminStateSyncedOnlyWithinSameConnection": true,
+    "late401ChecksExactRequestCredentialAndRevision": true,
+    "sameKeyReauthenticationABAProtected": true,
+    "referencedValidation": "artifacts/winui-validation-20261025/w31-final-tests/manifest.json"
+  },
+  "w32": {
+    "noticeInVisibleComposerPanel": true,
+    "assertiveLiveRegion": true,
+    "localizedWithoutRawHttpError": true,
+    "uncertainMutationWordedAsUnconfirmed": true,
+    "loadFailureBeforeCommitKeepsActiveConversation": true,
+    "successAndConnectionResetClearNotice": true,
+    "languageChangeRerendersNotice": true
+  },
+  "limits": [
+    "This review does not reproduce native timing, accessibility announcements or server faults. Parent owns real WinUI observations.",
+    "HTTP tests prove transport isolation on synthetic handlers, not production authentication service behavior.",
+    "The obsolete unguarded late401 invalidation was found during review and was fixed by journey; verdict applies to request snapshots and admin revision version."
+  ],
+  "finalUnitCommand": "& tools/test-project.ps1 -Profile Unit -Projects @('ClientCore','Client') -Configuration Release -NoRestore -OutputPath artifacts/winui-validation-20261025/final-core-client-unit/manifest.json",
+  "reviewedSources": [
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/ApiClient.ConnectionSnapshot.cs",
+      "sha256": "994D0508A71E811CB2DC89E26ECF8C8CC106A8020B28E38A20ADA3BBA1F27912"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/ApiClient.cs",
+      "sha256": "737E8C067922AC545B73118B03582254766D3E34F097B360EC233BEE1E0ADAE2"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/HelpAndLocalization.TrackedJobs.cs",
+      "sha256": "AA9C673329B4AA1B80C5E09018DDCB4EF887432A04DF35A60CAEBC593F93E08A"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/AdvancedAnalysisTracking.cs",
+      "sha256": "FDBF3869D1E8FA543A6A2B7CD452E6B7E38D3C313B492B9A30D9735CDFDFCF8A"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/SetupLifecycle.cs",
+      "sha256": "7CD5F98BAE0149ECC3D65A1C09FC91737A32F45EB76915B7F97FD8069F9A0411"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/Sessions.cs",
+      "sha256": "8015E1A3626AD56B035875CB5F0622348222492B212B16CAF4077940A4B6D735"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow.xaml",
+      "sha256": "14F72F67A047AA25BF947E43CF9B836F2393F8B08E00B00148F0BA47B80CD848"
+    }
+  ]
+}

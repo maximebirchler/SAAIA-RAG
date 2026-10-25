@@ -1,0 +1,214 @@
+{
+  "schemaVersion": "saaia-winui-support-bundle-review.v1",
+  "checkedAtUtc": "2026-10-25T13:34:05.5836348+00:00",
+  "passed": true,
+  "readOnly": true,
+  "bundleSha256": "FBEA52C5F82FDECD3F1968EA2CCFED32292F817A1CA1F442D7959361F9DACA15",
+  "zipBytes": 67737,
+  "entries": 51,
+  "contentMode": "metadata_only",
+  "probeImplementation": "http",
+  "collectionComplete": true,
+  "failedPieceCount": 0,
+  "optionalUnavailablePieces": [
+    {
+      "path": "models.json",
+      "reason": "optional_file_missing"
+    },
+    {
+      "path": "downloads.manifest.json",
+      "reason": "optional_file_missing"
+    },
+    {
+      "path": "llm/docker-compose.llm.yml",
+      "reason": "optional_file_missing"
+    },
+    {
+      "path": "llm/llm.install.json",
+      "reason": "optional_file_missing"
+    },
+    {
+      "path": "llm/install-llm.log",
+      "reason": "optional_file_missing"
+    },
+    {
+      "path": "llm/active-runtime.json",
+      "reason": "optional_file_missing"
+    },
+    {
+      "path": "llm/active-runtime.json.sha256",
+      "reason": "optional_file_missing"
+    },
+    {
+      "path": "llm/embedded.runtime.tag",
+      "reason": "optional_file_missing"
+    },
+    {
+      "path": "llm/embedded.cuda.runtime.tag",
+      "reason": "optional_file_missing"
+    },
+    {
+      "path": "llm/embedded.vulkan.runtime.tag",
+      "reason": "optional_file_missing"
+    },
+    {
+      "path": "diagnostics/agent-runtime.json",
+      "reason": "no_live_orchestrator_snapshot"
+    }
+  ],
+  "turnCount": 1,
+  "productionProbeEvents": 1007,
+  "legacyLogLines": 0,
+  "invalidProbeLines": 0,
+  "knownCredentialNeedlesChecked": 3,
+  "credentialHitCount": 0,
+  "credentialValuesPublished": false,
+  "syntheticTextNeedlesChecked": 31,
+  "contentHitCount": 0,
+  "contentHitEntries": [],
+  "checksumSidecarFailures": [],
+  "checksumSidecarContracts": [
+    {
+      "path": "governance/acquisition_log.json.sha256",
+      "contract": "governance_utf8_text_without_bom"
+    },
+    {
+      "path": "governance/battery_policies.json.sha256",
+      "contract": "governance_utf8_text_without_bom"
+    },
+    {
+      "path": "governance/blacklist.json.sha256",
+      "contract": "governance_utf8_text_without_bom"
+    },
+    {
+      "path": "governance/blacklist_applied.json.sha256",
+      "contract": "governance_utf8_text_without_bom"
+    },
+    {
+      "path": "governance/capability_state.json.sha256",
+      "contract": "governance_utf8_text_without_bom"
+    },
+    {
+      "path": "governance/hardware_probe.json.sha256",
+      "contract": "governance_utf8_text_without_bom"
+    },
+    {
+      "path": "governance/last_known_good_profile.json.sha256",
+      "contract": "governance_utf8_text_without_bom"
+    },
+    {
+      "path": "governance/model_catalog.json.sha256",
+      "contract": "redacted_export_file_bytes"
+    },
+    {
+      "path": "governance/model_collections.json.sha256",
+      "contract": "redacted_export_file_bytes"
+    },
+    {
+      "path": "governance/model_policy.json.sha256",
+      "contract": "redacted_export_file_bytes"
+    },
+    {
+      "path": "governance/model_sources.json.sha256",
+      "contract": "governance_utf8_text_without_bom"
+    },
+    {
+      "path": "governance/rollback_log.json.sha256",
+      "contract": "governance_utf8_text_without_bom"
+    },
+    {
+      "path": "governance/runtime_compatibility_policy.json.sha256",
+      "contract": "redacted_export_file_bytes"
+    },
+    {
+      "path": "governance/runtime_event_log.json.sha256",
+      "contract": "governance_utf8_text_without_bom"
+    },
+    {
+      "path": "governance/warmup_profiles.json.sha256",
+      "contract": "redacted_export_file_bytes"
+    },
+    {
+      "path": "governance/warmup_results.json.sha256",
+      "contract": "governance_utf8_text_without_bom"
+    },
+    {
+      "path": "llm/runtime_compatibility_policy.json.sha256",
+      "contract": "redacted_export_file_bytes"
+    },
+    {
+      "path": "llm/runtime_event_log.json.sha256",
+      "contract": "governance_utf8_text_without_bom"
+    }
+  ],
+  "absolutePathCount": 5,
+  "readOnlyApplicationBinaryPathCount": 1,
+  "unexpectedOutsideIsolatedRootPathCount": 0,
+  "llmModelsUrl": "http://127.0.0.1:18088/v1/models",
+  "backendReadinessUrl": "http://127.0.0.1:5147/ready",
+  "checks": [
+    {
+      "passed": true,
+      "name": "bundle_under_owned_isolated_root"
+    },
+    {
+      "passed": true,
+      "name": "collection_manifest_matches_zip_entries"
+    },
+    {
+      "passed": true,
+      "name": "checksum_sidecars_follow_governance_or_redacted_export_contract"
+    },
+    {
+      "passed": true,
+      "name": "secure_store_not_exported"
+    },
+    {
+      "passed": true,
+      "name": "known_plaintext_and_dpapi_values_absent"
+    },
+    {
+      "passed": true,
+      "name": "metadata_only_history"
+    },
+    {
+      "passed": true,
+      "name": "no_collector_or_log_failures"
+    },
+    {
+      "passed": true,
+      "name": "collection_complete_no_failed_pieces"
+    },
+    {
+      "passed": true,
+      "name": "raw_chat_and_source_text_absent"
+    },
+    {
+      "passed": true,
+      "name": "legacy_log_content_excluded"
+    },
+    {
+      "passed": true,
+      "name": "production_probes_present_and_parseable"
+    },
+    {
+      "passed": true,
+      "name": "llm_catalog_url_includes_v1_models"
+    },
+    {
+      "passed": true,
+      "name": "backend_readiness_is_loopback_success"
+    },
+    {
+      "passed": true,
+      "name": "absolute_data_paths_remain_isolated"
+    }
+  ],
+  "rawBundleSelectedForVersioning": false,
+  "limits": [
+    "Exact known synthetic credential/DPAPI values and available synthetic text were checked in memory; no private profile or paid provider was accessed.",
+    "Probe/history presence and redaction do not by themselves prove every UI scenario or source page rendering.",
+    "Optional unavailable pieces remain declared; they do not mean the collect operation failed."
+  ],
+  "productStatus": "TESTE_NON_APPROUVE"
+}

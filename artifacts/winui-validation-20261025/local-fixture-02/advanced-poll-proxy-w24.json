@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "saaia-winui-advanced-poll-proxy.v1",
+  "capturedAtUtc": "2026-10-25T13:17:40.9000822+00:00",
+  "proxyUrl": "http://127.0.0.1:5167",
+  "upstreamUrl": "http://127.0.0.1:5137",
+  "profileName": "w24",
+  "localModelPort": 18088,
+  "controlRelative": "runtime/advanced-poll-control-w24.json",
+  "eventsRelative": "advanced-poll-events-w24.jsonl",
+  "targetUserId": "018a790c-01e0-4b04-b413-d09a80d2daab",
+  "controlsInitiallyDisarmed": true,
+  "onlyGetTargetJobMutated": true,
+  "postRequestsPassThroughUnchanged": true,
+  "databaseMutatedForInjection": false,
+  "jobCreated": false,
+  "providerControlChanged": false,
+  "clientLaunched": false,
+  "normalUserProfileTouched": false,
+  "sourceSha256": "91CD41B38430C2E4A65B3418490399976910B90BEA118A31081735792AA03AD1",
+  "modes": [
+    "passthrough",
+    "http503",
+    "regressive_revision",
+    "session_mismatch"
+  ]
+}

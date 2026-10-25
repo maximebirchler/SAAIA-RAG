@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "saaia.winui-trace-integrity.v1",
+  "capturedAtUtc": "2026-10-25T11:36:20.9751768+00:00",
+  "status": "TRACE_INTEGRITY_FAILED",
+  "verifierScope": "Local file integrity and production diagnostic correlation; does not execute UI or network.",
+  "modelQualityValidated": false,
+  "visualUiValidated": false,
+  "pdfPageRenderingValidated": false,
+  "productStatus": "TESTE_NON_APPROUVE",
+  "eventCount": 3,
+  "turnCount": 1,
+  "checks": [
+    {
+      "name": "production_probe_events_exist",
+      "passed": true,
+      "details": 3
+    },
+    {
+      "name": "probe_json_is_parseable",
+      "passed": true,
+      "details": 0
+    },
+    {
+      "name": "probe_schema_correlation_and_nonnegative_clocks",
+      "passed": true,
+      "details": 0
+    },
+    {
+      "name": "turn_sequence_unique_22222222222222222222222222222222",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_22222222222222222222222222222222",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_22222222222222222222222222222222",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_22222222222222222222222222222222",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_22222222222222222222222222222222",
+      "passed": false,
+      "details": null
+    }
+  ],
+  "turns": [
+    {
+      "turnId": "22222222222222222222222222222222",
+      "traceId": "11111111111111111111111111111111",
+      "sessionId": "44444444-4444-4444-4444-444444444444",
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "turn.end",
+        "model.call"
+      ]
+    }
+  ],
+  "support": null,
+  "fixture": null,
+  "inputs": [
+    {
+      "path": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\evidence-verifier-selftests\\terminal-not-last\\logs\\client_startup.log",
+      "sha256": "b1ae90095461c3fb64703c59ea9263b9b47161123c5dd1fa0137fae6d3921695"
+    }
+  ]
+}

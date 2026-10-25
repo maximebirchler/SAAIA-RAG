@@ -1,0 +1,38 @@
+{
+  "items": [
+    {
+      "DocId": "14381074-14ae-52a7-9d8b-58eea4a50585",
+      "DocPath": "Archive/Guide-Validation.pdf",
+      "DocName": "Guide-Validation.pdf",
+      "Category": "Archive",
+      "Status": "indexed",
+      "FileSize": 619,
+      "FileMtime": null,
+      "PageCount": 1,
+      "LastIngestedAt": "2026-10-25T11:34:24.586263Z",
+      "IngestionVersion": 1,
+      "LastSeenAt": null,
+      "MissingSince": null,
+      "CreatedAt": "2026-10-25T11:34:24.586263Z",
+      "UpdatedAt": "2026-10-25T11:34:24.586263Z"
+    },
+    {
+      "DocId": "aca1a813-c593-59e5-bdf2-1cd12d1b8e40",
+      "DocPath": "Validation/Guide-Validation.pdf",
+      "DocName": "Guide-Validation.pdf",
+      "Category": "Validation",
+      "Status": "indexed",
+      "FileSize": 907,
+      "FileMtime": null,
+      "PageCount": 2,
+      "LastIngestedAt": "2026-10-25T11:34:24.586263Z",
+      "IngestionVersion": 1,
+      "LastSeenAt": null,
+      "MissingSince": null,
+      "CreatedAt": "2026-10-25T11:34:24.586263Z",
+      "UpdatedAt": "2026-10-25T11:34:24.586263Z"
+    }
+  ],
+  "limit": 10,
+  "offset": 0
+}

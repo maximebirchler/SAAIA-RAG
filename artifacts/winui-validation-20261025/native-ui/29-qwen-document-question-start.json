@@ -1,0 +1,17 @@
+{
+  "atUtc": "2026-10-25T12:17:40.416Z",
+  "name": "29-qwen-document-question-start",
+  "description": "Première demande documentaire réelle via le Qwen local, index SQL isolé, aucun provider payant.",
+  "window": {
+    "app": "process:C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+    "id": 526740,
+    "title": "SAAIA"
+  },
+  "accessibility": {
+    "focused_element": "76 modifier (disabled, settable, string) Tape ta question... Value: Dans le document « Validation/Guide-Validation.pdf », quel est le code ORION ? Cite la page. ID: InputBox",
+    "tree": "Window: \"SAAIA\", App: SAAIA.Client.WinUI.exe.\n\t0 fenêtre SAAIA Secondary Actions: Raise\n\t\t1 volet Non Client Input Sink Window\n\t\t2 volet AppWindow Custom Title Bar\n\t\t\t3 Bouton Minimize ID: Minimize\n\t\t\t4 Bouton Maximize ID: Maximize\n\t\t\t5 Bouton Close ID: Close\n\t\t6 volet\n\t\t\t7 volet\n\t\t\t\t8 image\n\t\t\t\t9 texte SAAIA\n\t\t\t\t10 bouton Discussions ID: ChatsToggleButton\n\t\t\t\t11 bouton (disabled) Configuration ID: SetupButton\n\t\t\t\t12 bouton (disabled) Aide ID: HeaderHelpButton\n\t\t\t\t\t13 texte ?\n\t\t\t\t14 bouton (disabled) Paramètres ID: HeaderSettingsButton\n\t\t\t\t15 texte Discussions ID: ChatsHeaderText\n\t\t\t\t16 bouton (disabled) Nouveau ID: NewChatButton\n\t\t\t\t17 liste (disabled) ID: SessionsList\n\t\t\t\t\t97 élément de liste (selectable, disabled) SAAIA.Client.WinUI.Models.ChatSessionItem\n\t\t\t\t\t\t98 texte Nouvelle discussion\n\t\t\t\t\t\t99 texte 25.10 13:12\n\t\t\t\t\t\t100 bouton (disabled) …\n\t\t\t\t\t101 élément de liste (selectable, disabled) SAAIA.Client.WinUI.Models.ChatSessionItem\n\t\t\t\t\t\t102 texte Ligne un Ligne trois\n\t\t\t\t\t\t103 texte 25.10 13:00\n\t\t\t\t\t\t104 bouton (disabled) …\n\t\t\t\t\t105 élément de liste (selectable, disabled) SAAIA.Client.WinUI.Models.ChatSessionItem\n\t\t\t\t\t\t106 texte Validation A — interruption conservée\n\t\t\t\t\t\t107 texte 25.10 12:38\n\t\t\t\t\t\t108 bouton (disabled) …\n\t\t\t\t26 volet ID: MessagesScroll\n\t\t\t\t\t27 liste ID: MessagesList\n\t\t\t\t76 modifier (disabled, settable, string) Tape ta question... Value: Dans le document « Validation/Guide-Validation.pdf », quel est le code ORION ? Cite la page. ID: InputBox\n\t\t\t\t77 bouton Annuler ID: SendCancelButton\n\t\t78 barre de titre (settable, string) Value: SAAIA\n\t\t\t79 barre de menus Système ID: MenuBar\n\t\t\t\t80 élément de menu Système\n\t\t\t81 Bouton Réduire\n\t\t\t82 Bouton Agrandir\n\t\t\t83 Bouton Fermer\n\nThe focused UI element is 76 modifier (disabled, settable, string) Tape ta question... Value: Dans le document « Validation/Guide-Validation.pdf », quel est le code ORION ? Cite la page. ID: InputBox."
+  },
+  "screenshots": [
+    "29-qwen-document-question-start-0.png"
+  ]
+}

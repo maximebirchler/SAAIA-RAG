@@ -1,0 +1,10 @@
+{
+  "failuresScopedToUserMessages": true,
+  "schemaVersion": "saaia-winui-storage-proxy.v1",
+  "controlPath": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\local-fixture-02\\runtime\\storage-proxy-control.json",
+  "databaseModifiedForInjection": false,
+  "upstreamUrl": "http://127.0.0.1:5127",
+  "proxyUrl": "http://127.0.0.1:5147",
+  "actualUserConfigurationModified": false,
+  "backendCodeModified": false
+}

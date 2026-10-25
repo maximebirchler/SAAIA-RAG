@@ -1,0 +1,40 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="2dced492-639a-474b-9f1e-97ae92cb1ef3" name="maxim@MAXBI 2026-10-25 13:25:03" runUser="MAXBI\maxim" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-25T13:25:03.2004964+01:00" queuing="2026-10-25T13:25:03.2004966+01:00" start="2026-10-25T13:25:02.5187605+01:00" finish="2026-10-25T13:25:03.2044807+01:00" />
+  <TestSettings name="default" id="e9fa813e-8f60-4f8b-9974-1e5fc0fa55dd">
+    <Deployment runDeploymentRoot="maxim_MAXBI_2026-10-25_13_25_03" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="b90c04cd-3aef-407d-ac6e-6e3bfa0f519d" testId="7b1851c4-656b-678f-b978-4692173aed08" testName="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests.Source_parser_reports_malformed_input_and_visible_source_count_without_document_text" computerName="MAXBI" duration="00:00:00.0419479" startTime="2026-10-25T13:25:03.0802198+01:00" endTime="2026-10-25T13:25:03.0802287+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b90c04cd-3aef-407d-ac6e-6e3bfa0f519d" />
+    <UnitTestResult executionId="017b8bb0-f986-4bea-a098-b345f2c4f5b4" testId="a91afdd5-652a-193f-3b8e-0e7e8c2d655d" testName="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests.Standalone_advanced_service_correlates_retry_poll_and_failure_without_llm_or_orchestrator" computerName="MAXBI" duration="00:00:00.0594628" startTime="2026-10-25T13:25:03.1395049+01:00" endTime="2026-10-25T13:25:03.1395050+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="017b8bb0-f986-4bea-a098-b345f2c4f5b4" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests.Source_parser_reports_malformed_input_and_visible_source_count_without_document_text" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="7b1851c4-656b-678f-b978-4692173aed08">
+      <Execution id="b90c04cd-3aef-407d-ac6e-6e3bfa0f519d" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests" name="Source_parser_reports_malformed_input_and_visible_source_count_without_document_text" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests.Standalone_advanced_service_correlates_retry_poll_and_failure_without_llm_or_orchestrator" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="a91afdd5-652a-193f-3b8e-0e7e8c2d655d">
+      <Execution id="017b8bb0-f986-4bea-a098-b345f2c4f5b4" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests" name="Standalone_advanced_service_correlates_retry_poll_and_failure_without_llm_or_orchestrator" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="7b1851c4-656b-678f-b978-4692173aed08" executionId="b90c04cd-3aef-407d-ac6e-6e3bfa0f519d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a91afdd5-652a-193f-3b8e-0e7e8c2d655d" executionId="017b8bb0-f986-4bea-a098-b345f2c4f5b4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Les résultats ne figurent pas dans une liste" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="Tous les résultats chargés" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="2" executed="2" passed="2" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 8.0.27)&#xD;
+[xUnit.net 00:00:00.08]   Discovering: SAAIA.Client.ToolAgent.Tests&#xD;
+[xUnit.net 00:00:00.26]   Discovered:  SAAIA.Client.ToolAgent.Tests&#xD;
+[xUnit.net 00:00:00.27]   Starting:    SAAIA.Client.ToolAgent.Tests&#xD;
+[xUnit.net 00:00:00.39]   Finished:    SAAIA.Client.ToolAgent.Tests&#xD;
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

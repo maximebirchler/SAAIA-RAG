@@ -1,0 +1,112 @@
+  SAAIA.Contracts -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\contracts\SAAIA.Contracts\bin\Release\net8.0\SAAIA.Contracts.dll
+  SAAIA.Contracts -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\contracts\SAAIA.Contracts\bin\testhooks\AnyCPU\Release\SAAIA.Contracts.dll
+  SAAIA.Client.Core -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.Core\bin\testhooks\AnyCPU\Release\SAAIA.Client.Core.dll
+  SAAIA.Client.WinUI -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.WinUI\bin\testhooks\AnyCPU\Release\SAAIA.Client.WinUI.dll
+  SAAIA.Client.ToolAgent.Tests -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll
+Série de tests pour C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll (.NETCoreApp,Version=v8.0)
+Version de VSTest 17.11.1 (x64)
+
+Démarrage de l'exécution de tests, patientez...
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+[xUnit.net 00:00:00.41]     SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: "C:\\published\\Validation\\Guide-Validation.pdf", focused: True) [FAIL]
+[xUnit.net 00:00:00.41]     SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: "Validation\\Guide-Validation.pdf", focused: False) [FAIL]
+  Échoué SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: "C:\\published\\Validation\\Guide-Validation.pdf", focused: True) [1 ms]
+  Message d'erreur :
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "C:\\published\\Validation\\Guide-Validation."···
+Actual:   "Guide-Validation.pdf"
+           ↑ (pos 0)
+  Arborescence des appels de procédure :
+     at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(String reference, Boolean focused) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs:line 63
+--- End of stack trace from previous location ---
+  Échoué SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: "Validation\\Guide-Validation.pdf", focused: False) [< 1 ms]
+  Message d'erreur :
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Validation\\Guide-Validation.pdf"
+Actual:   "Guide-Validation.pdf"
+           ↑ (pos 0)
+  Arborescence des appels de procédure :
+     at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(String reference, Boolean focused) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs:line 63
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.41]     SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: "Validation/Guide-Validation.pdf", focused: True) [FAIL]
+[xUnit.net 00:00:00.41]     SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: "C:\\published\\Validation\\Guide-Validation.pdf", focused: False) [FAIL]
+[xUnit.net 00:00:00.41]     SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: "Validation/Guide-Validation.pdf", focused: False) [FAIL]
+[xUnit.net 00:00:00.41]     SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: "Validation\\Guide-Validation.pdf", focused: True) [FAIL]
+[xUnit.net 00:00:00.42]     SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: "Internal Docs/Guide-Validation.pdf") [FAIL]
+[xUnit.net 00:00:00.42]     SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: "Validation/Guide-Validation.pdf") [FAIL]
+[xUnit.net 00:00:00.42]     SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: "Validation\\Guide-Validation.pdf") [FAIL]
+  Échoué SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: "Validation/Guide-Validation.pdf", focused: True) [< 1 ms]
+  Message d'erreur :
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Validation/Guide-Validation.pdf"
+Actual:   "Guide-Validation.pdf"
+           ↑ (pos 0)
+  Arborescence des appels de procédure :
+     at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(String reference, Boolean focused) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs:line 63
+--- End of stack trace from previous location ---
+  Échoué SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: "C:\\published\\Validation\\Guide-Validation.pdf", focused: False) [< 1 ms]
+  Message d'erreur :
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "C:\\published\\Validation\\Guide-Validation."···
+Actual:   "Guide-Validation.pdf"
+           ↑ (pos 0)
+  Arborescence des appels de procédure :
+     at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(String reference, Boolean focused) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs:line 63
+--- End of stack trace from previous location ---
+  Échoué SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: "Validation/Guide-Validation.pdf", focused: False) [< 1 ms]
+  Message d'erreur :
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Validation/Guide-Validation.pdf"
+Actual:   "Guide-Validation.pdf"
+           ↑ (pos 0)
+  Arborescence des appels de procédure :
+     at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(String reference, Boolean focused) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs:line 63
+--- End of stack trace from previous location ---
+  Échoué SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: "Validation\\Guide-Validation.pdf", focused: True) [< 1 ms]
+  Message d'erreur :
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Validation\\Guide-Validation.pdf"
+Actual:   "Guide-Validation.pdf"
+           ↑ (pos 0)
+  Arborescence des appels de procédure :
+     at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(String reference, Boolean focused) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs:line 63
+--- End of stack trace from previous location ---
+  Échoué SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: "Internal Docs/Guide-Validation.pdf") [6 ms]
+  Message d'erreur :
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Internal Docs/Guide-Validation.pdf"
+Actual:   "Guide-Validation.pdf"
+           ↑ (pos 0)
+  Arborescence des appels de procédure :
+     at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(String path) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs:line 32
+--- End of stack trace from previous location ---
+  Échoué SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: "Validation/Guide-Validation.pdf") [< 1 ms]
+  Message d'erreur :
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Validation/Guide-Validation.pdf"
+Actual:   "Guide-Validation.pdf"
+           ↑ (pos 0)
+  Arborescence des appels de procédure :
+     at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(String path) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs:line 32
+--- End of stack trace from previous location ---
+  Échoué SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: "Validation\\Guide-Validation.pdf") [< 1 ms]
+  Message d'erreur :
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Validation\\Guide-Validation.pdf"
+Actual:   "Guide-Validation.pdf"
+           ↑ (pos 0)
+  Arborescence des appels de procédure :
+     at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(String path) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs:line 32
+--- End of stack trace from previous location ---
+Fichier de résultats : C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\artifacts\winui-validation-20261025\document-intake-path-red-compiled\Client-7540feee27664825948a8a24b9989658.trx
+
+Échoué!  - échec :     9, réussite :    17, ignorée(s) :     0, total :    26, durée : 33 ms - SAAIA.Client.ToolAgent.Tests.dll (net8.0)

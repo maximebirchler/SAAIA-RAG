@@ -1,0 +1,30 @@
+{
+  "modelExecuted": false,
+  "schemaVersion": "saaia-winui-source-card-session-fixture.v1",
+  "contentSha256": "a8b14d96aec1e4b4e56af41e7412c5af5c7e380ecf3ea5f691c35d63c11badb6",
+  "backend": "production_loopback_backend",
+  "canonicalSource": {
+    "docPath": "Validation/Guide-Validation.pdf",
+    "chunkId": "a0303851-13ee-5ddc-9aeb-fd084d56344e",
+    "pageStart": 2,
+    "pageEnd": 2,
+    "docId": "aca1a813-c593-59e5-bdf2-1cd12d1b8e40",
+    "sourceHash": "840c999b2bfe8305aee9fdddf05f01b1686f3ec92eeb76cfe5c5af9354672121",
+    "revisionId": "7ac0ec90-3ddf-51ec-80b9-f65e8a81f79b"
+  },
+  "sessionId": "3b26721e-2cfe-4351-88c8-3132c4805614",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "snapshotSha256": "FD5EEBAE05ABB91A7A0AE4DBE8F594C34DA9D36F3E6567CA3E550E04B69652FC",
+  "pdfPageRenderingValidated": false,
+  "role": "assistant",
+  "marker": "Fixture UI sources — résultat contrôlé, aucune réponse modèle",
+  "advancedTerminalStateInjected": false,
+  "snapshot": "chat-store-snapshots/20261025T124142123Z-source-card-seeded.json",
+  "uiCardRenderingValidated": false,
+  "sessionTitle": "Fixture UI sources — carte page 2",
+  "sourcesJsonSha256": "a6b5689f51a06a59762987bc23fe3d325d600272264aab1e8afe17f6e70dbf87",
+  "userId": "018a790c-01e0-4b04-b413-d09a80d2daab",
+  "seededAtUtc": "2026-10-25T12:41:42.2208583+00:00",
+  "messageId": "1ef22d3a-7e96-4c64-9150-e91a3715c47b",
+  "durableMessageCount": 1
+}

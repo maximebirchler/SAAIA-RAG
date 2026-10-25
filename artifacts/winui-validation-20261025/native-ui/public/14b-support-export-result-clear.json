@@ -1,0 +1,38 @@
+{
+  "atUtc": "2026-10-25T11:48:30.256Z",
+  "name": "14b-support-export-result-clear",
+  "description": "Support archive path is visible in the real settings dialog; original export also opened Explorer.",
+  "window": {
+    "app": "process:C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+    "id": 12517960,
+    "title": "SAAIA"
+  },
+  "accessibility": {
+    "focused_element": "68 texte Ligne un Ligne trois",
+    "tree": "Window: \"SAAIA\", App: SAAIA.Client.WinUI.exe.\n\t0 fenêtre SAAIA Secondary Actions: Raise\n\t\t1 volet Non Client Input Sink Window\n\t\t2 volet AppWindow Custom Title Bar\n\t\t\t3 Bouton Minimize ID: Minimize\n\t\t\t4 Bouton Maximize ID: Maximize\n\t\t\t5 Bouton Close ID: Close\n\t\t6 volet\n\t\t\t7 volet\n\t\t\t\t8 image\n\t\t\t\t9 texte SAAIA\n\t\t\t\t10 bouton Discussions ID: ChatsToggleButton\n\t\t\t\t11 bouton Configuration ID: SetupButton\n\t\t\t\t12 bouton Aide ID: HeaderHelpButton\n\t\t\t\t\t13 texte ?\n\t\t\t\t14 bouton Paramètres ID: HeaderSettingsButton\n\t\t\t\t15 texte Discussions ID: ChatsHeaderText\n\t\t\t\t16 bouton Nouveau ID: NewChatButton\n\t\t\t\t17 liste ID: SessionsList\n\t\t\t\t\t114 élément de liste (selectable) SAAIA.Client.WinUI.Models.ChatSessionItem\n\t\t\t\t\t\t115 texte Ligne un Ligne trois\n\t\t\t\t\t\t116 texte 25.10 12:46\n\t\t\t\t\t\t117 bouton …\n\t\t\t\t\t118 élément de liste (selectable) SAAIA.Client.WinUI.Models.ChatSessionItem\n\t\t\t\t\t\t119 texte Validation A — interruption conservée\n\t\t\t\t\t\t120 texte 25.10 12:38\n\t\t\t\t\t\t121 bouton …\n\t\t\t\t18 volet ID: MessagesScroll\n\t\t\t\t\t19 liste ID: MessagesList\n\t\t\t\t\t\t67 élément de liste SAAIA.Client.WinUI.Models.ChatMessageItem\n\t\t\t\t\t\t\t68 texte Ligne un Ligne trois\n\t\t\t\t\t\t\t69 texte 25.10 12:41\n\t\t\t\t\t\t\t70 bouton ID: CopyBtn\n\t\t\t\t\t\t71 élément de liste SAAIA.Client.WinUI.Models.ChatMessageItem\n\t\t\t\t\t\t\t62 image\n\t\t\t\t\t\t\t63 texte Réponse synthétique de validation WinUI. Aucun modèle payant utilisé. ID: Rtb\n\t\t\t\t\t\t\t65 bouton ID: CopyBtn\n\t\t\t\t\t\t\t66 texte 25.10 12:41\n\t\t\t\t\t\t106 élément de liste SAAIA.Client.WinUI.Models.ChatMessageItem\n\t\t\t\t\t\t\t107 image\n\t\t\t\t\t\t\t111 texte Il y a actuellement 0 catégorie(s) de premier niveau sur le serveur. ID: Rtb\n\t\t\t\t\t\t\t112 bouton ID: CopyBtn\n\t\t\t\t\t\t\t113 texte 25.10 12:46\n\t\t\t\t20 modifier (settable, string) Tape ta question... ID: InputBox\n\t\t\t\t21 bouton Envoyer ID: SendCancelButton\n\t\t\t\t122 volet\n\t\t\t\t\t123 texte Paramètres\n\t\t\t\t\t124 texte Réglages de base pour l'interface et l'assistant local.\n\t\t\t\t\t125 bouton Général\n\t\t\t\t\t126 bouton Options avancées\n\t\t\t\t\t147 texte Support, réparation et diagnostic.\n\t\t\t\t\t148 texte Dépannage assistant\n\t\t\t\t\t149 bouton Installer / réparer l'assistant…\n\t\t\t\t\t150 texte Diagnostic exporté : C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\local-fixture-02\\runtime\\client-data\\support\\support-bundle_20261025_124800_287_fa652a497a30491dbdbc86b6c619f6ae.zip\n\t\t\t\t\t151 texte Support\n\t\t\t\t\t152 bouton Exporter diagnostic…\n\t\t\t\t\t153 texte Le diagnostic ne contient pas la clé API (elle est masquée).\n\t\t\t\t\t154 barre de défilement (settable, float) Vertical Value: 0 ID: VerticalScrollBar\n\t\t\t\t141 bouton Appliquer\n\t\t\t\t142 bouton Fermer\n\t\t28 barre de titre (settable, string) Value: SAAIA\n\t\t\t29 barre de menus Système ID: MenuBar\n\t\t\t\t155 élément de menu Système\n\t\t\t31 Bouton Réduire\n\t\t\t32 Bouton Agrandir\n\t\t\t33 Bouton Fermer\n\nThe focused UI element is 68 texte Ligne un Ligne trois."
+  },
+  "screenshots": [
+    "../14b-support-export-result-clear-0.png"
+  ],
+  "publicProjection": {
+    "schemaVersion": "saaia.winui.native-observation-public-projection.v1",
+    "createdAtUtc": "2026-10-25T13:45:48.678Z",
+    "originalFileName": "14b-support-export-result-clear.json",
+    "originalSha256": "A618CFDC49015D77D0893D067AE5CE4860284574CDD752270D4B0EFB03D2ED79",
+    "originalObservationUnmodified": true,
+    "purpose": "Adresses d’infrastructure privée masquées si présentes ; capture claire conservée sur autorisation explicite de l’opérateur.",
+    "redactions": {
+      "tailnetUrls": 0,
+      "lanUrls": 0,
+      "bareTailnetHosts": 0,
+      "bareLanAddresses": 0
+    },
+    "loopbackUrlsPreserved": true,
+    "canonicalDocumentIdentitiesPreserved": true,
+    "screenshotsReferenceBase": "relative_to_this_public_json",
+    "screenshotsRemoved": 0,
+    "screenshotsPolicy": "OPERATOR_PREVIOUSLY_INSPECTED_CLEAR_OR_MASKED_SYNTHETIC_KEY_CAPTURE",
+    "imageAnalysisPerformedByProjectionAuthor": false,
+    "rawOriginalRequiredForPublicEvidence": false
+  }
+}

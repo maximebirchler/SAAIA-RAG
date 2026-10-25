@@ -1,0 +1,228 @@
+{
+  "requestId": "00-93391f11b8d5bb677ff91f59dfaca0b3-4a32580e4da62b31-00",
+  "query": "ORION",
+  "queryNormalized": "ORION",
+  "topK": 5,
+  "minScore": 0.25,
+  "candidates": 50,
+  "maxPerDoc": 2,
+  "maxPerPage": 1,
+  "metrics": {
+    "tookMs": 216,
+    "returned": 2,
+    "exactMatchReturned": 0,
+    "denseReturned": 0,
+    "sparseReturned": 2,
+    "linkedReturned": 0,
+    "retrieversUsed": [
+      "sparse_bm25"
+    ],
+    "dataHash": "3ea4654b1b0ff900095a67b75f6496c2ad67d8451e3a7603dffa2d16f0568384",
+    "ttlSeconds": 600,
+    "teiMs": 2,
+    "rerankMs": 0,
+    "sparseMs": 41,
+    "qdrantMs": 7,
+    "candidatesEvaluated": 50,
+    "exactMs": 43,
+    "quotedTitleMs": 1,
+    "localTitleTokenMs": 0,
+    "titleAnchorRouteMs": 25,
+    "sparsePhaseMs": 59,
+    "denseMs": 11,
+    "profileMs": 29,
+    "linkedMs": 19,
+    "fusionMs": 15,
+    "rerankPhaseMs": 0,
+    "selectionMs": 23
+  },
+  "items": [
+    {
+      "score": 0.595765,
+      "docId": "14381074-14ae-52a7-9d8b-58eea4a50585",
+      "docName": "Guide-Validation.pdf",
+      "docPath": "Archive/Guide-Validation.pdf",
+      "category": "archive",
+      "docLanguage": "und",
+      "pageStart": 1,
+      "pageEnd": 1,
+      "chunkId": "6366d25c-955f-56de-93ac-20d13099af2c",
+      "chunkIndex": 0,
+      "text": "Archive synthétique distincte. Son code ORION est 9999. Ce fichier a volontairement le même nom que le guide actif mais un autre chemin, pour valider la résolution exacte et éviter une ouverture ambiguë.",
+      "retriever": "sparse_bm25",
+      "provenance": "retriever:sparse_bm25",
+      "exactMatchHit": false,
+      "sourceHash": "224c0c983004319f143023ac666762a4fa64c495e5c6f68a0de8d29099959662",
+      "revisionId": "22ba5f2e-ecf3-5ed4-a1bd-a8c23502352f",
+      "embeddingBasis": "sparse_bm25_v1",
+      "chunkType": "contextual_text_v1",
+      "sectionTitle": "Code de validation ORION",
+      "headingPath": "Code de validation ORION",
+      "provenanceInfo": {
+        "channel": "sparse_bm25",
+        "label": "retriever:sparse_bm25",
+        "sourceHash": "224c0c983004319f143023ac666762a4fa64c495e5c6f68a0de8d29099959662",
+        "chunkId": "6366d25c-955f-56de-93ac-20d13099af2c",
+        "pageStart": 1,
+        "pageEnd": 1
+      },
+      "context": {
+        "chunkType": "contextual_text_v1",
+        "sectionTitle": "Code de validation ORION",
+        "headingPath": "Code de validation ORION",
+        "contentRole": "content"
+      },
+      "categoryPath": "Archive",
+      "snippet": "Archive synthétique distincte. Son code ORION est 9999. Ce fichier a volontairement le même nom que le guide actif mais un autre chemin, pour valider la résolution exacte et éviter une ouverture ambiguë.",
+      "hasTable": false,
+      "hasWarning": false,
+      "hypQuestionsMatched": true,
+      "extractionQuality": {
+        "ocrAttempted": false,
+        "ocrApplied": false,
+        "documentQualityStatus": "manual_review_empty_text",
+        "documentExtractionConfidence": 0.15,
+        "documentManualReviewRecommended": true,
+        "pageQualityStatus": "page_ok_indexed_by_context",
+        "pageExtractionConfidence": 0.84,
+        "pageManualReviewRecommended": false,
+        "textStatus": "empty_text",
+        "ocrRecommended": true,
+        "signals": [
+          "no_text_extracted",
+          "ocr_recommended",
+          "no_text_on_page"
+        ],
+        "diagnosticSummary": {
+          "pageCount": 1,
+          "textPageCount": 0,
+          "emptyPageCount": 1,
+          "sparsePageCount": 0
+        }
+      },
+      "matchedContentCards": [
+        {
+          "title": "Code de validation ORION",
+          "contentCardId": "265f4440-c930-3bad-fe79-f4468b5199aa",
+          "pageStart": 1,
+          "pageEnd": 1,
+          "kind": "chunk_section_title",
+          "signals": [
+            "chunk_section_title",
+            "same_chunk_source_text"
+          ],
+          "evidence": {
+            "schemaVersion": "content_card_evidence_v1",
+            "sourceText": "Archive synthétique distincte. Son code ORION est 9999. Ce fichier a volontairement le même nom que le guide actif mais un autre chemin, pour valider la résolution exacte et éviter une ouverture ambiguë."
+          }
+        }
+      ],
+      "selectionHints": {
+        "evidenceRole": "low_confidence",
+        "actionabilityScore": 0,
+        "supportScore": 0,
+        "fragmentScore": 8,
+        "navigationScore": 0,
+        "qualityPenalty": 23
+      }
+    },
+    {
+      "score": 0.589608,
+      "docId": "aca1a813-c593-59e5-bdf2-1cd12d1b8e40",
+      "docName": "Guide-Validation.pdf",
+      "docPath": "Validation/Guide-Validation.pdf",
+      "category": "validation",
+      "docLanguage": "und",
+      "pageStart": 2,
+      "pageEnd": 2,
+      "chunkId": "a0303851-13ee-5ddc-9aeb-fd084d56344e",
+      "chunkIndex": 1,
+      "text": "Code de validation ORION : 4826. Ce code est fictif et ne représente aucun secret. Le guide sert uniquement à vérifier lecture, citations et ouverture de la deuxième page depuis le client WinUI.",
+      "retriever": "sparse_bm25",
+      "provenance": "retriever:sparse_bm25",
+      "exactMatchHit": false,
+      "sourceHash": "840c999b2bfe8305aee9fdddf05f01b1686f3ec92eeb76cfe5c5af9354672121",
+      "revisionId": "7ac0ec90-3ddf-51ec-80b9-f65e8a81f79b",
+      "embeddingBasis": "sparse_bm25_v1",
+      "chunkType": "contextual_text_v1",
+      "sectionTitle": "Code de validation ORION",
+      "headingPath": "Code de validation ORION",
+      "provenanceInfo": {
+        "channel": "sparse_bm25",
+        "label": "retriever:sparse_bm25",
+        "sourceHash": "840c999b2bfe8305aee9fdddf05f01b1686f3ec92eeb76cfe5c5af9354672121",
+        "chunkId": "a0303851-13ee-5ddc-9aeb-fd084d56344e",
+        "pageStart": 2,
+        "pageEnd": 2
+      },
+      "context": {
+        "chunkType": "contextual_text_v1",
+        "sectionTitle": "Code de validation ORION",
+        "headingPath": "Code de validation ORION",
+        "contentRole": "content"
+      },
+      "categoryPath": "Validation",
+      "snippet": "Code de validation ORION : 4826. Ce code est fictif et ne représente aucun secret. Le guide sert uniquement à vérifier lecture, citations et ouverture de la deuxième page depuis le client WinUI.",
+      "hasTable": false,
+      "hasWarning": false,
+      "hypQuestionsMatched": true,
+      "extractionQuality": {
+        "ocrAttempted": false,
+        "ocrApplied": false,
+        "documentQualityStatus": "manual_review_empty_text",
+        "documentExtractionConfidence": 0.15,
+        "documentManualReviewRecommended": true,
+        "pageQualityStatus": "page_ok_indexed_by_context",
+        "pageExtractionConfidence": 0.84,
+        "pageManualReviewRecommended": false,
+        "textStatus": "empty_text",
+        "ocrRecommended": true,
+        "signals": [
+          "no_text_extracted",
+          "ocr_recommended",
+          "no_text_on_page"
+        ],
+        "diagnosticSummary": {
+          "pageCount": 2,
+          "textPageCount": 0,
+          "emptyPageCount": 2,
+          "sparsePageCount": 0
+        }
+      },
+      "matchedContentCards": [
+        {
+          "title": "Code de validation ORION",
+          "contentCardId": "a8b325c0-1516-0e23-6369-5f11c84a759b",
+          "pageStart": 2,
+          "pageEnd": 2,
+          "kind": "chunk_section_title",
+          "signals": [
+            "chunk_section_title",
+            "same_chunk_source_text"
+          ],
+          "evidence": {
+            "schemaVersion": "content_card_evidence_v1",
+            "sourceText": "Code de validation ORION : 4826. Ce code est fictif et ne représente aucun secret. Le guide sert uniquement à vérifier lecture, citations et ouverture de la deuxième page depuis le client WinUI."
+          }
+        }
+      ],
+      "selectionHints": {
+        "evidenceRole": "low_confidence",
+        "actionabilityScore": 0,
+        "supportScore": 0,
+        "fragmentScore": 8,
+        "navigationScore": 0,
+        "qualityPenalty": 23
+      }
+    }
+  ],
+  "guidance": {
+    "behavior": "answer_with_caveat",
+    "reason": "source_quality_requires_manual_review_caveat",
+    "responseShape": "qualified_answer",
+    "qualificationNote": "Les elements retrouves (VALIDATION) semblent exploitables, mais au moins une source selectionnee a une qualite d'extraction ou OCR faible. Reponds depuis les passages cites et signale l'incertitude si une valeur, une formulation ou un detail de page semble ambigu.",
+    "matchedDocHints": [
+      "VALIDATION"
+    ]
+  }
+}

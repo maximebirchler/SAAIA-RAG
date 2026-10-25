@@ -1,0 +1,1108 @@
+{
+  "schemaVersion": "saaia-winui-execution-matrix-final-evidence-integrity.v1",
+  "checkedAtUtc": "2026-10-25T13:38:56.1233255+00:00",
+  "matrix": "execution-matrix-final.json",
+  "matrixSha256": "1802176073E8D8E898F11F4CE7FCF6F8785CB2FECB5BE4F6095E05DD11CC38A8",
+  "scenarioCount": 33,
+  "scenarioIdsUnique": true,
+  "evidenceCount": 104,
+  "declaredScreenshotCount": 78,
+  "missingReferences": [],
+  "missingDeclaredScreenshots": [],
+  "notesLinkCount": 5,
+  "missingNotesLinks": [],
+  "passed": true,
+  "limit": "File/capture existence and hashes only. Does not replace native observations, turn fixture quality into model quality or approve unexecuted deletion.",
+  "inventory": [
+    {
+      "path": "client-launch-16-build06-main.json",
+      "exists": true,
+      "sha256": "8BFD6B48C525F91CE6349CD6B77F6B1F0D5CB65D797356B3153466BBED70BA51",
+      "screenshots": []
+    },
+    {
+      "path": "client-launch-21-build08-missing-model.json",
+      "exists": true,
+      "sha256": "37FD123061236E99CC819BB273242C98B463C8F197F91884061D134AF3567E02",
+      "screenshots": []
+    },
+    {
+      "path": "client-launch-22-build08-final-support.json",
+      "exists": true,
+      "sha256": "FE14FCC436037EF1B0F478BB3149EE872F5968CDB056362EEFDB5ED6F65BC819",
+      "screenshots": []
+    },
+    {
+      "path": "document-intake-path-green/proof.json",
+      "exists": true,
+      "sha256": "BC23263E1D979782665DAFD0E50F5EE0E9095EE8A3D3493280D81EDDDC6EBC61",
+      "screenshots": []
+    },
+    {
+      "path": "final-core-client-unit-build08/manifest.json",
+      "exists": true,
+      "sha256": "F9C8BF5895F7E9C1B75E1B32FB82BD36D9D2D63A1C9877B23E2DBA2DA198711A",
+      "screenshots": []
+    },
+    {
+      "path": "full-client-unit-acceptance-summary.json",
+      "exists": true,
+      "sha256": "65A451525D29161A3AD3A0B350946E556D1F665DA1119137D698C3DF89D6AF0D",
+      "screenshots": []
+    },
+    {
+      "path": "full-client-unit-build08-acceptance-summary.json",
+      "exists": true,
+      "sha256": "ADA4E73B5C388D76DA029EA39F88993CA5A8F6442A95FF31425B5F4BE9114105",
+      "screenshots": []
+    },
+    {
+      "path": "journey-matrix.json",
+      "exists": true,
+      "sha256": "EC2C7EA4BCB09DE29093BF3FD25D346EF7EBA829C0488EAB03EC8D85876BF18C",
+      "screenshots": []
+    },
+    {
+      "path": "local-fixture-02/advanced-polling-faults-proof.json",
+      "exists": true,
+      "sha256": "618D905C7B5C63065E58FB1FAC2DF8DCD0CD774EB3554893AAD5429176434984",
+      "screenshots": []
+    },
+    {
+      "path": "local-fixture-02/advanced-resume-proof.json",
+      "exists": true,
+      "sha256": "D7E017F1CDB39B4AF8E101F7557959B451F7776AF3FC1AAB1069D99FC8F37FD7",
+      "screenshots": []
+    },
+    {
+      "path": "local-fixture-02/persistence-deadline-proof.json",
+      "exists": true,
+      "sha256": "D8328590B9236118538FCDB621891C7BCC9A15F0A461065B23AB80E7350969B6",
+      "screenshots": []
+    },
+    {
+      "path": "local-fixture-02/source-absence-restored-proof.json",
+      "exists": true,
+      "sha256": "2D2974E07D89D445D86251033DA417F1F31FA150FD4861EC14A9C63CEB5CC9F8",
+      "screenshots": []
+    },
+    {
+      "path": "local-fixture-02/source-selection-two-message-readback-proof.json",
+      "exists": true,
+      "sha256": "E71A69542583AFF40D5D8001D95A257B9C439DBEAB0FB10E0B8738C0759B20E1",
+      "screenshots": []
+    },
+    {
+      "path": "local-fixture-02/support-bundle-review-build04-accepted.json",
+      "exists": true,
+      "sha256": "420DF55F918813BD6A9F874D7C153CD390882182334B5E91E7B49A527BE37188",
+      "screenshots": []
+    },
+    {
+      "path": "local-fixture-02/support-bundle-review-build08-final.json",
+      "exists": true,
+      "sha256": "16A9D5A1BF7C70EFE53190CC8A6B7D4719B24D98DD9D465D4A9BC5FFE703EF04",
+      "screenshots": []
+    },
+    {
+      "path": "native-qwen-document-path-causal-proof/proof.json",
+      "exists": true,
+      "sha256": "3B4DDD9E87DB1186E46A01C08E3A5279DEC962013482B8D2DB93F545EAC70C18",
+      "screenshots": []
+    },
+    {
+      "path": "native-ui/01-connected-empty.json",
+      "exists": true,
+      "sha256": "4E08BD70D322BCE3C85DE397622B83CD1A93F1416BC222308B9D907012FD71E1",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "239565664756C6E039F710A39561DF8486ECC9D913FE07C6629EF9FA24CC26B9",
+          "path": "native-ui/01-connected-empty-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/02-first-response.json",
+      "exists": true,
+      "sha256": "93431F2F09E1FC908420A294A567AF1B31BA49E7AB4C2B13FD82EB1D3A0F05BD",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "94DF18A180CC664321B4C1AB164DDBEF16BA8630449B15F976C642D1BBA6B622",
+          "path": "native-ui/02-first-response-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/03-settings-during-active-turn-before-fix.json",
+      "exists": true,
+      "sha256": "DF3312240ABF396CA79A5CABA86A71580DC8DE21FEA674B8B97A4DCA25D18BE9",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "62BE4E51585F6C1B8A4CAB152AE1172F30BC51818E3000B110E91597BD5A13E5",
+          "path": "native-ui/03-settings-during-active-turn-before-fix-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/04-cancel-requested.json",
+      "exists": true,
+      "sha256": "F041F59AB3DA012971235A8FF47717A25AB72AE77B16D9EF8D07F38EC113EFEC",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "2412AE8A60B8052BC4496A1CF7AFC7C7FBAB37A164BDCD577289AF3233DB775F",
+          "path": "native-ui/04-cancel-requested-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/05-new-session.json",
+      "exists": true,
+      "sha256": "03DF84AB1E2C7131ECDB389CA18496403A469D6672E2F22EEB91AEEA24144EB7",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "6A00EC6017DFEC62F79C40B73296C4F759F9C45B011E59F24613260775C10AEB",
+          "path": "native-ui/05-new-session-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/06-rename-inactive-keeps-active.json",
+      "exists": true,
+      "sha256": "2F7E3DBF961D252D9E3ADA91FEEF83271D19033B3178F6F7F5DD9F7B867E9AD0",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "7F875673DAC373DDD1A78C8013800095A4CF479F5F85B20C38C531BC4D2FA8C3",
+          "path": "native-ui/06-rename-inactive-keeps-active-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/07-multiline-before-send.json",
+      "exists": true,
+      "sha256": "AB464F12A07C1C0230AFFB9ACFE71E4843718B0B17D5D64AC073D1233D22F145",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "FFE060EDBD60D87DC58B75F7252D63EC6B289E7E32FB39CD2966EC3E546ED347",
+          "path": "native-ui/07-multiline-before-send-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/08-multiline-single-response.json",
+      "exists": true,
+      "sha256": "AF89DF5ED29B6B5236CF5A3D93E5897BD6A62AC7582B14782B341A3AABD6B991",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "B3C08D30ABBF3D2B7D31CA649FD42F0BF791F13870BE146A7122816AB34B76A4",
+          "path": "native-ui/08-multiline-single-response-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/09-autoconnect-off-before-fix.json",
+      "exists": true,
+      "sha256": "33052E995D3C091ACEE635CFD2229AB3D6DD5F0F523246C9534CD9F1DD80D565",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "70B2F204ED9B9195C98086BBC522FA2183B23E4F2FED6D5982692D4B4E45D5BC",
+          "path": "native-ui/09-autoconnect-off-before-fix-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/10-storage-failure-before-fix.json",
+      "exists": true,
+      "sha256": "85B11289B4CA5EA9BE85AF2BEB8AFCB031EABF7DC2003B0425C14040CFC645E7",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "82593AB2FB3266C9718FC9A08BAAA83BFB6E4F4B1FD91AFD1EEA595198A62E74",
+          "path": "native-ui/10-storage-failure-before-fix-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/11-interrupted-session-reloaded.json",
+      "exists": true,
+      "sha256": "1E641AB265AC02A2B91C30B9E7F3B697908D5C12A5E7CB6D31EBB63109A176A2",
+      "screenshots": []
+    },
+    {
+      "path": "native-ui/12-failed-draft-disappears-on-reload.json",
+      "exists": true,
+      "sha256": "143E5EBB31CB99C6C4C4BF61E59C73B4E7C6445542E8E60664D7C06E2BE8510E",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "179B5AC6C0EDB0F2C845BFD1D318A685D9770DAE64559A32EC0488CD960CD0E1",
+          "path": "native-ui/12-failed-draft-disappears-on-reload-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/13-guided-catalog-result.json",
+      "exists": true,
+      "sha256": "E9FB4B7E725B40E1871732BF9850CB40EF5FE98F12DD5E87A995EED9186323F8",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "639E8C98989293D953BB5012BBF143EF0F8F335F744AD136202930FFE7955D95",
+          "path": "native-ui/13-guided-catalog-result-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/14-support-export-result-initial.json",
+      "exists": true,
+      "sha256": "066174308594BFA7078C202C78FD9C6758356F4F74B4636E7D9E0ADB7AAA7C6B",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "9D520CF6B6ABDBC9EF4DC0FACFDCF30F0EF2F165D096415BD9D80AADB6CFE8B4",
+          "path": "native-ui/14-support-export-result-initial-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/14b-support-export-result-clear.json",
+      "exists": true,
+      "sha256": "A618CFDC49015D77D0893D067AE5CE4860284574CDD752270D4B0EFB03D2ED79",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "9B10C9B89D004BC7493229B54BE42335C70869B763BCD7EF31A7329BCFAD7045",
+          "path": "native-ui/14b-support-export-result-clear-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/15-english-light-theme.json",
+      "exists": true,
+      "sha256": "714852C21F76138E6F817208EB77042700A9D516059366B214F5BA6FADD0C217",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "2A19955F53CAC301333D53946288E70B3CCFF7526DDC336151E495C00D97CD74",
+          "path": "native-ui/15-english-light-theme-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/16b-manual-connect-after-fix-clear.json",
+      "exists": true,
+      "sha256": "4627042F46A5D30258FF22EB81E68C99171724AD9BF7DACC2FF139C75D5D01B5",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "3FBF767BBCBE274C4F1AFC8C20F845680567332DDF9EC8940F3A3D59D488675B",
+          "path": "native-ui/16b-manual-connect-after-fix-clear-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/17-manual-connect-success.json",
+      "exists": true,
+      "sha256": "91EAD25FA03BD29627C25C940B32A8246C8F05B8B85C815363D25D808CBCE103",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "A6A92915277392170BC95D7703FB0A2C17A105E866977028218CC1662C778418",
+          "path": "native-ui/17-manual-connect-success-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/19-retry-after-failure-succeeded.json",
+      "exists": true,
+      "sha256": "5E12FF52F73D6D88946C95FFEE4AA41BCED747322519D6FD368DC755F0BDCDD4",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "3ACF368E232AFE297D1F4513570CE5A10B791506A6AB5A7667E9E87F1FA72CBC",
+          "path": "native-ui/19-retry-after-failure-succeeded-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/20-persistence-pending-gated.json",
+      "exists": true,
+      "sha256": "4C4ED7906294ABF285F697236F0B5BD9FDF66A34036822F6085DDC13D31D02B7",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "B217F657B4A283F83E3ED9290CA2159F9A85C3FD07F7A9B91865CC717AF4B3AD",
+          "path": "native-ui/20-persistence-pending-gated-0.png"
+        },
+        {
+          "exists": true,
+          "sha256": "9301FDBA1333237E43C749E051C997A899D7675E55EE8B536963FFFB736647C7",
+          "path": "native-ui/20-persistence-pending-gated-1.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/21-cancel-during-user-storage.json",
+      "exists": true,
+      "sha256": "5250A781006BB05E9F9CB33007868ED31842AE46E7AE9AFF5E1061CBD9A6D282",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "5DDFA3D1DB338A73EAFE9B6C2708401BDA108934780F3C3556E700872B3D48C5",
+          "path": "native-ui/21-cancel-during-user-storage-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/22-storage-cancellation-settled.json",
+      "exists": true,
+      "sha256": "86CDA5D258EB94B5DF012D95E9FE223716BD0B149EFB598559CEE70738DA3C93",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "59A41F4E0D179EA52BA4E245DF0D5D2AC5B4CDADE409A3AF71EF5E63F7AC6268",
+          "path": "native-ui/22-storage-cancellation-settled-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/23-guided-catalog-two-categories.json",
+      "exists": true,
+      "sha256": "A4F9F667A28F0728B7F4ED5E7EC5EFABDB5A674A57390321B44D46C4B0EAFE1C",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "9AFDD472865D4E10616B6867EB31119BF08DA50ECE44EE6C0D13301382060A70",
+          "path": "native-ui/23-guided-catalog-two-categories-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/24-guided-document-search.json",
+      "exists": true,
+      "sha256": "8DF0952C3A55DEEA7EEE6760CBDFF80EDAC664F8CC971F0510D57121C24975F8",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "CBCF57005147573635C78CCEB68E37AB928986F65C2E6420D588ACA4062D3742",
+          "path": "native-ui/24-guided-document-search-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/25-two-distinct-document-links.json",
+      "exists": true,
+      "sha256": "FF0AE48EDA4F84C4C085E9A2EAACCE54586159AF294DD855B38A8AE80D56C197",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "AC2146A7A199393ECDEEF3E77AA52607C0312C835AECA116E88E42802F0E2389",
+          "path": "native-ui/25-two-distinct-document-links-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/26-pdf-link-page1.json",
+      "exists": true,
+      "sha256": "385B47B3CE4AD09D146E80279E15F0FBC74DDE5228E748703393F6032EE93C25",
+      "screenshots": []
+    },
+    {
+      "path": "native-ui/27-latest-production-connected-local-qwen.json",
+      "exists": true,
+      "sha256": "3C848B4921552A8DAEB58C6B71EF61EA150D004A390C36D65E7644F3126C4148",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "FED1F84E20566E61A536AEBECA3DEBD1B3E38F3349189DF9609805ED237803C2",
+          "path": "native-ui/27-latest-production-connected-local-qwen-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/28-storage-failure-visible-warning.json",
+      "exists": true,
+      "sha256": "E350E7DFF4C866A64C4AC1CE4D607FF37618E1170986C4E551ABEE36B5E61612",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "E3A48B7B59A5FA115F0BC68C728F5FB10CDB913AFA19C708E03FF7452558A2C0",
+          "path": "native-ui/28-storage-failure-visible-warning-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/32-configuration-applied.json",
+      "exists": true,
+      "sha256": "426CE457B78C8D69BEC5E97A033D7506972CBC4EC4574DA06230DA55C3394B7B",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "B8D8E3E0A66799317B2844249C6E4603DB37A84EB08F880961E7E931BCEDC4FB",
+          "path": "native-ui/32-configuration-applied-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/33-wizard-url-not-live.json",
+      "exists": true,
+      "sha256": "F2C37ED37F9BB19669A3531C89ED05331D31C9A651BCF056B2E161EB0DA5454D",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "10808425A1DC49B1DDED60CE7F32CFB10CF63AC9D16DF30EA27ABDB7696759B3",
+          "path": "native-ui/33-wizard-url-not-live-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/35-cancelling-confirmation.json",
+      "exists": true,
+      "sha256": "737426B7BAEDA691B77E85DEF59CFB367B4B4922C991846C8703F526A05368CF",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "4C26952C79FFE55489FE48C275230F02D0F44BBC576122E4D43C97D59CA34CB6",
+          "path": "native-ui/35-cancelling-confirmation-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/36-confirmation-deadline-return.json",
+      "exists": true,
+      "sha256": "EEE28F487A887CCF235AE8A4ED6AE2082636C6465A1A3A34D342439B3731F5B0",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "2D96D995A79E83F63D5F59C78B1D5B6E0246EB466F6FF91AAF964F2C9F53B909",
+          "path": "native-ui/36-confirmation-deadline-return-0.png"
+        },
+        {
+          "exists": true,
+          "sha256": "8618D62EBDE599DFF0BA21964A551672A31EBCCB91E587004F080C7BB57CCE04",
+          "path": "native-ui/36-confirmation-deadline-return-1.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/37-session-load-failure.json",
+      "exists": true,
+      "sha256": "62E68764BC992EFF666C94DBCE1F8294EEE19D5BF7B14E5AE4826AFF83C3BD07",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "E5133ED3BCABA77ED65B7DA13E703406CBFF25783F35BB552BCB142EC364E0BF",
+          "path": "native-ui/37-session-load-failure-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/38-session-load-retry-success.json",
+      "exists": true,
+      "sha256": "4B51996A1BBF89475D5A76E340B6568BFA367E438E35466B19EE64E57E280CFB",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "F3B5C57C9073D67977DA9FC39B9BE183A385925D9D645B9EAB5A64BDCF7517F3",
+          "path": "native-ui/38-session-load-retry-success-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/39-delete-cancel.json",
+      "exists": true,
+      "sha256": "79A4AF9C30D1F776A49DA5BF4EE863CCDC65942FA764774FA0606175D5C7415A",
+      "screenshots": []
+    },
+    {
+      "path": "native-ui/41-backend-offline.json",
+      "exists": true,
+      "sha256": "9DE74816E26CA42C42A69536A7BB6DAE96F98A2E8BEDF263FDC3F396E09B1226",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "B6D01800C27F21251A3B18D442B970009CF3A4C13CA326BE98E31AD7382DE10D",
+          "path": "native-ui/41-backend-offline-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/42-offline-retry-recovered.json",
+      "exists": true,
+      "sha256": "F5259739AE5BA4AE0C2A4B7928F70CC6B72672E9FD358683D9F810FF8C3F9C9F",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "11B36B1EB36A0A20C33E30151DF32E2141D5A1AC7251B51EF367CFEB7023CD32",
+          "path": "native-ui/42-offline-retry-recovered-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/43-unauthorized-startup.json",
+      "exists": true,
+      "sha256": "8B1A4AAD7943CDD14BEFC33492C3EC8BCB9CCE964E426D6DD2AC266E34426F78",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "169A9C10A0CE4BA440F013F0CBC1F963C486AC1E7168A5123FC2BC72C026A937",
+          "path": "native-ui/43-unauthorized-startup-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/44-backend-fallback.json",
+      "exists": true,
+      "sha256": "82D1CC1014F33A2BF93E24CAED0E2A78C8C2E2DDE21AA65A40D7DB685481C3E6",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "43E70194753A9009E22BFF8C68AEA1650F0AAE2D5DC744E30B3D6EDA000737BC",
+          "path": "native-ui/44-backend-fallback-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/45-first-setup-required.json",
+      "exists": true,
+      "sha256": "AF42C2503A81E3992E2F73D2A696B717C0C215E9EE5F5508A2D61517BFB955DB",
+      "screenshots": []
+    },
+    {
+      "path": "native-ui/46-first-setup-cancel-recovery.json",
+      "exists": true,
+      "sha256": "962A021264ED4A530482B9EE96DD26F61A6EE8657B39800B720FD70C10D3D354",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "46FF24649B7472DA43C8EDCB38D5FDF78A12F78D5A411AD6CDB32719B288ED52",
+          "path": "native-ui/46-first-setup-cancel-recovery-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/47-first-setup-completed.json",
+      "exists": true,
+      "sha256": "A2782C8872617D594040DA0AD56EABFDADD8E94E3C60847AE4347B87E2D3B9CD",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "0D2926E87FEA5795AB96895896E99AE7155D58103417491CD190B9402088D7BA",
+          "path": "native-ui/47-first-setup-completed-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/48-session-load-error-visible-fixed.json",
+      "exists": true,
+      "sha256": "BDC11134DDAF9546B278ECDE14304CE43AB51DBF5702E65E3B7DDBC2FB390D7C",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "AE42E20D17F73D4CAD9FF59BB3ED88AA1B68CCD80F9B936A8BC73F2C10E12A48",
+          "path": "native-ui/48-session-load-error-visible-fixed-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/49-support-export-build04.json",
+      "exists": true,
+      "sha256": "9A59FC45E4D9BFAA3D5A5EC872ABC80640E9898F8343604898C0688780308D96",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "318BB48EB8D14B146D43DAD4877C4DB61571D908AE1F45791720844BD97D3B37",
+          "path": "native-ui/49-support-export-build04-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/50-wizard-reconnected-fixed.json",
+      "exists": true,
+      "sha256": "BE2EE7B503407A1E7460F5AC13B14A713C7EE8A6A403F1BDDE026FD493986824",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "14B908C8ED652C4932F0945846D7431F72D7EF4DC5DD8A576F4CDF44AA957A8B",
+          "path": "native-ui/50-wizard-reconnected-fixed-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/51-new-endpoint-storage-failure-confirmed.json",
+      "exists": true,
+      "sha256": "7F84E2DB68367F98DF3D11FE13D97C5BB479A897777933802B9FF8A1DDDAE509",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "70985447654F4FE85E9D27ECAF1F79C50A26C3BC2E833D387C32C9130CB72226",
+          "path": "native-ui/51-new-endpoint-storage-failure-confirmed-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/53-advanced-work-in-progress.json",
+      "exists": true,
+      "sha256": "6A6CA5320839B7F67160D6F6B8EDFAD2D02B1B2745F635BF3BC50953C828B77F",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "AAA6B565EF32586ACBA5D2FFEC30DB2D7B3BA5E0D0F780C187BF07B3B945D43F",
+          "path": "native-ui/53-advanced-work-in-progress-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/54-advanced-resumed-after-restart.json",
+      "exists": true,
+      "sha256": "6683F8A3D1F88932C862AD7B410C83E945ECD9EFD6D6395F1B4A9034E8CA9288",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "55847422D4A7CDD0D72B4476D115E5EE9B17ABF95A1BB704B2EA39B2EFE9133E",
+          "path": "native-ui/54-advanced-resumed-after-restart-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/55-other-chat-during-background.json",
+      "exists": true,
+      "sha256": "0258BFB4AF4D9E088B5A6423C686A7CE5F8156C9612DA02EB81B451C1402199C",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "F3EE7B304A42D031115C7E76F3878B9EE26BD5C6714AC2F3FF16A227383FBD17",
+          "path": "native-ui/55-other-chat-during-background-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/56-maximized-layout.json",
+      "exists": true,
+      "sha256": "D301CB6F61E461B8667A2FE65FE3D1028BDEE51255865302CD92E43AD21DD044",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "D1CE83490FD19359210B5FFB8E14F65D17133FAF3DB820DC3822493C405E73A0",
+          "path": "native-ui/56-maximized-layout-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/57-other-chat-after-background-completion.json",
+      "exists": true,
+      "sha256": "4D067887195F6CF99784EAD3FB1FD27DE1CF4ECD0FF86F1E3DAF43DF91FECA50",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "3154447C6A2F510486301D30494EF91CAFF107E9C34F1FD311C099F488DC5792",
+          "path": "native-ui/57-other-chat-after-background-completion-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/58-advanced-origin-terminal.json",
+      "exists": true,
+      "sha256": "08BCB44501FC86E32E2695A035BEBF2B44839F9E39836049D245FFDE1B433D10",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "6A7730D003F7A8D180448207954576C53BFB176ADBDF2CE10ED53E16FADE6609",
+          "path": "native-ui/58-advanced-origin-terminal-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/59-source-card-page2-controlled.json",
+      "exists": true,
+      "sha256": "E5C3559FFD51D38CA3EB9DD0939BA46F5A3ADA890D657800797AF1773685A21C",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "AC1DF46605DBAFC6DBC816DB49A35090B11AEF48BB83964C849B9B9075FD694A",
+          "path": "native-ui/59-source-card-page2-controlled-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/60-pdf-card-page2.json",
+      "exists": true,
+      "sha256": "AB8BB1D001D02756A470A00209C1A105C9794C24E0A4CBFE0802954A0EC5A2CE",
+      "screenshots": []
+    },
+    {
+      "path": "native-ui/61-unauthorized-localized-fixed.json",
+      "exists": true,
+      "sha256": "88E88AB472A93EB793BD35BE6E8DD8E95B75E2AB6E18F9027312667E7CA557B2",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "714665BAABAFD7D4D5A11F3629C3644FF9B3A7791D86975321FE61D980F48F3B",
+          "path": "native-ui/61-unauthorized-localized-fixed-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/62-qwen-clarification-still-present-build05.json",
+      "exists": true,
+      "sha256": "070CFDF94B4864048FF0DDA39959ABC3AABEE0E7423634EFBF7B42E13D7E8B7F",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "8809AB0385D20644B843EDB05E8A87ABCBAEB5B0DD8FA87974D268AF3BABD264",
+          "path": "native-ui/62-qwen-clarification-still-present-build05-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/63-source-hash-mismatch-refused.json",
+      "exists": true,
+      "sha256": "CEC13EAC72FD1D2923A94E1423F157BEAF6C4F6785BA7865A64ED608F10B9125",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "847F2EA0F4C1CF2496111C0A466CCEEACC0FFAC4D765FD4C793862F2E4B01234",
+          "path": "native-ui/63-source-hash-mismatch-refused-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/64-pdf-missing-path-exact-recovery.json",
+      "exists": true,
+      "sha256": "EB8FFD3EA7F572533A40D257A9893718FFB1D1D8C6A60FFF87DD45374D68A7E4",
+      "screenshots": []
+    },
+    {
+      "path": "native-ui/65-qwen-document-after-intake-fix.json",
+      "exists": true,
+      "sha256": "99FCC8439F606701AB6385DE81F353BEBF6AE3653A0526E5FE68429E95FD4AC0",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "C42E2987D1D4C250EC1F51C1D6EA8C36882A02255F52E5FD7AEAFE07C1568D48",
+          "path": "native-ui/65-qwen-document-after-intake-fix-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/66-qwen-real-source-pdf-page2.json",
+      "exists": true,
+      "sha256": "D33D4A1BFE3F3A7B3DC975CF5E85015602A8B287CCE2238979A69CFF68F0F57B",
+      "screenshots": []
+    },
+    {
+      "path": "native-ui/67-source-absent-safe-refusal-fixed.json",
+      "exists": true,
+      "sha256": "52E66A5B88ABF68AF6E82AE5F368CDE4BB84D414E9BA18782FD3FC056CCB38D4",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "9509C1FCC3E342535D5AD906DFF5B04DEE8FF6AE88FD42D31857AFF85D926E03",
+          "path": "native-ui/67-source-absent-safe-refusal-fixed-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/68-build06-manual-disconnected.json",
+      "exists": true,
+      "sha256": "C4726859E4383FD5F39213A7C82E3072FB2401547AC0E0480013AA6F889602E5",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "D1E688AE6CC3F34D59ECD5D5FFAE656E6E1492507093E5C01635855A1AA7F5CD",
+          "path": "native-ui/68-build06-manual-disconnected-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/69-manual-connected-build06.json",
+      "exists": true,
+      "sha256": "A02E043558BED170218397D7728FADC065E885E6CA6AA4E08FEE259F48EA7A91",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "4075145FEB7D4AC22BCC10B1D76631246CFF031B12313C6E1BBAFC294A839D0D",
+          "path": "native-ui/69-manual-connected-build06-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/70-manual-reconfiguration-unreachable-clears-old-connection.json",
+      "exists": true,
+      "sha256": "3BBF8EE75A3074ECB10BB3FFC324EAE8EDC2F2A598ACFAB7CEF9987A87FFAFD1",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "AC3B934428D15FE2D25C5FE3F72C6EA6477E313D964C32203CCF697477E4C99B",
+          "path": "native-ui/70-manual-reconfiguration-unreachable-clears-old-connection-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/71-manual-reconfiguration-restored-awaits-explicit-connect.json",
+      "exists": true,
+      "sha256": "9AB2112C2CD54C1B82C0184E82CB34E130561080B885B85547F657395B3F5774",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "2B49997BD3EF31FDACB16C6430A889A0E1DC5581DC368B1C205035B55F6A476F",
+          "path": "native-ui/71-manual-reconfiguration-restored-awaits-explicit-connect-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/72-manual-reconfiguration-recovery-connected.json",
+      "exists": true,
+      "sha256": "00297E3E075464B6FC1DBFF2EA1379613FE725D066B2452CFD9B3F5FB2FF7C63",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "83C358B620C7E0CD178962D8D77EFD6D35C67B19E57A0653F562395C3479A6BB",
+          "path": "native-ui/72-manual-reconfiguration-recovery-connected-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/73-missing-local-model-fails-safe-but-message-not-actionable.json",
+      "exists": true,
+      "sha256": "158AF9C338F5C06A10185A02EAF625D858027A8D659A1A52DE83C6EE96A7915A",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "186F2C98743646BA2248913F7F2BB570F217621CE648ED82A975AC7F5DEDF4C0",
+          "path": "native-ui/73-missing-local-model-fails-safe-but-message-not-actionable-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/74-settings-unapplied-language-theme-preview.json",
+      "exists": true,
+      "sha256": "1F0D5E400E433F15F07A724BBA3DCC06F84610FC1C84E9D8BA6F018D3C9723F2",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "B3F82096AD77DBABCBBB5FF2A2A94D978AE2378796CAB190CAD79455BFD1F5DA",
+          "path": "native-ui/74-settings-unapplied-language-theme-preview-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/75-settings-close-without-apply-preserves-fr-dark.json",
+      "exists": true,
+      "sha256": "A245B71B28582EC6E9F22852B479A1C23024DF62ECF7C8274509631E12B1C7BF",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "C6E0833294D3BC6BE63673006AC5B31453CE7380B7E4455FC19B650A568D42A1",
+          "path": "native-ui/75-settings-close-without-apply-preserves-fr-dark-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/76-session-rename-cancel-preserves-title.json",
+      "exists": true,
+      "sha256": "A271CA568D97ECB5673E8A26BE01DF336D82AD036DC55F4DD1A626F1829045F5",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "2566C3F51D9FF94D9E3965F5646A5D2C36FDD548C5B6F03D56B5F52ECC5D5E19",
+          "path": "native-ui/76-session-rename-cancel-preserves-title-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/77-two-messages-distinct-source-cards.json",
+      "exists": true,
+      "sha256": "1E15FE550C8155BC8BABA2B1F3D6D34EAFCBC49583D5A35C98C39A9D73CAB164",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "09E5BE7F0F12D947D7CEBB28685F26D4D37CEC05DC4D83480800F1BDFA5749B5",
+          "path": "native-ui/77-two-messages-distinct-source-cards-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/78-two-messages-source-interaction-keeps-provenance.json",
+      "exists": true,
+      "sha256": "912A352E8BEDA748C13C6E50A4CD9049DB3916972B1CB228D2C6558C73420E44",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "A0AFE67E5DDFD4544709A761630F931739AA9E228E9506AFA0674193148A393D",
+          "path": "native-ui/78-two-messages-source-interaction-keeps-provenance-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/79-polling-http503-recovers-running.json",
+      "exists": true,
+      "sha256": "96F5756EEE182F481CA68F4361F5C7304288FE36443A4A74121EE204C73BE8DD",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "6C7D279936E848F601B923A679170ABDB0D16A232CDB22F8FF7232A6B4F9985D",
+          "path": "native-ui/79-polling-http503-recovers-running-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/80-polling-regressive-revision-does-not-replace-valid-state.json",
+      "exists": true,
+      "sha256": "49E44E0584F066AD88AA64057FC10223BB1D2C6C1AAE74FBB02BA7B0C9779FA4",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "EAB97ED54BF52F6399E74E8A6C3C5F8BC6C48A7054589019B11F600F3FE2B080",
+          "path": "native-ui/80-polling-regressive-revision-does-not-replace-valid-state-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/81-polling-session-mismatch-not-shown-as-result.json",
+      "exists": true,
+      "sha256": "FA0D7A3F34E86E2BAA755781E31D386DF598D8EE6FEDC825943BB1EF3243D02B",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "EAB97ED54BF52F6399E74E8A6C3C5F8BC6C48A7054589019B11F600F3FE2B080",
+          "path": "native-ui/81-polling-session-mismatch-not-shown-as-result-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/82-polling-faults-final-same-job-terminal.json",
+      "exists": true,
+      "sha256": "6B2C644F76A3FDC264498660C814AAE9E97C79BB18C664C9F9AFB44EBF956E9E",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "D1424B0E03823EC9BBFAAA4D24873756544A910C6F3B68773D6103768F3ED0C0",
+          "path": "native-ui/82-polling-faults-final-same-job-terminal-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/83-narrow-window-layout-controls-accessible.json",
+      "exists": true,
+      "sha256": "782E98C93A914B2E2952347DFDA2DE3FD41947ADCE48387318E0E9AE59B964C6",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "7BE08148CBF8B6C4F01FEEDD5827A4C382067B6792BE5C24A72491FF6E7CB02F",
+          "path": "native-ui/83-narrow-window-layout-controls-accessible-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/84-small-window-chats-pane-hidden.json",
+      "exists": true,
+      "sha256": "EA868CAD99084110A2025BF5E16C6FAF1DEBC30518110598E993FAC688DA0A4F",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "A93C1735125524369CC3A0607C449944EF8AF35D00A169A99A35B1522B77188A",
+          "path": "native-ui/84-small-window-chats-pane-hidden-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/85-build07-local-model-error-explicit-message.json",
+      "exists": true,
+      "sha256": "FCACB9F025B977882ADD37A79134320DE892A90F7A9D129B2CB131F4835438D3",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "7AFCD87A7B68B60C2B50138FC7FC72F5B822C5C86039B4F5B6DA1D471CFFD2C7",
+          "path": "native-ui/85-build07-local-model-error-explicit-message-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/86-build08-local-model-unavailable-actionable-final.json",
+      "exists": true,
+      "sha256": "0AD30833612D1F51E8694DE2B11201585246BEE9A553F9B251DE629AEB003EDB",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "A7AECE3FF5183F8262331026F1145EDD016A18CD820F569A35213CDA54CA13D7",
+          "path": "native-ui/86-build08-local-model-unavailable-actionable-final-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/87-local-model-recovery-configuration-test.json",
+      "exists": true,
+      "sha256": "79A1164E20AD83E276FECA15A2927AA1CB48A92BA5B5A418D12B25C5D68CE5EC",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "3243A886FB91AFE4DFEBAC998C65CA09BE1CB11A3E9846B202D4CEFC17A4FC68",
+          "path": "native-ui/87-local-model-recovery-configuration-test-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/88-build08-qwen-answer-after-local-model-recovery.json",
+      "exists": true,
+      "sha256": "67F1721E59601954C1F7F1B7C5D19D643F0C6F678E158AC57AEBF875C683B447",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "2B4BBB835DD99B4DEDEC4694749B73E727139667F0BCBA0A536C5EF4CD068BE2",
+          "path": "native-ui/88-build08-qwen-answer-after-local-model-recovery-0.png"
+        }
+      ]
+    },
+    {
+      "path": "native-ui/89-build08-final-support-export-from-ui.json",
+      "exists": true,
+      "sha256": "0F4BE25696F0BF4357660AB5FC0BF7410E94C524C01DBBD2FB4532800CFEBCBB",
+      "screenshots": [
+        {
+          "exists": true,
+          "sha256": "F4DAEA016A1C9EBA47A4EF10B7208894A3DE8D231AF926DC60821965597EBB75",
+          "path": "native-ui/89-build08-final-support-export-from-ui-0.png"
+        }
+      ]
+    },
+    {
+      "path": "notes-final.md",
+      "exists": true,
+      "sha256": "AA0CC4DB0B8723407E7B003A4E4CAB2DBC52D90E1D3FF9D9EBAB13949AA64ECB",
+      "screenshots": []
+    },
+    {
+      "path": "support-resume-origin-visibility.json",
+      "exists": true,
+      "sha256": "A4FB2E964CFD962F3F515DC5553E87CC2F45E9EC6EB13FEFAE6D52422706B0BA",
+      "screenshots": []
+    },
+    {
+      "path": "trace-interruption-accounting.json",
+      "exists": true,
+      "sha256": "210065E23F7FCB54D7DF9BD8DF8E29D04F6C813931331FEA38968BE7D9DBDF68",
+      "screenshots": []
+    },
+    {
+      "path": "w06-independent-readonly-review.json",
+      "exists": true,
+      "sha256": "B04AE0CC6D83C9B4C6B57BB9B7B4C3F777667F9C92A347E9262F555097851CD9",
+      "screenshots": []
+    },
+    {
+      "path": "w31-final-fix-proof.json",
+      "exists": true,
+      "sha256": "B76DB3DEDF2DAEC48352A1EB24EC3967CF6AA9A7CAD90A5BDDD7AA88F826F62A",
+      "screenshots": []
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "saaia-winui-w06-independent-readonly-review.v1",
+  "scope": [
+    "ClientDiagnosticJournal explicit terminal failure",
+    "OpenAiCompatibleLlmProvider local HTTP transport classification",
+    "Source-backed failure rendering and turn finalization"
+  ],
+  "mode": "READ_ONLY",
+  "productChanges": 0,
+  "builds": 0,
+  "uiActions": 0,
+  "paidCalls": 0,
+  "verdict": "NO_ADDITIONAL_BLOCKING_CONTROL_FLOW_DEFECT_FOUND",
+  "checks": [
+    {
+      "subject": "Terminal-only failure propagation",
+      "result": "PASS_CODE_REVIEW",
+      "reason": "ReportTerminalFailure appears only in FinalizeAndReturn with an explicit terminalFailureReason; CompleteFailedSourceBackedPipeline supplies that reason. Intermediate Emit failed events do not change terminal outcome."
+    },
+    {
+      "subject": "Cancellation and expected insufficiency",
+      "result": "PASS_CODE_REVIEW",
+      "reason": "OperationCanceledException is rethrown by source-backed orchestration; provider cancellation and request timeout preserve their own types. Recoverable polling validation is not a terminal report; expected insufficiency finalizes without terminalFailureReason."
+    },
+    {
+      "subject": "Backend versus local model origin",
+      "result": "PASS_CODE_REVIEW",
+      "reason": "LocalLlmUnavailableException is created only at the local model provider HTTP boundary, not by a backend failure passed to terminal handling."
+    },
+    {
+      "subject": "No stale sources on terminal model failure",
+      "result": "PASS_CODE_REVIEW",
+      "reason": "Failure completion clears LastSourcesUsed, LastToolNames and LastRagQueries and returns null sources."
+    }
+  ],
+  "finding": {
+    "id": "W06_COPY_GUIDANCE",
+    "severity": "USER_GUIDANCE",
+    "observedInCode": "BuildLocalModelUnavailable directed the user to check the model address in Settings, while UserSettingsDialog exposes no URL editor.",
+    "status": "PARENT_ACCEPTED_CORRECTION_DIAGNOSTICS_IMPLEMENTING",
+    "parentApprovedFrench": "Vérifiez que l’assistant local est démarré, puis réessayez. Si le problème persiste, contactez votre intégrateur.",
+    "productEditedByReviewer": false
+  },
+  "limits": [
+    "This review does not execute the production UI or replace native W06 retest.",
+    "Observed W06 concerns an unavailable local HTTP service. Runtime reinstallation, downloads and hardware failures were not exercised.",
+    "Complete final Core/Client run was deliberately not started after the guidance correction was authorized; parent will issue GO after build08."
+  ],
+  "productStatus": "TESTE_NON_APPROUVE"
+}

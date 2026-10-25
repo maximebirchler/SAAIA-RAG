@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "saaia.winui-isolated-production-build.v1",
+  "capturedAtUtc": "2026-10-25T12:36:28.8745598+01:00",
+  "configuration": "Release",
+  "platform": "x64",
+  "testHooks": false,
+  "buildExitCode": 0,
+  "warnings": 0,
+  "errors": 0,
+  "exe": {
+    "path": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+    "sha256": "DA4D8DBAA128F7DFC1BBACA36BCD7618ED24FE9D2234E738BB5FFB7C6ED7CCB4"
+  },
+  "assembly": {
+    "path": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.dll",
+    "sha256": "426CEAD30333A5F0356C697AE462D0A53ADC87CA5A34D1466DA2AB89150CAD78"
+  },
+  "tests": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "trx": "artifacts/winui-validation-20261025/isolation/isolation-accepted.trx"
+  },
+  "scope": "Initial real WinUI launch build; later support-probe URL correction requires next production build."
+}

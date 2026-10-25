@@ -1,0 +1,17 @@
+{
+  "atUtc": "2026-10-25T11:41:40.336Z",
+  "name": "08-multiline-single-response",
+  "description": "Keyboard send completed with one user bubble and one response; duplicate Enter did not admit another turn.",
+  "window": {
+    "app": "process:C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+    "id": 23923118,
+    "title": "SAAIA"
+  },
+  "accessibility": {
+    "focused_element": "142 texte Ligne un Ligne trois",
+    "tree": "Window: \"SAAIA\", App: SAAIA.Client.WinUI.exe.\n\t0 fenêtre SAAIA Secondary Actions: Raise\n\t\t1 volet Non Client Input Sink Window\n\t\t2 volet AppWindow Custom Title Bar\n\t\t\t3 Bouton Minimize ID: Minimize\n\t\t\t4 Bouton Maximize ID: Maximize\n\t\t\t5 Bouton Close ID: Close\n\t\t6 volet\n\t\t\t7 volet\n\t\t\t\t8 image\n\t\t\t\t9 texte SAAIA\n\t\t\t\t10 bouton Discussions ID: ChatsToggleButton\n\t\t\t\t11 bouton Configuration ID: SetupButton\n\t\t\t\t12 bouton Aide ID: HeaderHelpButton\n\t\t\t\t\t13 texte ?\n\t\t\t\t14 bouton Paramètres ID: HeaderSettingsButton\n\t\t\t\t15 texte Discussions ID: ChatsHeaderText\n\t\t\t\t16 bouton Nouveau ID: NewChatButton\n\t\t\t\t17 liste ID: SessionsList\n\t\t\t\t\t154 élément de liste (selectable) SAAIA.Client.WinUI.Models.ChatSessionItem\n\t\t\t\t\t\t155 texte Ligne un Ligne trois\n\t\t\t\t\t\t156 texte 25.10 12:41\n\t\t\t\t\t\t157 bouton …\n\t\t\t\t\t158 élément de liste (selectable) SAAIA.Client.WinUI.Models.ChatSessionItem\n\t\t\t\t\t\t159 texte Validation A — interruption conservée\n\t\t\t\t\t\t160 texte 25.10 12:38\n\t\t\t\t\t\t161 bouton …\n\t\t\t\t22 volet ID: MessagesScroll\n\t\t\t\t\t23 liste ID: MessagesList\n\t\t\t\t\t\t141 élément de liste SAAIA.Client.WinUI.Models.ChatMessageItem\n\t\t\t\t\t\t\t142 texte Ligne un Ligne trois\n\t\t\t\t\t\t\t143 texte 25.10 12:41\n\t\t\t\t\t\t\t144 bouton ID: CopyBtn\n\t\t\t\t\t\t145 élément de liste SAAIA.Client.WinUI.Models.ChatMessageItem\n\t\t\t\t\t\t\t146 image\n\t\t\t\t\t\t\t147 texte Réponse synthétique de validation WinUI. Aucun modèle payant utilisé. ID: Rtb\n\t\t\t\t\t\t\t151 bouton ID: CopyBtn\n\t\t\t\t\t\t\t152 texte 25.10 12:41\n\t\t\t\t24 modifier (settable, string) Tape ta question... ID: InputBox\n\t\t\t\t25 bouton Envoyer ID: SendCancelButton\n\t\t26 barre de titre (settable, string) Value: SAAIA\n\t\t\t27 barre de menus Système ID: MenuBar\n\t\t\t\t28 élément de menu Système\n\t\t\t29 Bouton Réduire\n\t\t\t30 Bouton Agrandir\n\t\t\t31 Bouton Fermer\n\nThe focused UI element is 142 texte Ligne un Ligne trois."
+  },
+  "screenshots": [
+    "08-multiline-single-response-0.png"
+  ]
+}

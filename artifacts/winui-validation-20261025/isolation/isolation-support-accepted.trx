@@ -1,0 +1,82 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="a4f02d66-40e2-4040-b53e-cd1096911fec" name="maxim@MAXBI 2026-10-25 12:40:16" runUser="MAXBI\maxim" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-25T12:40:16.5946678+01:00" queuing="2026-10-25T12:40:16.5946679+01:00" start="2026-10-25T12:40:15.5164290+01:00" finish="2026-10-25T12:40:16.5991888+01:00" />
+  <TestSettings name="default" id="38c3ca9d-e1e7-4d14-91bf-fedaa1e3a16f">
+    <Deployment runDeploymentRoot="maxim_MAXBI_2026-10-25_12_40_16" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="78eecb54-4c74-4742-9a98-2c7e65dfb8ef" testId="9c4c64c5-4613-0405-dfba-a5042a5c2301" testName="SAAIA.Client.ToolAgent.Tests.ClientDataPathsTests.Separate_profiles_have_independent_settings_user_identity_and_dpapi_secrets" computerName="MAXBI" duration="00:00:00.0292323" startTime="2026-10-25T12:40:16.5236679+01:00" endTime="2026-10-25T12:40:16.5236683+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="78eecb54-4c74-4742-9a98-2c7e65dfb8ef" />
+    <UnitTestResult executionId="2f400085-5dda-46ef-b9fa-5d1dfee8013a" testId="7b1851c4-656b-678f-b978-4692173aed08" testName="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests.Source_parser_reports_malformed_input_and_visible_source_count_without_document_text" computerName="MAXBI" duration="00:00:00.0285547" startTime="2026-10-25T12:40:16.3220237+01:00" endTime="2026-10-25T12:40:16.3220238+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2f400085-5dda-46ef-b9fa-5d1dfee8013a" />
+    <UnitTestResult executionId="86642e4a-48ed-438f-80a8-c376605721d0" testId="002d1786-3b95-efd3-7629-c43b2456f445" testName="SAAIA.Client.ToolAgent.Tests.ClientDataPathsTests.Logs_exports_governance_and_support_use_the_explicit_profile" computerName="MAXBI" duration="00:00:00.0710764" startTime="2026-10-25T12:40:16.4943473+01:00" endTime="2026-10-25T12:40:16.4943476+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="86642e4a-48ed-438f-80a8-c376605721d0" />
+    <UnitTestResult executionId="fa338f14-090d-4aad-be8f-8402a9cebbbd" testId="a54004a8-994f-0725-66ef-1b935513608e" testName="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests.Source_card_locator_forwards_the_complete_identity_and_exact_hash_policy" computerName="MAXBI" duration="00:00:00.0061574" startTime="2026-10-25T12:40:16.1628833+01:00" endTime="2026-10-25T12:40:16.1628921+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fa338f14-090d-4aad-be8f-8402a9cebbbd" />
+    <UnitTestResult executionId="1552451d-1b9d-40cf-8bf5-944c57a29f65" testId="c9211b72-c0c4-13ac-bc6e-e3db86ba5635" testName="SAAIA.Client.ToolAgent.Tests.ClientDataPathsTests.Explicit_profile_only_discovers_its_own_provisioning_and_installer" computerName="MAXBI" duration="00:00:00.0017436" startTime="2026-10-25T12:40:16.5255086+01:00" endTime="2026-10-25T12:40:16.5255088+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1552451d-1b9d-40cf-8bf5-944c57a29f65" />
+    <UnitTestResult executionId="0565e871-181d-4711-a15e-c25197005c44" testId="a91afdd5-652a-193f-3b8e-0e7e8c2d655d" testName="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests.Standalone_advanced_service_correlates_retry_poll_and_failure_without_llm_or_orchestrator" computerName="MAXBI" duration="00:00:00.0322804" startTime="2026-10-25T12:40:16.4211159+01:00" endTime="2026-10-25T12:40:16.4211160+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0565e871-181d-4711-a15e-c25197005c44" />
+    <UnitTestResult executionId="a205878e-903f-43dc-9c82-2826d5b75399" testId="5668e575-36d7-b901-e9be-816d5617fc24" testName="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests.Support_export_includes_common_history_and_declares_optional_collection_failure_without_network" computerName="MAXBI" duration="00:00:00.0664415" startTime="2026-10-25T12:40:16.3886970+01:00" endTime="2026-10-25T12:40:16.3886973+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a205878e-903f-43dc-9c82-2826d5b75399" />
+    <UnitTestResult executionId="64d2a0c7-7cf0-47ca-a276-63fb8986ba3c" testId="1bc0a17a-4225-4204-8652-64c374987f30" testName="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests.Support_export_survives_readiness_writer_failure_and_manifest_paths_identify_the_piece" computerName="MAXBI" duration="00:00:00.1291939" startTime="2026-10-25T12:40:16.2929309+01:00" endTime="2026-10-25T12:40:16.2929312+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="64d2a0c7-7cf0-47ca-a276-63fb8986ba3c" />
+    <UnitTestResult executionId="069631d3-ad66-492c-ba46-933c83192b94" testId="61b40858-8a18-4742-abc5-4dbb6f6267ed" testName="SAAIA.Client.ToolAgent.Tests.ClientDataPathsTests.Default_profile_path_is_unchanged_and_relative_override_is_rejected" computerName="MAXBI" duration="00:00:00.0004662" startTime="2026-10-25T12:40:16.5260464+01:00" endTime="2026-10-25T12:40:16.5260466+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="069631d3-ad66-492c-ba46-933c83192b94" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.ClientDataPathsTests.Explicit_profile_only_discovers_its_own_provisioning_and_installer" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\x64\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="c9211b72-c0c4-13ac-bc6e-e3db86ba5635">
+      <Execution id="1552451d-1b9d-40cf-8bf5-944c57a29f65" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\x64\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.ClientDataPathsTests" name="Explicit_profile_only_discovers_its_own_provisioning_and_installer" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests.Source_parser_reports_malformed_input_and_visible_source_count_without_document_text" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\x64\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="7b1851c4-656b-678f-b978-4692173aed08">
+      <Execution id="2f400085-5dda-46ef-b9fa-5d1dfee8013a" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\x64\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests" name="Source_parser_reports_malformed_input_and_visible_source_count_without_document_text" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.ClientDataPathsTests.Logs_exports_governance_and_support_use_the_explicit_profile" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\x64\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="002d1786-3b95-efd3-7629-c43b2456f445">
+      <Execution id="86642e4a-48ed-438f-80a8-c376605721d0" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\x64\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.ClientDataPathsTests" name="Logs_exports_governance_and_support_use_the_explicit_profile" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.ClientDataPathsTests.Default_profile_path_is_unchanged_and_relative_override_is_rejected" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\x64\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="61b40858-8a18-4742-abc5-4dbb6f6267ed">
+      <Execution id="069631d3-ad66-492c-ba46-933c83192b94" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\x64\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.ClientDataPathsTests" name="Default_profile_path_is_unchanged_and_relative_override_is_rejected" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests.Support_export_survives_readiness_writer_failure_and_manifest_paths_identify_the_piece" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\x64\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="1bc0a17a-4225-4204-8652-64c374987f30">
+      <Execution id="64d2a0c7-7cf0-47ca-a276-63fb8986ba3c" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\x64\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests" name="Support_export_survives_readiness_writer_failure_and_manifest_paths_identify_the_piece" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests.Support_export_includes_common_history_and_declares_optional_collection_failure_without_network" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\x64\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="5668e575-36d7-b901-e9be-816d5617fc24">
+      <Execution id="a205878e-903f-43dc-9c82-2826d5b75399" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\x64\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests" name="Support_export_includes_common_history_and_declares_optional_collection_failure_without_network" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests.Source_card_locator_forwards_the_complete_identity_and_exact_hash_policy" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\x64\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="a54004a8-994f-0725-66ef-1b935513608e">
+      <Execution id="fa338f14-090d-4aad-be8f-8402a9cebbbd" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\x64\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests" name="Source_card_locator_forwards_the_complete_identity_and_exact_hash_policy" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.ClientDataPathsTests.Separate_profiles_have_independent_settings_user_identity_and_dpapi_secrets" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\x64\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="9c4c64c5-4613-0405-dfba-a5042a5c2301">
+      <Execution id="78eecb54-4c74-4742-9a98-2c7e65dfb8ef" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\x64\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.ClientDataPathsTests" name="Separate_profiles_have_independent_settings_user_identity_and_dpapi_secrets" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests.Standalone_advanced_service_correlates_retry_poll_and_failure_without_llm_or_orchestrator" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\x64\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="a91afdd5-652a-193f-3b8e-0e7e8c2d655d">
+      <Execution id="0565e871-181d-4711-a15e-c25197005c44" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\x64\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests" name="Standalone_advanced_service_correlates_retry_poll_and_failure_without_llm_or_orchestrator" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="9c4c64c5-4613-0405-dfba-a5042a5c2301" executionId="78eecb54-4c74-4742-9a98-2c7e65dfb8ef" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7b1851c4-656b-678f-b978-4692173aed08" executionId="2f400085-5dda-46ef-b9fa-5d1dfee8013a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="002d1786-3b95-efd3-7629-c43b2456f445" executionId="86642e4a-48ed-438f-80a8-c376605721d0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a54004a8-994f-0725-66ef-1b935513608e" executionId="fa338f14-090d-4aad-be8f-8402a9cebbbd" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c9211b72-c0c4-13ac-bc6e-e3db86ba5635" executionId="1552451d-1b9d-40cf-8bf5-944c57a29f65" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a91afdd5-652a-193f-3b8e-0e7e8c2d655d" executionId="0565e871-181d-4711-a15e-c25197005c44" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5668e575-36d7-b901-e9be-816d5617fc24" executionId="a205878e-903f-43dc-9c82-2826d5b75399" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1bc0a17a-4225-4204-8652-64c374987f30" executionId="64d2a0c7-7cf0-47ca-a276-63fb8986ba3c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="61b40858-8a18-4742-abc5-4dbb6f6267ed" executionId="069631d3-ad66-492c-ba46-933c83192b94" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Les résultats ne figurent pas dans une liste" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="Tous les résultats chargés" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="9" executed="9" passed="9" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 8.0.27)&#xD;
+[xUnit.net 00:00:00.13]   Discovering: SAAIA.Client.ToolAgent.Tests&#xD;
+[xUnit.net 00:00:00.33]   Discovered:  SAAIA.Client.ToolAgent.Tests&#xD;
+[xUnit.net 00:00:00.33]   Starting:    SAAIA.Client.ToolAgent.Tests&#xD;
+[xUnit.net 00:00:00.73]   Finished:    SAAIA.Client.ToolAgent.Tests&#xD;
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

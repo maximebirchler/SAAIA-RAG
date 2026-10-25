@@ -1,0 +1,141 @@
+{
+  "schemaVersion": "saaia-winui-w06-native-build08-acceptance.v1",
+  "capturedAtUtc": "2026-10-25T13:41:32.6540171+00:00",
+  "status": "W06_NATIVE_FAILURE_REASON_AND_RECOVERY_VALIDATED",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "before": {
+    "traceId": "aa50c449cf3434424210fb80c7dbac86",
+    "durationMs": 10434,
+    "defect": "Actual local transport failure produced generic unactionable response and false success.",
+    "turnOutcome": "success",
+    "capture": {
+      "path": "../native-ui/73-missing-local-model-fails-safe-but-message-not-actionable.json",
+      "sha256": "158AF9C338F5C06A10185A02EAF625D858027A8D659A1A52DE83C6EE96A7915A"
+    }
+  },
+  "after": {
+    "traceId": "55c4348b3f94d81c8045ca1324565831",
+    "reason": "local_model_unavailable",
+    "stages": [
+      {
+        "operation": "agent.source_backed_pipeline.active.failed",
+        "outcome": "failed",
+        "reason": "local_model_unavailable"
+      },
+      {
+        "operation": "agent.source_backed_pipeline.active.terminal",
+        "outcome": "failed",
+        "reason": "local_model_unavailable"
+      },
+      {
+        "operation": "agent.turn.final",
+        "outcome": "failed",
+        "reason": "local_model_unavailable"
+      },
+      {
+        "operation": "turn.end",
+        "outcome": "failed",
+        "reason": "local_model_unavailable"
+      }
+    ],
+    "capture": {
+      "path": "../native-ui/86-build08-local-model-unavailable-actionable-final.json",
+      "sha256": "0AD30833612D1F51E8694DE2B11201585246BEE9A553F9B251DE629AEB003EDB"
+    },
+    "sessionId": "03957eeb-5d79-42a5-892b-bdaab7d150bd",
+    "turnId": "8f303142ad3e42719cfc5df776000831",
+    "turnOutcome": "failed",
+    "actionableFrenchGuidanceVisible": true,
+    "durationMs": 10473,
+    "localModelCalls": 2
+  },
+  "recovery": {
+    "configuredPortBefore": 18090,
+    "answer4826E2Visible": true,
+    "previousFailureDidNotContaminateNewTurn": true,
+    "durationMs": 10581,
+    "traceId": "1d738197c934afa958307f342616bc33",
+    "sessionId": "b932dce2-e45a-42c7-a49d-ff564b222ff4",
+    "configurationCapture": {
+      "path": "../native-ui/87-local-model-recovery-configuration-test.json",
+      "sha256": "79A1164E20AD83E276FECA15A2927AA1CB48A92BA5B5A418D12B25C5D68CE5EC"
+    },
+    "modelCalls": 9,
+    "turnOutcome": "success",
+    "sourceHashPrefixVisible": true,
+    "operatorObservedV1ModelsTestPassed": true,
+    "turnId": "d6163b1454a44aca97775a8474bfda86",
+    "configuredPortAfter": 18088,
+    "sourcePage2Visible": true,
+    "answerCapture": {
+      "path": "../native-ui/88-build08-qwen-answer-after-local-model-recovery.json",
+      "sha256": "67F1721E59601954C1F7F1B7C5D19D643F0C6F678E158AC57AEBF875C683B447"
+    },
+    "allCallsSuccessful": true
+  },
+  "durableObservations": {
+    "method": "Read-only loopback GET completed earlier in this review before runtime shutdown. Subsequent reread was refused after authorized shutdown; no restart performed.",
+    "recoveryCanonicalSource": {
+      "pageEnd": 2,
+      "docId": "aca1a813-c593-59e5-bdf2-1cd12d1b8e40",
+      "docPath": "Validation/Guide-Validation.pdf",
+      "sourceHash": "840c999b2bfe8305aee9fdddf05f01b1686f3ec92eeb76cfe5c5af9354672121",
+      "pageStart": 2,
+      "evidenceId": "E2"
+    },
+    "failureTraceMetadataNotInvented": true,
+    "recoveryAssistantMessageId": "54d91878-fb94-4d6e-8871-e3fa86bdab29",
+    "failureAssistantMessageId": "f0a1cf1e-0fa9-4124-b2fd-02ecf96760bc",
+    "failureSourcesNull": true,
+    "failureIntegratorGuidancePresent": true,
+    "recoveryPersistedTraceId": "1d738197c934afa958307f342616bc33",
+    "recoveryPersistedTurnId": "d6163b1454a44aca97775a8474bfda86"
+  },
+  "strictSecondary": {
+    "failedChecks": 0,
+    "turns": 11,
+    "allowInFlight": false,
+    "exceptions": 0,
+    "events": 210,
+    "status": "TRACE_INTEGRITY_VALIDATED",
+    "proof": "trace-integrity-secondary.json"
+  },
+  "isolation": {
+    "allObservedCallsLocal": true,
+    "paidCalls": 0,
+    "primaryProfileSealedSeparately": true,
+    "observedAdvancedRequests": 0,
+    "profileProcessClosedBeforeSeal": true
+  },
+  "fullUnit": {
+    "manifest": "../final-core-client-unit-build08/manifest.json",
+    "failed": 0.0,
+    "assemblySha256": "B69435EFD628A9C7DA1F2A9677CA5D75AC4C3D3FE45A2E8A79208C8F675E16DA",
+    "passed": 2458.0,
+    "sourceFingerprint": "AC3A4AB986393CA32487B3385B58BA59A03993AA728231867A11F8412C9CCE9A",
+    "sourceChangedDuringRun": false
+  },
+  "references": [
+    {
+      "path": "../native-ui/73-missing-local-model-fails-safe-but-message-not-actionable.json",
+      "sha256": "158AF9C338F5C06A10185A02EAF625D858027A8D659A1A52DE83C6EE96A7915A"
+    },
+    {
+      "path": "../native-ui/86-build08-local-model-unavailable-actionable-final.json",
+      "sha256": "0AD30833612D1F51E8694DE2B11201585246BEE9A553F9B251DE629AEB003EDB"
+    },
+    {
+      "path": "../native-ui/87-local-model-recovery-configuration-test.json",
+      "sha256": "79A1164E20AD83E276FECA15A2927AA1CB48A92BA5B5A418D12B25C5D68CE5EC"
+    },
+    {
+      "path": "../native-ui/88-build08-qwen-answer-after-local-model-recovery.json",
+      "sha256": "67F1721E59601954C1F7F1B7C5D19D643F0C6F678E158AC57AEBF875C683B447"
+    }
+  ],
+  "limits": [
+    "The failure assistant retains Sources=null, so its durable trace/turn identity is unavailable; production probes and UI establish the failure path.",
+    "Historical false success probes are preserved.",
+    "Synthetic local availability/recovery validation does not approve complex meal-planning or the complete local-model frontier."
+  ]
+}

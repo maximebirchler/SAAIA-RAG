@@ -1,0 +1,845 @@
+{
+  "schemaVersion": "saaia-winui-execution-matrix-evidence-integrity.v1",
+  "checkedAtUtc": "2026-10-25T13:24:33.1797723+00:00",
+  "matrixSha256": "C56C9F529E0D17DE177A5686EB3F62FFE35152A673B8B501B39C692B113AA66E",
+  "scenarioCount": 33,
+  "evidenceCount": 84,
+  "missingReferences": [],
+  "missingDeclaredScreenshots": [],
+  "passed": true,
+  "limit": "Referenced file and declared capture existence only. Native observations and product approval remain separate.",
+  "inventory": [
+    {
+      "path": "client-launch-16-build06-main.json",
+      "exists": true,
+      "sha256": "8BFD6B48C525F91CE6349CD6B77F6B1F0D5CB65D797356B3153466BBED70BA51",
+      "screenshots": []
+    },
+    {
+      "path": "document-intake-path-green/proof.json",
+      "exists": true,
+      "sha256": "BC23263E1D979782665DAFD0E50F5EE0E9095EE8A3D3493280D81EDDDC6EBC61",
+      "screenshots": []
+    },
+    {
+      "path": "final-core-client-unit-accepted/manifest.json",
+      "exists": true,
+      "sha256": "744937D9B6D2BC627EAB5D24FD642D397FDAE4BAD7329B1F0AFEB9341FFB4FCA",
+      "screenshots": []
+    },
+    {
+      "path": "full-client-unit-acceptance-summary.json",
+      "exists": true,
+      "sha256": "65A451525D29161A3AD3A0B350946E556D1F665DA1119137D698C3DF89D6AF0D",
+      "screenshots": []
+    },
+    {
+      "path": "journey-matrix.json",
+      "exists": true,
+      "sha256": "EC2C7EA4BCB09DE29093BF3FD25D346EF7EBA829C0488EAB03EC8D85876BF18C",
+      "screenshots": []
+    },
+    {
+      "path": "local-fixture-02/advanced-resume-proof.json",
+      "exists": true,
+      "sha256": "D7E017F1CDB39B4AF8E101F7557959B451F7776AF3FC1AAB1069D99FC8F37FD7",
+      "screenshots": []
+    },
+    {
+      "path": "local-fixture-02/persistence-deadline-proof.json",
+      "exists": true,
+      "sha256": "D8328590B9236118538FCDB621891C7BCC9A15F0A461065B23AB80E7350969B6",
+      "screenshots": []
+    },
+    {
+      "path": "local-fixture-02/source-absence-restored-proof.json",
+      "exists": true,
+      "sha256": "2D2974E07D89D445D86251033DA417F1F31FA150FD4861EC14A9C63CEB5CC9F8",
+      "screenshots": []
+    },
+    {
+      "path": "local-fixture-02/source-selection-two-message-readback-proof.json",
+      "exists": true,
+      "sha256": "E71A69542583AFF40D5D8001D95A257B9C439DBEAB0FB10E0B8738C0759B20E1",
+      "screenshots": []
+    },
+    {
+      "path": "local-fixture-02/support-bundle-review-build04-accepted.json",
+      "exists": true,
+      "sha256": "420DF55F918813BD6A9F874D7C153CD390882182334B5E91E7B49A527BE37188",
+      "screenshots": []
+    },
+    {
+      "path": "native-qwen-document-path-causal-proof/proof.json",
+      "exists": true,
+      "sha256": "3B4DDD9E87DB1186E46A01C08E3A5279DEC962013482B8D2DB93F545EAC70C18",
+      "screenshots": []
+    },
+    {
+      "path": "native-ui/01-connected-empty.json",
+      "exists": true,
+      "sha256": "4E08BD70D322BCE3C85DE397622B83CD1A93F1416BC222308B9D907012FD71E1",
+      "screenshots": [
+        {
+          "path": "native-ui/01-connected-empty-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/02-first-response.json",
+      "exists": true,
+      "sha256": "93431F2F09E1FC908420A294A567AF1B31BA49E7AB4C2B13FD82EB1D3A0F05BD",
+      "screenshots": [
+        {
+          "path": "native-ui/02-first-response-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/03-settings-during-active-turn-before-fix.json",
+      "exists": true,
+      "sha256": "DF3312240ABF396CA79A5CABA86A71580DC8DE21FEA674B8B97A4DCA25D18BE9",
+      "screenshots": [
+        {
+          "path": "native-ui/03-settings-during-active-turn-before-fix-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/04-cancel-requested.json",
+      "exists": true,
+      "sha256": "F041F59AB3DA012971235A8FF47717A25AB72AE77B16D9EF8D07F38EC113EFEC",
+      "screenshots": [
+        {
+          "path": "native-ui/04-cancel-requested-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/05-new-session.json",
+      "exists": true,
+      "sha256": "03DF84AB1E2C7131ECDB389CA18496403A469D6672E2F22EEB91AEEA24144EB7",
+      "screenshots": [
+        {
+          "path": "native-ui/05-new-session-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/06-rename-inactive-keeps-active.json",
+      "exists": true,
+      "sha256": "2F7E3DBF961D252D9E3ADA91FEEF83271D19033B3178F6F7F5DD9F7B867E9AD0",
+      "screenshots": [
+        {
+          "path": "native-ui/06-rename-inactive-keeps-active-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/07-multiline-before-send.json",
+      "exists": true,
+      "sha256": "AB464F12A07C1C0230AFFB9ACFE71E4843718B0B17D5D64AC073D1233D22F145",
+      "screenshots": [
+        {
+          "path": "native-ui/07-multiline-before-send-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/08-multiline-single-response.json",
+      "exists": true,
+      "sha256": "AF89DF5ED29B6B5236CF5A3D93E5897BD6A62AC7582B14782B341A3AABD6B991",
+      "screenshots": [
+        {
+          "path": "native-ui/08-multiline-single-response-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/09-autoconnect-off-before-fix.json",
+      "exists": true,
+      "sha256": "33052E995D3C091ACEE635CFD2229AB3D6DD5F0F523246C9534CD9F1DD80D565",
+      "screenshots": [
+        {
+          "path": "native-ui/09-autoconnect-off-before-fix-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/10-storage-failure-before-fix.json",
+      "exists": true,
+      "sha256": "85B11289B4CA5EA9BE85AF2BEB8AFCB031EABF7DC2003B0425C14040CFC645E7",
+      "screenshots": [
+        {
+          "path": "native-ui/10-storage-failure-before-fix-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/11-interrupted-session-reloaded.json",
+      "exists": true,
+      "sha256": "1E641AB265AC02A2B91C30B9E7F3B697908D5C12A5E7CB6D31EBB63109A176A2",
+      "screenshots": []
+    },
+    {
+      "path": "native-ui/12-failed-draft-disappears-on-reload.json",
+      "exists": true,
+      "sha256": "143E5EBB31CB99C6C4C4BF61E59C73B4E7C6445542E8E60664D7C06E2BE8510E",
+      "screenshots": [
+        {
+          "path": "native-ui/12-failed-draft-disappears-on-reload-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/13-guided-catalog-result.json",
+      "exists": true,
+      "sha256": "E9FB4B7E725B40E1871732BF9850CB40EF5FE98F12DD5E87A995EED9186323F8",
+      "screenshots": [
+        {
+          "path": "native-ui/13-guided-catalog-result-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/14-support-export-result-initial.json",
+      "exists": true,
+      "sha256": "066174308594BFA7078C202C78FD9C6758356F4F74B4636E7D9E0ADB7AAA7C6B",
+      "screenshots": [
+        {
+          "path": "native-ui/14-support-export-result-initial-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/14b-support-export-result-clear.json",
+      "exists": true,
+      "sha256": "A618CFDC49015D77D0893D067AE5CE4860284574CDD752270D4B0EFB03D2ED79",
+      "screenshots": [
+        {
+          "path": "native-ui/14b-support-export-result-clear-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/15-english-light-theme.json",
+      "exists": true,
+      "sha256": "714852C21F76138E6F817208EB77042700A9D516059366B214F5BA6FADD0C217",
+      "screenshots": [
+        {
+          "path": "native-ui/15-english-light-theme-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/16b-manual-connect-after-fix-clear.json",
+      "exists": true,
+      "sha256": "4627042F46A5D30258FF22EB81E68C99171724AD9BF7DACC2FF139C75D5D01B5",
+      "screenshots": [
+        {
+          "path": "native-ui/16b-manual-connect-after-fix-clear-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/17-manual-connect-success.json",
+      "exists": true,
+      "sha256": "91EAD25FA03BD29627C25C940B32A8246C8F05B8B85C815363D25D808CBCE103",
+      "screenshots": [
+        {
+          "path": "native-ui/17-manual-connect-success-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/19-retry-after-failure-succeeded.json",
+      "exists": true,
+      "sha256": "5E12FF52F73D6D88946C95FFEE4AA41BCED747322519D6FD368DC755F0BDCDD4",
+      "screenshots": [
+        {
+          "path": "native-ui/19-retry-after-failure-succeeded-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/20-persistence-pending-gated.json",
+      "exists": true,
+      "sha256": "4C4ED7906294ABF285F697236F0B5BD9FDF66A34036822F6085DDC13D31D02B7",
+      "screenshots": [
+        {
+          "path": "native-ui/20-persistence-pending-gated-0.png",
+          "exists": true
+        },
+        {
+          "path": "native-ui/20-persistence-pending-gated-1.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/21-cancel-during-user-storage.json",
+      "exists": true,
+      "sha256": "5250A781006BB05E9F9CB33007868ED31842AE46E7AE9AFF5E1061CBD9A6D282",
+      "screenshots": [
+        {
+          "path": "native-ui/21-cancel-during-user-storage-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/22-storage-cancellation-settled.json",
+      "exists": true,
+      "sha256": "86CDA5D258EB94B5DF012D95E9FE223716BD0B149EFB598559CEE70738DA3C93",
+      "screenshots": [
+        {
+          "path": "native-ui/22-storage-cancellation-settled-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/23-guided-catalog-two-categories.json",
+      "exists": true,
+      "sha256": "A4F9F667A28F0728B7F4ED5E7EC5EFABDB5A674A57390321B44D46C4B0EAFE1C",
+      "screenshots": [
+        {
+          "path": "native-ui/23-guided-catalog-two-categories-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/24-guided-document-search.json",
+      "exists": true,
+      "sha256": "8DF0952C3A55DEEA7EEE6760CBDFF80EDAC664F8CC971F0510D57121C24975F8",
+      "screenshots": [
+        {
+          "path": "native-ui/24-guided-document-search-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/25-two-distinct-document-links.json",
+      "exists": true,
+      "sha256": "FF0AE48EDA4F84C4C085E9A2EAACCE54586159AF294DD855B38A8AE80D56C197",
+      "screenshots": [
+        {
+          "path": "native-ui/25-two-distinct-document-links-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/26-pdf-link-page1.json",
+      "exists": true,
+      "sha256": "385B47B3CE4AD09D146E80279E15F0FBC74DDE5228E748703393F6032EE93C25",
+      "screenshots": []
+    },
+    {
+      "path": "native-ui/27-latest-production-connected-local-qwen.json",
+      "exists": true,
+      "sha256": "3C848B4921552A8DAEB58C6B71EF61EA150D004A390C36D65E7644F3126C4148",
+      "screenshots": [
+        {
+          "path": "native-ui/27-latest-production-connected-local-qwen-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/28-storage-failure-visible-warning.json",
+      "exists": true,
+      "sha256": "E350E7DFF4C866A64C4AC1CE4D607FF37618E1170986C4E551ABEE36B5E61612",
+      "screenshots": [
+        {
+          "path": "native-ui/28-storage-failure-visible-warning-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/32-configuration-applied.json",
+      "exists": true,
+      "sha256": "426CE457B78C8D69BEC5E97A033D7506972CBC4EC4574DA06230DA55C3394B7B",
+      "screenshots": [
+        {
+          "path": "native-ui/32-configuration-applied-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/33-wizard-url-not-live.json",
+      "exists": true,
+      "sha256": "F2C37ED37F9BB19669A3531C89ED05331D31C9A651BCF056B2E161EB0DA5454D",
+      "screenshots": [
+        {
+          "path": "native-ui/33-wizard-url-not-live-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/35-cancelling-confirmation.json",
+      "exists": true,
+      "sha256": "737426B7BAEDA691B77E85DEF59CFB367B4B4922C991846C8703F526A05368CF",
+      "screenshots": [
+        {
+          "path": "native-ui/35-cancelling-confirmation-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/36-confirmation-deadline-return.json",
+      "exists": true,
+      "sha256": "EEE28F487A887CCF235AE8A4ED6AE2082636C6465A1A3A34D342439B3731F5B0",
+      "screenshots": [
+        {
+          "path": "native-ui/36-confirmation-deadline-return-0.png",
+          "exists": true
+        },
+        {
+          "path": "native-ui/36-confirmation-deadline-return-1.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/37-session-load-failure.json",
+      "exists": true,
+      "sha256": "62E68764BC992EFF666C94DBCE1F8294EEE19D5BF7B14E5AE4826AFF83C3BD07",
+      "screenshots": [
+        {
+          "path": "native-ui/37-session-load-failure-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/38-session-load-retry-success.json",
+      "exists": true,
+      "sha256": "4B51996A1BBF89475D5A76E340B6568BFA367E438E35466B19EE64E57E280CFB",
+      "screenshots": [
+        {
+          "path": "native-ui/38-session-load-retry-success-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/39-delete-cancel.json",
+      "exists": true,
+      "sha256": "79A4AF9C30D1F776A49DA5BF4EE863CCDC65942FA764774FA0606175D5C7415A",
+      "screenshots": []
+    },
+    {
+      "path": "native-ui/41-backend-offline.json",
+      "exists": true,
+      "sha256": "9DE74816E26CA42C42A69536A7BB6DAE96F98A2E8BEDF263FDC3F396E09B1226",
+      "screenshots": [
+        {
+          "path": "native-ui/41-backend-offline-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/42-offline-retry-recovered.json",
+      "exists": true,
+      "sha256": "F5259739AE5BA4AE0C2A4B7928F70CC6B72672E9FD358683D9F810FF8C3F9C9F",
+      "screenshots": [
+        {
+          "path": "native-ui/42-offline-retry-recovered-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/43-unauthorized-startup.json",
+      "exists": true,
+      "sha256": "8B1A4AAD7943CDD14BEFC33492C3EC8BCB9CCE964E426D6DD2AC266E34426F78",
+      "screenshots": [
+        {
+          "path": "native-ui/43-unauthorized-startup-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/44-backend-fallback.json",
+      "exists": true,
+      "sha256": "82D1CC1014F33A2BF93E24CAED0E2A78C8C2E2DDE21AA65A40D7DB685481C3E6",
+      "screenshots": [
+        {
+          "path": "native-ui/44-backend-fallback-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/45-first-setup-required.json",
+      "exists": true,
+      "sha256": "AF42C2503A81E3992E2F73D2A696B717C0C215E9EE5F5508A2D61517BFB955DB",
+      "screenshots": []
+    },
+    {
+      "path": "native-ui/46-first-setup-cancel-recovery.json",
+      "exists": true,
+      "sha256": "962A021264ED4A530482B9EE96DD26F61A6EE8657B39800B720FD70C10D3D354",
+      "screenshots": [
+        {
+          "path": "native-ui/46-first-setup-cancel-recovery-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/47-first-setup-completed.json",
+      "exists": true,
+      "sha256": "A2782C8872617D594040DA0AD56EABFDADD8E94E3C60847AE4347B87E2D3B9CD",
+      "screenshots": [
+        {
+          "path": "native-ui/47-first-setup-completed-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/48-session-load-error-visible-fixed.json",
+      "exists": true,
+      "sha256": "BDC11134DDAF9546B278ECDE14304CE43AB51DBF5702E65E3B7DDBC2FB390D7C",
+      "screenshots": [
+        {
+          "path": "native-ui/48-session-load-error-visible-fixed-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/49-support-export-build04.json",
+      "exists": true,
+      "sha256": "9A59FC45E4D9BFAA3D5A5EC872ABC80640E9898F8343604898C0688780308D96",
+      "screenshots": [
+        {
+          "path": "native-ui/49-support-export-build04-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/50-wizard-reconnected-fixed.json",
+      "exists": true,
+      "sha256": "BE2EE7B503407A1E7460F5AC13B14A713C7EE8A6A403F1BDDE026FD493986824",
+      "screenshots": [
+        {
+          "path": "native-ui/50-wizard-reconnected-fixed-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/51-new-endpoint-storage-failure-confirmed.json",
+      "exists": true,
+      "sha256": "7F84E2DB68367F98DF3D11FE13D97C5BB479A897777933802B9FF8A1DDDAE509",
+      "screenshots": [
+        {
+          "path": "native-ui/51-new-endpoint-storage-failure-confirmed-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/53-advanced-work-in-progress.json",
+      "exists": true,
+      "sha256": "6A6CA5320839B7F67160D6F6B8EDFAD2D02B1B2745F635BF3BC50953C828B77F",
+      "screenshots": [
+        {
+          "path": "native-ui/53-advanced-work-in-progress-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/54-advanced-resumed-after-restart.json",
+      "exists": true,
+      "sha256": "6683F8A3D1F88932C862AD7B410C83E945ECD9EFD6D6395F1B4A9034E8CA9288",
+      "screenshots": [
+        {
+          "path": "native-ui/54-advanced-resumed-after-restart-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/55-other-chat-during-background.json",
+      "exists": true,
+      "sha256": "0258BFB4AF4D9E088B5A6423C686A7CE5F8156C9612DA02EB81B451C1402199C",
+      "screenshots": [
+        {
+          "path": "native-ui/55-other-chat-during-background-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/56-maximized-layout.json",
+      "exists": true,
+      "sha256": "D301CB6F61E461B8667A2FE65FE3D1028BDEE51255865302CD92E43AD21DD044",
+      "screenshots": [
+        {
+          "path": "native-ui/56-maximized-layout-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/57-other-chat-after-background-completion.json",
+      "exists": true,
+      "sha256": "4D067887195F6CF99784EAD3FB1FD27DE1CF4ECD0FF86F1E3DAF43DF91FECA50",
+      "screenshots": [
+        {
+          "path": "native-ui/57-other-chat-after-background-completion-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/58-advanced-origin-terminal.json",
+      "exists": true,
+      "sha256": "08BCB44501FC86E32E2695A035BEBF2B44839F9E39836049D245FFDE1B433D10",
+      "screenshots": [
+        {
+          "path": "native-ui/58-advanced-origin-terminal-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/59-source-card-page2-controlled.json",
+      "exists": true,
+      "sha256": "E5C3559FFD51D38CA3EB9DD0939BA46F5A3ADA890D657800797AF1773685A21C",
+      "screenshots": [
+        {
+          "path": "native-ui/59-source-card-page2-controlled-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/60-pdf-card-page2.json",
+      "exists": true,
+      "sha256": "AB8BB1D001D02756A470A00209C1A105C9794C24E0A4CBFE0802954A0EC5A2CE",
+      "screenshots": []
+    },
+    {
+      "path": "native-ui/61-unauthorized-localized-fixed.json",
+      "exists": true,
+      "sha256": "88E88AB472A93EB793BD35BE6E8DD8E95B75E2AB6E18F9027312667E7CA557B2",
+      "screenshots": [
+        {
+          "path": "native-ui/61-unauthorized-localized-fixed-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/62-qwen-clarification-still-present-build05.json",
+      "exists": true,
+      "sha256": "070CFDF94B4864048FF0DDA39959ABC3AABEE0E7423634EFBF7B42E13D7E8B7F",
+      "screenshots": [
+        {
+          "path": "native-ui/62-qwen-clarification-still-present-build05-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/63-source-hash-mismatch-refused.json",
+      "exists": true,
+      "sha256": "CEC13EAC72FD1D2923A94E1423F157BEAF6C4F6785BA7865A64ED608F10B9125",
+      "screenshots": [
+        {
+          "path": "native-ui/63-source-hash-mismatch-refused-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/64-pdf-missing-path-exact-recovery.json",
+      "exists": true,
+      "sha256": "EB8FFD3EA7F572533A40D257A9893718FFB1D1D8C6A60FFF87DD45374D68A7E4",
+      "screenshots": []
+    },
+    {
+      "path": "native-ui/65-qwen-document-after-intake-fix.json",
+      "exists": true,
+      "sha256": "99FCC8439F606701AB6385DE81F353BEBF6AE3653A0526E5FE68429E95FD4AC0",
+      "screenshots": [
+        {
+          "path": "native-ui/65-qwen-document-after-intake-fix-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/66-qwen-real-source-pdf-page2.json",
+      "exists": true,
+      "sha256": "D33D4A1BFE3F3A7B3DC975CF5E85015602A8B287CCE2238979A69CFF68F0F57B",
+      "screenshots": []
+    },
+    {
+      "path": "native-ui/67-source-absent-safe-refusal-fixed.json",
+      "exists": true,
+      "sha256": "52E66A5B88ABF68AF6E82AE5F368CDE4BB84D414E9BA18782FD3FC056CCB38D4",
+      "screenshots": [
+        {
+          "path": "native-ui/67-source-absent-safe-refusal-fixed-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/68-build06-manual-disconnected.json",
+      "exists": true,
+      "sha256": "C4726859E4383FD5F39213A7C82E3072FB2401547AC0E0480013AA6F889602E5",
+      "screenshots": [
+        {
+          "path": "native-ui/68-build06-manual-disconnected-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/69-manual-connected-build06.json",
+      "exists": true,
+      "sha256": "A02E043558BED170218397D7728FADC065E885E6CA6AA4E08FEE259F48EA7A91",
+      "screenshots": [
+        {
+          "path": "native-ui/69-manual-connected-build06-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/70-manual-reconfiguration-unreachable-clears-old-connection.json",
+      "exists": true,
+      "sha256": "3BBF8EE75A3074ECB10BB3FFC324EAE8EDC2F2A598ACFAB7CEF9987A87FFAFD1",
+      "screenshots": [
+        {
+          "path": "native-ui/70-manual-reconfiguration-unreachable-clears-old-connection-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/71-manual-reconfiguration-restored-awaits-explicit-connect.json",
+      "exists": true,
+      "sha256": "9AB2112C2CD54C1B82C0184E82CB34E130561080B885B85547F657395B3F5774",
+      "screenshots": [
+        {
+          "path": "native-ui/71-manual-reconfiguration-restored-awaits-explicit-connect-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/72-manual-reconfiguration-recovery-connected.json",
+      "exists": true,
+      "sha256": "00297E3E075464B6FC1DBFF2EA1379613FE725D066B2452CFD9B3F5FB2FF7C63",
+      "screenshots": [
+        {
+          "path": "native-ui/72-manual-reconfiguration-recovery-connected-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/73-missing-local-model-fails-safe-but-message-not-actionable.json",
+      "exists": true,
+      "sha256": "158AF9C338F5C06A10185A02EAF625D858027A8D659A1A52DE83C6EE96A7915A",
+      "screenshots": [
+        {
+          "path": "native-ui/73-missing-local-model-fails-safe-but-message-not-actionable-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/74-settings-unapplied-language-theme-preview.json",
+      "exists": true,
+      "sha256": "1F0D5E400E433F15F07A724BBA3DCC06F84610FC1C84E9D8BA6F018D3C9723F2",
+      "screenshots": [
+        {
+          "path": "native-ui/74-settings-unapplied-language-theme-preview-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/75-settings-close-without-apply-preserves-fr-dark.json",
+      "exists": true,
+      "sha256": "A245B71B28582EC6E9F22852B479A1C23024DF62ECF7C8274509631E12B1C7BF",
+      "screenshots": [
+        {
+          "path": "native-ui/75-settings-close-without-apply-preserves-fr-dark-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/76-session-rename-cancel-preserves-title.json",
+      "exists": true,
+      "sha256": "A271CA568D97ECB5673E8A26BE01DF336D82AD036DC55F4DD1A626F1829045F5",
+      "screenshots": [
+        {
+          "path": "native-ui/76-session-rename-cancel-preserves-title-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "native-ui/77-two-messages-distinct-source-cards.json",
+      "exists": true,
+      "sha256": "1E15FE550C8155BC8BABA2B1F3D6D34EAFCBC49583D5A35C98C39A9D73CAB164",
+      "screenshots": [
+        {
+          "path": "native-ui/77-two-messages-distinct-source-cards-0.png",
+          "exists": true
+        }
+      ]
+    },
+    {
+      "path": "trace-interruption-accounting.json",
+      "exists": true,
+      "sha256": "210065E23F7FCB54D7DF9BD8DF8E29D04F6C813931331FEA38968BE7D9DBDF68",
+      "screenshots": []
+    },
+    {
+      "path": "w31-final-fix-proof.json",
+      "exists": true,
+      "sha256": "B76DB3DEDF2DAEC48352A1EB24EC3967CF6AA9A7CAD90A5BDDD7AA88F826F62A",
+      "screenshots": []
+    }
+  ]
+}

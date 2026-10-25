@@ -1,0 +1,14 @@
+Validation réelle WinUI — premier point utile
+
+Le vrai client Release x64 est lancé sur cette machine, avec un backend réel et PostgreSQL dans un environnement de test isolé. Le profil SAAIA habituel est préservé. Aucun appel Terra ni autre fournisseur payant.
+
+Déjà observé dans la fenêtre : connexion et création de discussion, premier envoi et réponse affichée/sauvegardée, annulation d'une réponse lente, rechargement de la conversation interrompue, création et renommage d'une autre discussion sans changement involontaire de session, Maj+Entrée répété et absence de double envoi. L'export support crée bien son archive ; elle ne contient pas les textes des questions de test.
+
+Trois vrais défauts reproduits, avec captures avant correction :
+1. Paramètres/Appliquer accessibles pendant une génération, avec risque de modifier le provider et la mémoire du tour en cours.
+2. AutoConnect=false en mode utilisateur laisse une fenêtre bloquée sans action pour se connecter.
+3. Si la première sauvegarde échoue, la saisie est vidée et une bulle semble envoyée ; elle disparaît au rechargement car elle n'était pas durable.
+
+Correctifs écrits et tests ciblés passés : admission des paramètres protégée, écran de connexion manuelle explicite, saisie conservée jusqu'à confirmation de sauvegarde et aucune bulle faussement envoyée. Le binaire de production corrigé vient de compiler avec 0 avertissement et 0 erreur. Je rejoue maintenant ces trois cas dans la vraie fenêtre.
+
+Ensuite : sources PDF et bonne page, erreurs de chargement, puis délégation/polling/reprise après fermeture. Le petit Qwen3-4B existant tourne aussi localement pour compléter les états contrôlés par une vraie exécution du modèle. Une fixture contrôlée prouve le comportement de l'interface, pas la qualité du raisonnement : les deux validations resteront distinctes.

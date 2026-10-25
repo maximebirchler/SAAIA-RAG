@@ -1,0 +1,27 @@
+{
+  "value": [
+    {
+      "categoryRef": "cat_001",
+      "categoryPath": "Archive",
+      "canonicalName": "Archive",
+      "displayOrder": 1,
+      "documentCount": 1,
+      "directDocumentCount": 1,
+      "subfolderCount": 0,
+      "lastUpdatedUtc": "2026-10-25T12:47:36.164444+01:00",
+      "aliases": []
+    },
+    {
+      "categoryRef": "cat_002",
+      "categoryPath": "Validation",
+      "canonicalName": "Validation",
+      "displayOrder": 2,
+      "documentCount": 1,
+      "directDocumentCount": 1,
+      "subfolderCount": 0,
+      "lastUpdatedUtc": "2026-10-25T12:47:36.164444+01:00",
+      "aliases": []
+    }
+  ],
+  "nextLink": null
+}

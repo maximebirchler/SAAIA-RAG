@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "saaia.winui-explicit-user-path-recovery.v1",
+  "reviewedAtUtc": "2026-10-25T12:45:23.1573641+00:00",
+  "state": "TARGETED_TESTS_PASSED_PENDING_UI_RETEST",
+  "cause": "Model route still announced basename; complete explicit user path was not mechanically rebound",
+  "recovery": "Unique explicit path with exact announced filename only; no fuzzy selection",
+  "newTests": 12,
+  "passed": 126,
+  "failed": 0,
+  "skipped": 0,
+  "sourceChangedDuringRun": false,
+  "manifest": "artifacts/winui-validation-20261025/document-explicit-user-path-unit-accepted/manifest.json",
+  "sources": [
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/NativeRouting/ExplicitDocumentPath.cs",
+      "sha256": "63D482EA547F5678534F918F1F1064C15A988712A828A3473360F687D25CA797"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "sha256": "BDC20688B1EED3920EEDF73CE90CEEEE6D0B5AEC2F3455566949D6618E5EDAE9"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.NativeRouterRepairContinuity.cs",
+      "sha256": "F85996F03D2232D2AC1798D881579CE5B52F903E386E14F3FC1FCC9F273B2B1B"
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/NativeDocumentPathIdentityTests.cs",
+      "sha256": "74B78CB7BE16D280AE6E39E01E5AAA0304CACBB0689E53693EA76894F811EF7D"
+    }
+  ],
+  "paidCalls": 0,
+  "modelCallsByTheseTests": 0
+}

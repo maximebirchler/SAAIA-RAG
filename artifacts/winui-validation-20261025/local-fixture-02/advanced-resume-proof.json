@@ -1,0 +1,183 @@
+{
+  "sessionId": "2dccd468-b196-4533-8de7-809868c208fa",
+  "payloadContentPublished": false,
+  "jobs": {
+    "after": 2,
+    "revision": 4,
+    "attemptCount": 1,
+    "createdBetween": 0,
+    "before": 2,
+    "status": "succeeded"
+  },
+  "limits": [
+    "The original process closed during polling and its trace has no terminal event; no replacement terminal was fabricated.",
+    "The persisted advancedAnalysis metadata and SQL parent trace establish the origin/resume chain. Journal Configuration.originTraceId needs a post-resume UI support export for direct inspection.",
+    "Other new sessions during the observation window are listed separately; the original assistant message is patched in place, not duplicated.",
+    "The provider is the deterministic internal fixture. This proves durable lifecycle and isolation, not model quality or the real meal-planning task."
+  ],
+  "checks": [
+    {
+      "passed": true,
+      "name": "same_message_id_across_restart"
+    },
+    {
+      "passed": true,
+      "name": "original_session_message_count_unchanged"
+    },
+    {
+      "passed": true,
+      "name": "one_job_reference_in_original_message"
+    },
+    {
+      "passed": true,
+      "name": "job_count_unchanged_no_new_job_during_resume"
+    },
+    {
+      "passed": true,
+      "name": "all_common_other_sessions_byte_fingerprints_unchanged"
+    },
+    {
+      "passed": true,
+      "name": "same_job_finishes_in_api_and_sql"
+    },
+    {
+      "passed": true,
+      "name": "persisted_trace_chain_retains_origin_and_resume"
+    },
+    {
+      "passed": true,
+      "name": "sql_job_parent_matches_original_trace"
+    },
+    {
+      "passed": true,
+      "name": "resume_polls_without_create_or_local_model"
+    },
+    {
+      "passed": true,
+      "name": "resume_has_single_successful_terminal"
+    },
+    {
+      "passed": true,
+      "name": "sql_payload_hash_matches_after_snapshot"
+    },
+    {
+      "passed": true,
+      "name": "owned_database_directory_verified"
+    }
+  ],
+  "passed": true,
+  "productStatus": "TESTE_NON_APPROUVE",
+  "sqlTransitions": [
+    {
+      "eventName": "queued",
+      "status": "queued",
+      "attemptCount": 0,
+      "occurredAt": "2026-10-25T13:40:03.199362+01:00",
+      "parentTraceparent": "00-15b7daa95ee3a877c232cafe4cbe9d59-eaffd089fc3f549f-00",
+      "turnId": "715cc6f6531d4fe3a066ab47dc936ebb",
+      "sessionId": "2dccd468-b196-4533-8de7-809868c208fa",
+      "clientSessionMismatch": false
+    },
+    {
+      "eventName": "lease_acquired",
+      "status": "running",
+      "attemptCount": 1,
+      "occurredAt": "2026-10-25T13:40:03.424203+01:00",
+      "parentTraceparent": "00-15b7daa95ee3a877c232cafe4cbe9d59-eaffd089fc3f549f-00",
+      "turnId": "715cc6f6531d4fe3a066ab47dc936ebb",
+      "sessionId": "2dccd468-b196-4533-8de7-809868c208fa",
+      "clientSessionMismatch": false
+    },
+    {
+      "eventName": "succeeded",
+      "status": "succeeded",
+      "attemptCount": 1,
+      "occurredAt": "2026-10-25T13:41:33.48928+01:00",
+      "parentTraceparent": "00-15b7daa95ee3a877c232cafe4cbe9d59-eaffd089fc3f549f-00",
+      "turnId": "715cc6f6531d4fe3a066ab47dc936ebb",
+      "sessionId": "2dccd468-b196-4533-8de7-809868c208fa",
+      "clientSessionMismatch": false
+    }
+  ],
+  "snapshots": [
+    {
+      "revision": 2,
+      "status": "running",
+      "phase": "before",
+      "sha256": "47A41813C63A426D55CA597442880C25899A93C87F7B168E3DC55A0BDE5E7965"
+    },
+    {
+      "revision": 3,
+      "status": "running",
+      "phase": "during",
+      "sha256": "3274A263362F38758FF84929D751ED4F9E0D48BDCA2243F01C25E111D54C161D"
+    },
+    {
+      "revision": 4,
+      "status": "succeeded",
+      "phase": "after",
+      "sha256": "355426721208979DA9A71985F9F2A0DCA572A792DB42CE50C7773328C4AC524A"
+    }
+  ],
+  "resumeTraceId": "a1e372c69cb4031b652c5cb19a9e171a",
+  "otherSessions": [
+    {
+      "messageCount": 2,
+      "duringSha256": "3ba5d730ae471db1fe6302377ca99850b0d7287989ba38793d0aaafaf7a4597e",
+      "sessionId": "d75f4812-8065-4683-a33a-16941fae93ab",
+      "afterSha256": "3ba5d730ae471db1fe6302377ca99850b0d7287989ba38793d0aaafaf7a4597e",
+      "unchanged": true,
+      "beforeSha256": "3ba5d730ae471db1fe6302377ca99850b0d7287989ba38793d0aaafaf7a4597e"
+    },
+    {
+      "messageCount": 7,
+      "duringSha256": "8b7a6d2ff9f91233c64eb0caaee8e23757e10eee256f747ff68ed08c679207ed",
+      "sessionId": "f23536a9-2296-4a1c-96b4-0b4c02a79e4b",
+      "afterSha256": "8b7a6d2ff9f91233c64eb0caaee8e23757e10eee256f747ff68ed08c679207ed",
+      "unchanged": true,
+      "beforeSha256": "8b7a6d2ff9f91233c64eb0caaee8e23757e10eee256f747ff68ed08c679207ed"
+    },
+    {
+      "messageCount": 8,
+      "duringSha256": "5d495968fc2b19043d41b41c1709c90ac54a81ae3fdd8136dd1c2b99e0f5360b",
+      "sessionId": "8d6d3555-1c24-4750-91d1-ec4801ed13bc",
+      "afterSha256": "5d495968fc2b19043d41b41c1709c90ac54a81ae3fdd8136dd1c2b99e0f5360b",
+      "unchanged": true,
+      "beforeSha256": "5d495968fc2b19043d41b41c1709c90ac54a81ae3fdd8136dd1c2b99e0f5360b"
+    },
+    {
+      "messageCount": 4,
+      "duringSha256": "b0207f5e7a22729f0302847c58c64a4aa26495d61d2655fd8eba396fe76eb1cd",
+      "sessionId": "d7683d16-3a3e-4360-b9ce-9db55ea2b5cb",
+      "afterSha256": "b0207f5e7a22729f0302847c58c64a4aa26495d61d2655fd8eba396fe76eb1cd",
+      "unchanged": true,
+      "beforeSha256": "b0207f5e7a22729f0302847c58c64a4aa26495d61d2655fd8eba396fe76eb1cd"
+    }
+  ],
+  "newSessionsOutsideOriginal": [
+    "3b26721e-2cfe-4351-88c8-3132c4805614"
+  ],
+  "checkedAtUtc": "2026-10-25T12:47:56.7446618+00:00",
+  "readOnly": true,
+  "probes": {
+    "configurationOriginTraceCheckedInSupport": false,
+    "originEventCount": 39,
+    "resumeElapsedMilliseconds": 76497,
+    "resumeTerminalCount": 1,
+    "resumePollResponses": 50,
+    "originTerminalCount": 0,
+    "resumeCreateCalls": 0,
+    "resumeLocalModelCalls": 0,
+    "resumeEventCount": 104,
+    "originInterruptedByProcessClose": true
+  },
+  "messageId": "ab4347a6-05cf-4249-805f-250c65bac2ab",
+  "schemaVersion": "saaia-winui-advanced-resume-proof.v1",
+  "originTraceId": "15b7daa95ee3a877c232cafe4cbe9d59",
+  "originSessionMessages": {
+    "during": 2,
+    "after": 2,
+    "before": 2
+  },
+  "jobId": "f1377562-c7c4-430c-a229-4818b2653a0f"
+}

@@ -1,0 +1,33 @@
+{
+  "value": [
+    {
+      "documentRef": "doc_1438107414ae52a79d8b58eea4a50585",
+      "docId": "14381074-14ae-52a7-9d8b-58eea4a50585",
+      "docPath": "Archive/Guide-Validation.pdf",
+      "canonicalName": "Guide-Validation.pdf",
+      "categoryRef": "cat_001",
+      "categoryCanonicalName": "Archive",
+      "categoryPath": "Archive",
+      "pages": 1,
+      "sourceHash": "cc0b33e8f5ae1e29d13c5b3d6ee7ddda",
+      "docLanguage": null,
+      "profileLanguage": null,
+      "lastModifiedUtc": "2026-10-25T12:34:24.586263+01:00"
+    },
+    {
+      "documentRef": "doc_aca1a813c59359e5bdf21cd12d1b8e40",
+      "docId": "aca1a813-c593-59e5-bdf2-1cd12d1b8e40",
+      "docPath": "Validation/Guide-Validation.pdf",
+      "canonicalName": "Guide-Validation.pdf",
+      "categoryRef": "cat_002",
+      "categoryCanonicalName": "Validation",
+      "categoryPath": "Validation",
+      "pages": 2,
+      "sourceHash": "8a053c4ea11d09d8ffbd4611cec8fe03",
+      "docLanguage": null,
+      "profileLanguage": null,
+      "lastModifiedUtc": "2026-10-25T12:34:24.586263+01:00"
+    }
+  ],
+  "nextLink": null
+}

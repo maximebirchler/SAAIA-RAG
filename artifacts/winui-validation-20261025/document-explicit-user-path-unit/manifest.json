@@ -1,0 +1,742 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "e90fa934ae7046538949a891d651f2cc",
+  "startedAtUtc": "2026-10-25T12:42:25.8393857+00:00",
+  "finishedAtUtc": "2026-10-25T12:42:56.4112983+00:00",
+  "gitCommit": "3f0de18349f1191bc3eca72497a04094445234e2",
+  "gitDirty": true,
+  "profile": "Unit",
+  "filter": "(Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid)&(FullyQualifiedName~NativeDocumentPathIdentityTests|FullyQualifiedName~SourceTraceMetadataTests|FullyQualifiedName~SourceBackedNamedDocumentCatalogResolverTests|FullyQualifiedName~NativeRouterPromptBudgetTests)",
+  "requestedProjects": [
+    "Client"
+  ],
+  "configuration": "Release",
+  "buildRequested": true,
+  "restoreRequested": false,
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-25T12:42:26.8297311+00:00",
+    "sha256": "C3C195B195C07444171E27936DE75F7B8FB4FE858E6BD1B0C6797035218AC142",
+    "fileCount": 1638,
+    "inventory": "source-files-e90fa934ae7046538949a891d651f2cc-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-25T12:42:57.1983187+00:00",
+    "sha256": "A4D3B2FCCABDA5E17546883AAAAA9E5C357E112D983E6B4E24672141C9E2FC78",
+    "fileCount": 1638,
+    "inventory": "source-files-e90fa934ae7046538949a891d651f2cc-after.json"
+  },
+  "sourceChangedDuringRun": true,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "state": "failed",
+  "prerequisites": [],
+  "environment": {
+    "clientDataIsolation": {
+      "rootId": "4AB770203DC360DE207252C91D8DA2DAD9811CB87BA2A4D57A53E825B5910778",
+      "ownedRelativePath": "client-data",
+      "source": "owned_campaign_output",
+      "enabled": true,
+      "environmentRestored": true,
+      "requiredForClientTests": true
+    },
+    "neutralizedVariableNames": []
+  },
+  "results": [
+    {
+      "project": "Client",
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj",
+      "status": "failed",
+      "exitCode": 1,
+      "trx": "Client-e90fa934ae7046538949a891d651f2cc.trx",
+      "trxSha256": "AA7F05D0EC0AD75A800B3144B0B18145F5DD2D173345C5B144E96825ACC75FD8",
+      "assemblies": [
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.Core.dll",
+          "role": "local_product_dependency",
+          "sha256": "C6D929E97746315F13399466BABF1D82058720BA9BEA0313E1EC836E9A9C3B2C",
+          "sizeBytes": 97280,
+          "lastWriteTimeUtc": "2026-10-25T12:00:33.0000539Z",
+          "capturedAtUtc": "2026-10-25T12:42:56.3752762+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.ToolAgent.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "F1E8DCCE66A52877E6EC2598B45EACE4D85972421FC39264B4AF7C95B5F6A0C5",
+          "sizeBytes": 4723200,
+          "lastWriteTimeUtc": "2026-10-25T12:42:54.8503549Z",
+          "capturedAtUtc": "2026-10-25T12:42:56.3806964+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.WinUI.dll",
+          "role": "local_product_dependency",
+          "sha256": "AA024CA064B1E1D8669C760DF14832E624BB9FE09DE11BC82B3C1E3908DFB7D7",
+          "sizeBytes": 8219136,
+          "lastWriteTimeUtc": "2026-10-25T12:42:49.4256864Z",
+          "capturedAtUtc": "2026-10-25T12:42:56.3892643+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "AE04DB17641409F9332F8B378A4DCFAA8F1796BC24DF6209ADABB8DDD667C9E5",
+          "sizeBytes": 152064,
+          "lastWriteTimeUtc": "2026-10-25T11:32:52.4997249Z",
+          "capturedAtUtc": "2026-10-25T12:42:56.3900988+00:00"
+        }
+      ],
+      "counts": {
+        "passed": 124,
+        "total": 126,
+        "adapterReportedExecuted": 126,
+        "notExecuted": 0,
+        "executed": 126,
+        "failed": 2
+      },
+      "cases": [
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.File_name_with_extension_does_not_use_identity_prefix",
+          "outcome": "Passed",
+          "duration": "00:00:00.0007937"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Formal_designator_guard_rejects_unsafe_matches(requested: \"norme EN 15281\", candidatePath: \"Standards/CEN TR 152810 Guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000527"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_grid_allows_a_documentary_type_to_overlap_a_column_label",
+          "outcome": "Passed",
+          "duration": "00:00:00.0023364"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_operational_second_stage_keeps_a_real_user_preference_clarifiable",
+          "outcome": "Passed",
+          "duration": "00:00:00.0011369"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_classifier_accepts_only_known_semantic_labels(toolName: \"submit_source_backed_grid_route\", expected: True)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0015218"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Unique_extensionless_identity_prefix_is_resolved",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002976"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_timeout_budgets_prompt_evaluation_and_generation(inputTokens: 8000, maximumOutputTokens: 256, expectedMilliseconds: 180000)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0050761"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_grid_contract_preserves_exact_axes_and_product",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001979"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Exact_file_name_is_resolved_from_complete_current_catalog",
+          "outcome": "Passed",
+          "duration": "00:00:00.0004205"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Explicit_edition_is_preserved_when_formal_designator_resolves_identity(requested: \"ISO 13849-1:2023\", targetStem: \"ISO 13849-1 2023\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000757"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_mission_preserves_document_reference_until_exact_catalog_resolution(reference: \"Guide-Validation.pdf\", unique: False)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0006652"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_preserves_an_explicitly_repeatable_named_grid",
+          "outcome": "Passed",
+          "duration": "00:00:00.0007669"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_documentary_second_stage_exposes_selected_family_and_missing_input(selectedRouteToolName: \"submit_source_backed_route\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002469"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Formal_designator_guard_rejects_unsafe_matches(requested: \"norme EN 15281\", candidatePath: \"Standards/CEN TR 15281-1 Guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0004747"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: \"Lis Validation/Guide.pdf.\", announced: \"Guide.pdf\", expected: \"Validation/Guide.pdf\")",
+          "outcome": "Failed",
+          "duration": "00:00:00.0000921"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Explicit_edition_is_preserved_when_formal_designator_resolves_identity(requested: \"EN ISO 13849-1 2023\", targetStem: \"ISO 13849-1:2023\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000601"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Non_advancing_pagination_is_inconclusive",
+          "outcome": "Passed",
+          "duration": "00:00:00.0004233"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_coalesces_homogeneous_overview_calls_for_one_named_document",
+          "outcome": "Passed",
+          "duration": "00:00:00.0019662"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_clarification_contract_preserves_llm_message_options_and_resume_route",
+          "outcome": "Passed",
+          "duration": "00:00:00.0005063"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_grid_plan_derives_redundant_cell_count_from_exact_axes",
+          "outcome": "Passed",
+          "duration": "00:00:00.0014053"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Formal_designator_is_sent_as_a_catalog_query",
+          "outcome": "Passed",
+          "duration": "00:00:00.0029094"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_canonicalizes_a_named_grid_entry_contract",
+          "outcome": "Passed",
+          "duration": "00:00:00.0013643"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Unique_formal_numeric_designator_resolves_an_extensionless_reference",
+          "outcome": "Passed",
+          "duration": "00:00:00.0004735"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_treats_a_bounded_set_inside_one_named_document_as_content_claims",
+          "outcome": "Passed",
+          "duration": "00:00:00.0005377"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_grid_contract_rejects_a_wrong_product_or_axes_on_non_grid(compactKind: \"one\", atomicEvidenceCount: 1)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001457"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Formal_designator_guard_rejects_unsafe_matches(requested: \"norme EN 15281.pdf\", candidatePath: \"Standards/CEN TR 15281 Guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001427"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_timeout_budgets_prompt_evaluation_and_generation(inputTokens: 2000, maximumOutputTokens: 256, expectedMilliseconds: 97600)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002090"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Explicit_edition_never_resolves_to_another_edition",
+          "outcome": "Passed",
+          "duration": "00:00:00.0003140"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Full_path_disambiguates_exact_homonyms",
+          "outcome": "Passed",
+          "duration": "00:00:00.0003452"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_repair_preserves_a_previously_valid_explicit_document_anchor",
+          "outcome": "Passed",
+          "duration": "00:00:00.0014641"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_classifier_distinguishes_source_resolvable_answers_from_user_preferences",
+          "outcome": "Passed",
+          "duration": "00:00:00.0004461"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_clarification_prefers_verified_user_text_anchors_over_reformulated_labels",
+          "outcome": "Passed",
+          "duration": "00:00:00.0047500"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_canonicalizes_an_explicit_set_of_one_without_turning_the_named_subject_into_a_document",
+          "outcome": "Passed",
+          "duration": "00:00:00.0005331"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_rejects_an_incomplete_clarification_contract(optionsJson: \"[]\", resumeRoute: \"source_backed_grid\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001443"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Publication_year_elsewhere_in_the_title_is_not_the_requested_edition",
+          "outcome": "Passed",
+          "duration": "00:00:00.0004288"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_grid_contract_rejects_row_header_repeated_as_a_value_column",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001752"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_resolves_an_exact_compact_category_ref_to_its_canonical_path",
+          "outcome": "Passed",
+          "duration": "00:00:00.0009365"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_timeout_budgets_prompt_evaluation_and_generation(inputTokens: null, maximumOutputTokens: 256, expectedMilliseconds: 90000)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000128"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: \"Lis Validation/Guide.pdf.\", announced: \"Archive/Guide.pdf\", expected: \"Archive/Guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000064"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Duplicate_rows_for_same_doc_id_do_not_create_false_ambiguity",
+          "outcome": "Passed",
+          "duration": "00:00:00.0003319"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_classifier_accepts_only_known_semantic_labels(toolName: \"\", expected: False)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000017"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Ambiguous_candidate_payload_is_bounded_without_losing_exact_count",
+          "outcome": "Passed",
+          "duration": "00:00:00.0084384"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_does_not_coalesce_heterogeneous_route_calls(secondTool: \"overview\", secondDocument: \"Other guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002006"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_classifier_accepts_only_known_semantic_labels(toolName: \"submit_source_backed_route\", expected: True)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000019"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_classifier_accepts_only_known_semantic_labels(toolName: \"submit_document_overview_route\", expected: True)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000089"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Explicit_edition_is_preserved_when_formal_designator_resolves_identity(requested: \"norme EN ISO 13849-1:2023\", targetStem: \"ISO 13849-1 2023\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001922"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Unspecified_edition_remains_ambiguous_when_multiple_editions_exist",
+          "outcome": "Passed",
+          "duration": "00:00:00.0113550"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: \"Internal Docs/Guide-Validation.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0040900"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_classifier_accepts_only_known_semantic_labels(toolName: \"defer_to_general_router\", expected: False)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001764"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_rejects_an_incomplete_clarification_contract(optionsJson: \"[\\\"Option A\\\",\\\"Option B\\\"]\", resumeRoute: \"unknown\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000237"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Compact_source_router_bounds_categories_and_preserves_focused_document",
+          "outcome": "Passed",
+          "duration": "00:00:00.0028093"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_repair_preserves_the_complete_explicit_reference(reference: \"Guide-Validation.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002057"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_repair_preserves_the_complete_explicit_reference(reference: \"Validation/Guide-Validation.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0011111"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Timeout_is_inconclusive_and_never_not_found",
+          "outcome": "Passed",
+          "duration": "00:00:00.0009657"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Multiple_extensionless_identity_prefixes_are_ambiguous",
+          "outcome": "Passed",
+          "duration": "00:00:00.0006666"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_documentary_second_stage_exposes_selected_family_and_missing_input(selectedRouteToolName: \"submit_source_backed_grid_route\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0003616"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_drops_a_scope_without_a_request_grounded_category_signal",
+          "outcome": "Passed",
+          "duration": "00:00:00.0021898"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Exact_identity_has_priority_over_longer_identity_prefixes",
+          "outcome": "Passed",
+          "duration": "00:00:00.0003194"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_operational_prompt_keeps_pre_tool_clarification_guard",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000854"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Extensionless_exact_name_is_resolved_without_fuzzy_matching",
+          "outcome": "Passed",
+          "duration": "00:00:00.0003386"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Identity_prefix_requires_a_lexical_boundary",
+          "outcome": "Passed",
+          "duration": "00:00:00.0003262"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: \"Validation\\\\Guide-Validation.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0005490"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_mission_preserves_document_reference_until_exact_catalog_resolution(reference: \"Validation/Guide-Validation.pdf\", unique: True)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001107"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_keeps_search_query_distinct_from_atomic_evidence_type",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001813"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Compact_source_router_keeps_lexically_supported_scopes_from_a_large_catalog",
+          "outcome": "Passed",
+          "duration": "00:00:00.0007031"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_documentary_second_stage_prompt_is_evidence_first(routeToolName: \"submit_document_overview_route\", requiredMarker: \"original order\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001102"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Multiple_documents_with_same_formal_designator_are_ambiguous",
+          "outcome": "Passed",
+          "duration": "00:00:00.0005129"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_clarification_keeps_distinct_llm_labels_when_anchors_are_duplicated",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001399"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_grid_does_not_treat_its_category_as_a_document",
+          "outcome": "Passed",
+          "duration": "00:00:00.0028050"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_grid_prompt_excludes_row_header_from_value_columns_and_count",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002501"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_preserves_open_overview_claims_for_one_named_target",
+          "outcome": "Passed",
+          "duration": "00:00:00.0038504"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Formal_designator_guard_rejects_unsafe_matches(requested: \"15281\", candidatePath: \"Standards/CEN TR 15281 Guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000217"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_does_not_coalesce_heterogeneous_route_calls(secondTool: \"search\", secondDocument: \"Guide audit.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0012830"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_drops_a_scope_that_was_not_published_in_category_hints(scope: \"cat_999\", categoryHintsIncluded: True)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0016552"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_drops_a_scope_that_was_not_published_in_category_hints(scope: \"cat_001\", categoryHintsIncluded: False)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0007189"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceTraceMetadataTests.Free_text_in_a_code_field_is_rejected_in_metadata_mode",
+          "outcome": "Passed",
+          "duration": "00:00:00.0004285"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_grid_contract_rejects_axes_not_grounded_in_the_request",
+          "outcome": "Passed",
+          "duration": "00:00:00.0319596"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_rejects_an_incomplete_clarification_contract(optionsJson: \"[\\\"Une seule option\\\"]\", resumeRoute: \"source_backed_grid\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001464"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_grid_contract_rejects_structurally_corrupted_axis_labels",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000808"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_repair_preserves_the_complete_explicit_reference(reference: \"Validation\\\\Guide-Validation.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000306"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: \"Lis Validation/Guide.pdf puis Archive/Guide.pdf.\", announced: \"Guide.pdf\", expected: \"Guide.pdf\")",
+          "outcome": "Failed",
+          "duration": "00:00:00.0015890"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: \"Lis https://host/Guide.pdf puis Validation/Guide.p\"···, announced: \"Guide.pdf\", expected: \"Guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000572"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Compact_source_router_does_not_publish_an_arbitrary_zero_score_prefix",
+          "outcome": "Passed",
+          "duration": "00:00:00.0006196"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Pure_native_routing_builders_have_one_owner_outside_the_orchestrator",
+          "outcome": "Passed",
+          "duration": "00:00:00.0006043"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_transports_the_llm_answer_unit_mode_for_named_document_content",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001928"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Exact_homonyms_in_distinct_paths_are_ambiguous",
+          "outcome": "Passed",
+          "duration": "00:00:00.0005331"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceTraceMetadataTests.Production_probe_and_log_keep_safe_source_identity_and_counts_without_document_content",
+          "outcome": "Passed",
+          "duration": "00:00:00.0844661"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: \"Lis Validation/OtherGuide.pdf.\", announced: \"Guide.pdf\", expected: \"Guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000546"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_grid_contract_rejects_search_before_observation",
+          "outcome": "Passed",
+          "duration": "00:00:00.0007065"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Explicit_edition_is_preserved_when_formal_designator_resolves_identity(requested: \"ISO 13849-1:2023\", targetStem: \"EN ISO 13849-1-2023\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0004068"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_classifier_accepts_only_known_semantic_labels(toolName: \"request_user_clarification\", expected: False)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000025"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Formal_designator_guard_rejects_unsafe_matches(requested: \"norme EN 2023\", candidatePath: \"Standards/EN 2023 Commentary.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000309"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_documentary_second_stage_prompt_is_evidence_first(routeToolName: \"submit_source_backed_route\", requiredMarker: \"subjective wording\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000136"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_invalid_clarification_releases_all_clarification_routes",
+          "outcome": "Passed",
+          "duration": "00:00:00.0013109"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_derives_summary_intent_from_overview_when_optional_intent_is_omitted",
+          "outcome": "Passed",
+          "duration": "00:00:00.0005636"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_transports_an_open_set_as_a_multi_item_mission",
+          "outcome": "Passed",
+          "duration": "00:00:00.0005079"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_grid_contract_rejects_a_wrong_product_or_axes_on_non_grid(compactKind: \"grid\", atomicEvidenceCount: 19)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000921"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_exposes_distinct_compact_semantic_route_contracts",
+          "outcome": "Passed",
+          "duration": "00:00:00.0173074"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_classifier_uses_semantic_labels_without_retrieval_arguments",
+          "outcome": "Passed",
+          "duration": "00:00:00.0022923"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_documentary_second_stage_exposes_selected_family_and_missing_input(selectedRouteToolName: \"submit_document_overview_route\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0004158"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Compact_source_router_publishes_semantic_scope_values_instead_of_opaque_refs",
+          "outcome": "Passed",
+          "duration": "00:00:00.0094339"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_format_repair_preserves_the_llm_chosen_route_function",
+          "outcome": "Passed",
+          "duration": "00:00:00.0005197"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_rejects_an_open_set_collapsed_to_one_item",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001036"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_named_target_content_contract_separates_target_from_answer_units",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002374"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_clarification_contract_excludes_candidate_answers_resolved_by_evidence",
+          "outcome": "Passed",
+          "duration": "00:00:00.0006644"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_classifier_accepts_only_known_semantic_labels(toolName: \"request_missing_user_input\", expected: True)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000019"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: \"Lis ../Validation/Guide.pdf.\", announced: \"Guide.pdf\", expected: \"Guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0003152"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_non_grid_prompt_preserves_open_plural_as_a_comparison_set",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000588"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_canonicalizes_redundant_overview_transport_fields",
+          "outcome": "Passed",
+          "duration": "00:00:00.0009711"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_grid_card_inventory_samples_representative_source_positions",
+          "outcome": "Passed",
+          "duration": "00:00:00.0009967"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: \"Lis Validation/Guide.pdf.backup.\", announced: \"Guide.pdf\", expected: \"Guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000047"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_classifier_accepts_only_known_semantic_labels(toolName: \"submit_operational_route\", expected: True)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000018"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_preserves_named_items_for_a_bounded_set_without_a_named_document",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002638"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_grid_prompt_requests_a_native_source_object_before_placement",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000792"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_grid_plan_preserves_its_first_observation_but_drops_an_unpublished_scope",
+          "outcome": "Passed",
+          "duration": "00:00:00.0008508"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_operational_second_stage_keeps_clarification_available",
+          "outcome": "Passed",
+          "duration": "00:00:00.0004594"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_mission_preserves_document_reference_until_exact_catalog_resolution(reference: \"Validation\\\\Guide-Validation.pdf\", unique: True)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0363698"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Compact_source_router_does_not_publish_unrelated_catalog_when_it_fits_the_budget",
+          "outcome": "Passed",
+          "duration": "00:00:00.0004463"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Explicit_edition_is_preserved_when_formal_designator_resolves_identity(requested: \"ISO 13849-1:2023\", targetStem: \"EN_ISO_13849-1_2023\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000785"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_second_stage_keeps_all_families_when_classifier_is_invalid",
+          "outcome": "Passed",
+          "duration": "00:00:00.0003660"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: \"Lis « Internal Docs/Guide.pdf ».\", announced: \"Guide.pdf\", expected: \"Internal Docs/Guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000801"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_documentary_second_stage_prompt_is_evidence_first(routeToolName: \"submit_source_backed_grid_route\", requiredMarker: \"Grid intake never formulates a search query\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001080"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: \"Lis Guide.pdf.\", announced: \"Guide.pdf\", expected: \"Guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001201"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedNamedDocumentCatalogResolverTests.Complete_catalog_without_exact_match_is_not_found",
+          "outcome": "Passed",
+          "duration": "00:00:00.0003323"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterPromptBudgetTests.Native_router_transports_named_document_overview_as_verified_live_summary",
+          "outcome": "Passed",
+          "duration": "00:00:00.0003181"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: \"Validation/Guide-Validation.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0008082"
+        }
+      ]
+    }
+  ],
+  "model": {
+    "state": "not_applicable",
+    "reason": "Unit and PostgreSQL profiles do not invoke a model."
+  },
+  "corpus": {
+    "state": "synthetic_fixtures",
+    "reason": "IntegrationPg fixtures create isolated databases; no production corpus is assumed."
+  },
+  "validationProfilesSha256": "8E4B990BC0A828134E5FE0D8E7B2D82406B56D2A200D8D4D37516208E3D3201D",
+  "selectionPolicy": "TRX covers selected tests; excluded profiles were not executed.",
+  "excludedProfiles": [
+    "IntegrationPg",
+    "LiveLocal",
+    "LivePaid"
+  ]
+}

@@ -1,0 +1,264 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "38a670e1c2d84432af7a2cd9008bc44f",
+  "startedAtUtc": "2026-10-25T12:00:27.8845898+00:00",
+  "finishedAtUtc": "2026-10-25T12:01:00.6114817+00:00",
+  "gitCommit": "3f0de18349f1191bc3eca72497a04094445234e2",
+  "gitDirty": true,
+  "profile": "Unit",
+  "filter": "(Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid)&(FullyQualifiedName~ComposerActionStateTests|FullyQualifiedName~SettingsAdmissionContractTests|FullyQualifiedName~ManualStartupConnectionContractTests)",
+  "requestedProjects": [
+    "ClientCore",
+    "Client"
+  ],
+  "configuration": "Release",
+  "buildRequested": true,
+  "restoreRequested": false,
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-25T12:00:28.8186280+00:00",
+    "sha256": "900D11A1F7C6631FB51145D26AE962453B79CBE46645C4E08809A801C75CF54F",
+    "fileCount": 1625,
+    "inventory": "source-files-38a670e1c2d84432af7a2cd9008bc44f-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-25T12:01:01.1345437+00:00",
+    "sha256": "C76B9457A662702AC07DF380C71AF6FD90B38030C7FAB77167B73AD104C32A8C",
+    "fileCount": 1625,
+    "inventory": "source-files-38a670e1c2d84432af7a2cd9008bc44f-after.json"
+  },
+  "sourceChangedDuringRun": true,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "state": "passed",
+  "prerequisites": [],
+  "environment": {
+    "neutralizedVariableNames": []
+  },
+  "results": [
+    {
+      "project": "ClientCore",
+      "path": "client/SAAIA.Client.Core.Tests/SAAIA.Client.Core.Tests.csproj",
+      "status": "passed",
+      "exitCode": 0,
+      "trx": "ClientCore-38a670e1c2d84432af7a2cd9008bc44f.trx",
+      "trxSha256": "8E47A2EE6B553C557552806818E8CF001638DB991677ECDCE70B96E57360C81B",
+      "assemblies": [
+        {
+          "path": "client\\SAAIA.Client.Core.Tests\\bin\\Release\\net8.0\\SAAIA.Client.Core.dll",
+          "role": "local_product_dependency",
+          "sha256": "CBFE2BF3C737597489A4C3AF170B6A7BEBC0BBE359B1D4716A2420C272631FB0",
+          "sizeBytes": 97280,
+          "lastWriteTimeUtc": "2026-10-25T12:00:29.8740426Z",
+          "capturedAtUtc": "2026-10-25T12:00:31.6009332+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.Core.Tests\\bin\\Release\\net8.0\\SAAIA.Client.Core.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "DE47C3DEBBA43EF87EBB87CDE8BF8EE4A581F80D6A1930C8600809E102343368",
+          "sizeBytes": 71680,
+          "lastWriteTimeUtc": "2026-10-25T12:00:30.0201772Z",
+          "capturedAtUtc": "2026-10-25T12:00:31.6016818+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.Core.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "AE04DB17641409F9332F8B378A4DCFAA8F1796BC24DF6209ADABB8DDD667C9E5",
+          "sizeBytes": 152064,
+          "lastWriteTimeUtc": "2026-10-25T11:32:52.4997249Z",
+          "capturedAtUtc": "2026-10-25T12:00:31.6023919+00:00"
+        }
+      ],
+      "counts": {
+        "passed": 7,
+        "adapterReportedExecuted": 7,
+        "total": 7,
+        "notExecuted": 0,
+        "executed": 7,
+        "failed": 0
+      },
+      "cases": [
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0000012",
+          "name": "SAAIA.Client.Core.Tests.ComposerActionStateTests.Missing_connection_session_free_admission_or_text_disables_send(connected: True, session: False, changingSession: False, text: True)"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0000300",
+          "name": "SAAIA.Client.Core.Tests.ComposerActionStateTests.A_stale_cancelling_flag_cannot_replace_an_idle_send_action"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0981882",
+          "name": "SAAIA.Client.Core.Tests.ComposerActionStateTests.Missing_connection_session_free_admission_or_text_disables_send(connected: False, session: True, changingSession: False, text: True)"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0002456",
+          "name": "SAAIA.Client.Core.Tests.ComposerActionStateTests.Cancellation_remains_non_actionable_until_the_actual_turn_owner_releases_admission"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0004714",
+          "name": "SAAIA.Client.Core.Tests.ComposerActionStateTests.An_open_configuration_keeps_the_composer_disabled_until_its_owner_finishes"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0000036",
+          "name": "SAAIA.Client.Core.Tests.ComposerActionStateTests.Missing_connection_session_free_admission_or_text_disables_send(connected: True, session: True, changingSession: True, text: True)"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0001736",
+          "name": "SAAIA.Client.Core.Tests.ComposerActionStateTests.Missing_connection_session_free_admission_or_text_disables_send(connected: True, session: True, changingSession: False, text: False)"
+        }
+      ]
+    },
+    {
+      "project": "Client",
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj",
+      "status": "passed",
+      "exitCode": 0,
+      "trx": "Client-38a670e1c2d84432af7a2cd9008bc44f.trx",
+      "trxSha256": "E0A479668516E252528CA8B69BFB11F46CC9A7FF369CA11371A31EAF2FA286DA",
+      "assemblies": [
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.Core.dll",
+          "role": "local_product_dependency",
+          "sha256": "C6D929E97746315F13399466BABF1D82058720BA9BEA0313E1EC836E9A9C3B2C",
+          "sizeBytes": 97280,
+          "lastWriteTimeUtc": "2026-10-25T12:00:33.0000539Z",
+          "capturedAtUtc": "2026-10-25T12:01:00.5936228+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.ToolAgent.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "57EF44B82F098471B74949299FAB81CFEF9446F0FC9E5E64A547EDF02022C8B5",
+          "sizeBytes": 4689920,
+          "lastWriteTimeUtc": "2026-10-25T12:00:59.3228074Z",
+          "capturedAtUtc": "2026-10-25T12:01:00.5998081+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.WinUI.dll",
+          "role": "local_product_dependency",
+          "sha256": "8AF740BFA1BC514AFA63611A184853D6DF651D6137281EDE4916DE5E4CFCB2C8",
+          "sizeBytes": 8204288,
+          "lastWriteTimeUtc": "2026-10-25T12:00:55.1002492Z",
+          "capturedAtUtc": "2026-10-25T12:01:00.6076436+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "AE04DB17641409F9332F8B378A4DCFAA8F1796BC24DF6209ADABB8DDD667C9E5",
+          "sizeBytes": 152064,
+          "lastWriteTimeUtc": "2026-10-25T11:32:52.4997249Z",
+          "capturedAtUtc": "2026-10-25T12:01:00.6084992+00:00"
+        }
+      ],
+      "counts": {
+        "passed": 16,
+        "adapterReportedExecuted": 16,
+        "total": 16,
+        "notExecuted": 0,
+        "executed": 16,
+        "failed": 0
+      },
+      "cases": [
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0082042",
+          "name": "SAAIA.Client.ToolAgent.Tests.ManualStartupConnectionContractTests.Manual_connection_actions_are_localized_in_all_supported_languages(language: \"en\", connect: \"Connect\", title: \"Client disconnected\")"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0053489",
+          "name": "SAAIA.Client.ToolAgent.Tests.SettingsAdmissionContractTests.The_compiled_configuration_wizard_owns_admission_through_application_but_releases_before_connecting"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0001284",
+          "name": "SAAIA.Client.ToolAgent.Tests.ManualStartupConnectionContractTests.Manual_connection_actions_are_localized_in_all_supported_languages(language: \"fr\", connect: \"Se connecter\", title: \"Client déconnecté\")"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0000044",
+          "name": "SAAIA.Client.ToolAgent.Tests.ManualStartupConnectionContractTests.Manual_connection_actions_are_localized_in_all_supported_languages(language: \"it\", connect: \"Connetti\", title: \"Client disconnesso\")"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0006232",
+          "name": "SAAIA.Client.ToolAgent.Tests.ManualStartupConnectionContractTests.Startup_and_theme_rebuild_keep_an_explicit_disconnected_state_available"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0809783",
+          "name": "SAAIA.Client.ToolAgent.Tests.SettingsAdmissionContractTests.Active_or_cancelling_turns_cannot_admit_settings_that_would_mutate_their_provider"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0000017",
+          "name": "SAAIA.Client.ToolAgent.Tests.ManualStartupConnectionContractTests.Manual_connection_actions_are_localized_in_all_supported_languages(language: \"de\", connect: \"Verbinden\", title: \"Client nicht verbunden\")"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0011963",
+          "name": "SAAIA.Client.ToolAgent.Tests.SettingsAdmissionContractTests.Settings_admission_blocks_keyboard_turns_until_dialog_and_application_finish_even_on_error(failApplication: True)"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0043283",
+          "name": "SAAIA.Client.ToolAgent.Tests.SettingsAdmissionContractTests.The_compiled_composer_uses_the_action_state_and_an_explicit_cancelling_label"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0030805",
+          "name": "SAAIA.Client.ToolAgent.Tests.SettingsAdmissionContractTests.Settings_admission_blocks_keyboard_turns_until_dialog_and_application_finish_even_on_error(failApplication: False)"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0000022",
+          "name": "SAAIA.Client.ToolAgent.Tests.ManualStartupConnectionContractTests.Manual_connection_actions_are_localized_in_all_supported_languages(language: \"es\", connect: \"Conectar\", title: \"Cliente desconectado\")"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0953943",
+          "name": "SAAIA.Client.ToolAgent.Tests.ManualStartupConnectionContractTests.Explicit_connection_calls_the_real_connect_path_without_changing_the_automatic_connection_preference"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0003613",
+          "name": "SAAIA.Client.ToolAgent.Tests.ManualStartupConnectionContractTests.Disconnected_presentation_uses_manual_copy_and_not_the_error_presentation"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0000019",
+          "name": "SAAIA.Client.ToolAgent.Tests.ManualStartupConnectionContractTests.Manual_connection_actions_are_localized_in_all_supported_languages(language: \"pt\", connect: \"Ligar\", title: \"Cliente desligado\")"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0003496",
+          "name": "SAAIA.Client.ToolAgent.Tests.SettingsAdmissionContractTests.The_configuration_button_handler_also_checks_the_current_conversation_state"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0005190",
+          "name": "SAAIA.Client.ToolAgent.Tests.SettingsAdmissionContractTests.The_compiled_settings_handler_owns_admission_before_loading_or_opening_and_through_application"
+        }
+      ]
+    }
+  ],
+  "model": {
+    "reason": "Unit and PostgreSQL profiles do not invoke a model.",
+    "state": "not_applicable"
+  },
+  "corpus": {
+    "reason": "IntegrationPg fixtures create isolated databases; no production corpus is assumed.",
+    "state": "synthetic_fixtures"
+  },
+  "validationProfilesSha256": "8E4B990BC0A828134E5FE0D8E7B2D82406B56D2A200D8D4D37516208E3D3201D",
+  "selectionPolicy": "TRX covers selected tests; excluded profiles were not executed.",
+  "excludedProfiles": [
+    "IntegrationPg",
+    "LiveLocal",
+    "LivePaid"
+  ]
+}

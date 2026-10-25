@@ -1,0 +1,1 @@
+Write-Error: Client test isolation requires an absolute SAAIA_CLIENT_DATA_ROOT; no test was executed.

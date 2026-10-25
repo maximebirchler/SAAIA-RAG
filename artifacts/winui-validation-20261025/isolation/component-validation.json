@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "saaia.winui-profile-isolation-validation.v1",
+  "capturedAtUtc": "2026-10-25T11:41:26.5890534+00:00",
+  "result": "VALIDATED_TARGETED",
+  "testTotals": {
+    "passed": 9,
+    "failed": 0,
+    "skipped": 0,
+    "trx": "artifacts/winui-validation-20261025/isolation/isolation-support-accepted.trx",
+    "sha256": "BE58C96B7C3F7730A35029CECC18E8DEC47DD138EB965EC6142C004635954083"
+  },
+  "verifierSelfTests": {
+    "passed": 7,
+    "failed": 0,
+    "checks": "artifacts/winui-validation-20261025/evidence-verifier-selftests-with-wire/checks.json"
+  },
+  "defaultsPreserved": true,
+  "paidModelCalled": false,
+  "realUiDrivenByThisAgent": false,
+  "limits": [
+    "Storage isolation is not a network sandbox.",
+    "Visual UI and PDF rendering require parent agent observations.",
+    "Latest support /v1/models change validated in testhooks; next production UI build must include it."
+  ],
+  "sources": [
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/ClientDataPaths.cs",
+      "sha256": "25DC39E2DB3A07023E553FF0D20681B0305D9D3EB4E9DAF31413DA118436DBDA"
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/ClientDataPathsTests.cs",
+      "sha256": "7D8913B14727306C7620E71FB19967FBBB39295715EE139163DF85B8A97BB1F5"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/SupportBundleBuilder.cs",
+      "sha256": "27CFABD477EB560F1B50F17A7F79D1A76A8861925836B5A7B2D686FBAD543424"
+    },
+    {
+      "path": "tools/validation-winui/verify-evidence.ps1",
+      "sha256": "5C920DC5E7C5BD0F51E1B7A408D522B650D888DC03667EB8AD2CEEE18F92EA90"
+    },
+    {
+      "path": "tools/validation-winui/test-evidence-verifier.ps1",
+      "sha256": "361AA949765E15FD0F982BB68749913868A7F3AA49FD56F35746764676F046E1"
+    },
+    {
+      "path": "tools/validation-winui/EVIDENCE.md",
+      "sha256": "247AA6F758914C3036F78636B9F452AA15BD9C3CA5C2F423982558A9A0EF34A0"
+    }
+  ]
+}

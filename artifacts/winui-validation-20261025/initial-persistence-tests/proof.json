@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "saaia.winui-w17-initial-message-persistence.v1",
+  "capturedAtUtc": "2026-10-25T11:49:59.0663447+00:00",
+  "status": "TARGETED_TESTS_PASSED_PENDING_REAL_UI_RETEST",
+  "defect": "Composer and staged wire/display were cleared, and a normal optimistic user bubble was shown, before initial POST acknowledgement.",
+  "change": "Await server acknowledgement before clearing composer or appending user bubble; preserve uncertainty on failed response and honor cancellation after acknowledged write before model.",
+  "testCounts": {
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0,
+    "newCases": 5,
+    "stagedExistingCases": 3
+  },
+  "scenarios": [
+    "HTTP500 then explicit successful retry preserves wire/display and only appends acknowledged bubble",
+    "Held POST blocks concurrent turn/session changes; no model before acknowledgement",
+    "Cancellation during uncancellable POST waits, commits acknowledged bubble, then aborts before model",
+    "Response lost after simulated server commit is unconfirmed, no automatic retry",
+    "Compiled WinUI SendAsync owns gate and calls persistence helper before title/model"
+  ],
+  "trx": {
+    "path": "artifacts/winui-validation-20261025/initial-persistence-tests/initial-persistence.trx",
+    "sha256": "AA54320388BA6D931BE19EB2E711B03BE3D7AFFDA090F77ACF070831A49B4679"
+  },
+  "source": [
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+      "sha256": "8CFFC429CD3C0C2FA276D301BEDD97AE75CE7448BFFDEF256FD2B5A975EE211A"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/InitialMessagePersistence.cs",
+      "sha256": "43CFCC18BC5AFA00773921F3B530A9BD2986F55407FC8AFDB3A7BDB353DD31B2"
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/InitialMessagePersistenceTests.cs",
+      "sha256": "C501B014D67B2761715280D368F9C2572472D2807AFE878A57F5F868D96B08A4"
+    }
+  ],
+  "paidCalls": 0,
+  "realUiRetestRequired": true
+}

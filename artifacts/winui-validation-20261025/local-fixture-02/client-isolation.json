@@ -1,0 +1,12 @@
+{
+  "clientStarted": false,
+  "clientDataRoot": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\local-fixture-02\\runtime\\client-data",
+  "realUserConfigurationModified": false,
+  "userId": "018a790c-01e0-4b04-b413-d09a80d2daab",
+  "schemaVersion": "saaia-winui-client-isolation.v1",
+  "backendUrl": "http://127.0.0.1:5127",
+  "localModelPort": 18087,
+  "syntheticBackendKeyProtectedWithDpapi": true,
+  "providerKeysPresent": false,
+  "modelId": "saaia-winui-fixture"
+}

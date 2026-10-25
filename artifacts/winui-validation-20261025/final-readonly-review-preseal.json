@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "saaia-winui-final-readonly-review-preseal.v1",
+  "capturedAtUtc": "2026-10-25T13:13:56.3157841+00:00",
+  "state": "PROVISIONAL_UI_STILL_ACTIVE_NO_FINAL_LIVE_INPUT_SEAL",
+  "readOnly": true,
+  "productToolsRuntimeUiGitModified": false,
+  "liveInputHashesSealed": false,
+  "trace": {
+    "allowInFlightPermitted": false,
+    "exceptionsAllowed": [
+      "15b7daa95ee3a877c232cafe4cbe9d59"
+    ],
+    "eventCount": 1004,
+    "terminalFabricated": false,
+    "turnCount": 138,
+    "unexpectedIncompleteTurns": 0,
+    "expectedInterruptionMatches": 1,
+    "strictVerifierFinalPending": true,
+    "incompleteTurns": [
+      {
+        "traceId": "15b7daa95ee3a877c232cafe4cbe9d59",
+        "turnId": "715cc6f6531d4fe3a066ab47dc936ebb",
+        "sessionId": "2dccd468-b196-4533-8de7-809868c208fa",
+        "eventCount": 39,
+        "lastOperation": "advanced.poll.response"
+      }
+    ]
+  },
+  "normalUserProfile": {
+    "priorAppend": {
+      "baselineBytes": 24854,
+      "originalPrefixSha256": "0297a722e974e3200d8c5ef862759ea1c9aa37f3024177bd103cab3e28b49852",
+      "cause": "Historical diagnostic unit tests before test runner enforced SAAIA_CLIENT_DATA_ROOT; subsequent isolation checks and full suites use isolated output roots.",
+      "unchangedSincePostIsolationFix": true,
+      "appendedBytes": 10913,
+      "restoredOrTruncated": false,
+      "currentSha256": "c22ed04a09f099f751572b367da16cb7ae06e20ccc1277504b0c4e9fcf682822",
+      "currentBytes": 35767,
+      "prefixMatchesOriginalBaseline": true,
+      "file": "logs/client_startup.log"
+    },
+    "coveredFiles": 556,
+    "differences": 1,
+    "readIssues": 0,
+    "unchangedFiles": 555,
+    "coveredFilesAllUnchanged": false,
+    "secureStoreMatchesOriginalBaseline": true,
+    "comparison": "user-profile-comparison-final-preseal.json",
+    "scope": "Only four top-level scopes represented in original baseline: client, logs, governance, llm-dev. No claim about unrecorded paths or Windows credential stores.",
+    "settingsGovernanceAndLlmDevUnchanged": true
+  },
+  "canonicalPdfs": [
+    {
+      "docId": "aca1a813-c593-59e5-bdf2-1cd12d1b8e40",
+      "docPath": "Validation/Guide-Validation.pdf",
+      "exists": true,
+      "expectedSha256": "840c999b2bfe8305aee9fdddf05f01b1686f3ec92eeb76cfe5c5af9354672121",
+      "observedSha256": "840c999b2bfe8305aee9fdddf05f01b1686f3ec92eeb76cfe5c5af9354672121",
+      "matchesOriginalSeed": true
+    },
+    {
+      "docId": "14381074-14ae-52a7-9d8b-58eea4a50585",
+      "docPath": "Archive/Guide-Validation.pdf",
+      "exists": true,
+      "expectedSha256": "224c0c983004319f143023ac666762a4fa64c495e5c6f68a0de8d29099959662",
+      "observedSha256": "224c0c983004319f143023ac666762a4fa64c495e5c6f68a0de8d29099959662",
+      "matchesOriginalSeed": true
+    }
+  ],
+  "references": [
+    "test-runner-profile-isolation/checks.json",
+    "user-profile-comparison-post-isolation-fix.json",
+    "local-fixture-02/advanced-resume-proof.json",
+    "native-qwen-document-path-causal-proof/proof.json",
+    "final-core-client-unit-accepted/manifest.json"
+  ],
+  "pending": [
+    "Wait for root to complete UI and final support export before hashing live primary logs/fixture events.",
+    "Run unchanged strict verifier with no AllowInFlight; account only for the exact documented original process interruption.",
+    "Link final support inspection when available."
+  ],
+  "productStatus": "TESTE_NON_APPROUVE"
+}

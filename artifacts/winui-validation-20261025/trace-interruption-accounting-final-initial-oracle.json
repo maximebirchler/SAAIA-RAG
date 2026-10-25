@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "saaia-winui-trace-interruption-accounting.v1",
+  "capturedAtUtc": "2026-10-25T13:42:11.5864909+00:00",
+  "passed": false,
+  "status": "TRACE_ACCOUNTING_FAILED",
+  "strictVerifierStatus": "TRACE_INTEGRITY_FAILED",
+  "strictVerifierPassed": false,
+  "allowInFlightUsed": false,
+  "totalEvents": 1007,
+  "totalTurns": 139,
+  "correlatedWireRequests": 1,
+  "observedIncompleteTurns": 0,
+  "unexplainedIncompleteTurns": 0,
+  "expectedInterruptionMissing": 1,
+  "otherStrictFailures": 0,
+  "expectedInterruptions": [
+    {
+      "sessionId": "2dccd468-b196-4533-8de7-809868c208fa",
+      "turnId": "715cc6f6531d4fe3a066ab47dc936ebb",
+      "reason": "UI operator deliberately closed the original WinUI process while the durable server job was running; another process resumed the same job and message.",
+      "eventCount": 39,
+      "traceId": "15b7daa95ee3a877c232cafe4cbe9d59",
+      "terminalFabricated": false
+    }
+  ],
+  "unexpectedIncomplete": [],
+  "strictFailedChecks": [
+    {
+      "name": "turn_terminal_unique_715cc6f6531d4fe3a066ab47dc936ebb",
+      "passed": false,
+      "details": null
+    }
+  ],
+  "strictProof": "trace-integrity-build08-final.json",
+  "strictProofSha256": "03263B78C8F4EDA54F760388FB2A241C0A0BC7DD6350B163E4E5514B43950E12",
+  "sealedInputs": [
+    {
+      "name": "client_startup.log",
+      "sealedSha256": "5242a0e5efc6d57858e3fa75580f1efc006ea77e27986631c78f4d53a0074fdc",
+      "currentSha256": "5242A0E5EFC6D57858E3FA75580F1EFC006EA77E27986631C78F4D53A0074FDC",
+      "unchanged": true
+    },
+    {
+      "name": "support-bundle_20261025_143351_068_7145b43e51d64b2b8354e2e6f44ec669.zip",
+      "sealedSha256": "fbea52c5f82fdecd3f1968ea2ccfed32292f817a1ca1f442d7959361f9daca15",
+      "currentSha256": "FBEA52C5F82FDECD3F1968EA2CCFED32292F817A1CA1F442D7959361F9DACA15",
+      "unchanged": true
+    },
+    {
+      "name": "primary-scoped-wire-requests-final.jsonl",
+      "sealedSha256": "6ae05d277d1db6431e91bcfafdc42803487cf9b70eef5f58c28c1ab110a85eb0",
+      "currentSha256": "6AE05D277D1DB6431E91BCFAFDC42803487CF9B70EEF5F58C28C1AB110A85EB0",
+      "unchanged": true
+    }
+  ],
+  "references": [
+    {
+      "sha256": "6A6CA5320839B7F67160D6F6B8EDFAD2D02B1B2745F635BF3BC50953C828B77F",
+      "path": "native-ui/53-advanced-work-in-progress.json"
+    },
+    {
+      "sha256": "F721249B579C83507946E06B1E88AA34E6B56E991731FBECB002D82160895BE8",
+      "path": "client-launch-13-advanced-resume.json"
+    },
+    {
+      "sha256": "6683F8A3D1F88932C862AD7B410C83E945ECD9EFD6D6395F1B4A9034E8CA9288",
+      "path": "native-ui/54-advanced-resumed-after-restart.json"
+    },
+    {
+      "sha256": "D7E017F1CDB39B4AF8E101F7557959B451F7776AF3FC1AAB1069D99FC8F37FD7",
+      "path": "local-fixture-02/advanced-resume-proof.json"
+    },
+    {
+      "sha256": "9E115F29E2EA199968102107C278DC88EBCCBF1BCCC75C9FEE1972D8508E7AFC",
+      "path": "shared-fixture-request-accounting-final.json"
+    }
+  ],
+  "scope": "Primary real client profile only. Shared proxy requests from secondary profiles are fully accounted separately. Strict rejection is preserved; only the exact documented process interruption is explained, no other exception is allowed.",
+  "productStatus": "TESTE_NON_APPROUVE"
+}

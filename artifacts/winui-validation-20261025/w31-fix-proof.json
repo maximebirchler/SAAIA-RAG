@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "saaia.winui.w31-reconfiguration-fix.v1",
+  "capturedAtUtc": "2026-10-25T12:33:03Z",
+  "status": "TARGETED_TESTS_PASSED_PENDING_REAL_UI_RETEST",
+  "problem": "A configured client already connected to endpoint A saved wizard changes for B but retained its live API/agent on A, especially with AutoConnect=false.",
+  "correction": {
+    "reconnect": "After Apply, an existing connection is explicitly rebound even if automatic startup connection is disabled. An unconnected manual profile remains manual.",
+    "admission": "Configuration lease covers dialog/application and releases before ConnectAsync obtains its own lease. No foreground LLM turn may overlap.",
+    "surface": "Agent memory/provider reference, session ID, messages/sources, staged composer, old notices and background trackers are cleared before a connection attempt and again on failure. Failed target never leaves an old agent usable.",
+    "sessionHint": "A prior session hint is reused only for an initial connection or an unchanged endpoint/key/user context. Changed contexts load fresh server history.",
+    "background": "Each advanced/direct tracker owns an API snapshot retaining its endpoint and identity. Late persistence remains on that owner endpoint. UI updates require matching active connection. Old terminal owners cannot remove a newer tracker with the same job ID.",
+    "credentials": "Admin session is cleared before configuring the foreground target. Snapshot comparison includes backend URL, API key and user identity without exposing them.",
+    "localModel": "Foreground turn gate prevents overlapping generation while provider and agent are replaced. The shared local transport remains configured through the existing factory; no local process is force-stopped by reconfiguration.",
+    "errors": "Known HTTP401/403, other HTTP failures and TLS errors are localized without copying raw English exception text. Full details remain diagnostic logs."
+  },
+  "tests": {
+    "manifest": "artifacts/winui-validation-20261025/w31-tests/manifest.json",
+    "passed": 64,
+    "failed": 0,
+    "skipped": 0,
+    "sourceChangedDuringRun": false,
+    "profile": "Unit",
+    "clientDataIsolation": "explicit absolute SAAIA_CLIENT_DATA_ROOT under artifacts/winui-validation-20261025/w31-tests/client-data",
+    "scope": [
+      "Reconnect policy connected/manual/needs setup",
+      "Real ApiClient requests through deterministic transport prove snapshots retain old host/key after foreground reconfiguration",
+      "Late old-owner PATCH stays on old host after failed new-target GET",
+      "Identity changes on same endpoint do not match old owners",
+      "Compiled handlers/trackers use policy, reset and owned snapshots",
+      "Localized401/403/503 and network classifier",
+      "Existing W29/W30 and advanced transport/handoff contracts"
+    ]
+  },
+  "architecture": {
+    "proof": "artifacts/winui-validation-20261025/w31-architecture.json",
+    "status": "passed",
+    "mainWindowLines": 15291,
+    "mainWindowMaximum": 15376,
+    "remainingLines": 85,
+    "change": "Pure network error classification extracted from MainWindow into its own service before localized HTTP handling was added. No ceiling raised."
+  },
+  "limitations": [
+    "Snapshot APIs retain their configuration because their owners never retarget them; ApiClient itself remains a configurable type.",
+    "BackendUrlPicker still selects the fastest reachable configured candidate. A test asserting a particular new URL must account for any configured alternatives.",
+    "Connection clearing intentionally prevents retaining an old endpoint's visible conversation/composer as usable context after Apply; failed rebind exposes a disconnected error state.",
+    "These tests do not execute the real UI. Root must rebuild production after closing the current client, then verify Apply changes the next actual request target, same-endpoint credential changes, failed rebind, and localized authentication recovery."
+  ],
+  "productionBuildsByThisAgent": 0,
+  "uiActionsByThisAgent": 0,
+  "paidCalls": 0
+}

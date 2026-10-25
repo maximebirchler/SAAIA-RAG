@@ -1,0 +1,15 @@
+SAAIA — avancées depuis le dernier rapport WinUI
+
+Le point décisif : la question documentaire fonctionne maintenant dans la vraie fenêtre avec le vrai Qwen local. À « Dans le document Validation/Guide-Validation.pdf, quel est le code ORION ? Cite la page », le client répond4826 avec la source du bon dossier, page2. J’ai cliqué sur cette source et vérifié visuellement la page2 du bon PDF. Environ12,4s pour ce cas synthétique ; cela ne constitue pas un benchmark sur tout le corpus.
+
+Pourquoi cela échouait : plusieurs adaptations réduisaient un chemin complet au seul nom du fichier. Deux PDF homonymes devenaient donc artificiellement ambigus. Les premiers tests contournaient encore l’adaptateur final ; le test de la chaîne réellement exécutée a ensuite reproduit9 échecs avant correction. Les sondes natives confirment maintenant31caractères avec dossier à la fois dans la mission et dans l’entrée du pipeline, puis une seule identité exacte. Avant, le pipeline recevait20caractères sans dossier et deux correspondances. La recherche et la lecture documentaire sont réellement exécutées ; aucun relais avancé pour cette question.
+
+Autres validations réelles terminées :
+• Fermeture du client pendant un vrai travail avancé en cours, relance et reprise du même job et du même message. Aucun nouveau job créé. Une autre discussion est utilisable pendant ce suivi ; le résultat final apparaît uniquement dans sa discussion d’origine. Le worker et PostgreSQL sont réels et locaux ; son fournisseur est simulé, donc aucune validation sémantique du grand modèle n’est revendiquée.
+• Source correcte : ouverture du bon fichier à la bonne page. Empreinte incorrecte : refus. Chemin obsolète mais version exacte retrouvable : récupération du bon PDF par empreinte, sans ouvrir l’homonyme d’Archive. Document réellement retiré du dossier de test : refus explicite « Version citée indisponible ». Le PDF a été restauré et son empreinte vérifiée identique.
+• Erreur401 réelle avec clé fictive invalide : message maintenant français et compréhensible.
+• Diagnostic exporté depuis l’interface : archive intègre, sondes présentes, aucune clé connue ni texte documentaire/chat trouvé dans l’export inspecté.
+
+Régressions :2449/2449 tests Core+Client passent, zéro échec/ignoré, sources stables. Compilation production : zéro erreur et zéro avertissement. L’échec initial d’un test lié à l’ancien dossier normal a été conservé et corrigé dans le test ; il n’a pas été masqué.
+
+Je termine les contrôles de reconnexion en configuration manuelle et le bilan final des preuves, puis le nettoyage des processus dédiés et le lot Git. Le clic final de suppression des discussions fictives reste soumis à la confirmation demandée dans le chat par la règle du pilotage Windows ; l’annulation est déjà testée. Terra et le planning n’ont pas été lancés, aucune API payante utilisée.

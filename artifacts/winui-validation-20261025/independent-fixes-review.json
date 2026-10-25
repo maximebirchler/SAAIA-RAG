@@ -1,0 +1,209 @@
+{
+  "schemaVersion": "saaia.winui.targeted-fixes-review.v1",
+  "reviewedAtUtc": "2026-10-25T12:01:40Z",
+  "scope": "Revue bornée W17/W29/W30, état du bouton d'annulation et isolation du profil : lecture des chemins de production et contrats ciblés, sans nouveau lancement client, pilotage UI, serveur ou modèle.",
+  "independenceLimit": "Le relecteur n'est pas l'auteur de W17 ni de l'isolation. Il est l'auteur des correctifs W29/W30/configuration/bouton : leur auto-relecture ne remplace pas une seconde revue indépendante. Les observations UI citées sont celles du parent, pas des interactions exécutées par ce relecteur.",
+  "result": "NO_REMAINING_BLOCKING_CODE_FINDING_IN_REVIEWED_SCOPE_LATEST_UI_RETEST_REQUIRED",
+  "codeFindingsOpen": 0,
+  "findingsDiscoveredAndHandled": [
+    {
+      "id": "R01",
+      "area": "W17",
+      "severity": "P1",
+      "finding": "Un 200 vide, null ou sans identité était interprété comme confirmation et pouvait vider la saisie puis démarrer le modèle.",
+      "resolution": "InitialMessagePersistence exige désormais requireDurableAcknowledgement. ApiClient valide objet, GUID non vide, rôle explicite et contenu normalisé correspondant ; session/user sont validés si renvoyés.",
+      "status": "CORRECTED_BY_DIAGNOSTICS_AGENT_TARGETED_TEST_PASS",
+      "evidence": [
+        "client/SAAIA.Client.WinUI/Services/InitialMessagePersistence.cs",
+        "client/SAAIA.Client.WinUI/Services/ApiClient.ChatAcknowledgement.cs",
+        "artifacts/winui-validation-20261025/initial-persistence-feedback-tests/proof.json"
+      ],
+      "limit": "Le DTO actuel ne renvoie pas sessionId/userId : leur absence n'est pas présentée comme vérifiée. Une confirmation de protocole n'est pas une inspection indépendante du stockage SQL."
+    },
+    {
+      "id": "R02",
+      "area": "W29",
+      "severity": "P1",
+      "finding": "Le bouton Configuration du mode intégrateur restait accessible pendant le tour alors que Paramètres était protégé.",
+      "resolution": "SetupButton disabled pendant conversationBusy ; garde handler ; lease centrale ShowSetupWizardAsync avant premier await, conservée jusqu'après application, libérée en finally. Auto-connexion issue du wizard après libération pour éviter l'auto-refus du gate.",
+      "status": "CORRECTED_TARGETED_TEST_PASS_LATEST_UI_RETEST_PENDING",
+      "evidence": [
+        "client/SAAIA.Client.WinUI/MainWindow/SetupLifecycle.cs",
+        "client/SAAIA.Client.WinUI/MainWindow/StartupSetup.cs",
+        "artifacts/winui-validation-20261025/configuration-admission-unit/manifest.json"
+      ]
+    },
+    {
+      "id": "R03",
+      "area": "W14/W15",
+      "severity": "P2",
+      "finding": "Après demande d'annulation, le bouton annonçait Envoyer et restait IsEnabled=true alors que seule la hit-test était coupée.",
+      "resolution": "ComposerActionState distingue Send, Cancel et Cancelling. ThemeChrome utilise réellement ce résultat pour IsEnabled, hit-test, glyph, nom accessible, tooltip et palette Disabled ; le cycle Cancel ne libère toujours pas la conversation.",
+      "status": "CORRECTED_CORE_AND_COMPILED_TEST_PASS_LATEST_UI_RETEST_PENDING",
+      "evidence": [
+        "client/SAAIA.Client.Core/Conversation/ComposerActionState.cs",
+        "client/SAAIA.Client.WinUI/MainWindow/ThemeChrome.cs",
+        "artifacts/winui-validation-20261025/composer-admission-unit/manifest.json"
+      ]
+    },
+    {
+      "id": "R04",
+      "area": "W17/W25",
+      "severity": "P2",
+      "finding": "Le nouvel avertissement de stockage ne rafraîchissait pas sa langue après changement explicite des préférences.",
+      "resolution": "ApplyUiLanguage rappelle RenderComposerPersistenceNotice via TrySoftUi.",
+      "status": "CORRECTED_BY_DIAGNOSTICS_AGENT_STATIC_REVIEW_LATEST_GLOBAL_TEST_PENDING",
+      "evidence": [
+        "client/SAAIA.Client.WinUI/MainWindow/HelpAndLocalization.cs"
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "id": "C01",
+      "subject": "Promesse de non-confirmation",
+      "result": "PASS_CODE_AND_TARGETED_TEST",
+      "reason": "Pas de bulle utilisateur optimiste normale avant accusé validé. Brouillon et paire wire/display conservés si confirmation indisponible. Message persistant dit que le serveur a peut-être déjà enregistré ; aucune promesse fausse d'absence de stockage ni de déduplication après retry explicite."
+    },
+    {
+      "id": "C02",
+      "subject": "Annulation pendant sauvegarde",
+      "result": "PASS_CODE_TARGETED_TEST_AND_PARENT_OBSERVATION",
+      "reason": "Écriture initiale avec CancellationToken.None intentionnelle ; gate conserve l'admission ; UI ne commit qu'après confirmation ; token du tour contrôlé avant autotitre/modèle. L'annulation reste une demande tant que le propriétaire n'est pas sorti.",
+      "parentObservation": "native-ui/22-storage-cancellation-settled.json",
+      "latestVisualLimit": "L'apparence/nom disabled du nouveau bouton attend la nouvelle build UI."
+    },
+    {
+      "id": "C03",
+      "subject": "Double admission",
+      "result": "PASS_CODE_AND_TARGETED_TEST",
+      "reason": "Tour, Paramètres et Configuration utilisent le même gate. Les deux dialogues possèdent une lease avant les awaits et jusque fin d'application ; entrée clavier et changement de session restent bloqués. Une ancienne lease ne peut pas libérer le propriétaire suivant."
+    },
+    {
+      "id": "C04",
+      "subject": "Erreur et retour au mode manuel",
+      "result": "PASS_CODE_AND_PARTIAL_PARENT_UI",
+      "reason": "AutoConnect=false n'est pas réécrit par l'action manuelle. Startup expose un état neutre déconnecté, Se connecter appelle ConnectAsync, Configurer reste disponible et l'échec réel passe en mode erreur. Réessayer appelle aussi la connexion explicite et la reconstruction de thème conserve le mode.",
+      "parentObservations": [
+        "native-ui/16b-manual-connect-after-fix-clear.json",
+        "native-ui/17-manual-connect-success.json"
+      ],
+      "remainingObservation": "Échec/réessai de connexion manuelle et configuration après la dernière fermeture de gate à rejouer par le parent."
+    },
+    {
+      "id": "C05",
+      "subject": "Isolation du profil",
+      "result": "PASS_TARGETED_STATIC_REVIEW",
+      "reason": "Root absolu explicite ; pas de repli vers LocalSettings packagé ni provisioning ProgramData en profil isolé. Identité DPAPI, paramètres, logs, préférences, exports, gouvernance, téléchargements/runtime et support dirigés vers le root. Les fallbacks d'installateur global sont coupés en mode isolé.",
+      "limit": "Ce mécanisme isole le profil par défaut ; ce n'est pas un bac à sable des chemins explicitement configurés. La variable se définit avant lancement du processus. Les overrides explicites de chemins/provider restent des choix de configuration à contrôler dans le lanceur de validation."
+    },
+    {
+      "id": "C06",
+      "subject": "Sondes",
+      "result": "PASS_TARGETED_STATIC_REVIEW",
+      "reason": "Admission refusée utilise skipped/conversation_busy du vocabulaire normalisé. Persistance distingue confirmation_unavailable et server_acknowledged. Les sondes n'affirment pas que l'absence de réponse implique une absence de commit."
+    }
+  ],
+  "targetedTestEvidence": [
+    {
+      "path": "artifacts/winui-validation-20261025/initial-persistence-feedback-tests/proof.json",
+      "passed": 27,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "W17 transport, accusés invalides, notice et wire/display"
+    },
+    {
+      "path": "artifacts/winui-validation-20261025/composer-admission-unit/manifest.json",
+      "passed": 23,
+      "failed": 0,
+      "skipped": 0,
+      "projects": {
+        "ClientCore": 7,
+        "Client": 16
+      },
+      "scope": "État du composer, gate des dialogues et démarrage manuel",
+      "sourceChangedDuringRun": true,
+      "provenanceLimit": "Le lot voisin éditait HelpAndLocalization pendant le test. Les sources du présent lot étaient gelées ; le manifeste garde les inventaires et SHA des assemblages réellement testés. Une exécution finale sur source commune gelée demeure à faire par le parent."
+    }
+  ],
+  "requiredBeforeUiClosure": [
+    "Recompiler production après fermeture de la fenêtre courante puis lier son SHA à la nouvelle session d'observation.",
+    "Observer les deux portes Paramètres/Configuration fermées pendant sauvegarde et génération, puis réouvertes après fin.",
+    "Observer Annulation en cours disabled jusqu'au règlement effectif de la sauvegarde puis du streaming.",
+    "Observer l'InfoBar persistant après 500/accusé malformé, brouillon récupérable, absence d'appel modèle et reprise explicite.",
+    "Conserver la distinction fixture déterministe / modèle réel et le statut TESTE_NON_APPROUVE."
+  ],
+  "notExecutedByThisReview": [
+    "Pilotage de la vraie UI",
+    "Build production",
+    "Appel Terra/OpenAI/RunPod ou modèle local réel",
+    "Déploiement serveur/migration",
+    "Audit global du projet"
+  ],
+  "reviewedFileHashes": [
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+      "sha256": "EC99B74C45EF35AD8BF097FC3707C90F619820FFCBF85204421632A768DCB6E5"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/InitialMessagePersistence.cs",
+      "sha256": "4D5AE2CB0A28AB6DFA71670CF91136F5F99CC9EC6EE067820F84BDF9F46380F1"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/ApiClient.ChatAcknowledgement.cs",
+      "sha256": "724DC2CEFE5302FD83B21005972193EC06301BFECB90B74A8A633F775140531E"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/ComposerPersistenceNotice.cs",
+      "sha256": "8CA20CEE772AA0F33DB35EFF06D18399F3ECF72E8D9138FA38D9C1AE53848750"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/AdminAndSettings.cs",
+      "sha256": "96C822265F7EA7F53C69A8EE86A869CECEBBBBE1D2CF2E5462E1C388AD8FC27E"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/StartupSetup.cs",
+      "sha256": "DB54C2C633A36F3BFADB64E62962A73A647E2A21ED6657199C801590193A13F8"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/SetupLifecycle.cs",
+      "sha256": "F571DE892A48E13F8A43EDB40EF2F8102C8D3453D04F01FAF454874CDBAE4F98"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/Overlays.cs",
+      "sha256": "18B554BCA181907DA118022BB129622BE4BD181DA0B82BBA7C7AFDDA50B7B0B7"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/ThemeChrome.cs",
+      "sha256": "04ACBF3C1FFF5FC8BB5157034B75C2FF0B8F9FEDDFBFB0763B142DC799C855CC"
+    },
+    {
+      "path": "client/SAAIA.Client.Core/Conversation/ComposerActionState.cs",
+      "sha256": "FBF087017758EB5A88863FB0DDB05CA2A1D4DD8A9BE1CC95E69760E51B1C9E0E"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/ClientDataPaths.cs",
+      "sha256": "25DC39E2DB3A07023E553FF0D20681B0305D9D3EB4E9DAF31413DA118436DBDA"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/AppSettings.cs",
+      "sha256": "6CDAE7D1BCC3F39B00BF2FC26775BE43793C5AEB6CBD50CEB461477A1E11A007"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/SecureLocalStore.cs",
+      "sha256": "58BF3A0172B41774DBDF67EA4571D0984AAEC25C144D1223D101CA8957C304CA"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/Provisioning.cs",
+      "sha256": "05189E40727E46D8E13BC06DCB4254BD0A01297E746EC1E0EEF60C09BF44B2BB"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/SupportBundleBuilder.cs",
+      "sha256": "27CFABD477EB560F1B50F17A7F79D1A76A8861925836B5A7B2D686FBAD543424"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/LlmRepairScriptRunner.cs",
+      "sha256": "D99160665E2F321DE7889D1060F5098C44FE4FF98BF3CD17CF6581DFA4C592F6"
+    }
+  ]
+}

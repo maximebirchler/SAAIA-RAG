@@ -1,0 +1,5 @@
+  SAAIA.Contracts -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\contracts\SAAIA.Contracts\bin\Release\net8.0\SAAIA.Contracts.dll
+  SAAIA.Contracts -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\contracts\SAAIA.Contracts\bin\testhooks\AnyCPU\Release\SAAIA.Contracts.dll
+  SAAIA.Client.Core -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.Core\bin\testhooks\AnyCPU\Release\SAAIA.Client.Core.dll
+  SAAIA.Client.WinUI -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.WinUI\bin\testhooks\AnyCPU\Release\SAAIA.Client.WinUI.dll
+C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\SourceTraceMetadataTests.cs(33,75): error CS1503: Argument 2 : conversion impossible de 'SAAIA.Client.WinUI.Services.OpenAiLlmClient' en 'SAAIA.Client.WinUI.Services.ToolAgent.ILlmClient' [C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\SAAIA.Client.ToolAgent.Tests.csproj]

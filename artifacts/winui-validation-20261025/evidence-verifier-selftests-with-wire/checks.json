@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "saaia.winui-evidence-verifier-selftests.v1",
+  "syntheticEvidenceOnly": true,
+  "realUiExecuted": false,
+  "networkExecuted": false,
+  "passed": 7,
+  "total": 7,
+  "checks": [
+    {
+      "name": "valid",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "passed": true,
+      "evidence": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\evidence-verifier-selftests-with-wire\\valid\\result.json"
+    },
+    {
+      "name": "missing-terminal",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "passed": true,
+      "evidence": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\evidence-verifier-selftests-with-wire\\missing-terminal\\result.json"
+    },
+    {
+      "name": "duplicate-sequence",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "passed": true,
+      "evidence": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\evidence-verifier-selftests-with-wire\\duplicate-sequence\\result.json"
+    },
+    {
+      "name": "terminal-not-last",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "passed": true,
+      "evidence": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\evidence-verifier-selftests-with-wire\\terminal-not-last\\result.json"
+    },
+    {
+      "name": "fixture-correlation",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "passed": true,
+      "evidence": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\evidence-verifier-selftests-with-wire\\fixture-correlation\\result.json"
+    },
+    {
+      "name": "fixture-missing-correlation",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "passed": true,
+      "evidence": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\evidence-verifier-selftests-with-wire\\fixture-missing-correlation\\result.json"
+    },
+    {
+      "name": "fixture-wrong-trace",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "passed": true,
+      "evidence": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\evidence-verifier-selftests-with-wire\\fixture-wrong-trace\\result.json"
+    }
+  ]
+}

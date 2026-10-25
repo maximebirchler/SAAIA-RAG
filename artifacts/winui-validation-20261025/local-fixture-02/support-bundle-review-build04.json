@@ -1,0 +1,152 @@
+{
+  "schemaVersion": "saaia-winui-support-bundle-review.v1",
+  "checkedAtUtc": "2026-10-25T12:38:37.0808623+00:00",
+  "passed": false,
+  "readOnly": true,
+  "bundleSha256": "4A10551DF0734891DC347A9DACEDAD3DC64F108B4560A4392F0E2C218D38036A",
+  "zipBytes": 41288,
+  "entries": 51,
+  "contentMode": "metadata_only",
+  "probeImplementation": "http",
+  "collectionComplete": true,
+  "failedPieceCount": 0,
+  "optionalUnavailablePieces": [
+    {
+      "path": "models.json",
+      "reason": "optional_file_missing"
+    },
+    {
+      "path": "downloads.manifest.json",
+      "reason": "optional_file_missing"
+    },
+    {
+      "path": "llm/docker-compose.llm.yml",
+      "reason": "optional_file_missing"
+    },
+    {
+      "path": "llm/llm.install.json",
+      "reason": "optional_file_missing"
+    },
+    {
+      "path": "llm/install-llm.log",
+      "reason": "optional_file_missing"
+    },
+    {
+      "path": "llm/active-runtime.json",
+      "reason": "optional_file_missing"
+    },
+    {
+      "path": "llm/active-runtime.json.sha256",
+      "reason": "optional_file_missing"
+    },
+    {
+      "path": "llm/embedded.runtime.tag",
+      "reason": "optional_file_missing"
+    },
+    {
+      "path": "llm/embedded.cuda.runtime.tag",
+      "reason": "optional_file_missing"
+    },
+    {
+      "path": "llm/embedded.vulkan.runtime.tag",
+      "reason": "optional_file_missing"
+    },
+    {
+      "path": "diagnostics/agent-runtime.json",
+      "reason": "no_live_orchestrator_snapshot"
+    }
+  ],
+  "turnCount": 5,
+  "productionProbeEvents": 452,
+  "legacyLogLines": 0,
+  "invalidProbeLines": 0,
+  "knownCredentialNeedlesChecked": 3,
+  "credentialHitCount": 0,
+  "credentialValuesPublished": false,
+  "syntheticTextNeedlesChecked": 18,
+  "contentHitCount": 0,
+  "contentHitEntries": [],
+  "checksumSidecarFailures": [
+    "governance/acquisition_log.json.sha256",
+    "governance/battery_policies.json.sha256",
+    "governance/blacklist.json.sha256",
+    "governance/blacklist_applied.json.sha256",
+    "governance/capability_state.json.sha256",
+    "governance/hardware_probe.json.sha256",
+    "governance/last_known_good_profile.json.sha256",
+    "governance/model_sources.json.sha256",
+    "governance/rollback_log.json.sha256",
+    "governance/runtime_event_log.json.sha256",
+    "governance/warmup_results.json.sha256",
+    "llm/runtime_event_log.json.sha256"
+  ],
+  "absoluteDataPathCount": 5,
+  "outsideIsolatedRootPathCount": 1,
+  "llmModelsUrl": "http://127.0.0.1:18088/v1/models",
+  "backendReadinessUrl": "http://127.0.0.1:5157/ready",
+  "checks": [
+    {
+      "passed": true,
+      "name": "bundle_under_owned_isolated_root"
+    },
+    {
+      "passed": true,
+      "name": "collection_manifest_matches_zip_entries"
+    },
+    {
+      "passed": false,
+      "name": "exported_checksum_sidecars_valid"
+    },
+    {
+      "passed": true,
+      "name": "secure_store_not_exported"
+    },
+    {
+      "passed": true,
+      "name": "known_plaintext_and_dpapi_values_absent"
+    },
+    {
+      "passed": true,
+      "name": "metadata_only_history"
+    },
+    {
+      "passed": true,
+      "name": "no_collector_or_log_failures"
+    },
+    {
+      "passed": true,
+      "name": "collection_complete_no_failed_pieces"
+    },
+    {
+      "passed": true,
+      "name": "raw_chat_and_source_text_absent"
+    },
+    {
+      "passed": true,
+      "name": "legacy_log_content_excluded"
+    },
+    {
+      "passed": true,
+      "name": "production_probes_present_and_parseable"
+    },
+    {
+      "passed": true,
+      "name": "llm_catalog_url_includes_v1_models"
+    },
+    {
+      "passed": true,
+      "name": "backend_readiness_is_loopback_success"
+    },
+    {
+      "passed": false,
+      "name": "absolute_data_paths_remain_isolated"
+    }
+  ],
+  "rawBundleSelectedForVersioning": false,
+  "limits": [
+    "Exact known synthetic credential/DPAPI values and available synthetic text were checked in memory; no private profile or paid provider was accessed.",
+    "Probe/history presence and redaction do not by themselves prove every UI scenario or source page rendering.",
+    "Optional unavailable pieces remain declared; they do not mean the collect operation failed."
+  ],
+  "productStatus": "TESTE_NON_APPROUVE"
+}

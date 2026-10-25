@@ -1,0 +1,492 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "6b6582b5b03741b2850ee1fca19f69a2",
+  "startedAtUtc": "2026-10-25T13:28:00.3197974+00:00",
+  "finishedAtUtc": "2026-10-25T13:28:30.6228852+00:00",
+  "gitCommit": "3f0de18349f1191bc3eca72497a04094445234e2",
+  "gitDirty": true,
+  "profile": "Unit",
+  "filter": "(Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid)&(FullyQualifiedName~LocalModelFailurePropagationTests|FullyQualifiedName~ClientDiagnosticJournalTests|FullyQualifiedName~LlmCallDiagnosticsTests|FullyQualifiedName~LlmProviderArchitectureTests|FullyQualifiedName~SourceBackedTerminalLocalizationTests|FullyQualifiedName~SourceTraceMetadataTests)",
+  "requestedProjects": [
+    "ClientCore",
+    "Client"
+  ],
+  "configuration": "Release",
+  "buildRequested": true,
+  "restoreRequested": false,
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-25T13:28:01.2698370+00:00",
+    "sha256": "AC3A4AB986393CA32487B3385B58BA59A03993AA728231867A11F8412C9CCE9A",
+    "fileCount": 1645,
+    "inventory": "source-files-6b6582b5b03741b2850ee1fca19f69a2-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-25T13:28:31.1460135+00:00",
+    "sha256": "AC3A4AB986393CA32487B3385B58BA59A03993AA728231867A11F8412C9CCE9A",
+    "fileCount": 1645,
+    "inventory": "source-files-6b6582b5b03741b2850ee1fca19f69a2-after.json"
+  },
+  "sourceChangedDuringRun": false,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "state": "passed",
+  "prerequisites": [],
+  "environment": {
+    "neutralizedVariableNames": [],
+    "clientDataIsolation": {
+      "source": "owned_campaign_output",
+      "ownedRelativePath": "client-data",
+      "enabled": true,
+      "environmentRestored": true,
+      "requiredForClientTests": true,
+      "rootId": "096185FDF8BAB4AAC13A921492FDD611ECF7C5F94EA0BFE703842A3DEE697FCB"
+    }
+  },
+  "results": [
+    {
+      "project": "ClientCore",
+      "path": "client/SAAIA.Client.Core.Tests/SAAIA.Client.Core.Tests.csproj",
+      "status": "passed",
+      "exitCode": 0,
+      "trx": "ClientCore-6b6582b5b03741b2850ee1fca19f69a2.trx",
+      "trxSha256": "A6F33271D6859DBE49A299798A5224F351B18A9B5AC5EFF0B76EC10AF15F9515",
+      "assemblies": [
+        {
+          "path": "client\\SAAIA.Client.Core.Tests\\bin\\Release\\net8.0\\SAAIA.Client.Core.dll",
+          "role": "local_product_dependency",
+          "sha256": "5F15EECE1A6379887812F4CED38F26655322790A861D22C6028B84211CD7FD90",
+          "sizeBytes": 97280,
+          "lastWriteTimeUtc": "2026-10-25T13:23:29.5209645Z",
+          "capturedAtUtc": "2026-10-25T13:28:03.0548772+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.Core.Tests\\bin\\Release\\net8.0\\SAAIA.Client.Core.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "AD1D7953D83516E1FA6F48E880DF4C4F5F0DEA95BB051B4D7FC12018D46231DE",
+          "sizeBytes": 73216,
+          "lastWriteTimeUtc": "2026-10-25T13:23:29.7584798Z",
+          "capturedAtUtc": "2026-10-25T13:28:03.0555616+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.Core.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "AE04DB17641409F9332F8B378A4DCFAA8F1796BC24DF6209ADABB8DDD667C9E5",
+          "sizeBytes": 152064,
+          "lastWriteTimeUtc": "2026-10-25T11:32:52.4997249Z",
+          "capturedAtUtc": "2026-10-25T13:28:03.0562778+00:00"
+        }
+      ],
+      "counts": {
+        "adapterReportedExecuted": 17,
+        "failed": 0,
+        "total": 17,
+        "passed": 17,
+        "executed": 17,
+        "notExecuted": 0
+      },
+      "cases": [
+        {
+          "name": "SAAIA.Client.Core.Tests.ClientDiagnosticJournalTests.Collector_failure_does_not_change_answer_or_drop_terminal_status_silently",
+          "duration": "00:00:00.0014464",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.Core.Tests.ClientDiagnosticJournalTests.Recoverable_call_and_expected_insufficiency_do_not_mark_a_successful_turn_failed(operation: \"model.call\", outcome: \"failed\", reason: \"recovered_transport_failure\")",
+          "duration": "00:00:00.0001178",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.Core.Tests.ClientDiagnosticJournalTests.Parent_disposed_before_child_records_each_terminal_event_in_the_correct_turn",
+          "duration": "00:00:00.0004299",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.Core.Tests.ClientDiagnosticJournalTests.Historical_performance_includes_failed_and_cancelled_questions_but_excludes_source_open_operations",
+          "duration": "00:00:00.0039916",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.Core.Tests.ClientDiagnosticJournalTests.Terminal_failure_in_borrowed_agent_cannot_be_overwritten_by_outer_success",
+          "duration": "00:00:00.0007550",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.Core.Tests.ClientDiagnosticJournalTests.Completed_turn_history_survives_new_orchestrators_and_honors_last_n",
+          "duration": "00:00:00.0004058",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.Core.Tests.ClientDiagnosticJournalTests.Ui_owner_covers_handoff_and_persistence_and_borrowed_agent_cannot_finalize_it",
+          "duration": "00:00:00.0348228",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.Core.Tests.ClientDiagnosticJournalTests.Activity_callback_failure_cannot_destroy_completed_history_or_escape_disposal(failOnStart: True)",
+          "duration": "00:00:00.0004188",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.Core.Tests.ClientDiagnosticJournalTests.Completed_record_is_immutable_and_events_are_bounded_with_drop_count",
+          "duration": "00:00:00.0004545",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.Core.Tests.ClientDiagnosticJournalTests.Activity_callback_failure_cannot_destroy_completed_history_or_escape_disposal(failOnStart: False)",
+          "duration": "00:00:00.0001676",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.Core.Tests.ClientDiagnosticJournalTests.Explicit_user_cancellation_keeps_its_outcome_after_a_reported_failure",
+          "duration": "00:00:00.0102957",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.Core.Tests.ClientDiagnosticJournalTests.Unfinished_turn_is_not_returned_as_previous_performance",
+          "duration": "00:00:00.0011595",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.Core.Tests.ClientDiagnosticJournalTests.Metadata_measurement_and_phase_limits_are_enforced_and_omissions_are_declared",
+          "duration": "00:00:00.0027876",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.Core.Tests.ClientDiagnosticJournalTests.Uncompleted_scope_is_failed_and_w3c_correlation_is_stable_across_awaited_child",
+          "duration": "00:00:00.0016428",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.Core.Tests.ClientDiagnosticJournalTests.Recoverable_call_and_expected_insufficiency_do_not_mark_a_successful_turn_failed(operation: \"evidence.judge\", outcome: \"success\", reason: \"insufficient_documentation\")",
+          "duration": "00:00:00.0001739",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.Core.Tests.ClientDiagnosticJournalTests.Default_schema_does_not_collect_questions_answers_or_document_paths",
+          "duration": "00:00:00.0232682",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.Core.Tests.ClientDiagnosticJournalTests.Background_resume_owns_its_lifetime_after_foreground_parent_finishes",
+          "duration": "00:00:00.0018476",
+          "outcome": "Passed"
+        }
+      ]
+    },
+    {
+      "project": "Client",
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj",
+      "status": "passed",
+      "exitCode": 0,
+      "trx": "Client-6b6582b5b03741b2850ee1fca19f69a2.trx",
+      "trxSha256": "C99C946DA860161DD99E62986F93EC9EC8145D98900589AD187FC1A68E94B8EE",
+      "assemblies": [
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.Core.dll",
+          "role": "local_product_dependency",
+          "sha256": "B88497BC9DE110A6CE3351866D0C3E0ED4B3C02E83C8CD4C11F397C8FE2ABF46",
+          "sizeBytes": 97280,
+          "lastWriteTimeUtc": "2026-10-25T13:23:32.2211212Z",
+          "capturedAtUtc": "2026-10-25T13:28:30.6036479+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.ToolAgent.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "E0F3072578DC2A1D170D4FF4203C1C8E3F2E051A1F6865B109AAB80A05683CB6",
+          "sizeBytes": 4735488,
+          "lastWriteTimeUtc": "2026-10-25T13:28:28.0170299Z",
+          "capturedAtUtc": "2026-10-25T13:28:30.6082440+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.WinUI.dll",
+          "role": "local_product_dependency",
+          "sha256": "9A4039B2DD31E1C73F36C1D74A0C986A05EB5B31DAB3E20DDA2FDEBD2630EC70",
+          "sizeBytes": 8225280,
+          "lastWriteTimeUtc": "2026-10-25T13:28:22.8772778Z",
+          "capturedAtUtc": "2026-10-25T13:28:30.6161295+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "AE04DB17641409F9332F8B378A4DCFAA8F1796BC24DF6209ADABB8DDD667C9E5",
+          "sizeBytes": 152064,
+          "lastWriteTimeUtc": "2026-10-25T11:32:52.4997249Z",
+          "capturedAtUtc": "2026-10-25T13:28:30.6174109+00:00"
+        }
+      ],
+      "counts": {
+        "adapterReportedExecuted": 50,
+        "failed": 0,
+        "total": 50,
+        "passed": 50,
+        "executed": 50,
+        "notExecuted": 0
+      },
+      "cases": [
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmProviderArchitectureTests.Budget_guard_rejects_a_call_before_it_can_cross_the_hard_limit",
+          "duration": "00:00:00.0006213",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmProviderArchitectureTests.External_http_errors_are_typed_and_metrics_never_expose_the_key(status: InternalServerError, expectedCode: \"http_500\")",
+          "duration": "00:00:00.0070494",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmCallDiagnosticsTests.Both_application_entry_points_install_the_same_owned_subscription(method: \"RunAsync\")",
+          "duration": "00:00:00.0003443",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedTerminalLocalizationTests.Safe_terminals_keep_the_response_language_across_every_failure_kind(language: \"it\", insufficient: \"Le fonti consultate\", clarification: \"Ho bisogno\", verification: \"Non sono riuscito\", timeout: \"La ricerca documentale\", failure: \"Non è stato possibile\")",
+          "duration": "00:00:00.0000265",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceTraceMetadataTests.Free_text_in_a_code_field_is_rejected_in_metadata_mode",
+          "duration": "00:00:00.0072548",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedTerminalLocalizationTests.Proven_missing_document_keeps_its_identity_in_every_language(language: \"fr\", prefix: \"Je n'ai pas trouvé\")",
+          "duration": "00:00:00.0043966",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedTerminalLocalizationTests.Regional_language_tags_do_not_fall_back_to_english(regional: \"es-MX\", canonical: \"es\")",
+          "duration": "00:00:00.0000106",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmCallDiagnosticsTests.Shared_provider_routes_each_call_once_to_its_explicit_turn_even_with_one_trace_and_no_callback_context",
+          "duration": "00:00:00.0026659",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmProviderArchitectureTests.OpenAiDev_is_rejected_by_production_local_policy",
+          "duration": "00:00:00.0000811",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmProviderArchitectureTests.External_request_timeout_is_typed_and_recorded",
+          "duration": "00:00:00.9996329",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceTraceMetadataTests.Production_probe_and_log_keep_safe_source_identity_and_counts_without_document_content",
+          "duration": "00:00:00.0385616",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmProviderArchitectureTests.OpenAiDev_uses_bearer_auth_openai_token_parameter_and_records_usage_without_secret",
+          "duration": "00:00:00.0481548",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedTerminalLocalizationTests.Safe_terminals_keep_the_response_language_across_every_failure_kind(language: \"pt\", insufficient: \"As fontes consultadas\", clarification: \"Preciso\", verification: \"Não consegui\", timeout: \"A pesquisa documental\", failure: \"Não foi possível\")",
+          "duration": "00:00:00.0001753",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedTerminalLocalizationTests.Regional_language_tags_do_not_fall_back_to_english(regional: \"pt-BR\", canonical: \"pt\")",
+          "duration": "00:00:00.0000106",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmProviderArchitectureTests.Local_mode_keeps_llama_cpp_payload_and_requires_no_external_secret",
+          "duration": "00:00:00.0044041",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmProviderArchitectureTests.External_http_errors_are_typed_and_metrics_never_expose_the_key(status: TooManyRequests, expectedCode: \"http_429\")",
+          "duration": "00:00:00.0096746",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedTerminalLocalizationTests.Safe_terminals_keep_the_response_language_across_every_failure_kind(language: \"es\", insufficient: \"Las fuentes consultadas\", clarification: \"Necesito\", verification: \"No pude\", timeout: \"La búsqueda documental\", failure: \"No se pudo\")",
+          "duration": "00:00:00.0000590",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LocalModelFailurePropagationTests.Backend_http_failure_is_a_pipeline_failure_and_never_claims_local_model_unavailability",
+          "duration": "00:00:00.0051191",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedTerminalLocalizationTests.Proven_missing_document_keeps_its_identity_in_every_language(language: \"es\", prefix: \"No encontré\")",
+          "duration": "00:00:00.0000088",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmProviderArchitectureTests.RunPodBench_rejects_missing_endpoint_and_model_configuration",
+          "duration": "00:00:00.0003137",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmCallDiagnosticsTests.Both_application_entry_points_install_the_same_owned_subscription(method: \"ExecuteDirectCommandAsync\")",
+          "duration": "00:00:00.0055070",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedTerminalLocalizationTests.Safe_terminals_keep_the_response_language_across_every_failure_kind(language: \"en\", insufficient: \"The consulted sources\", clarification: \"I need\", verification: \"I could not\", timeout: \"The document search\", failure: \"The source-backed pipeline\")",
+          "duration": "00:00:00.0000086",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmProviderArchitectureTests.RunPodBench_requires_benchmark_policy",
+          "duration": "00:00:00.0000723",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmProviderArchitectureTests.RagChatAgent_requires_an_explicit_provider_abstraction",
+          "duration": "00:00:00.0002999",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmProviderArchitectureTests.Caller_cancellation_remains_distinct_from_provider_timeout",
+          "duration": "00:00:00.0335079",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedTerminalLocalizationTests.Proven_missing_document_keeps_its_identity_in_every_language(language: \"de\", prefix: \"Ich habe\")",
+          "duration": "00:00:00.0000087",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LocalModelFailurePropagationTests.User_cancellation_at_model_transport_is_not_reclassified_as_model_unavailable",
+          "duration": "00:00:00.0013070",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmProviderArchitectureTests.Committed_configuration_is_local_by_default_and_caps_authorized_budget_at_25_usd",
+          "duration": "00:00:00.0057958",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedTerminalLocalizationTests.Regional_language_tags_do_not_fall_back_to_english(regional: \"de-DE\", canonical: \"de\")",
+          "duration": "00:00:00.0001594",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmProviderArchitectureTests.External_http_errors_are_typed_and_metrics_never_expose_the_key(status: Unauthorized, expectedCode: \"http_401\")",
+          "duration": "00:00:00.0120634",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedTerminalLocalizationTests.Regional_language_tags_do_not_fall_back_to_english(regional: \"EN-gb\", canonical: \"en\")",
+          "duration": "00:00:00.0000083",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmProviderArchitectureTests.OpenAiDev_without_key_fails_before_any_http_request",
+          "duration": "00:00:00.0002782",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmProviderArchitectureTests.One_provider_instance_executes_structured_router_native_tool_and_streaming_writer",
+          "duration": "00:00:00.0315617",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmProviderArchitectureTests.Network_failure_is_normalized_without_retrying_or_switching_provider",
+          "duration": "00:00:00.0378192",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedTerminalLocalizationTests.Proven_missing_document_keeps_its_identity_in_every_language(language: \"pt\", prefix: \"Não encontrei\")",
+          "duration": "00:00:00.0000052",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmProviderArchitectureTests.External_model_listing_uses_the_provider_credential",
+          "duration": "00:00:00.0197523",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LocalModelFailurePropagationTests.Local_transport_origin_reaches_actionable_terminal_and_outer_turn_without_false_success(kind: \"stream\", language: \"fr\", action: \"intégrateur\")",
+          "duration": "00:00:00.0034388",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LocalModelFailurePropagationTests.Local_transport_origin_reaches_actionable_terminal_and_outer_turn_without_false_success(kind: \"native\", language: \"fr\", action: \"intégrateur\")",
+          "duration": "00:00:00.0047029",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedTerminalLocalizationTests.Proven_missing_document_keeps_its_identity_in_every_language(language: \"it\", prefix: \"Non ho trovato\")",
+          "duration": "00:00:00.0001404",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmCallDiagnosticsTests.A_broken_call_observer_cannot_replace_a_provider_result_or_original_exception(fail: False)",
+          "duration": "00:00:00.0015463",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedTerminalLocalizationTests.Safe_terminals_keep_the_response_language_across_every_failure_kind(language: \"de\", insufficient: \"Die konsultierten Quellen\", clarification: \"Ich benötige\", verification: \"Ich konnte\", timeout: \"Die Dokumentensuche\", failure: \"Die Quellenprüfung\")",
+          "duration": "00:00:00.0006476",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmProviderArchitectureTests.Interrupted_openai_stream_is_rejected_instead_of_marked_successful",
+          "duration": "00:00:00.0022628",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmProviderArchitectureTests.RunPodBench_uses_configured_openai_compatible_endpoint_model_and_bearer",
+          "duration": "00:00:00.0019351",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LocalModelFailurePropagationTests.Local_transport_origin_reaches_actionable_terminal_and_outer_turn_without_false_success(kind: \"completion\", language: \"en\", action: \"integrator\")",
+          "duration": "00:00:00.0175818",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedTerminalLocalizationTests.Safe_terminals_keep_the_response_language_across_every_failure_kind(language: \"fr\", insufficient: \"Les sources consultees\", clarification: \"J'ai besoin\", verification: \"Je n'ai pas pu\", timeout: \"La recherche documentaire\", failure: \"Le pipeline source-backed\")",
+          "duration": "00:00:00.0000202",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedTerminalLocalizationTests.Regional_language_tags_do_not_fall_back_to_english(regional: \"fr-FR\", canonical: \"fr\")",
+          "duration": "00:00:00.0007703",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedTerminalLocalizationTests.Proven_missing_document_keeps_its_identity_in_every_language(language: \"en\", prefix: \"I did not find\")",
+          "duration": "00:00:00.0000048",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmProviderArchitectureTests.OpenAiDev_streaming_normalizes_deltas_and_collects_final_usage_chunk",
+          "duration": "00:00:00.0065054",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SourceBackedTerminalLocalizationTests.Regional_language_tags_do_not_fall_back_to_english(regional: \"it-IT\", canonical: \"it\")",
+          "duration": "00:00:00.0000165",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.LlmCallDiagnosticsTests.A_broken_call_observer_cannot_replace_a_provider_result_or_original_exception(fail: True)",
+          "duration": "00:00:00.0041982",
+          "outcome": "Passed"
+        }
+      ]
+    }
+  ],
+  "model": {
+    "state": "not_applicable",
+    "reason": "Unit and PostgreSQL profiles do not invoke a model."
+  },
+  "corpus": {
+    "state": "synthetic_fixtures",
+    "reason": "IntegrationPg fixtures create isolated databases; no production corpus is assumed."
+  },
+  "validationProfilesSha256": "8E4B990BC0A828134E5FE0D8E7B2D82406B56D2A200D8D4D37516208E3D3201D",
+  "selectionPolicy": "TRX covers selected tests; excluded profiles were not executed.",
+  "excludedProfiles": [
+    "IntegrationPg",
+    "LiveLocal",
+    "LivePaid"
+  ]
+}

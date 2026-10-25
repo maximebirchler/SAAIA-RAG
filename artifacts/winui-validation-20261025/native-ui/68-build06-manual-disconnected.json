@@ -1,0 +1,17 @@
+{
+  "atUtc": "2026-10-25T13:06:15.630Z",
+  "name": "68-build06-manual-disconnected",
+  "description": "PréférenceAutoConnectfalse, déconnectéactionnableVersion06, avantconnexionmanuelle.",
+  "window": {
+    "app": "process:C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+    "id": 81202170,
+    "title": "SAAIA"
+  },
+  "accessibility": {
+    "focused_element": "20 modifier (disabled, settable, string) Tape ta question... ID: InputBox",
+    "tree": "Window: \"SAAIA\", App: SAAIA.Client.WinUI.exe.\n\t0 fenêtre SAAIA Secondary Actions: Raise\n\t\t1 volet Non Client Input Sink Window\n\t\t2 volet AppWindow Custom Title Bar\n\t\t\t3 Bouton Minimize ID: Minimize\n\t\t\t4 Bouton Maximize ID: Maximize\n\t\t\t5 Bouton Close ID: Close\n\t\t6 volet\n\t\t\t7 volet\n\t\t\t\t8 image\n\t\t\t\t9 texte SAAIA\n\t\t\t\t10 bouton Discussions ID: ChatsToggleButton\n\t\t\t\t11 bouton Configuration ID: SetupButton\n\t\t\t\t12 bouton Aide ID: HeaderHelpButton\n\t\t\t\t\t13 texte ?\n\t\t\t\t14 bouton Paramètres ID: HeaderSettingsButton\n\t\t\t\t15 texte Discussions ID: ChatsHeaderText\n\t\t\t\t16 bouton (disabled) Nouveau ID: NewChatButton\n\t\t\t\t17 liste (disabled) ID: SessionsList\n\t\t\t\t18 volet ID: MessagesScroll\n\t\t\t\t\t19 liste ID: MessagesList\n\t\t\t\t20 modifier (disabled, settable, string) Tape ta question... ID: InputBox\n\t\t\t\t21 bouton (disabled) Envoyer ID: SendCancelButton\n\t\t\t\t22 image\n\t\t\t\t23 texte Client déconnecté\n\t\t\t\t24 texte La connexion automatique est désactivée. Connectez-vous lorsque vous êtes prêt.\n\t\t\t\t25 texte\n\t\t\t\t26 bouton Configurer\n\t\t\t\t27 bouton Se connecter\n\t\t28 barre de titre (settable, string) Value: SAAIA\n\t\t\t29 barre de menus Système ID: MenuBar\n\t\t\t\t30 élément de menu Système\n\t\t\t31 Bouton Réduire\n\t\t\t32 Bouton Agrandir\n\t\t\t33 Bouton Fermer\n\nThe focused UI element is 20 modifier (disabled, settable, string) Tape ta question... ID: InputBox."
+  },
+  "screenshots": [
+    "68-build06-manual-disconnected-0.png"
+  ]
+}

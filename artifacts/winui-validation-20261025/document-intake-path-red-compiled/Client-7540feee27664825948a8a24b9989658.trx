@@ -1,0 +1,393 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="2b8a3277-6142-4e22-9c2a-f9c8de8320f6" name="maxim@MAXBI 2026-10-25 13:53:16" runUser="MAXBI\maxim" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-25T13:53:16.1874831+01:00" queuing="2026-10-25T13:53:16.1874834+01:00" start="2026-10-25T13:53:15.3686475+01:00" finish="2026-10-25T13:53:16.2218769+01:00" />
+  <TestSettings name="default" id="ca112a11-1908-4289-bb62-d1a7f3035ffa">
+    <Deployment runDeploymentRoot="maxim_MAXBI_2026-10-25_13_53_16" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="96cd8438-0c0f-47a0-8b88-a8f3953476e2" testId="0abc99e2-0812-e6cf-22b2-b06c08215451" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: &quot;Validation/Guide-Validation.pdf&quot;, focused: False)" computerName="MAXBI" duration="00:00:00.0001046" startTime="2026-10-25T13:53:16.1716573+01:00" endTime="2026-10-25T13:53:16.1716574+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="96cd8438-0c0f-47a0-8b88-a8f3953476e2">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Strings differ&#xD;
+           ↓ (pos 0)&#xD;
+Expected: "Validation/Guide-Validation.pdf"&#xD;
+Actual:   "Guide-Validation.pdf"&#xD;
+           ↑ (pos 0)</Message>
+          <StackTrace>   at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(String reference, Boolean focused) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs:line 63&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="6a9659ba-f38d-44d4-aebe-0aa3238025d9" testId="35e8519d-25f4-f0b2-c82e-7a996644e2cc" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: &quot;Lis Validation/Guide.pdf.&quot;, announced: &quot;Guide.pdf&quot;, expected: &quot;Validation/Guide.pdf&quot;)" computerName="MAXBI" duration="00:00:00.0000066" startTime="2026-10-25T13:53:16.1676029+01:00" endTime="2026-10-25T13:53:16.1676029+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6a9659ba-f38d-44d4-aebe-0aa3238025d9" />
+    <UnitTestResult executionId="2bdd9e87-872d-4b35-b7ce-bcde426a065b" testId="7509636d-2c0e-3d00-7155-0dc9ffc36e97" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_repair_preserves_the_complete_explicit_reference(reference: &quot;Guide-Validation.pdf&quot;)" computerName="MAXBI" duration="00:00:00.0001943" startTime="2026-10-25T13:53:16.1676680+01:00" endTime="2026-10-25T13:53:16.1676681+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2bdd9e87-872d-4b35-b7ce-bcde426a065b" />
+    <UnitTestResult executionId="0858d9aa-705b-43d1-8f1f-35a9d37972b1" testId="d477fdbc-cf7c-bd86-48b0-f98a1e991320" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: &quot;C:\\published\\Validation\\Guide-Validation.pdf&quot;, focused: False)" computerName="MAXBI" duration="00:00:00.0000833" startTime="2026-10-25T13:53:16.1715178+01:00" endTime="2026-10-25T13:53:16.1715178+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0858d9aa-705b-43d1-8f1f-35a9d37972b1">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Strings differ&#xD;
+           ↓ (pos 0)&#xD;
+Expected: "C:\\published\\Validation\\Guide-Validation."···&#xD;
+Actual:   "Guide-Validation.pdf"&#xD;
+           ↑ (pos 0)</Message>
+          <StackTrace>   at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(String reference, Boolean focused) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs:line 63&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="1905ecb7-b3f2-4811-8007-1a7facf6f410" testId="5e44f4c1-1d89-1aa4-abc4-7397bf6f84af" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: &quot;Validation\\Guide-Validation.pdf&quot;, focused: False)" computerName="MAXBI" duration="00:00:00.0002296" startTime="2026-10-25T13:53:16.1703255+01:00" endTime="2026-10-25T13:53:16.1703256+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1905ecb7-b3f2-4811-8007-1a7facf6f410">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Strings differ&#xD;
+           ↓ (pos 0)&#xD;
+Expected: "Validation\\Guide-Validation.pdf"&#xD;
+Actual:   "Guide-Validation.pdf"&#xD;
+           ↑ (pos 0)</Message>
+          <StackTrace>   at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(String reference, Boolean focused) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs:line 63&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="adaa4ecd-81f5-43a0-abb7-5c89d776a85a" testId="bc9538de-f3da-ff6b-b314-1c387c9b7b54" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: &quot;Lis Validation/Guide.pdf puis Archive/Guide.pdf.&quot;, announced: &quot;Guide.pdf&quot;, expected: &quot;Guide.pdf&quot;)" computerName="MAXBI" duration="00:00:00.0000222" startTime="2026-10-25T13:53:16.1453133+01:00" endTime="2026-10-25T13:53:16.1453133+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="adaa4ecd-81f5-43a0-abb7-5c89d776a85a" />
+    <UnitTestResult executionId="696ce7ac-0793-4f5c-b743-5188713e6cb5" testId="269fbb98-f56c-837a-fe9c-50b8372a9e8f" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: &quot;Lis Validation/Guide.pdf.backup.&quot;, announced: &quot;Guide.pdf&quot;, expected: &quot;Guide.pdf&quot;)" computerName="MAXBI" duration="00:00:00.0000046" startTime="2026-10-25T13:53:16.1675733+01:00" endTime="2026-10-25T13:53:16.1675734+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="696ce7ac-0793-4f5c-b743-5188713e6cb5" />
+    <UnitTestResult executionId="4bf48625-fe8b-4e76-a280-149b1906d062" testId="e8b385f8-a393-ce65-93b8-6dd8ecf834ba" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: &quot;Validation\\Guide-Validation.pdf&quot;, focused: True)" computerName="MAXBI" duration="00:00:00.0001033" startTime="2026-10-25T13:53:16.1717971+01:00" endTime="2026-10-25T13:53:16.1717971+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4bf48625-fe8b-4e76-a280-149b1906d062">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Strings differ&#xD;
+           ↓ (pos 0)&#xD;
+Expected: "Validation\\Guide-Validation.pdf"&#xD;
+Actual:   "Guide-Validation.pdf"&#xD;
+           ↑ (pos 0)</Message>
+          <StackTrace>   at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(String reference, Boolean focused) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs:line 63&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="b4cf57f7-257a-4f2e-8dfe-3d097069bc20" testId="f37a1d76-cf8b-d705-ce3a-4a28b899f6bc" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_repair_preserves_the_complete_explicit_reference(reference: &quot;Validation/Guide-Validation.pdf&quot;)" computerName="MAXBI" duration="00:00:00.0026696" startTime="2026-10-25T13:53:16.1676420+01:00" endTime="2026-10-25T13:53:16.1676421+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b4cf57f7-257a-4f2e-8dfe-3d097069bc20" />
+    <UnitTestResult executionId="41e16f80-04a9-4735-92bb-3b09c84f9821" testId="278c2289-2247-53dd-8f67-ee8f059d0878" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: &quot;Lis Validation/OtherGuide.pdf.&quot;, announced: &quot;Guide.pdf&quot;, expected: &quot;Guide.pdf&quot;)" computerName="MAXBI" duration="00:00:00.0003174" startTime="2026-10-25T13:53:16.1444740+01:00" endTime="2026-10-25T13:53:16.1444741+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="41e16f80-04a9-4735-92bb-3b09c84f9821" />
+    <UnitTestResult executionId="205ef580-cfb0-4830-913e-648839216728" testId="256b3ad4-7390-1a2c-4c7b-4a84d4e9198f" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: &quot;Lis « Internal Docs/Guide.pdf ».&quot;, announced: &quot;Guide.pdf&quot;, expected: &quot;Internal Docs/Guide.pdf&quot;)" computerName="MAXBI" duration="00:00:00.0000933" startTime="2026-10-25T13:53:16.1674663+01:00" endTime="2026-10-25T13:53:16.1674663+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="205ef580-cfb0-4830-913e-648839216728" />
+    <UnitTestResult executionId="85dd7ea0-3d35-4773-957e-0acfcf0f6f10" testId="0027495d-7324-5382-bab2-6b748a4c5316" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: &quot;Guide-Validation.pdf&quot;, focused: False)" computerName="MAXBI" duration="00:00:00.0023285" startTime="2026-10-25T13:53:16.1677260+01:00" endTime="2026-10-25T13:53:16.1677260+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="85dd7ea0-3d35-4773-957e-0acfcf0f6f10" />
+    <UnitTestResult executionId="1561e1d6-b86a-465b-b60c-2d8b8f817ffb" testId="067b01cc-5a94-df0d-46d3-9d46908357f5" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: &quot;Lis Guide.pdf.&quot;, announced: &quot;Guide.pdf&quot;, expected: &quot;Guide.pdf&quot;)" computerName="MAXBI" duration="00:00:00.0001394" startTime="2026-10-25T13:53:16.1446456+01:00" endTime="2026-10-25T13:53:16.1446456+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1561e1d6-b86a-465b-b60c-2d8b8f817ffb" />
+    <UnitTestResult executionId="1d8818f1-4b90-43b5-b452-4e9fe307cc9a" testId="f308fd76-638e-3c80-7f5a-37bbeafb7df1" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_mission_preserves_document_reference_until_exact_catalog_resolution(reference: &quot;Validation/Guide-Validation.pdf&quot;, unique: True)" computerName="MAXBI" duration="00:00:00.0002066" startTime="2026-10-25T13:53:16.1439676+01:00" endTime="2026-10-25T13:53:16.1439676+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1d8818f1-4b90-43b5-b452-4e9fe307cc9a" />
+    <UnitTestResult executionId="10347be0-49cc-43a8-9191-1a63dabb999d" testId="1ed3dc0b-564a-ddb4-ecdb-cf77723a1671" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: &quot;Internal Docs/Guide-Validation.pdf&quot;)" computerName="MAXBI" duration="00:00:00.0066870" startTime="2026-10-25T13:53:16.1739530+01:00" endTime="2026-10-25T13:53:16.1739531+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="10347be0-49cc-43a8-9191-1a63dabb999d">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Strings differ&#xD;
+           ↓ (pos 0)&#xD;
+Expected: "Internal Docs/Guide-Validation.pdf"&#xD;
+Actual:   "Guide-Validation.pdf"&#xD;
+           ↑ (pos 0)</Message>
+          <StackTrace>   at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(String path) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs:line 32&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="36014c35-9d88-40c4-9dd4-cae919d513d7" testId="a452b8d9-5e3b-870f-a023-c533165c8686" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: &quot;Lis ../Validation/Guide.pdf.&quot;, announced: &quot;Guide.pdf&quot;, expected: &quot;Guide.pdf&quot;)" computerName="MAXBI" duration="00:00:00.0003952" startTime="2026-10-25T13:53:16.1450860+01:00" endTime="2026-10-25T13:53:16.1450862+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="36014c35-9d88-40c4-9dd4-cae919d513d7" />
+    <UnitTestResult executionId="4bdf39b0-e6db-4d90-bfa9-9266ac1dc257" testId="d237c345-ba5f-6ae0-9f1e-dda92bccdbb4" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: &quot;Validation/Guide-Validation.pdf&quot;, focused: True)" computerName="MAXBI" duration="00:00:00.0001025" startTime="2026-10-25T13:53:16.1713355+01:00" endTime="2026-10-25T13:53:16.1713355+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4bdf39b0-e6db-4d90-bfa9-9266ac1dc257">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Strings differ&#xD;
+           ↓ (pos 0)&#xD;
+Expected: "Validation/Guide-Validation.pdf"&#xD;
+Actual:   "Guide-Validation.pdf"&#xD;
+           ↑ (pos 0)</Message>
+          <StackTrace>   at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(String reference, Boolean focused) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs:line 63&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="b44472c8-9c30-4a1a-89e8-895f98cd7b91" testId="7f58b99b-52fa-ffc6-5268-789f2a1060a6" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: &quot;Validation\\Guide-Validation.pdf&quot;)" computerName="MAXBI" duration="00:00:00.0004861" startTime="2026-10-25T13:53:16.1754811+01:00" endTime="2026-10-25T13:53:16.1754812+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b44472c8-9c30-4a1a-89e8-895f98cd7b91">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Strings differ&#xD;
+           ↓ (pos 0)&#xD;
+Expected: "Validation\\Guide-Validation.pdf"&#xD;
+Actual:   "Guide-Validation.pdf"&#xD;
+           ↑ (pos 0)</Message>
+          <StackTrace>   at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(String path) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs:line 32&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="1bf122d7-7905-42e8-a646-4faab4bdf7cd" testId="4caae4d5-da29-1e79-2c97-76e276b9813d" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_mission_preserves_document_reference_until_exact_catalog_resolution(reference: &quot;Guide-Validation.pdf&quot;, unique: False)" computerName="MAXBI" duration="00:00:00.0020169" startTime="2026-10-25T13:53:16.1436973+01:00" endTime="2026-10-25T13:53:16.1436974+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1bf122d7-7905-42e8-a646-4faab4bdf7cd" />
+    <UnitTestResult executionId="4c604767-2b08-48c6-9000-35024bd6bc10" testId="6a879541-ecdc-1b54-f00d-9dc3d8e24fe7" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_repair_preserves_the_complete_explicit_reference(reference: &quot;Validation\\Guide-Validation.pdf&quot;)" computerName="MAXBI" duration="00:00:00.0000370" startTime="2026-10-25T13:53:16.1676946+01:00" endTime="2026-10-25T13:53:16.1676946+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4c604767-2b08-48c6-9000-35024bd6bc10" />
+    <UnitTestResult executionId="fd7b91ac-2e20-4f9b-99ca-93f5ff1cf5d2" testId="828e73fd-9c5a-dbe5-de4e-2cf270c860ee" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: &quot;C:\\published\\Validation\\Guide-Validation.pdf&quot;, focused: True)" computerName="MAXBI" duration="00:00:00.0013111" startTime="2026-10-25T13:53:16.1700034+01:00" endTime="2026-10-25T13:53:16.1700035+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fd7b91ac-2e20-4f9b-99ca-93f5ff1cf5d2">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Strings differ&#xD;
+           ↓ (pos 0)&#xD;
+Expected: "C:\\published\\Validation\\Guide-Validation."···&#xD;
+Actual:   "Guide-Validation.pdf"&#xD;
+           ↑ (pos 0)</Message>
+          <StackTrace>   at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(String reference, Boolean focused) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs:line 63&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="7791ed43-f5c9-419f-a324-a84ba2ae0059" testId="a076d79e-f3f7-04b2-ef8f-17663bb0a06c" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: &quot;Lis https://host/Guide.pdf puis Validation/Guide.p&quot;···, announced: &quot;Guide.pdf&quot;, expected: &quot;Guide.pdf&quot;)" computerName="MAXBI" duration="00:00:00.0000959" startTime="2026-10-25T13:53:16.1452516+01:00" endTime="2026-10-25T13:53:16.1452517+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7791ed43-f5c9-419f-a324-a84ba2ae0059" />
+    <UnitTestResult executionId="9389edc3-b513-4837-8070-4e2df65f45e5" testId="c39dfaf6-cbc5-7d04-f260-0d6bf3c27427" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: &quot;Lis Validation/Guide.pdf.&quot;, announced: &quot;Archive/Guide.pdf&quot;, expected: &quot;Archive/Guide.pdf&quot;)" computerName="MAXBI" duration="00:00:00.0000073" startTime="2026-10-25T13:53:16.1451312+01:00" endTime="2026-10-25T13:53:16.1451312+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9389edc3-b513-4837-8070-4e2df65f45e5" />
+    <UnitTestResult executionId="f39f7be9-1d52-43b2-91a8-e7affc4a46db" testId="4e2c5c75-4e3a-b051-b51b-bc330c3fc87c" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: &quot;Validation/Guide-Validation.pdf&quot;)" computerName="MAXBI" duration="00:00:00.0007695" startTime="2026-10-25T13:53:16.1748768+01:00" endTime="2026-10-25T13:53:16.1748769+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f39f7be9-1d52-43b2-91a8-e7affc4a46db">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Strings differ&#xD;
+           ↓ (pos 0)&#xD;
+Expected: "Validation/Guide-Validation.pdf"&#xD;
+Actual:   "Guide-Validation.pdf"&#xD;
+           ↑ (pos 0)</Message>
+          <StackTrace>   at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(String path) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs:line 32&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="2c6d7018-b22e-4f81-ad7d-5709732d9d7a" testId="665c8681-e322-97e1-ddaa-b7e1c65b7290" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: &quot;Guide-Validation.pdf&quot;, focused: True)" computerName="MAXBI" duration="00:00:00.0001039" startTime="2026-10-25T13:53:16.1713753+01:00" endTime="2026-10-25T13:53:16.1713754+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2c6d7018-b22e-4f81-ad7d-5709732d9d7a" />
+    <UnitTestResult executionId="5a1207ae-2153-477e-87a4-8692a8492226" testId="f7c5daf7-f7d1-06e3-d014-1ec76010ad1a" testName="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_mission_preserves_document_reference_until_exact_catalog_resolution(reference: &quot;Validation\\Guide-Validation.pdf&quot;, unique: True)" computerName="MAXBI" duration="00:00:00.0311437" startTime="2026-10-25T13:53:16.1419421+01:00" endTime="2026-10-25T13:53:16.1419535+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5a1207ae-2153-477e-87a4-8692a8492226" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: &quot;Lis Validation/Guide.pdf puis Archive/Guide.pdf.&quot;, announced: &quot;Guide.pdf&quot;, expected: &quot;Guide.pdf&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="bc9538de-f3da-ff6b-b314-1c387c9b7b54">
+      <Execution id="adaa4ecd-81f5-43a0-abb7-5c89d776a85a" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: &quot;Lis Validation/Guide.pdf.backup.&quot;, announced: &quot;Guide.pdf&quot;, expected: &quot;Guide.pdf&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="269fbb98-f56c-837a-fe9c-50b8372a9e8f">
+      <Execution id="696ce7ac-0793-4f5c-b743-5188713e6cb5" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: &quot;Validation\\Guide-Validation.pdf&quot;, focused: True)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="e8b385f8-a393-ce65-93b8-6dd8ecf834ba">
+      <Execution id="4bf48625-fe8b-4e76-a280-149b1906d062" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_mission_preserves_document_reference_until_exact_catalog_resolution(reference: &quot;Validation/Guide-Validation.pdf&quot;, unique: True)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="f308fd76-638e-3c80-7f5a-37bbeafb7df1">
+      <Execution id="1d8818f1-4b90-43b5-b452-4e9fe307cc9a" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Router_mission_preserves_document_reference_until_exact_catalog_resolution" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_mission_preserves_document_reference_until_exact_catalog_resolution(reference: &quot;Validation\\Guide-Validation.pdf&quot;, unique: True)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="f7c5daf7-f7d1-06e3-d014-1ec76010ad1a">
+      <Execution id="5a1207ae-2153-477e-87a4-8692a8492226" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Router_mission_preserves_document_reference_until_exact_catalog_resolution" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_mission_preserves_document_reference_until_exact_catalog_resolution(reference: &quot;Guide-Validation.pdf&quot;, unique: False)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="4caae4d5-da29-1e79-2c97-76e276b9813d">
+      <Execution id="1bf122d7-7905-42e8-a646-4faab4bdf7cd" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Router_mission_preserves_document_reference_until_exact_catalog_resolution" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: &quot;C:\\published\\Validation\\Guide-Validation.pdf&quot;, focused: True)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="828e73fd-9c5a-dbe5-de4e-2cf270c860ee">
+      <Execution id="fd7b91ac-2e20-4f9b-99ca-93f5ff1cf5d2" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: &quot;Guide-Validation.pdf&quot;, focused: False)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="0027495d-7324-5382-bab2-6b748a4c5316">
+      <Execution id="85dd7ea0-3d35-4773-957e-0acfcf0f6f10" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: &quot;Validation/Guide-Validation.pdf&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="4e2c5c75-4e3a-b051-b51b-bc330c3fc87c">
+      <Execution id="f39f7be9-1d52-43b2-91a8-e7affc4a46db" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: &quot;Validation/Guide-Validation.pdf&quot;, focused: True)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="d237c345-ba5f-6ae0-9f1e-dda92bccdbb4">
+      <Execution id="4bdf39b0-e6db-4d90-bfa9-9266ac1dc257" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: &quot;Internal Docs/Guide-Validation.pdf&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="1ed3dc0b-564a-ddb4-ecdb-cf77723a1671">
+      <Execution id="10347be0-49cc-43a8-9191-1a63dabb999d" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: &quot;Lis Validation/OtherGuide.pdf.&quot;, announced: &quot;Guide.pdf&quot;, expected: &quot;Guide.pdf&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="278c2289-2247-53dd-8f67-ee8f059d0878">
+      <Execution id="41e16f80-04a9-4735-92bb-3b09c84f9821" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: &quot;Lis ../Validation/Guide.pdf.&quot;, announced: &quot;Guide.pdf&quot;, expected: &quot;Guide.pdf&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="a452b8d9-5e3b-870f-a023-c533165c8686">
+      <Execution id="36014c35-9d88-40c4-9dd4-cae919d513d7" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: &quot;Lis Guide.pdf.&quot;, announced: &quot;Guide.pdf&quot;, expected: &quot;Guide.pdf&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="067b01cc-5a94-df0d-46d3-9d46908357f5">
+      <Execution id="1561e1d6-b86a-465b-b60c-2d8b8f817ffb" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: &quot;Validation\\Guide-Validation.pdf&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="7f58b99b-52fa-ffc6-5268-789f2a1060a6">
+      <Execution id="b44472c8-9c30-4a1a-89e8-895f98cd7b91" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_repair_preserves_the_complete_explicit_reference(reference: &quot;Validation/Guide-Validation.pdf&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="f37a1d76-cf8b-d705-ce3a-4a28b899f6bc">
+      <Execution id="b4cf57f7-257a-4f2e-8dfe-3d097069bc20" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Router_repair_preserves_the_complete_explicit_reference" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: &quot;Guide-Validation.pdf&quot;, focused: True)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="665c8681-e322-97e1-ddaa-b7e1c65b7290">
+      <Execution id="2c6d7018-b22e-4f81-ad7d-5709732d9d7a" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_repair_preserves_the_complete_explicit_reference(reference: &quot;Validation\\Guide-Validation.pdf&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="6a879541-ecdc-1b54-f00d-9dc3d8e24fe7">
+      <Execution id="4c604767-2b08-48c6-9000-35024bd6bc10" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Router_repair_preserves_the_complete_explicit_reference" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: &quot;Validation\\Guide-Validation.pdf&quot;, focused: False)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="5e44f4c1-1d89-1aa4-abc4-7397bf6f84af">
+      <Execution id="1905ecb7-b3f2-4811-8007-1a7facf6f410" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: &quot;Lis Validation/Guide.pdf.&quot;, announced: &quot;Guide.pdf&quot;, expected: &quot;Validation/Guide.pdf&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="35e8519d-25f4-f0b2-c82e-7a996644e2cc">
+      <Execution id="6a9659ba-f38d-44d4-aebe-0aa3238025d9" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: &quot;Lis Validation/Guide.pdf.&quot;, announced: &quot;Archive/Guide.pdf&quot;, expected: &quot;Archive/Guide.pdf&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="c39dfaf6-cbc5-7d04-f260-0d6bf3c27427">
+      <Execution id="9389edc3-b513-4837-8070-4e2df65f45e5" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: &quot;C:\\published\\Validation\\Guide-Validation.pdf&quot;, focused: False)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="d477fdbc-cf7c-bd86-48b0-f98a1e991320">
+      <Execution id="0858d9aa-705b-43d1-8f1f-35a9d37972b1" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: &quot;Validation/Guide-Validation.pdf&quot;, focused: False)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="0abc99e2-0812-e6cf-22b2-b06c08215451">
+      <Execution id="96cd8438-0c0f-47a0-8b88-a8f3953476e2" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: &quot;Lis « Internal Docs/Guide.pdf ».&quot;, announced: &quot;Guide.pdf&quot;, expected: &quot;Internal Docs/Guide.pdf&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="256b3ad4-7390-1a2c-4c7b-4a84d4e9198f">
+      <Execution id="205ef580-cfb0-4830-913e-648839216728" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_repair_preserves_the_complete_explicit_reference(reference: &quot;Guide-Validation.pdf&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="7509636d-2c0e-3d00-7155-0dc9ffc36e97">
+      <Execution id="2bdd9e87-872d-4b35-b7ce-bcde426a065b" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Router_repair_preserves_the_complete_explicit_reference" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: &quot;Lis https://host/Guide.pdf puis Validation/Guide.p&quot;···, announced: &quot;Guide.pdf&quot;, expected: &quot;Guide.pdf&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="a076d79e-f3f7-04b2-ef8f-17663bb0a06c">
+      <Execution id="7791ed43-f5c9-419f-a324-a84ba2ae0059" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests" name="Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="0abc99e2-0812-e6cf-22b2-b06c08215451" executionId="96cd8438-0c0f-47a0-8b88-a8f3953476e2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="35e8519d-25f4-f0b2-c82e-7a996644e2cc" executionId="6a9659ba-f38d-44d4-aebe-0aa3238025d9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7509636d-2c0e-3d00-7155-0dc9ffc36e97" executionId="2bdd9e87-872d-4b35-b7ce-bcde426a065b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d477fdbc-cf7c-bd86-48b0-f98a1e991320" executionId="0858d9aa-705b-43d1-8f1f-35a9d37972b1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5e44f4c1-1d89-1aa4-abc4-7397bf6f84af" executionId="1905ecb7-b3f2-4811-8007-1a7facf6f410" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="bc9538de-f3da-ff6b-b314-1c387c9b7b54" executionId="adaa4ecd-81f5-43a0-abb7-5c89d776a85a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="269fbb98-f56c-837a-fe9c-50b8372a9e8f" executionId="696ce7ac-0793-4f5c-b743-5188713e6cb5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e8b385f8-a393-ce65-93b8-6dd8ecf834ba" executionId="4bf48625-fe8b-4e76-a280-149b1906d062" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f37a1d76-cf8b-d705-ce3a-4a28b899f6bc" executionId="b4cf57f7-257a-4f2e-8dfe-3d097069bc20" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="278c2289-2247-53dd-8f67-ee8f059d0878" executionId="41e16f80-04a9-4735-92bb-3b09c84f9821" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="256b3ad4-7390-1a2c-4c7b-4a84d4e9198f" executionId="205ef580-cfb0-4830-913e-648839216728" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0027495d-7324-5382-bab2-6b748a4c5316" executionId="85dd7ea0-3d35-4773-957e-0acfcf0f6f10" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="067b01cc-5a94-df0d-46d3-9d46908357f5" executionId="1561e1d6-b86a-465b-b60c-2d8b8f817ffb" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f308fd76-638e-3c80-7f5a-37bbeafb7df1" executionId="1d8818f1-4b90-43b5-b452-4e9fe307cc9a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1ed3dc0b-564a-ddb4-ecdb-cf77723a1671" executionId="10347be0-49cc-43a8-9191-1a63dabb999d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a452b8d9-5e3b-870f-a023-c533165c8686" executionId="36014c35-9d88-40c4-9dd4-cae919d513d7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d237c345-ba5f-6ae0-9f1e-dda92bccdbb4" executionId="4bdf39b0-e6db-4d90-bfa9-9266ac1dc257" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7f58b99b-52fa-ffc6-5268-789f2a1060a6" executionId="b44472c8-9c30-4a1a-89e8-895f98cd7b91" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4caae4d5-da29-1e79-2c97-76e276b9813d" executionId="1bf122d7-7905-42e8-a646-4faab4bdf7cd" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6a879541-ecdc-1b54-f00d-9dc3d8e24fe7" executionId="4c604767-2b08-48c6-9000-35024bd6bc10" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="828e73fd-9c5a-dbe5-de4e-2cf270c860ee" executionId="fd7b91ac-2e20-4f9b-99ca-93f5ff1cf5d2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a076d79e-f3f7-04b2-ef8f-17663bb0a06c" executionId="7791ed43-f5c9-419f-a324-a84ba2ae0059" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c39dfaf6-cbc5-7d04-f260-0d6bf3c27427" executionId="9389edc3-b513-4837-8070-4e2df65f45e5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4e2c5c75-4e3a-b051-b51b-bc330c3fc87c" executionId="f39f7be9-1d52-43b2-91a8-e7affc4a46db" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="665c8681-e322-97e1-ddaa-b7e1c65b7290" executionId="2c6d7018-b22e-4f81-ad7d-5709732d9d7a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f7c5daf7-f7d1-06e3-d014-1ec76010ad1a" executionId="5a1207ae-2153-477e-87a4-8692a8492226" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Les résultats ne figurent pas dans une liste" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="Tous les résultats chargés" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="26" executed="26" passed="17" failed="9" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 8.0.27)&#xD;
+[xUnit.net 00:00:00.11]   Discovering: SAAIA.Client.ToolAgent.Tests&#xD;
+[xUnit.net 00:00:00.32]   Discovered:  SAAIA.Client.ToolAgent.Tests&#xD;
+[xUnit.net 00:00:00.33]   Starting:    SAAIA.Client.ToolAgent.Tests&#xD;
+[xUnit.net 00:00:00.41]       Assert.Equal() Failure: Strings differ&#xD;
+[xUnit.net 00:00:00.41]                  ↓ (pos 0)&#xD;
+[xUnit.net 00:00:00.41]       Expected: "C:\\published\\Validation\\Guide-Validation."···&#xD;
+[xUnit.net 00:00:00.41]       Actual:   "Guide-Validation.pdf"&#xD;
+[xUnit.net 00:00:00.41]                  ↑ (pos 0)&#xD;
+[xUnit.net 00:00:00.41]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.41]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs(63,0): at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(String reference, Boolean focused)&#xD;
+[xUnit.net 00:00:00.41]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:00.41]       Assert.Equal() Failure: Strings differ&#xD;
+[xUnit.net 00:00:00.41]                  ↓ (pos 0)&#xD;
+[xUnit.net 00:00:00.41]       Expected: "Validation\\Guide-Validation.pdf"&#xD;
+[xUnit.net 00:00:00.41]       Actual:   "Guide-Validation.pdf"&#xD;
+[xUnit.net 00:00:00.41]                  ↑ (pos 0)&#xD;
+[xUnit.net 00:00:00.41]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.41]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs(63,0): at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(String reference, Boolean focused)&#xD;
+[xUnit.net 00:00:00.41]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:00.41]       Assert.Equal() Failure: Strings differ&#xD;
+[xUnit.net 00:00:00.41]                  ↓ (pos 0)&#xD;
+[xUnit.net 00:00:00.41]       Expected: "Validation/Guide-Validation.pdf"&#xD;
+[xUnit.net 00:00:00.41]       Actual:   "Guide-Validation.pdf"&#xD;
+[xUnit.net 00:00:00.41]                  ↑ (pos 0)&#xD;
+[xUnit.net 00:00:00.41]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.41]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs(63,0): at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(String reference, Boolean focused)&#xD;
+[xUnit.net 00:00:00.41]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:00.41]       Assert.Equal() Failure: Strings differ&#xD;
+[xUnit.net 00:00:00.41]                  ↓ (pos 0)&#xD;
+[xUnit.net 00:00:00.41]       Expected: "C:\\published\\Validation\\Guide-Validation."···&#xD;
+[xUnit.net 00:00:00.41]       Actual:   "Guide-Validation.pdf"&#xD;
+[xUnit.net 00:00:00.41]                  ↑ (pos 0)&#xD;
+[xUnit.net 00:00:00.41]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.41]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs(63,0): at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(String reference, Boolean focused)&#xD;
+[xUnit.net 00:00:00.41]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:00.41]       Assert.Equal() Failure: Strings differ&#xD;
+[xUnit.net 00:00:00.41]                  ↓ (pos 0)&#xD;
+[xUnit.net 00:00:00.41]       Expected: "Validation/Guide-Validation.pdf"&#xD;
+[xUnit.net 00:00:00.41]       Actual:   "Guide-Validation.pdf"&#xD;
+[xUnit.net 00:00:00.41]                  ↑ (pos 0)&#xD;
+[xUnit.net 00:00:00.41]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.41]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs(63,0): at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(String reference, Boolean focused)&#xD;
+[xUnit.net 00:00:00.41]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:00.41]       Assert.Equal() Failure: Strings differ&#xD;
+[xUnit.net 00:00:00.41]                  ↓ (pos 0)&#xD;
+[xUnit.net 00:00:00.41]       Expected: "Validation\\Guide-Validation.pdf"&#xD;
+[xUnit.net 00:00:00.41]       Actual:   "Guide-Validation.pdf"&#xD;
+[xUnit.net 00:00:00.41]                  ↑ (pos 0)&#xD;
+[xUnit.net 00:00:00.41]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.41]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs(63,0): at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(String reference, Boolean focused)&#xD;
+[xUnit.net 00:00:00.41]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:00.42]       Assert.Equal() Failure: Strings differ&#xD;
+[xUnit.net 00:00:00.42]                  ↓ (pos 0)&#xD;
+[xUnit.net 00:00:00.42]       Expected: "Internal Docs/Guide-Validation.pdf"&#xD;
+[xUnit.net 00:00:00.42]       Actual:   "Guide-Validation.pdf"&#xD;
+[xUnit.net 00:00:00.42]                  ↑ (pos 0)&#xD;
+[xUnit.net 00:00:00.42]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.42]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs(32,0): at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(String path)&#xD;
+[xUnit.net 00:00:00.42]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:00.42]       Assert.Equal() Failure: Strings differ&#xD;
+[xUnit.net 00:00:00.42]                  ↓ (pos 0)&#xD;
+[xUnit.net 00:00:00.42]       Expected: "Validation/Guide-Validation.pdf"&#xD;
+[xUnit.net 00:00:00.42]       Actual:   "Guide-Validation.pdf"&#xD;
+[xUnit.net 00:00:00.42]                  ↑ (pos 0)&#xD;
+[xUnit.net 00:00:00.42]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.42]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs(32,0): at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(String path)&#xD;
+[xUnit.net 00:00:00.42]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:00.42]       Assert.Equal() Failure: Strings differ&#xD;
+[xUnit.net 00:00:00.42]                  ↓ (pos 0)&#xD;
+[xUnit.net 00:00:00.42]       Expected: "Validation\\Guide-Validation.pdf"&#xD;
+[xUnit.net 00:00:00.42]       Actual:   "Guide-Validation.pdf"&#xD;
+[xUnit.net 00:00:00.42]                  ↑ (pos 0)&#xD;
+[xUnit.net 00:00:00.42]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.42]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\NativeDocumentPathIdentityTests.cs(32,0): at SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(String path)&#xD;
+[xUnit.net 00:00:00.42]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:00.42]   Finished:    SAAIA.Client.ToolAgent.Tests&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-25T13:53:16.1934624+01:00">
+        <Text>[xUnit.net 00:00:00.41]     SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: "C:\\published\\Validation\\Guide-Validation.pdf", focused: True) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-25T13:53:16.1937647+01:00">
+        <Text>[xUnit.net 00:00:00.41]     SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: "Validation\\Guide-Validation.pdf", focused: False) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-25T13:53:16.1949135+01:00">
+        <Text>[xUnit.net 00:00:00.41]     SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: "Validation/Guide-Validation.pdf", focused: True) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-25T13:53:16.1950360+01:00">
+        <Text>[xUnit.net 00:00:00.41]     SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: "C:\\published\\Validation\\Guide-Validation.pdf", focused: False) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-25T13:53:16.1951491+01:00">
+        <Text>[xUnit.net 00:00:00.41]     SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: "Validation/Guide-Validation.pdf", focused: False) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-25T13:53:16.1952212+01:00">
+        <Text>[xUnit.net 00:00:00.41]     SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: "Validation\\Guide-Validation.pdf", focused: True) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-25T13:53:16.1952629+01:00">
+        <Text>[xUnit.net 00:00:00.42]     SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: "Internal Docs/Guide-Validation.pdf") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-25T13:53:16.1953074+01:00">
+        <Text>[xUnit.net 00:00:00.42]     SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: "Validation/Guide-Validation.pdf") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-25T13:53:16.1953372+01:00">
+        <Text>[xUnit.net 00:00:00.42]     SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: "Validation\\Guide-Validation.pdf") [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

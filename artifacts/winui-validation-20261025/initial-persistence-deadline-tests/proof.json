@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "saaia.winui-w17-confirmation-deadline.v1",
+  "capturedAtUtc": "2026-10-25T12:06:10.2088003+00:00",
+  "status": "TARGETED_TESTS_PASSED_PENDING_REAL_UI_RETEST",
+  "testCounts": {
+    "passed": 31,
+    "failed": 0,
+    "skipped": 0,
+    "deadlineCases": 4,
+    "initialAndAckCases": 19,
+    "noticeLifecycleCases": 5,
+    "existingStagedCases": 3
+  },
+  "contract": {
+    "defaultConfirmationSeconds": 30,
+    "maximumConfirmationSeconds": 30,
+    "scope": "Initial user message POST confirmation only",
+    "userCancellationLinked": false,
+    "timeoutOutcome": "unconfirmed",
+    "automaticRetryOnTimeout": false,
+    "draftPreserved": true,
+    "modelStarted": false,
+    "apiGlobalTimeoutChanged": false
+  },
+  "scenarios": [
+    "Silent transport beyond deadline; draft and staged retained, lease held until failure, no model",
+    "User cancel during silent storage does not cancel storage immediately; own deadline produces unconfirmed then releases lease",
+    "HTTP409 preserves original HttpRequestException and status instead of reporting timeout",
+    "Zero and greater-than30s caller limits rejected"
+  ],
+  "trx": {
+    "path": "artifacts/winui-validation-20261025/initial-persistence-deadline-tests/deadline.trx",
+    "sha256": "F6BB222438809D24C21CFDCEC2D4C31150C8CF807D993DBF13A1202E7C88416F"
+  },
+  "sources": [
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/InitialMessagePersistence.cs",
+      "sha256": "952484D5EC45CB68045922292AC15EF0581C01748D28DE3D860EC025EBFA84A4"
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/InitialMessagePersistenceTests.cs",
+      "sha256": "6CBA0BF07BDA7997C4A6006EE3A5E37EEEF40072CA23C7D5EB90D43C54EE8646"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/HelpAndLocalization.cs",
+      "sha256": "AEC392F8054D6B6A223E3A7E1E1D83087F1733C5DA40C04FC344670390D932A0"
+    },
+    {
+      "path": "tools/validation-winui/EVIDENCE.md",
+      "sha256": "B682EC787D5AC4BB892182ABD6BB2B88EF0EC968DB79A2B102869464518E64B4"
+    }
+  ],
+  "limits": [
+    "A timeout is not proof of absence of a server-side commit.",
+    "Real WinUI silent-server retest must be performed on the next production build."
+  ],
+  "paidCalls": 0
+}

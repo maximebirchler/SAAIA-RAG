@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "saaia-winui-trace-interruption-accounting.v1",
+  "capturedAtUtc": "2026-10-25T12:50:00.7342839+00:00",
+  "passed": true,
+  "status": "TRACE_ACCOUNTING_VALID_WITH_DECLARED_PROCESS_INTERRUPTION",
+  "strictVerifierStatus": "TRACE_INTEGRITY_FAILED",
+  "strictVerifierPassed": false,
+  "allowInFlightUsed": false,
+  "totalEvents": 820,
+  "totalTurns": 129,
+  "correlatedWireRequests": 1,
+  "observedIncompleteTurns": 1,
+  "unexplainedIncompleteTurns": 0,
+  "expectedInterruptionMissing": 0,
+  "otherStrictFailures": 0,
+  "expectedInterruptions": [
+    {
+      "sessionId": "2dccd468-b196-4533-8de7-809868c208fa",
+      "turnId": "715cc6f6531d4fe3a066ab47dc936ebb",
+      "eventCount": 39,
+      "traceId": "15b7daa95ee3a877c232cafe4cbe9d59",
+      "terminalFabricated": false,
+      "reason": "UI operator deliberately closed the original WinUI process while the durable server job was running; a new process resumed the same job and message."
+    }
+  ],
+  "unexpectedIncomplete": [],
+  "strictProofSha256": "7ADF8892F156FEF9C1043FF6F7CFEE683596EB69E2627A298F04A2917828D90E",
+  "references": [
+    {
+      "path": "native-ui/53-advanced-work-in-progress.json",
+      "sha256": "6A6CA5320839B7F67160D6F6B8EDFAD2D02B1B2745F635BF3BC50953C828B77F"
+    },
+    {
+      "path": "client-launch-13-advanced-resume.json",
+      "sha256": "F721249B579C83507946E06B1E88AA34E6B56E991731FBECB002D82160895BE8"
+    },
+    {
+      "path": "native-ui/54-advanced-resumed-after-restart.json",
+      "sha256": "6683F8A3D1F88932C862AD7B410C83E945ECD9EFD6D6395F1B4A9034E8CA9288"
+    },
+    {
+      "path": "local-fixture-02/advanced-resume-proof.json",
+      "sha256": "D7E017F1CDB39B4AF8E101F7557959B451F7776AF3FC1AAB1069D99FC8F37FD7"
+    }
+  ],
+  "scope": "Accounts exactly for the documented process interruption. It does not turn the strict verifier rejection into a strict success or approve model quality.",
+  "productStatus": "TESTE_NON_APPROUVE"
+}

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "saaia-winui-shared-fixture-request-accounting.v1",
+  "capturedAtUtc": "2026-10-25T13:40:35.2015843+00:00",
+  "passed": true,
+  "input": "local-fixture-02/storage-proxy-events-ui-faults-v2.jsonl",
+  "inputSha256": "A852FC43C6A16E75C233ADE1EB02264510D4DB6FEB8F55183567FF199F144244",
+  "requests": 166,
+  "correlatedRequests": 43,
+  "primaryRequests": 1,
+  "secondaryRequests": 42,
+  "unexplainedIdentityFailures": 0,
+  "perProfile": [
+    {
+      "Name": "missing-model",
+      "Count": 42
+    },
+    {
+      "Name": "primary",
+      "Count": 1
+    }
+  ],
+  "primaryProjection": "primary-scoped-wire-requests-final.jsonl",
+  "projectionPolicy": "Retain all requests belonging to primary turn IDs, preserving trace/turn/session headers. Other known profile requests remain accounted here; no unknown correlation is waived.",
+  "primaryProjectionContainsOnlyWhitelistedMetadata": true,
+  "uncorrelatedRequests": 123,
+  "uncorrelatedRequestOriginNotInferred": true,
+  "readOnly": true
+}

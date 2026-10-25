@@ -1,0 +1,482 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "bfed523cda124bb2961520b00f277e3f",
+  "startedAtUtc": "2026-10-25T12:39:18.7990700+00:00",
+  "finishedAtUtc": "2026-10-25T12:39:49.7525124+00:00",
+  "gitCommit": "3f0de18349f1191bc3eca72497a04094445234e2",
+  "gitDirty": true,
+  "profile": "Unit",
+  "filter": "(Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid)&(FullyQualifiedName~ClientConnectionReconfigurationTests|FullyQualifiedName~AdminSessionValidationTests|FullyQualifiedName~SettingsAdmissionContractTests|FullyQualifiedName~ManualStartupConnectionContractTests|FullyQualifiedName~AdvancedAnalysisClientTransportTests|FullyQualifiedName~AdvancedAnalysisHandoffContractTests)",
+  "requestedProjects": [
+    "Client"
+  ],
+  "configuration": "Release",
+  "buildRequested": true,
+  "restoreRequested": false,
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-25T12:39:19.7724069+00:00",
+    "sha256": "9B5AC7167B1154F19C992F412CD18305F2BE9E37BA0940C6E2C2A45B97684849",
+    "fileCount": 1636,
+    "inventory": "source-files-bfed523cda124bb2961520b00f277e3f-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-25T12:39:50.5644769+00:00",
+    "sha256": "9B5AC7167B1154F19C992F412CD18305F2BE9E37BA0940C6E2C2A45B97684849",
+    "fileCount": 1636,
+    "inventory": "source-files-bfed523cda124bb2961520b00f277e3f-after.json"
+  },
+  "sourceChangedDuringRun": false,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "state": "passed",
+  "prerequisites": [],
+  "environment": {
+    "neutralizedVariableNames": [],
+    "clientDataIsolation": {
+      "rootId": "1A9393863F03E3C46F2CDF536C9AAA9ADD850B6B2D91DBC29248A26A65D432A9",
+      "environmentRestored": true,
+      "ownedRelativePath": null,
+      "source": "explicit_environment",
+      "requiredForClientTests": true,
+      "enabled": true
+    }
+  },
+  "results": [
+    {
+      "project": "Client",
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj",
+      "status": "passed",
+      "exitCode": 0,
+      "trx": "Client-bfed523cda124bb2961520b00f277e3f.trx",
+      "trxSha256": "45C3A89CC3019F980F6A72CC838ECB31E24F7B23EE94494618DFDAC022C40D30",
+      "assemblies": [
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.Core.dll",
+          "role": "local_product_dependency",
+          "sha256": "C6D929E97746315F13399466BABF1D82058720BA9BEA0313E1EC836E9A9C3B2C",
+          "sizeBytes": 97280,
+          "lastWriteTimeUtc": "2026-10-25T12:00:33.0000539Z",
+          "capturedAtUtc": "2026-10-25T12:39:49.7178973+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.ToolAgent.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "D4A8E9631CF0AE87C4B6DB7795AC877C46566F03BE8976AFE9D4A3AD2E6C8ED9",
+          "sizeBytes": 4720640,
+          "lastWriteTimeUtc": "2026-10-25T12:39:48.0789074Z",
+          "capturedAtUtc": "2026-10-25T12:39:49.7238378+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.WinUI.dll",
+          "role": "local_product_dependency",
+          "sha256": "CD9E72DE9E991A0BFA21287AFF84468B174F5617D3404A5251A5FCE09A989500",
+          "sizeBytes": 8216576,
+          "lastWriteTimeUtc": "2026-10-25T12:39:43.0823212Z",
+          "capturedAtUtc": "2026-10-25T12:39:49.7330609+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "AE04DB17641409F9332F8B378A4DCFAA8F1796BC24DF6209ADABB8DDD667C9E5",
+          "sizeBytes": 152064,
+          "lastWriteTimeUtc": "2026-10-25T11:32:52.4997249Z",
+          "capturedAtUtc": "2026-10-25T12:39:49.7341366+00:00"
+        }
+      ],
+      "counts": {
+        "adapterReportedExecuted": 74,
+        "executed": 74,
+        "failed": 0,
+        "total": 74,
+        "notExecuted": 0,
+        "passed": 74
+      },
+      "cases": [
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SettingsAdmissionContractTests.Settings_admission_blocks_keyboard_turns_until_dialog_and_application_finish_even_on_error(failApplication: True)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0014600"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdminSessionValidationTests.Admin_validation_failure_is_classified_consistently(statusCode: Unauthorized, expected: \"invalid\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002710"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SettingsAdmissionContractTests.Active_or_cancelling_turns_cannot_admit_settings_that_would_mutate_their_provider",
+          "outcome": "Passed",
+          "duration": "00:00:00.0038199"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Workflow_rejects_incoherent_advanced_provider_metrics",
+          "outcome": "Passed",
+          "duration": "00:00:00.0079767"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisHandoffContractTests.Handoff_preserves_canonical_source_identities_but_not_evidence_text",
+          "outcome": "Passed",
+          "duration": "00:00:00.0615485"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientConnectionReconfigurationTests.Identity_changes_on_the_same_endpoint_do_not_match_previous_background_owners(key: \"changed-key\", user: \"same-user\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0452432"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Workflow_preserves_local_terminal_when_license_is_not_entitled",
+          "outcome": "Passed",
+          "duration": "00:00:00.0014890"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ManualStartupConnectionContractTests.Manual_connection_actions_are_localized_in_all_supported_languages(language: \"pt\", connect: \"Ligar\", title: \"Cliente desligado\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000027"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Workflow_explains_provider_rate_limit_without_publishing_untrusted_data",
+          "outcome": "Passed",
+          "duration": "00:00:00.0015158"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdminSessionValidationTests.Admin_validation_failure_is_classified_consistently(statusCode: Forbidden, expected: \"invalid\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000026"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ManualStartupConnectionContractTests.Manual_connection_actions_are_localized_in_all_supported_languages(language: \"fr\", connect: \"Se connecter\", title: \"Client déconnecté\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001230"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Workflow_keeps_non_success_states_typed_and_source_free(status: \"canceled\", expectedOutcome: \"canceled\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0974089"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ManualStartupConnectionContractTests.Manual_connection_actions_are_localized_in_all_supported_languages(language: \"de\", connect: \"Verbinden\", title: \"Client nicht verbunden\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000024"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientConnectionReconfigurationTests.A_late_unauthorized_response_cannot_revoke_a_new_admin_authentication_on_the_same_endpoint(sameCredential: True)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0011522"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientConnectionReconfigurationTests.Applied_configuration_reconnects_an_existing_connection_even_with_automatic_connection_disabled(connected: True, automatic: False, requiresSetup: False, reconnect: True)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000020"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ManualStartupConnectionContractTests.Manual_connection_actions_are_localized_in_all_supported_languages(language: \"it\", connect: \"Connetti\", title: \"Client disconnesso\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000052"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SettingsAdmissionContractTests.The_compiled_settings_handler_owns_admission_before_loading_or_opening_and_through_application",
+          "outcome": "Passed",
+          "duration": "00:00:00.0010915"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ManualStartupConnectionContractTests.Explicit_connection_calls_the_real_connect_path_without_changing_the_automatic_connection_preference",
+          "outcome": "Passed",
+          "duration": "00:00:00.0143220"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SettingsAdmissionContractTests.The_compiled_configuration_wizard_owns_admission_through_application_but_releases_before_connecting",
+          "outcome": "Passed",
+          "duration": "00:00:00.0013326"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Workflow_blocks_untrusted_or_regressive_terminal_data(mutation: \"document_identity\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0015634"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientConnectionReconfigurationTests.Identity_changes_on_the_same_endpoint_do_not_match_previous_background_owners(key: \"same-key\", user: \"changed-user\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002423"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientConnectionReconfigurationTests.Known_http_errors_are_localized_without_exposing_the_raw_english_exception(status: ServiceUnavailable, expected: \"HTTP 503\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000169"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Local_cancellation_requests_server_cancellation_after_creation",
+          "outcome": "Passed",
+          "duration": "00:00:00.0020127"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SettingsAdmissionContractTests.Settings_admission_blocks_keyboard_turns_until_dialog_and_application_finish_even_on_error(failApplication: False)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0031173"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Restart_resume_keeps_a_transient_server_failure_retryable",
+          "outcome": "Passed",
+          "duration": "00:00:00.0006109"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientConnectionReconfigurationTests.Applied_configuration_reconnects_an_existing_connection_even_with_automatic_connection_disabled(connected: True, automatic: True, requiresSetup: False, reconnect: True)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000068"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientConnectionReconfigurationTests.Background_snapshot_keeps_old_endpoint_and_identity_while_foreground_reconfigures",
+          "outcome": "Passed",
+          "duration": "00:00:00.0028725"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientConnectionReconfigurationTests.Late_background_persistence_cannot_write_to_the_new_endpoint_even_after_a_failed_reconnect",
+          "outcome": "Passed",
+          "duration": "00:00:00.0034383"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisHandoffContractTests.Budget_terminal_captures_research_before_clearing_visible_sources",
+          "outcome": "Passed",
+          "duration": "00:00:00.0054773"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Restart_resume_polls_existing_job_without_creating_or_canceling_it",
+          "outcome": "Passed",
+          "duration": "00:00:00.0063414"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientConnectionReconfigurationTests.Rejected_current_credentials_are_revoked_but_another_endpoint_is_untouched",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002498"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdminSessionValidationTests.Admin_validation_failure_is_classified_consistently(statusCode: NotFound, expected: \"unavailable\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0037523"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Workflow_resumes_polling_after_disconnect_and_renders_canonical_sources",
+          "outcome": "Passed",
+          "duration": "00:00:00.0034365"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientConnectionReconfigurationTests.A_late_unauthorized_response_cannot_revoke_a_new_admin_authentication_on_the_same_endpoint(sameCredential: False)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0075228"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientConnectionReconfigurationTests.Another_endpoint_admin_session_cannot_be_adopted_by_an_old_background_owner",
+          "outcome": "Passed",
+          "duration": "00:00:00.0089816"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientConnectionReconfigurationTests.Same_connection_admin_logout_removes_credentials_from_the_next_background_admin_request",
+          "outcome": "Passed",
+          "duration": "00:00:00.0007592"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Workflow_blocks_untrusted_or_regressive_terminal_data(mutation: \"identity\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0016483"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Api_transport_uses_configured_identity_and_typed_routes",
+          "outcome": "Passed",
+          "duration": "00:00:00.0013402"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientConnectionReconfigurationTests.Known_http_errors_are_localized_without_exposing_the_raw_english_exception(status: Unauthorized, expected: \"clé API a été refusée\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0058681"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdminSessionValidationTests.Admin_validation_failure_is_classified_consistently(statusCode: InternalServerError, expected: \"unavailable\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000063"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SettingsAdmissionContractTests.The_configuration_button_handler_also_checks_the_current_conversation_state",
+          "outcome": "Passed",
+          "duration": "00:00:00.0004446"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Workflow_spaces_polling_until_a_scheduled_provider_retry",
+          "outcome": "Passed",
+          "duration": "00:00:00.0059156"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Persisted_state_parser_accepts_only_the_expected_session_and_contract",
+          "outcome": "Passed",
+          "duration": "00:00:00.0032506"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisHandoffContractTests.Budget_handoff_preserves_research_state_and_budget_snapshot",
+          "outcome": "Passed",
+          "duration": "00:00:00.0079167"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisHandoffContractTests.RunAsync_materializes_the_pre_retrieval_handoff_on_the_real_boundary_branch",
+          "outcome": "Passed",
+          "duration": "00:00:00.1018554"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Workflow_persists_created_snapshot_before_the_first_poll_delay",
+          "outcome": "Passed",
+          "duration": "00:00:00.0012032"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisHandoffContractTests.New_turn_reset_removes_a_previous_advanced_handoff",
+          "outcome": "Passed",
+          "duration": "00:00:00.0003369"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientConnectionReconfigurationTests.Extracted_network_classifier_preserves_actionable_connection_errors",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002177"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientConnectionReconfigurationTests.Applied_configuration_reconnects_an_existing_connection_even_with_automatic_connection_disabled(connected: False, automatic: True, requiresSetup: True, reconnect: False)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0018957"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientConnectionReconfigurationTests.Applied_configuration_reconnects_an_existing_connection_even_with_automatic_connection_disabled(connected: False, automatic: False, requiresSetup: False, reconnect: False)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001988"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdminSessionValidationTests.Admin_validation_cancellation_is_treated_as_unavailable",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000617"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisHandoffContractTests.Shared_handoff_contract_round_trips_without_changing_security_flags",
+          "outcome": "Passed",
+          "duration": "00:00:00.0017828"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Workflow_explains_actionable_provider_failures_without_publishing_untrusted_data(errorCode: \"advanced_llm_timeout\", expectedMessage: \"did not respond within the allowed time\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0026833"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Workflow_explains_actionable_provider_failures_without_publishing_untrusted_data(errorCode: \"advanced_llm_transport_error\", expectedMessage: \"currently unreachable\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0012523"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ManualStartupConnectionContractTests.Manual_connection_actions_are_localized_in_all_supported_languages(language: \"en\", connect: \"Connect\", title: \"Client disconnected\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0158243"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Workflow_explains_provider_change_without_mixing_models",
+          "outcome": "Passed",
+          "duration": "00:00:00.0017310"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Non_entitlement_server_rejection_is_safe_and_does_not_publish_body",
+          "outcome": "Passed",
+          "duration": "00:00:00.0013373"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientConnectionReconfigurationTests.Known_http_errors_are_localized_without_exposing_the_raw_english_exception(status: Forbidden, expected: \"ne permet pas d'accéder\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001417"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Workflow_blocks_untrusted_or_regressive_terminal_data(mutation: \"revision\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0022755"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ManualStartupConnectionContractTests.Disconnected_presentation_uses_manual_copy_and_not_the_error_presentation",
+          "outcome": "Passed",
+          "duration": "00:00:00.0004448"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisHandoffContractTests.Early_boundary_handoff_preserves_the_measured_load_without_fabricating_evidence",
+          "outcome": "Passed",
+          "duration": "00:00:00.0013091"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Workflow_blocks_untrusted_or_regressive_terminal_data(mutation: \"citation\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0016628"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ManualStartupConnectionContractTests.Startup_and_theme_rebuild_keep_an_explicit_disconnected_state_available",
+          "outcome": "Passed",
+          "duration": "00:00:00.0005804"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Restart_tracker_cancellation_does_not_cancel_the_server_job",
+          "outcome": "Passed",
+          "duration": "00:00:00.0035650"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientConnectionReconfigurationTests.Applied_configuration_reconnects_an_existing_connection_even_with_automatic_connection_disabled(connected: False, automatic: True, requiresSetup: False, reconnect: True)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000018"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Chat_patch_transport_sends_sources_for_the_existing_message",
+          "outcome": "Passed",
+          "duration": "00:00:00.0055340"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientConnectionReconfigurationTests.Applied_configuration_reconnects_an_existing_connection_even_with_automatic_connection_disabled(connected: True, automatic: False, requiresSetup: True, reconnect: False)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000054"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientConnectionReconfigurationTests.Compiled_connection_and_trackers_use_owned_contexts_and_clear_both_success_and_failure_paths",
+          "outcome": "Passed",
+          "duration": "00:00:00.0016375"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Workflow_replays_ambiguous_create_with_the_same_handoff",
+          "outcome": "Passed",
+          "duration": "00:00:00.0020596"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Workflow_renders_one_visible_source_for_distinct_evidence_on_the_same_page",
+          "outcome": "Passed",
+          "duration": "00:00:00.0179266"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.ManualStartupConnectionContractTests.Manual_connection_actions_are_localized_in_all_supported_languages(language: \"es\", connect: \"Conectar\", title: \"Cliente desconectado\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000027"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Workflow_keeps_non_success_states_typed_and_source_free(status: \"queued\", expectedOutcome: \"pending\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0043779"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.AdvancedAnalysisClientTransportTests.Workflow_keeps_non_success_states_typed_and_source_free(status: \"failed\", expectedOutcome: \"failed\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0014110"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.SettingsAdmissionContractTests.The_compiled_composer_uses_the_action_state_and_an_explicit_cancelling_label",
+          "outcome": "Passed",
+          "duration": "00:00:00.0036733"
+        }
+      ]
+    }
+  ],
+  "model": {
+    "state": "not_applicable",
+    "reason": "Unit and PostgreSQL profiles do not invoke a model."
+  },
+  "corpus": {
+    "state": "synthetic_fixtures",
+    "reason": "IntegrationPg fixtures create isolated databases; no production corpus is assumed."
+  },
+  "validationProfilesSha256": "8E4B990BC0A828134E5FE0D8E7B2D82406B56D2A200D8D4D37516208E3D3201D",
+  "selectionPolicy": "TRX covers selected tests; excluded profiles were not executed.",
+  "excludedProfiles": [
+    "IntegrationPg",
+    "LiveLocal",
+    "LivePaid"
+  ]
+}

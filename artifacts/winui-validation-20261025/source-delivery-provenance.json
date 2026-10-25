@@ -1,0 +1,508 @@
+{
+  "sourceCommit": "90eee645537b1ff9d8345d09972967ccb93c6189",
+  "nativeLaunchProof": "client-launch-22-build08-final-support.json",
+  "schemaVersion": "saaia.winui.source-delivery-provenance.v1",
+  "capturedAtUtc": "2026-10-25T13:44:17.2176520+00:00",
+  "sourceChangedDuringAcceptedRun": false,
+  "unitManifest": "final-core-client-unit-build08/manifest.json",
+  "productionBuild": "production-fixes-build-08.log",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "productionAssemblySha256": "B69435EFD628A9C7DA1F2A9677CA5D75AC4C3D3FE45A2E8A79208C8F675E16DA",
+  "unitManifestSha256": "F9C8BF5895F7E9C1B75E1B32FB82BD36D9D2D63A1C9877B23E2DBA2DA198711A",
+  "sourceParent": "3f0de18349f1191bc3eca72497a04094445234e2",
+  "externalPaidCalls": 0,
+  "globalApprovalClaimed": false,
+  "allWorkingSourcesMatchCommittedBlobsUnderGitAttributes": true,
+  "sourceFiles": [
+    {
+      "gitBlob": "0cad46d326ba5314c901f75abc1d69d5b278d5fc",
+      "matched": true,
+      "path": ".gitattributes"
+    },
+    {
+      "gitBlob": "3b86353f046dd2d32a6d8e9eed1eccb0b5a7fb71",
+      "matched": true,
+      "path": "client/SAAIA.Client.Core.Tests/ClientDiagnosticJournalTests.cs"
+    },
+    {
+      "gitBlob": "bd1d8bc1924428d77a142e4108027b2825811441",
+      "matched": true,
+      "path": "client/SAAIA.Client.Core.Tests/ComposerActionStateTests.cs"
+    },
+    {
+      "gitBlob": "d454eb8f929aba9eb37e388f3b13759dee89209a",
+      "matched": true,
+      "path": "client/SAAIA.Client.Core/Conversation/ComposerActionState.cs"
+    },
+    {
+      "gitBlob": "092ec0b13df1119ad6e4e5f3af1398f4e40f423c",
+      "matched": true,
+      "path": "client/SAAIA.Client.Core/Diagnostics/ClientDiagnosticJournal.cs"
+    },
+    {
+      "gitBlob": "1acf2f4cd916f32a9186ec81976690cf5e1f1d65",
+      "matched": true,
+      "path": "client/SAAIA.Client.ToolAgent.Tests/Bug139CanonicalNamedReferenceTransportTests.cs"
+    },
+    {
+      "gitBlob": "b25ff448638466c3666766a8d9d5ffbdcbb32e04",
+      "matched": true,
+      "path": "client/SAAIA.Client.ToolAgent.Tests/ClientConnectionReconfigurationTests.cs"
+    },
+    {
+      "gitBlob": "a49dc5eb976e048e006191583527a4d6c7fd2807",
+      "matched": true,
+      "path": "client/SAAIA.Client.ToolAgent.Tests/ClientDataPathsTests.cs"
+    },
+    {
+      "gitBlob": "5444965f712da09fe3b7ec79b25357582e8552ad",
+      "matched": true,
+      "path": "client/SAAIA.Client.ToolAgent.Tests/ComposerPersistenceNoticeTests.cs"
+    },
+    {
+      "gitBlob": "6a791a0c360bffaeb31c242bcf9af4ff6373c598",
+      "matched": true,
+      "path": "client/SAAIA.Client.ToolAgent.Tests/GovernanceArtifactStoreTests.cs"
+    },
+    {
+      "gitBlob": "d29b2a8888760c0564bf90fb6ce3623bd7b52e68",
+      "matched": true,
+      "path": "client/SAAIA.Client.ToolAgent.Tests/InitialMessagePersistenceTests.cs"
+    },
+    {
+      "gitBlob": "1bed6290c5ab5ec9fe777610f85666d6288c9505",
+      "matched": true,
+      "path": "client/SAAIA.Client.ToolAgent.Tests/LocalModelFailurePropagationTests.cs"
+    },
+    {
+      "gitBlob": "8da35a0bdaae3cfc37fe55c4d084bc6d87e99560",
+      "matched": true,
+      "path": "client/SAAIA.Client.ToolAgent.Tests/ManualStartupConnectionContractTests.cs"
+    },
+    {
+      "gitBlob": "7a9cf89509cdab26c641e417b16a70c8e2e00cd8",
+      "matched": true,
+      "path": "client/SAAIA.Client.ToolAgent.Tests/NativeDocumentPathIdentityTests.cs"
+    },
+    {
+      "gitBlob": "f4969f65abe35fa4427dca6bba8551ca9f07ff54",
+      "matched": true,
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SettingsAdmissionContractTests.cs"
+    },
+    {
+      "gitBlob": "1d0aef3bd5e88b0afb326ba1892815eaf74cbc2f",
+      "matched": true,
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SourceTraceMetadataTests.cs"
+    },
+    {
+      "gitBlob": "1ae14734a3097e580906e048ba28ebf2a38a90cd",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    },
+    {
+      "gitBlob": "368044f6b8e28dd483422ecc9e82d65d70fb8646",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/MainWindow/AdminAndSettings.cs"
+    },
+    {
+      "gitBlob": "d9b8245818de9d5eaa3c049d2167f9f199dff068",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/MainWindow/AdvancedAnalysisTracking.cs"
+    },
+    {
+      "gitBlob": "7bc0158ff31757327aa0eb5b1417bfbb68dc9362",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/MainWindow/HelpAndLocalization.TrackedJobs.cs"
+    },
+    {
+      "gitBlob": "07a39264c4d6eb6134dbc8f1d20d42a4144d8c6e",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/MainWindow/HelpAndLocalization.cs"
+    },
+    {
+      "gitBlob": "d968bb0544716e7dccbfa01a43ba916c39a2777e",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/MainWindow/Messages.cs"
+    },
+    {
+      "gitBlob": "9821a8ef2b26403c66855c2db5bcd9ded2b72742",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/MainWindow/Overlays.cs"
+    },
+    {
+      "gitBlob": "063f655d2267f52e8118fcd93e25b7f68de0d133",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/MainWindow/Sessions.cs"
+    },
+    {
+      "gitBlob": "12d8e5fc71d361a56c69fefc220d3d70ca3de302",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/MainWindow/SetupLifecycle.cs"
+    },
+    {
+      "gitBlob": "75d8f4d63c0155bff52e65edf895a9a3a05a2a98",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/MainWindow/StartupSetup.cs"
+    },
+    {
+      "gitBlob": "049c7b41ae6d3150979dda5e96c638b8407e0f39",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/MainWindow/State.cs"
+    },
+    {
+      "gitBlob": "6d203687bd03fa234e30d781d5b3e8ac766f9c6a",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/MainWindow/ThemeChrome.cs"
+    },
+    {
+      "gitBlob": "b3693cae678c34628580dc97a477a08a4afe1db9",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/ApiClient.ChatAcknowledgement.cs"
+    },
+    {
+      "gitBlob": "ae88ac2febd99e4a983b3f2aba1c757fb7b67660",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/ApiClient.ConnectionSnapshot.cs"
+    },
+    {
+      "gitBlob": "18fdfb10d94fcbea20d34939eeb1f0ac9ab1780d",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/ApiClient.cs"
+    },
+    {
+      "gitBlob": "c4ab029876e29f3b3b53cfd650704a632131bec3",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/AppSettings.cs"
+    },
+    {
+      "gitBlob": "c71c04a5831e17cce2abfaf3262192d1d65983ad",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/ClientConnectionPolicy.cs"
+    },
+    {
+      "gitBlob": "3103b5bedea8e72065437a05b9c91f1bebf748cd",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/ClientDataPaths.cs"
+    },
+    {
+      "gitBlob": "2bebdb5e39b7d01660c6acfbc25ed6d2eb8a482c",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/ClientDiagnostics.cs"
+    },
+    {
+      "gitBlob": "64c62b241e3865c7c6fe8727371da75290ac515b",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/ClientLog.cs"
+    },
+    {
+      "gitBlob": "612d1639be9315dec9035bb6f082a0a7b0fb66d7",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/ClientUiText.cs"
+    },
+    {
+      "gitBlob": "656ace7915e1ecaa49cfb24daee0bfbdd9c1661e",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/ComposerPersistenceNotice.cs"
+    },
+    {
+      "gitBlob": "068f84bb8b5f8e04d99a66bd15b33039c00f2ce7",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/ConnectionErrorClassifier.cs"
+    },
+    {
+      "gitBlob": "d3d54f00d047c1a04f34980bee6594e4842a02b1",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/DocumentLauncher.cs"
+    },
+    {
+      "gitBlob": "33ec0ac07c9adbd31f0d4908cf2f72d87278f90d",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/DownloadManager.cs"
+    },
+    {
+      "gitBlob": "d675b5fd503bb79639643e5ac0f757709289d488",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/ExportService.cs"
+    },
+    {
+      "gitBlob": "d477cc1ce4ea0a10e93f299d1f7b5ac07408aad7",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/GovernanceArtifactStore.cs"
+    },
+    {
+      "gitBlob": "af02299a4b6616b9115d2654b538e8548f6f3157",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/InitialMessagePersistence.cs"
+    },
+    {
+      "gitBlob": "2d01607ba3336399a911818b7a7c06b0ca5de5d9",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/LlamaCppProcessManager.cs"
+    },
+    {
+      "gitBlob": "04ddbfa3485de84f20f4240835716b85ab63baf5",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/LlamaCppReleaseDownloader.cs"
+    },
+    {
+      "gitBlob": "09d263d8337d7ad9744e23ba21912db7806ff5d2",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/LlmRepairScriptRunner.cs"
+    },
+    {
+      "gitBlob": "3f2c4ebca25e15f48ace298c7492870e17f34902",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/LocalLlmBootstrapper.cs"
+    },
+    {
+      "gitBlob": "9bd682c0c81574b988d063ad278a78e127edd9bd",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/ModelLibrary.cs"
+    },
+    {
+      "gitBlob": "52e83322695c58b197c71a69860e943ff15888ca",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/Provisioning.cs"
+    },
+    {
+      "gitBlob": "ca83c887f933b6831158ddb4a089dc74cc00616d",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/SecureLocalStore.cs"
+    },
+    {
+      "gitBlob": "ceac465f2682c26bdc9b0cbd86cc718b7c0b21e7",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/SupportBundleBuilder.cs"
+    },
+    {
+      "gitBlob": "cf2a226f35da34c80de9b3d8c9a923cf5f68b864",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/Services/UserPrefsStore.cs"
+    },
+    {
+      "gitBlob": "a027aeb41ddcd1db0ed49c170cf0a68dad7196fa",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/LlmProviderConfiguration.cs"
+    },
+    {
+      "gitBlob": "1f8401e6e57ded423834863529bf9be7b5961203",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/LocalLlmUnavailableException.cs"
+    },
+    {
+      "gitBlob": "2cb9906f6898e93a3d9e71ab57299ae5565520e9",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/NativeRouting/ExplicitDocumentPath.cs"
+    },
+    {
+      "gitBlob": "0a7caa251bb55424ee17bdba962ad65b0f449ce7",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/OpenAiCompatibleLlmProvider.cs"
+    },
+    {
+      "gitBlob": "67e9e1695da4664f2b80f06cb40c859becdfce7f",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedTerminalAnswer.cs"
+    },
+    {
+      "gitBlob": "322346499eb0595ea0f77ccdba60643b77bc6ec0",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs"
+    },
+    {
+      "gitBlob": "b511d06422c54a565bdf90425aa5c02066c42b13",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.NativeRouterRepairContinuity.cs"
+    },
+    {
+      "gitBlob": "fffc0bc8ef76c3f4432f06a7e728c28dd1e8df25",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagTrace.cs"
+    },
+    {
+      "gitBlob": "7d163d6973771a5b96425cf3c9a8e97360cc7cc7",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedAgentV2.cs"
+    },
+    {
+      "gitBlob": "98733e90e1ddf9aac90f63fdc25e1bf6c4adc376",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRag.cs"
+    },
+    {
+      "gitBlob": "152c47ecbfdb12e8c7bb846d5f5f9fccc57cd8e7",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRagRouting.cs"
+    },
+    {
+      "gitBlob": "48eff3226111d72a876578ad720180c4176ccd7d",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRagTerminal.cs"
+    },
+    {
+      "gitBlob": "f62547807921371636eaaad00fd216a34bd9974a",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRagTraceMemory.cs"
+    },
+    {
+      "gitBlob": "3d9e0ba25e13ac7e3cae18b56c1a93d86b40bb77",
+      "matched": true,
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.TurnFinalization.cs"
+    },
+    {
+      "gitBlob": "0d4a250de30c3069ae026c05341d3879d3f9d610",
+      "matched": true,
+      "path": "tools/test-project.ps1"
+    },
+    {
+      "gitBlob": "ee91bc9ff145f688b58667db73f77b7ae1e6a912",
+      "matched": true,
+      "path": "tools/validation-winui/EVIDENCE.md"
+    },
+    {
+      "gitBlob": "38ec8898d48cf1c7ada00aa6a7c79d15991d0c59",
+      "matched": true,
+      "path": "tools/validation-winui/README.md"
+    },
+    {
+      "gitBlob": "8eaf2ec24be4a06ac819279848ad3476ee30cf0d",
+      "matched": true,
+      "path": "tools/validation-winui/advanced_poll_proxy.py"
+    },
+    {
+      "gitBlob": "37365750a53be9451fd2c01de102aaa0fb08c5db",
+      "matched": true,
+      "path": "tools/validation-winui/compare-user-profile.ps1"
+    },
+    {
+      "gitBlob": "c3e5660757c0ea01f325c08260d37b5bf9b44dd6",
+      "matched": true,
+      "path": "tools/validation-winui/configure-client.ps1"
+    },
+    {
+      "gitBlob": "a78e5111c57ba69f0b94c6340ce201dc4f7ebfb9",
+      "matched": true,
+      "path": "tools/validation-winui/fixture_http.py"
+    },
+    {
+      "gitBlob": "1f5fc5fac6a89c64eef998e94400f0b855fa5ebb",
+      "matched": true,
+      "path": "tools/validation-winui/inspect-chat-store.ps1"
+    },
+    {
+      "gitBlob": "cfad2f883f2a6e8010499c072962dd688b4b6986",
+      "matched": true,
+      "path": "tools/validation-winui/inspect-support-bundle.ps1"
+    },
+    {
+      "gitBlob": "e84220be85ab9e5c2b9e54ad41acc93b36a3c7b0",
+      "matched": true,
+      "path": "tools/validation-winui/list-versionable-evidence.ps1"
+    },
+    {
+      "gitBlob": "61ca7623b0d8d9775ac49f20ed4eb3440963dd0d",
+      "matched": true,
+      "path": "tools/validation-winui/refresh-catalog.ps1"
+    },
+    {
+      "gitBlob": "aad290c2af39b9d532f2451822c36493b266b99c",
+      "matched": true,
+      "path": "tools/validation-winui/run-helper.ps1"
+    },
+    {
+      "gitBlob": "1de3d87a1ab7a4947f936314905b91cc61bba6b7",
+      "matched": true,
+      "path": "tools/validation-winui/seed-source-card-session.ps1"
+    },
+    {
+      "gitBlob": "79e47a17e35bb45e3d14e1034d6f1a7229a9e86d",
+      "matched": true,
+      "path": "tools/validation-winui/seed-source-selection-session.ps1"
+    },
+    {
+      "gitBlob": "4a08b6813c5d7eeab755e2cd624d02142c345d01",
+      "matched": true,
+      "path": "tools/validation-winui/seed_documents.py"
+    },
+    {
+      "gitBlob": "83dc4af3adda519fbc702b65121e3d7c88d0b446",
+      "matched": true,
+      "path": "tools/validation-winui/start-advanced-poll-proxy.ps1"
+    },
+    {
+      "gitBlob": "07788412c17ce98f9145467da49c673b4acfebe0",
+      "matched": true,
+      "path": "tools/validation-winui/start-advanced-worker.ps1"
+    },
+    {
+      "gitBlob": "ed724e675c8f6dcd714abf7621b44da8dc80ea33",
+      "matched": true,
+      "path": "tools/validation-winui/start-client.ps1"
+    },
+    {
+      "gitBlob": "863181fb60e3e7f49763ba22f83eb70037559840",
+      "matched": true,
+      "path": "tools/validation-winui/start-environment.ps1"
+    },
+    {
+      "gitBlob": "07ca44cb1ed02c2d0e22bf00c8cacf3b947ee33f",
+      "matched": true,
+      "path": "tools/validation-winui/start-local-model.ps1"
+    },
+    {
+      "gitBlob": "d12e1b5ca2ac39e0967e2dc03923c7905fcb785d",
+      "matched": true,
+      "path": "tools/validation-winui/start-storage-proxy.ps1"
+    },
+    {
+      "gitBlob": "dbcd349bf6a31ba8602d6a233de4ee62b0ac7add",
+      "matched": true,
+      "path": "tools/validation-winui/stop-environment.ps1"
+    },
+    {
+      "gitBlob": "083a83cc4ae619b0c7cff2e75cff753d4e4f1783",
+      "matched": true,
+      "path": "tools/validation-winui/storage_proxy.py"
+    },
+    {
+      "gitBlob": "e9f0f38b91787f44c6a8bbfdecdd54d303202172",
+      "matched": true,
+      "path": "tools/validation-winui/test-advanced-worker.ps1"
+    },
+    {
+      "gitBlob": "2e44f6f677435ddd26ba66893e681c33eaae58a3",
+      "matched": true,
+      "path": "tools/validation-winui/test-client-profile-isolation.ps1"
+    },
+    {
+      "gitBlob": "d92427e6ecf95de37c59e494043a6d0dd0bde202",
+      "matched": true,
+      "path": "tools/validation-winui/test-evidence-verifier.ps1"
+    },
+    {
+      "gitBlob": "3d6b2a9a69a517905b88e9eafe4e68a8c93535d6",
+      "matched": true,
+      "path": "tools/validation-winui/verify-advanced-resume.ps1"
+    },
+    {
+      "gitBlob": "b7c6b84cb08fbc27effacded43d4056580aaab64",
+      "matched": true,
+      "path": "tools/validation-winui/verify-evidence.ps1"
+    },
+    {
+      "gitBlob": "dcc28d5003b8539fad695e8efe39607a1856ed07",
+      "matched": true,
+      "path": "tools/validation-winui/verify-persistence-deadline.ps1"
+    },
+    {
+      "gitBlob": "f8771833f2cfb2720bea1eb64990886f6492cd0e",
+      "matched": true,
+      "path": "tools/validation-winui/verify-polling-faults.ps1"
+    }
+  ],
+  "unitTotalPassed": 2458,
+  "limits": [
+    "Git source equality follows repository text normalization. Production binary and raw evidence hashes are separate anchors.",
+    "Final evidence commit and remote delivery are verified separately; this file does not claim a future push."
+  ]
+}

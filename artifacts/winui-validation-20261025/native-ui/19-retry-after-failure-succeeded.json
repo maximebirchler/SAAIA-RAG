@@ -1,0 +1,17 @@
+{
+  "atUtc": "2026-10-25T11:56:16.727Z",
+  "name": "19-retry-after-failure-succeeded",
+  "description": "Retry used preserved draft and now produced one durable user message and a response.",
+  "window": {
+    "app": "process:C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+    "id": 10160618,
+    "title": "SAAIA"
+  },
+  "accessibility": {
+    "focused_element": "45 texte Ligne un Ligne trois",
+    "tree": "Window: \"SAAIA\", App: SAAIA.Client.WinUI.exe.\n\t0 fenêtre SAAIA Secondary Actions: Raise\n\t\t1 volet Non Client Input Sink Window\n\t\t2 volet AppWindow Custom Title Bar\n\t\t\t3 Bouton Minimize ID: Minimize\n\t\t\t4 Bouton Maximize ID: Maximize\n\t\t\t5 Bouton Close ID: Close\n\t\t6 volet\n\t\t\t7 volet\n\t\t\t\t8 image\n\t\t\t\t9 texte SAAIA\n\t\t\t\t10 bouton Discussions ID: ChatsToggleButton\n\t\t\t\t11 bouton Aide ID: HeaderHelpButton\n\t\t\t\t\t12 texte ?\n\t\t\t\t13 bouton Paramètres ID: HeaderSettingsButton\n\t\t\t\t14 texte Discussions ID: ChatsHeaderText\n\t\t\t\t15 bouton Nouveau ID: NewChatButton\n\t\t\t\t16 liste ID: SessionsList\n\t\t\t\t\t71 élément de liste (selectable) SAAIA.Client.WinUI.Models.ChatSessionItem\n\t\t\t\t\t\t72 texte Ligne un Ligne trois\n\t\t\t\t\t\t73 texte 25.10 12:55\n\t\t\t\t\t\t74 bouton …\n\t\t\t\t\t75 élément de liste (selectable) SAAIA.Client.WinUI.Models.ChatSessionItem\n\t\t\t\t\t\t76 texte Validation A — interruption conservée\n\t\t\t\t\t\t77 texte 25.10 12:38\n\t\t\t\t\t\t78 bouton …\n\t\t\t\t17 volet ID: MessagesScroll\n\t\t\t\t\t18 liste ID: MessagesList\n\t\t\t\t\t\t44 élément de liste SAAIA.Client.WinUI.Models.ChatMessageItem\n\t\t\t\t\t\t\t45 texte Ligne un Ligne trois\n\t\t\t\t\t\t\t46 texte 25.10 12:41\n\t\t\t\t\t\t\t47 bouton ID: CopyBtn\n\t\t\t\t\t\t48 élément de liste SAAIA.Client.WinUI.Models.ChatMessageItem\n\t\t\t\t\t\t\t49 image\n\t\t\t\t\t\t\t50 texte Réponse synthétique de validation WinUI. Aucun modèle payant utilisé. ID: Rtb\n\t\t\t\t\t\t\t51 bouton ID: CopyBtn\n\t\t\t\t\t\t\t52 texte 25.10 12:41\n\t\t\t\t\t\t53 élément de liste SAAIA.Client.WinUI.Models.ChatMessageItem\n\t\t\t\t\t\t\t54 image\n\t\t\t\t\t\t\t55 texte Il y a actuellement 0 catégorie(s) de premier niveau sur le serveur. ID: Rtb\n\t\t\t\t\t\t\t56 bouton ID: CopyBtn\n\t\t\t\t\t\t\t57 texte 25.10 12:46\n\t\t\t\t\t\t58 élément de liste SAAIA.Client.WinUI.Models.ChatMessageItem\n\t\t\t\t\t\t\t59 texte Message à conserver si la sauvegarde échoue.\n\t\t\t\t\t\t\t60 texte 25.10 12:55\n\t\t\t\t\t\t\t61 bouton ID: CopyBtn\n\t\t\t\t\t\t62 élément de liste SAAIA.Client.WinUI.Models.ChatMessageItem\n\t\t\t\t\t\t\t63 image\n\t\t\t\t\t\t\t64 texte Réponse synthétique de validation WinUI. Aucun modèle payant utilisé. ID: Rtb\n\t\t\t\t\t\t\t68 bouton ID: CopyBtn\n\t\t\t\t\t\t\t69 texte 25.10 12:55\n\t\t\t\t19 modifier (settable, string) Tape ta question... ID: InputBox\n\t\t\t\t20 bouton Envoyer ID: SendCancelButton\n\t\t27 barre de titre (settable, string) Value: SAAIA\n\t\t\t28 barre de menus Système ID: MenuBar\n\t\t\t\t33 élément de menu Système\n\t\t\t30 Bouton Réduire\n\t\t\t31 Bouton Agrandir\n\t\t\t32 Bouton Fermer\n\nThe focused UI element is 45 texte Ligne un Ligne trois."
+  },
+  "screenshots": [
+    "19-retry-after-failure-succeeded-0.png"
+  ]
+}

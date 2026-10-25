@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "saaia-winui-support-resume-origin-visibility.v1",
+  "checkedAtUtc": "2026-10-25T13:36:27.2921943+00:00",
+  "readOnly": true,
+  "bundleSha256": "FBEA52C5F82FDECD3F1968EA2CCFED32292F817A1CA1F442D7959361F9DACA15",
+  "turnHistoryCount": 1,
+  "matchingResumeOriginConfigurationRows": 0,
+  "originConfigurationDirectlyConfirmed": false,
+  "limit": "Latest UI export is valid and parseable, but a bounded current-process turn history does not certify retention of the earlier resumed-turn Configuration.originTraceId. SQL/probe chain is proved separately.",
+  "productStatus": "TESTE_NON_APPROUVE"
+}

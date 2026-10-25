@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "saaia-winui-user-profile-comparison.v1",
+  "startedAtUtc": "2026-10-25T12:42:33.1089283+00:00",
+  "finishedAtUtc": "2026-10-25T12:42:33.5674440+00:00",
+  "baselineInputSha256": "dfe02900100420d6f20d2a73a57b803522f9d62ade9717d6fc61a9886691083e",
+  "profileRootId": "462915662756443f63f7bc80fd6921c04560449ca22c19e6651bce276914dc83",
+  "readOnly": true,
+  "contentPublished": false,
+  "privatePathsPublished": false,
+  "scopePolicy": "Exactly the top-level scopes represented in the supplied baseline; no claim about unrecorded profile locations.",
+  "baselineFiles": 556,
+  "currentFiles": 556,
+  "unchangedFiles": 555,
+  "changedOrMissingOrAddedFiles": 1,
+  "issueCount": 0,
+  "baselineTreeSha256": "5ac74446e7d2cab179dd9628c0d2914105960d7746cef90fa7538b50c27e44c8",
+  "currentTreeSha256": "64625d40510fb905dd5fa8f69fc9c03e1a563b8e1120ce1f1f177d36394be73c",
+  "coveredFilesUnchanged": false,
+  "scopes": [
+    {
+      "baselineFiles": 1,
+      "scope": "client",
+      "currentFiles": 1
+    },
+    {
+      "baselineFiles": 363,
+      "scope": "logs",
+      "currentFiles": 363
+    },
+    {
+      "baselineFiles": 32,
+      "scope": "governance",
+      "currentFiles": 32
+    },
+    {
+      "baselineFiles": 160,
+      "scope": "llm-dev",
+      "currentFiles": 160
+    }
+  ],
+  "changes": [
+    {
+      "kind": "changed",
+      "currentSha256": "c22ed04a09f099f751572b367da16cb7ae06e20ccc1277504b0c4e9fcf682822",
+      "baselineSha256": "0297a722e974e3200d8c5ef862759ea1c9aa37f3024177bd103cab3e28b49852",
+      "baselineBytes": 24854,
+      "currentBytes": 35767,
+      "fileId": "e82c9489772ba08a8450661ef6b3ac9cb1c2aa4ab0622a834b83fbb53be304ec"
+    }
+  ],
+  "issues": [],
+  "limits": [
+    "Hash comparison proves the covered files at observation time, not every application setting or Windows credential store.",
+    "No process or profile file was stopped, changed, restored or deleted.",
+    "File timestamps are checked around hashing; the complete profile is not observed atomically."
+  ]
+}

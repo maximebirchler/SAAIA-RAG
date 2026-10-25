@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "saaia.winui-w17-persistence-feedback-ack.v1",
+  "capturedAtUtc": "2026-10-25T13:00:12.2947174+01:00",
+  "status": "TARGETED_TESTS_PASSED_PENDING_REAL_UI_RETEST",
+  "testCounts": {
+    "passed": 27,
+    "failed": 0,
+    "skipped": 0,
+    "initialAndTransport": 19,
+    "noticeLifecycle": 5,
+    "existingStaged": 3
+  },
+  "visualChange": {
+    "control": "InfoBar",
+    "automationId": "ComposerPersistenceWarning",
+    "location": "Visible chat panel directly above composer",
+    "persistent": true,
+    "liveSetting": "Assertive",
+    "clearConditions": [
+      "acknowledged matching durable message",
+      "meaningful draft edit",
+      "session change"
+    ],
+    "oldSessionFailureIgnored": true
+  },
+  "acknowledgement": {
+    "required": [
+      "non-empty GUID messageId",
+      "explicit matching role",
+      "matching server-normalized content"
+    ],
+    "optionalButValidatedIfPresent": [
+      "sessionId",
+      "userId"
+    ],
+    "sessionUserEchoGuaranteedByBackend": false,
+    "emptyNullMissingIdentityAccepted": false
+  },
+  "limits": [
+    "The current backend DTO does not echo sessionId/userId; absent fields are not claimed validated. The request still targets the captured admitted session.",
+    "No production rebuild or visual retest was performed by this agent.",
+    "Acknowledgement is a backend protocol confirmation, not an independent database inspection."
+  ],
+  "trx": {
+    "path": "artifacts/winui-validation-20261025/initial-persistence-feedback-tests/feedback-ack.trx",
+    "sha256": "C6951ABEB18C88803187EAF08409362A4E43BE9293953986272E210610B70552"
+  },
+  "sources": [
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow.xaml",
+      "sha256": "24B684A0ED30392A37487AD5EE0EFAA349DDE9866D14D52491EAEF46BC4BEB6B"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+      "sha256": "EC99B74C45EF35AD8BF097FC3707C90F619820FFCBF85204421632A768DCB6E5"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/State.cs",
+      "sha256": "21C0E10E52468234118B70FCAEB0795815848CC27A1C6C492F5C4B66C02AFE0C"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/Sessions.cs",
+      "sha256": "DC5388BC90F8125723773595EF0E2B851571C84CF6C25E7F903CB6BC7D2A51EB"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/InitialMessagePersistence.cs",
+      "sha256": "4D5AE2CB0A28AB6DFA71670CF91136F5F99CC9EC6EE067820F84BDF9F46380F1"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/ComposerPersistenceNotice.cs",
+      "sha256": "8CA20CEE772AA0F33DB35EFF06D18399F3ECF72E8D9138FA38D9C1AE53848750"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/ApiClient.cs",
+      "sha256": "FE1CCDF0DDAE0116C10B3C11819F5D581E427203EA22B761F6F1EE8D28319483"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/ApiClient.ChatAcknowledgement.cs",
+      "sha256": "724DC2CEFE5302FD83B21005972193EC06301BFECB90B74A8A633F775140531E"
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/InitialMessagePersistenceTests.cs",
+      "sha256": "6084F9FB736FD76C553138526B9846FE0C6FFAC58C71B3BDA883D433574FE93A"
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/ComposerPersistenceNoticeTests.cs",
+      "sha256": "631606B9117C7FEEFAA680C9D5AC25F53708029D397C41947DE6583005DE4F45"
+    }
+  ],
+  "paidCalls": 0,
+  "postTestSmallChange": "Added ApplyUiLanguage -> RenderComposerPersistenceNotice callback after targeted test pass; must be included in final compilation and UI retest."
+}

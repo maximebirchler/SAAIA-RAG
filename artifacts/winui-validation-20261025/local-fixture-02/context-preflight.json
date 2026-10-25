@@ -1,0 +1,40 @@
+{
+  "found": true,
+  "anchorFound": true,
+  "contextKind": "document_scroll",
+  "usage": "Use this indexed chunk text as source-backed context. Cite the returned document and page range, and continue with nextOffset or adjacent page/chunk context if the evidence is incomplete.",
+  "document": {
+    "docId": "aca1a813-c593-59e5-bdf2-1cd12d1b8e40",
+    "docPath": "Validation/Guide-Validation.pdf",
+    "docName": "Guide-Validation.pdf",
+    "category": "Validation",
+    "pageCount": 2,
+    "revisionId": "7ac0ec90-3ddf-51ec-80b9-f65e8a81f79b",
+    "sourceHash": "840c999b2bfe8305aee9fdddf05f01b1686f3ec92eeb76cfe5c5af9354672121"
+  },
+  "scope": {
+    "before": 2,
+    "after": 4,
+    "limit": 7,
+    "offset": 0
+  },
+  "total": 2,
+  "items": [
+    {
+      "chunkId": "c9ac1403-d3f7-572e-8f07-0c73e57bec07",
+      "chunkIndex": 0,
+      "pageStart": 1,
+      "pageEnd": 1,
+      "text": "Guide synthétique de validation WinUI. Sommaire : section code de validation en page 2.",
+      "tokenCount": 40
+    },
+    {
+      "chunkId": "a0303851-13ee-5ddc-9aeb-fd084d56344e",
+      "chunkIndex": 1,
+      "pageStart": 2,
+      "pageEnd": 2,
+      "text": "Code de validation ORION : 4826. Ce code est fictif et ne représente aucun secret. Le guide sert uniquement à vérifier lecture, citations et ouverture de la deuxième page depuis le client WinUI.",
+      "tokenCount": 40
+    }
+  ]
+}

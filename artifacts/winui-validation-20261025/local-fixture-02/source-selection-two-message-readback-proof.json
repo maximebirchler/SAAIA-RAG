@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "saaia-winui-source-selection-readback-proof.v1",
+  "checkedAtUtc": "2026-10-25T13:20:11.6923551+00:00",
+  "passed": true,
+  "readOnlyApi": true,
+  "newPostCount": 0,
+  "modelsInvoked": 0,
+  "uiExecutedByVerifier": false,
+  "originalFailedProof": "source-selection-two-message-fixture.json",
+  "originalProofSha256": "495A3978A20B83AF99236433D5A111AC47D77603026CAB32DE1C0FDB70C4DFAA",
+  "originalFailedProofPreserved": true,
+  "toolCause": "Wrapping Invoke-RestMethod in an array expression retained its two-element JSON response as one array object. Two messages had already been stored; fixed by assigning response before array normalization.",
+  "sessionId": "f8d12da3-ba30-4cb8-9ef0-bea786980a76",
+  "durableAssistantCount": 2,
+  "messages": [
+    {
+      "marker": "UI_FIXTURE_SOURCE_A",
+      "canonicalSource": {
+        "evidenceId": "UI_FIXTURE_SOURCE_A",
+        "categoryPath": "Validation",
+        "docId": "aca1a813-c593-59e5-bdf2-1cd12d1b8e40",
+        "revisionId": "7ac0ec90-3ddf-51ec-80b9-f65e8a81f79b",
+        "pageStart": 2,
+        "docName": "Guide-Validation.pdf",
+        "score": 1.0,
+        "docPath": "Validation/Guide-Validation.pdf",
+        "category": "Validation",
+        "chunkId": "a0303851-13ee-5ddc-9aeb-fd084d56344e",
+        "sourceHash": "840c999b2bfe8305aee9fdddf05f01b1686f3ec92eeb76cfe5c5af9354672121",
+        "docLanguage": "fr",
+        "pageEnd": 2
+      },
+      "contentSha256": "ae7c9127fbf97da4951735790187f4ebf27c30c5e8c1591b6fc5abd1d39c535e",
+      "messageId": "2ab3bd54-23d6-4ff2-ad06-a43fe5d1a9b9",
+      "contentAndIdentityMatch": true
+    },
+    {
+      "marker": "UI_FIXTURE_SOURCE_B",
+      "canonicalSource": {
+        "evidenceId": "UI_FIXTURE_SOURCE_B",
+        "categoryPath": "Archive",
+        "docId": "14381074-14ae-52a7-9d8b-58eea4a50585",
+        "revisionId": "22ba5f2e-ecf3-5ed4-a1bd-a8c23502352f",
+        "pageStart": 1,
+        "docName": "Guide-Validation.pdf",
+        "score": 1.0,
+        "docPath": "Archive/Guide-Validation.pdf",
+        "category": "Archive",
+        "chunkId": "6366d25c-955f-56de-93ac-20d13099af2c",
+        "sourceHash": "224c0c983004319f143023ac666762a4fa64c495e5c6f68a0de8d29099959662",
+        "docLanguage": "fr",
+        "pageEnd": 1
+      },
+      "contentSha256": "e30d06b3356be34b9cf508cf125e893ca7a715d488de6e347f0f25e2fc27ca29",
+      "messageId": "92cd0cb8-765a-4d07-8ad1-3ae6af9eeb04",
+      "contentAndIdentityMatch": true
+    }
+  ],
+  "newSeedRetried": false,
+  "snapshot": "chat-store-snapshots/20261025T132011554Z-source-selection-two-readback.json",
+  "snapshotSha256": "A14D7C5B7CF9C3E51799E4C8E39F578B59ABA29182ACE1DB615568AF0AC0D5C0",
+  "productStatus": "TESTE_NON_APPROUVE"
+}

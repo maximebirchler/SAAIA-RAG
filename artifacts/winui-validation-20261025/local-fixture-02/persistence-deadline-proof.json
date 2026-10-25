@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "saaia-winui-persistence-deadline-proof.v1",
+  "checkedAtUtc": "2026-10-25T12:32:00.9127129+00:00",
+  "passed": true,
+  "readOnly": true,
+  "traceId": "2c0666df371d8837c2c04fd34cefe293",
+  "turnId": "2078c19f47dd4a99b20b4ab1c1810727",
+  "sessionId": "f23536a9-2296-4a1c-96b4-0b4c02a79e4b",
+  "messageId": "383c527a-0ec1-42ed-a6d0-599b1d03a00f",
+  "client": {
+    "modelProbeCount": 0,
+    "reason": "user_message_persistence_unconfirmed",
+    "terminalElapsedMilliseconds": 30039,
+    "confirmationTimeoutMs": 30000,
+    "outcome": "failed",
+    "persistenceElapsedMilliseconds": 30019
+  },
+  "wire": {
+    "identicalBodyPostCount": 1,
+    "correlatedPostCount": 1,
+    "postAtUtc": "2026-10-25T12:21:33.0000000+00:00",
+    "injectedDelaySeconds": 45.0,
+    "traceparent": "00-2c0666df371d8837c2c04fd34cefe293-faabb6c9d7c318b5-00",
+    "requestBodySha256": "1ffcae2e4f28fab5c5c76edbd4f449156e4241086cbdb3836accafd42b4687c5"
+  },
+  "durable": {
+    "matchingContentRows": 1,
+    "createdAtUtc": "2026-10-25T12:22:18.7122370+00:00",
+    "contentSha256": "1524a974ce26772d1e1d003a0848ce1d422ac356728912d8288c35b47ddf2543",
+    "databaseDirectoryVerified": true,
+    "characters": 81
+  },
+  "snapshot": {
+    "sessionMessageCount": 7,
+    "totalMessageCount": 19,
+    "followingAssistantCount": 0,
+    "sha256": "22DD7CD3F1E9D28BADCAF090C96BBF760BD5E58702A031751A8196DB785A7BB8"
+  },
+  "extractedProbeEventsSha256": "FC0A28431547491C537B17FB792A942432E1CEA94F676E8689F762FC69713688",
+  "checks": [
+    {
+      "passed": true,
+      "name": "wire_trace_turn_session_match"
+    },
+    {
+      "passed": true,
+      "name": "confirmation_timeout_observed"
+    },
+    {
+      "passed": true,
+      "name": "single_terminal_before_late_commit"
+    },
+    {
+      "passed": true,
+      "name": "no_model_started_for_unconfirmed_turn"
+    },
+    {
+      "passed": true,
+      "name": "one_correlated_post_and_no_identical_payload_retry"
+    },
+    {
+      "passed": true,
+      "name": "owned_cluster_checked_readonly"
+    },
+    {
+      "passed": true,
+      "name": "sql_row_matches_snapshot_hash_and_message_identity"
+    },
+    {
+      "passed": true,
+      "name": "no_duplicate_content_row_at_sql_observation"
+    },
+    {
+      "passed": true,
+      "name": "no_later_assistant_in_after_delay_snapshot"
+    },
+    {
+      "passed": true,
+      "name": "snapshot_taken_after_late_commit"
+    }
+  ],
+  "limits": [
+    "Wire body hash and text hash represent different byte sequences; their association is established through the unique traced session POST, late commit timing, message ID and SQL/snapshot identity, not equality of those hashes.",
+    "No automatic retry was observed in this scenario. This is not an idempotency guarantee for a later explicit manual resend.",
+    "No model probe appeared in the traced turn; unrelated turns are outside this assertion.",
+    "Visual warning/reload observations are supplied separately by the UI operator."
+  ],
+  "productStatus": "TESTE_NON_APPROUVE"
+}

@@ -1,0 +1,1130 @@
+{
+  "schemaVersion": "saaia-winui-chat-store-snapshot.v1",
+  "startedAtUtc": "2026-10-25T12:41:42.1232040+00:00",
+  "finishedAtUtc": "2026-10-25T12:41:42.1996142+00:00",
+  "environmentRunId": "aed76e7cce0c429bb10e4dca8b530193",
+  "backendUrl": "http://127.0.0.1:5127",
+  "userId": "018a790c-01e0-4b04-b413-d09a80d2daab",
+  "readOnly": true,
+  "contentMode": "sha256_utf8_exact_text_counts_only",
+  "sessionCount": 6,
+  "totalMessageCount": 24,
+  "totalUserMessages": 11,
+  "totalAssistantMessages": 13,
+  "sessionLimitReached": false,
+  "messageLimitReached": false,
+  "completeWithinApiLimits": true,
+  "consistency": "Read-only sequential HTTP observations; not an atomic database snapshot. Capture while the client is idle for comparisons.",
+  "repeatedContentInterpretation": "Repeated hashes can be legitimate repeated user requests; they are candidates for review, not an automatic duplicate verdict.",
+  "sessions": [
+    {
+      "sessionId": "3b26721e-2cfe-4351-88c8-3132c4805614",
+      "title": {
+        "sha256": "8815b8a3673e0ce2d91e6e4bef27569dca7f367624a4783ded6361c66f2a352e",
+        "characters": 33,
+        "newlineCount": 0,
+        "present": true
+      },
+      "createdAt": "2026-10-25T12:41:42.096824Z",
+      "updatedAt": "2026-10-25T12:41:42.100798Z",
+      "lastMessageAt": "2026-10-25T12:41:42.100798Z",
+      "messageCount": 1,
+      "userMessageCount": 0,
+      "assistantMessageCount": 1,
+      "messageLimitReached": false,
+      "repeatedContentGroups": [],
+      "messages": [
+        {
+          "ordinal": 1,
+          "messageId": "1ef22d3a-7e96-4c64-9150-e91a3715c47b",
+          "role": "assistant",
+          "createdAt": "2026-10-25T12:41:42.100497Z",
+          "content": {
+            "sha256": "a8b14d96aec1e4b4e56af41e7412c5af5c7e380ecf3ea5f691c35d63c11badb6",
+            "characters": 135,
+            "newlineCount": 1,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "ce361a1fbe64f563a747808a0fc3ae286c568ed5cff8d73a4da4583cc9c74d24",
+            "characters": 18,
+            "newlineCount": 0,
+            "present": true
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "05fda99bca662b6d4dc9d8513774f80688370665741e7a1681cf94552c2c2fc4",
+            "characters": 908,
+            "newlineCount": 0,
+            "present": true
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": "fixture.ui_sources",
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        }
+      ]
+    },
+    {
+      "sessionId": "2dccd468-b196-4533-8de7-809868c208fa",
+      "title": {
+        "sha256": "921da4354ec97110b094bf1e9e83c0e9bfed5e4ad094c5e5e0a24278939f4f73",
+        "characters": 59,
+        "newlineCount": 0,
+        "present": true
+      },
+      "createdAt": "2026-10-25T12:39:26.531071Z",
+      "updatedAt": "2026-10-25T12:40:03.218692Z",
+      "lastMessageAt": "2026-10-25T12:40:03.218692Z",
+      "messageCount": 2,
+      "userMessageCount": 1,
+      "assistantMessageCount": 1,
+      "messageLimitReached": false,
+      "repeatedContentGroups": [],
+      "messages": [
+        {
+          "ordinal": 1,
+          "messageId": "b30caa8f-e6a2-45bc-9de4-bdfa02f45d6e",
+          "role": "user",
+          "createdAt": "2026-10-25T12:39:53.40081Z",
+          "content": {
+            "sha256": "b0afea2a0e22ed7fdc4ded0e72e95bad92ad17c1e1d004af5d88fd5149f802f3",
+            "characters": 227,
+            "newlineCount": 0,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        },
+        {
+          "ordinal": 2,
+          "messageId": "ab4347a6-05cf-4249-805f-250c65bac2ab",
+          "role": "assistant",
+          "createdAt": "2026-10-25T12:40:03.217672Z",
+          "content": {
+            "sha256": "922010038434963fd6ef4ba539f1855c29a258d467f4c7947d0bd63a18fab0ce",
+            "characters": 154,
+            "newlineCount": 0,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "8df627e7d54b09c1bdb30a0c6c4f94c39abf111ff536664704c67e3b3bf117fc",
+            "characters": 988,
+            "newlineCount": 0,
+            "present": true
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": "advanced_analysis.answer",
+          "advancedJobId": "f1377562-c7c4-430c-a229-4818b2653a0f",
+          "advancedStatus": "succeeded",
+          "advancedRevision": 4,
+          "advancedResultOutcome": "insufficient_documentation"
+        }
+      ]
+    },
+    {
+      "sessionId": "d75f4812-8065-4683-a33a-16941fae93ab",
+      "title": {
+        "sha256": "09d94493e1cf9fc320e4c4550fa6591678213823c2bf5900115807f6606542eb",
+        "characters": 60,
+        "newlineCount": 0,
+        "present": true
+      },
+      "createdAt": "2026-10-25T12:37:05.538591Z",
+      "updatedAt": "2026-10-25T12:37:46.149692Z",
+      "lastMessageAt": "2026-10-25T12:37:46.149692Z",
+      "messageCount": 2,
+      "userMessageCount": 1,
+      "assistantMessageCount": 1,
+      "messageLimitReached": false,
+      "repeatedContentGroups": [],
+      "messages": [
+        {
+          "ordinal": 1,
+          "messageId": "fd0e076c-46ab-4441-adde-24a67562fce8",
+          "role": "user",
+          "createdAt": "2026-10-25T12:37:41.042779Z",
+          "content": {
+            "sha256": "23b8a2b6610d92fd682e4372062cf442fb4516f848f39dea89b587a722aa102e",
+            "characters": 92,
+            "newlineCount": 0,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        },
+        {
+          "ordinal": 2,
+          "messageId": "0e8ef5c1-e499-4f09-894f-f0f3ad88deae",
+          "role": "assistant",
+          "createdAt": "2026-10-25T12:37:46.149357Z",
+          "content": {
+            "sha256": "85fabb49b98ef95b1f06256ebb404b32e3aabd8f2d8aef38d167b6af0d318502",
+            "characters": 289,
+            "newlineCount": 4,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "87cb3a301dbab6ee315968147064391796cf3ab1312ceddc28b0131a1516209d",
+            "characters": 745,
+            "newlineCount": 0,
+            "present": true
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": "clarification",
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        }
+      ]
+    },
+    {
+      "sessionId": "f23536a9-2296-4a1c-96b4-0b4c02a79e4b",
+      "title": {
+        "sha256": "09d94493e1cf9fc320e4c4550fa6591678213823c2bf5900115807f6606542eb",
+        "characters": 60,
+        "newlineCount": 0,
+        "present": true
+      },
+      "createdAt": "2026-10-25T12:12:59.608152Z",
+      "updatedAt": "2026-10-25T12:22:18.712696Z",
+      "lastMessageAt": "2026-10-25T12:22:18.712696Z",
+      "messageCount": 7,
+      "userMessageCount": 4,
+      "assistantMessageCount": 3,
+      "messageLimitReached": false,
+      "repeatedContentGroups": [],
+      "messages": [
+        {
+          "ordinal": 1,
+          "messageId": "644079d5-d09a-4a22-a439-12dcf6967d32",
+          "role": "user",
+          "createdAt": "2026-10-25T12:17:40.257518Z",
+          "content": {
+            "sha256": "23b8a2b6610d92fd682e4372062cf442fb4516f848f39dea89b587a722aa102e",
+            "characters": 92,
+            "newlineCount": 0,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        },
+        {
+          "ordinal": 2,
+          "messageId": "5a9144f1-0c97-4b20-b342-43e889d94e8b",
+          "role": "assistant",
+          "createdAt": "2026-10-25T12:17:45.97238Z",
+          "content": {
+            "sha256": "85fabb49b98ef95b1f06256ebb404b32e3aabd8f2d8aef38d167b6af0d318502",
+            "characters": 289,
+            "newlineCount": 4,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "fa4646b6b5ca63b5f0fec7b10690915838ec82745051163c0c011b84ded4a35f",
+            "characters": 745,
+            "newlineCount": 0,
+            "present": true
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": "clarification",
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        },
+        {
+          "ordinal": 3,
+          "messageId": "75c66d4d-a9d2-46cb-a6cc-74265e889ead",
+          "role": "user",
+          "createdAt": "2026-10-25T12:18:15.041785Z",
+          "content": {
+            "sha256": "09312a5fdbab0e824188b6f0cb60ae5c17c01b24a1983ff9be43dcb595bd87cc",
+            "characters": 105,
+            "newlineCount": 0,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        },
+        {
+          "ordinal": 4,
+          "messageId": "dadb052a-7a67-4dc4-8918-a76517e68f96",
+          "role": "assistant",
+          "createdAt": "2026-10-25T12:18:18.234817Z",
+          "content": {
+            "sha256": "922010038434963fd6ef4ba539f1855c29a258d467f4c7947d0bd63a18fab0ce",
+            "characters": 154,
+            "newlineCount": 0,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "b2c3398b0694dda2137721135755862a30ef6b5c31fecb916c66f58e355c1178",
+            "characters": 1148,
+            "newlineCount": 0,
+            "present": true
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": "advanced_analysis.answer",
+          "advancedJobId": "c061b0f4-c9aa-4026-8cac-4f0f5d49849f",
+          "advancedStatus": "succeeded",
+          "advancedRevision": 5,
+          "advancedResultOutcome": "insufficient_documentation"
+        },
+        {
+          "ordinal": 5,
+          "messageId": "835d5d73-9262-4844-8cd4-a515ddcf5045",
+          "role": "user",
+          "createdAt": "2026-10-25T12:19:42.047223Z",
+          "content": {
+            "sha256": "b3c46e6ef9823013573e4f51bd11009d1efb21a0c8668dd8adef9226f53061d1",
+            "characters": 75,
+            "newlineCount": 0,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        },
+        {
+          "ordinal": 6,
+          "messageId": "c4903adf-aa3b-489a-884f-2a21f9c69a12",
+          "role": "assistant",
+          "createdAt": "2026-10-25T12:19:48.393086Z",
+          "content": {
+            "sha256": "e8baff5fb6a9138f3392fa3b0c91c3b282744344cca6473da0396544900e5f82",
+            "characters": 189,
+            "newlineCount": 0,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        },
+        {
+          "ordinal": 7,
+          "messageId": "383c527a-0ec1-42ed-a6d0-599b1d03a00f",
+          "role": "user",
+          "createdAt": "2026-10-25T12:22:18.712237Z",
+          "content": {
+            "sha256": "1524a974ce26772d1e1d003a0848ce1d422ac356728912d8288c35b47ddf2543",
+            "characters": 81,
+            "newlineCount": 0,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        }
+      ]
+    },
+    {
+      "sessionId": "8d6d3555-1c24-4750-91d1-ec4801ed13bc",
+      "title": {
+        "sha256": "e2acd25b39076ab266fb85aa5b75bd84b79a2282f996c926e1614dccabed6a2a",
+        "characters": 21,
+        "newlineCount": 0,
+        "present": true
+      },
+      "createdAt": "2026-10-25T11:39:35.566609Z",
+      "updatedAt": "2026-10-25T12:00:40.833586Z",
+      "lastMessageAt": "2026-10-25T12:00:40.833586Z",
+      "messageCount": 8,
+      "userMessageCount": 3,
+      "assistantMessageCount": 5,
+      "messageLimitReached": false,
+      "repeatedContentGroups": [
+        {
+          "role": "assistant",
+          "messageIds": [
+            "b7f4094f-ba91-4d06-9b7d-6e64bafd5794",
+            "51ec06ac-e035-4503-a62d-58f29b81b0b7"
+          ],
+          "contentSha256": "73ad7fe0b23e9051858ee53524a55d3ff076b6892a8c310f82e168a112be2b86",
+          "count": 2
+        }
+      ],
+      "messages": [
+        {
+          "ordinal": 1,
+          "messageId": "560900f9-7688-4a75-aa40-fb4c433afc6d",
+          "role": "user",
+          "createdAt": "2026-10-25T11:41:21.091504Z",
+          "content": {
+            "sha256": "4e99c933e4d86d2420182ce8452e7124595d78a497755c1bd7dc5d18262d2e55",
+            "characters": 21,
+            "newlineCount": 2,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        },
+        {
+          "ordinal": 2,
+          "messageId": "b7f4094f-ba91-4d06-9b7d-6e64bafd5794",
+          "role": "assistant",
+          "createdAt": "2026-10-25T11:41:30.446302Z",
+          "content": {
+            "sha256": "73ad7fe0b23e9051858ee53524a55d3ff076b6892a8c310f82e168a112be2b86",
+            "characters": 69,
+            "newlineCount": 0,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        },
+        {
+          "ordinal": 3,
+          "messageId": "9ab21370-0a3d-44a9-b0ca-f59617477bfa",
+          "role": "assistant",
+          "createdAt": "2026-10-25T11:46:23.307906Z",
+          "content": {
+            "sha256": "cb5e48ae4f7c55b503317272a83c835d4b6bf3488bd4f8ceb32e5e0b7b657491",
+            "characters": 68,
+            "newlineCount": 0,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        },
+        {
+          "ordinal": 4,
+          "messageId": "0eb4004b-5eb4-4d68-9f58-9a0a7d59d4ab",
+          "role": "user",
+          "createdAt": "2026-10-25T11:55:03.618766Z",
+          "content": {
+            "sha256": "b3f396625c67812329a055fabae4e3dbe0157522f57e063f61dd9a0360868208",
+            "characters": 44,
+            "newlineCount": 0,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        },
+        {
+          "ordinal": 5,
+          "messageId": "51ec06ac-e035-4503-a62d-58f29b81b0b7",
+          "role": "assistant",
+          "createdAt": "2026-10-25T11:55:04.148467Z",
+          "content": {
+            "sha256": "73ad7fe0b23e9051858ee53524a55d3ff076b6892a8c310f82e168a112be2b86",
+            "characters": 69,
+            "newlineCount": 0,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        },
+        {
+          "ordinal": 6,
+          "messageId": "1f25d510-8f0f-47b5-911e-0335556a1499",
+          "role": "user",
+          "createdAt": "2026-10-25T11:56:40.846763Z",
+          "content": {
+            "sha256": "614ddb8f68f05d3951d2a39efabdc23118dd554fe3e8ce6d180a0d6eec0a721e",
+            "characters": 61,
+            "newlineCount": 0,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        },
+        {
+          "ordinal": 7,
+          "messageId": "f717bc16-b8b0-4e4c-be54-635015b1b920",
+          "role": "assistant",
+          "createdAt": "2026-10-25T11:58:05.61536Z",
+          "content": {
+            "sha256": "89a641f1a9ab2480f258111bafaac3152c8449991190fa08744c8a5fcc84eaa3",
+            "characters": 72,
+            "newlineCount": 2,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        },
+        {
+          "ordinal": 8,
+          "messageId": "2a255ae3-b413-42b5-85d9-28fff1676a53",
+          "role": "assistant",
+          "createdAt": "2026-10-25T12:00:40.832734Z",
+          "content": {
+            "sha256": "89b7a6192ce0c6295c04f05a6a59489a720b78e1e84e5ea92501a71835af800b",
+            "characters": 221,
+            "newlineCount": 2,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        }
+      ]
+    },
+    {
+      "sessionId": "d7683d16-3a3e-4360-b9ce-9db55ea2b5cb",
+      "title": {
+        "sha256": "0b13ec2fb39bdbd0c6fdbc860281dd5622cbebfa610f963fb88219f2629d343e",
+        "characters": 37,
+        "newlineCount": 0,
+        "present": true
+      },
+      "createdAt": "2026-10-25T11:36:49.771551Z",
+      "updatedAt": "2026-10-25T11:40:27.676032Z",
+      "lastMessageAt": "2026-10-25T11:38:55.408418Z",
+      "messageCount": 4,
+      "userMessageCount": 2,
+      "assistantMessageCount": 2,
+      "messageLimitReached": false,
+      "repeatedContentGroups": [],
+      "messages": [
+        {
+          "ordinal": 1,
+          "messageId": "e1ab4bab-acf9-4256-b41b-9a3325808fd1",
+          "role": "user",
+          "createdAt": "2026-10-25T11:37:47.173766Z",
+          "content": {
+            "sha256": "6e3ed8fafff8ebccba28bd85db1be6d928208d3fe6ef168992cdb75efb10b041",
+            "characters": 43,
+            "newlineCount": 0,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        },
+        {
+          "ordinal": 2,
+          "messageId": "9d8285a0-87de-4a6a-8f22-12e81ac24bf4",
+          "role": "assistant",
+          "createdAt": "2026-10-25T11:37:47.760895Z",
+          "content": {
+            "sha256": "73ad7fe0b23e9051858ee53524a55d3ff076b6892a8c310f82e168a112be2b86",
+            "characters": 69,
+            "newlineCount": 0,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        },
+        {
+          "ordinal": 3,
+          "messageId": "14774e3f-c640-4604-93d2-b0acffa28288",
+          "role": "user",
+          "createdAt": "2026-10-25T11:38:15.888001Z",
+          "content": {
+            "sha256": "3be372c1e9b536cd0a44e01b4594f24a1feebb4cb093620a46cf17a956390d88",
+            "characters": 62,
+            "newlineCount": 0,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        },
+        {
+          "ordinal": 4,
+          "messageId": "9918573e-0f67-4621-92e7-d004bce89140",
+          "role": "assistant",
+          "createdAt": "2026-10-25T11:38:55.40702Z",
+          "content": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "0bf351a8ca8c7c034c48b2f56c24b943fc15649dd1a845e20ec8b5708e24b424",
+            "characters": 23,
+            "newlineCount": 0,
+            "present": true
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        }
+      ]
+    }
+  ],
+  "comparison": null
+}

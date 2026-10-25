@@ -1,0 +1,17 @@
+{
+  "additionalFaults": [
+    "GET messages500",
+    "GET ready503"
+  ],
+  "sourceSha256": "6436C5311CEF5CB7F72A9224C7AC334FF187C0AB7F4B6CEDFD86488A46116B90",
+  "controlPath": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\local-fixture-02\\runtime\\storage-proxy-control-ui-faults-v2.json",
+  "proxyUrl": "http://127.0.0.1:5157",
+  "actualUserConfigurationModified": false,
+  "schemaVersion": "saaia-winui-storage-proxy.v1",
+  "databaseModifiedForInjection": false,
+  "instanceName": "ui-faults-v2",
+  "backendCodeModified": false,
+  "maximumUserMessageDelaySeconds": 120,
+  "upstreamUrl": "http://127.0.0.1:5127",
+  "postFailuresScopedToUserMessages": true
+}

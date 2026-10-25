@@ -1,0 +1,13 @@
+{
+  "atUtc": "2026-10-25T12:43:47.924Z",
+  "method": "Native PDF viewer observed through sky, UIA and displayed pixels inspected",
+  "source": "Controlled source-card fixture, not a model answer",
+  "sourceFile": "Validation/Guide-Validation.pdf",
+  "requestedPage": 2,
+  "observedPageSelector": "2 of 2",
+  "observedVisibleMarker": "VALIDATION WINUI - PAGE 2 - CODE ORION 4826",
+  "otherHomonymousFileNotOpened": true,
+  "privateScreenshotExcludedFromGit": true,
+  "screenshotSha256": "916cc788efcede46c32e1a6a1d95926f575d756bd17dfd2a751cc694149b3a8c",
+  "sourceOpenTrace": "8ccf9face4f3377d4380d4f303ffac45"
+}

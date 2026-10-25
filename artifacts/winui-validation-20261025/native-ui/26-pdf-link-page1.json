@@ -1,0 +1,12 @@
+{
+  "atUtc": "2026-10-25T12:04:33.039Z",
+  "scenario": "W19",
+  "method": "Native PDF viewer observed after actual WinUI link click",
+  "documentPath": "Validation/Guide-Validation.pdf",
+  "requestedPage": 1,
+  "viewerPageSelector": 1,
+  "visualPageMarkerObserved": "VALIDATION WINUI - PAGE 1 - SOMMAIRE",
+  "openedArchiveHomonym": false,
+  "privateScreenshot": "local-fixture-02/runtime/private-ui-proof/pdf-page1.png",
+  "privateScreenshotExcludedFromGit": true
+}

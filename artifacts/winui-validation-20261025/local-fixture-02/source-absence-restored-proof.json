@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "saaia.winui-source-absence.v1",
+  "scenario": "Canonical local source temporarily absent while homonymous Archive remains",
+  "heldAtUtc": "2026-10-25T14:02:31.9269509+01:00",
+  "restoredAtUtc": "2026-10-25T13:03:13.4679751+00:00",
+  "source": "Validation/Guide-Validation.pdf",
+  "sha256Before": "840C999B2BFE8305AEE9FDDDF05F01B1686F3EC92EEB76CFE5C5AF9354672121",
+  "sha256After": "840C999B2BFE8305AEE9FDDDF05F01B1686F3EC92EEB76CFE5C5AF9354672121",
+  "exactBytesRestored": true,
+  "syntheticPdfOnly": true,
+  "sourceOpenTraceId": "1dff3e428c17f2ee87cf6ec6208ebf9f",
+  "nativeEvidence": "native-ui/67-source-absent-safe-refusal-fixed.json",
+  "actualRefusalObserved": true,
+  "pdfViewerNotLaunched": true,
+  "wrongHomonymNotOpened": true,
+  "productCodeModifiedForFault": false
+}

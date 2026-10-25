@@ -1,0 +1,301 @@
+{
+  "schemaVersion": "saaia-winui-owned-stop-proof.v1",
+  "capturedAtUtc": "2026-10-25T13:37:48.6582816+00:00",
+  "status": "OWNED_SERVICES_STOPPED_AND_EVIDENCE_RETAINED",
+  "stopAuthorizedByParent": true,
+  "stopScriptSha256": "C081807363869D0C19F290CE1DB86053913444E66499933078EFB757C4E0104E",
+  "preflightPlanSha256": "6C918989CEE37019D69C2BD6064312C0232F669FB7085C1101E9C71B4F1699AC",
+  "finalReadOnlySnapshotRelative": "chat-store-snapshots/20261025T133549558Z-final-before-owned-stop.json",
+  "finalReadOnlySnapshotSha256": "723DE792C0C81339B312B7691B15AA0E71AEBABE4B454E2F5F6D6FE385CC819E",
+  "ownedManifestSha256": "3B89F498B78AAA1913B9C20AEB2DC7D0D61B9FFBA01DB9A8FB67DFEB883FC47C",
+  "stoppedAtUtc": "2026-10-25T14:36:17.0581047+01:00",
+  "testPorts": [
+    {
+      "port": 5127,
+      "listenersRemaining": 0
+    },
+    {
+      "port": 5137,
+      "listenersRemaining": 0
+    },
+    {
+      "port": 5147,
+      "listenersRemaining": 0
+    },
+    {
+      "port": 5157,
+      "listenersRemaining": 0
+    },
+    {
+      "port": 5158,
+      "listenersRemaining": 0
+    },
+    {
+      "port": 5167,
+      "listenersRemaining": 0
+    },
+    {
+      "port": 18087,
+      "listenersRemaining": 0
+    },
+    {
+      "port": 18088,
+      "listenersRemaining": 0
+    },
+    {
+      "port": 18089,
+      "listenersRemaining": 0
+    },
+    {
+      "port": 62401,
+      "listenersRemaining": 0
+    }
+  ],
+  "ownedRoots": [
+    {
+      "expectedStartedAtUtc": "2026-10-25T11:33:24.1569144Z",
+      "role": "postgres",
+      "processPresent": false,
+      "pid": 20068
+    },
+    {
+      "expectedStartedAtUtc": "2026-10-25T11:33:24.7503695Z",
+      "role": "fixture-http",
+      "processPresent": false,
+      "pid": 38616
+    },
+    {
+      "expectedStartedAtUtc": "2026-10-25T11:33:25.2955592Z",
+      "role": "backend-runner",
+      "processPresent": false,
+      "pid": 39792
+    },
+    {
+      "expectedStartedAtUtc": "2026-10-25T11:37:04.0461968Z",
+      "role": "advanced-fixture-http",
+      "processPresent": false,
+      "pid": 38436
+    },
+    {
+      "expectedStartedAtUtc": "2026-10-25T11:37:04.0722824Z",
+      "role": "advanced-backend-runner",
+      "processPresent": false,
+      "pid": 39784
+    },
+    {
+      "expectedStartedAtUtc": "2026-10-25T11:38:24.4536097Z",
+      "role": "local-model-runner",
+      "processPresent": false,
+      "pid": 37844
+    },
+    {
+      "expectedStartedAtUtc": "2026-10-25T11:40:37.5931648Z",
+      "role": "storage-proxy",
+      "processPresent": false,
+      "pid": 2200
+    },
+    {
+      "expectedStartedAtUtc": "2026-10-25T12:12:54.1990878Z",
+      "role": "storage-proxy",
+      "processPresent": false,
+      "pid": 12548
+    },
+    {
+      "expectedStartedAtUtc": "2026-10-25T12:28:01.4231491Z",
+      "role": "storage-proxy",
+      "processPresent": false,
+      "pid": 17244
+    },
+    {
+      "expectedStartedAtUtc": "2026-10-25T13:17:40.3191102Z",
+      "role": "storage-proxy",
+      "processPresent": false,
+      "pid": 39964
+    }
+  ],
+  "knownChildren": [
+    {
+      "pid": 1840,
+      "processPresent": false
+    },
+    {
+      "pid": 3172,
+      "processPresent": false
+    },
+    {
+      "pid": 3796,
+      "processPresent": false
+    },
+    {
+      "pid": 5972,
+      "processPresent": false
+    },
+    {
+      "pid": 13612,
+      "processPresent": false
+    },
+    {
+      "pid": 17864,
+      "processPresent": false
+    },
+    {
+      "pid": 18764,
+      "processPresent": false
+    },
+    {
+      "pid": 28080,
+      "processPresent": false
+    },
+    {
+      "pid": 29056,
+      "processPresent": false
+    },
+    {
+      "pid": 30960,
+      "processPresent": false
+    },
+    {
+      "pid": 35008,
+      "processPresent": false
+    },
+    {
+      "pid": 35128,
+      "processPresent": false
+    },
+    {
+      "pid": 36676,
+      "processPresent": false
+    },
+    {
+      "pid": 37704,
+      "processPresent": false
+    },
+    {
+      "pid": 38308,
+      "processPresent": false
+    },
+    {
+      "pid": 38608,
+      "processPresent": false
+    },
+    {
+      "pid": 38832,
+      "processPresent": false
+    },
+    {
+      "pid": 39820,
+      "processPresent": false
+    },
+    {
+      "pid": 40600,
+      "processPresent": false
+    },
+    {
+      "pid": 40892,
+      "processPresent": false
+    },
+    {
+      "pid": 42108,
+      "processPresent": false
+    }
+  ],
+  "wrapperLogs": [
+    {
+      "bytes": 495819,
+      "relativePath": "backend.stdout.log",
+      "exists": true,
+      "rawFileExcludedFromGit": true,
+      "sha256": "a19d6542fff2df8a6b4ad1db55eb7cf66fd4f9edc5211fca3eb63e4789fd47b0"
+    },
+    {
+      "bytes": 0,
+      "relativePath": "backend.stderr.log",
+      "exists": true,
+      "rawFileExcludedFromGit": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 286374,
+      "relativePath": "advanced-backend.stdout.log",
+      "exists": true,
+      "rawFileExcludedFromGit": true,
+      "sha256": "8e5b3f3f0493fb89028b5dfa050f84752110ddfdcdff9ff4445a8dba3d312657"
+    },
+    {
+      "bytes": 0,
+      "relativePath": "advanced-backend.stderr.log",
+      "exists": true,
+      "rawFileExcludedFromGit": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "relativePath": "local-model.stdout.log",
+      "exists": true,
+      "rawFileExcludedFromGit": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 40269,
+      "relativePath": "local-model.stderr.log",
+      "exists": true,
+      "rawFileExcludedFromGit": true,
+      "sha256": "44b1b354edb57822bf3627404c1a8f9352c34a4b586a54bf8ac020d51e3f3513"
+    }
+  ],
+  "postgres5432": [
+    {
+      "address": "::",
+      "port": 5432,
+      "pid": 7844
+    },
+    {
+      "address": "0.0.0.0",
+      "port": 5432,
+      "pid": 7844
+    }
+  ],
+  "checks": [
+    {
+      "name": "all_ten_test_ports_closed",
+      "passed": true
+    },
+    {
+      "name": "all_ten_owned_roots_exited",
+      "passed": true
+    },
+    {
+      "name": "all_known_helper_and_postgres_children_exited",
+      "passed": true
+    },
+    {
+      "name": "all_six_wrapper_logs_flushed_and_hashed",
+      "passed": true
+    },
+    {
+      "name": "postgres5432_listener_pid_unchanged",
+      "passed": true
+    },
+    {
+      "name": "owned_manifest_stopped",
+      "passed": true
+    },
+    {
+      "name": "dedicated_data_retained",
+      "passed": true
+    },
+    {
+      "name": "client_closed",
+      "passed": true
+    }
+  ],
+  "filesDeleted": false,
+  "dataRetained": true,
+  "normalUserProfileModifiedByStop": false,
+  "serverTouched": false,
+  "limits": [
+    "PostgreSQL5432 start/executable are inaccessible under the current token; its exact listener addresses and PID7844 remain unchanged and it was never an owned stop target.",
+    "Raw backend/model logs are retained locally and excluded from versionable candidates; this proof exposes only sizes and hashes.",
+    "This proof validates teardown of the dedicated fixture, not semantic RAG acceptance or Terra readiness."
+  ]
+}

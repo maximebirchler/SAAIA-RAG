@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "saaia.winui-document-identity-causality.v1",
+  "capturedAtUtc": "2026-10-25T12:32:30.4285197+00:00",
+  "state": "TARGETED_TESTS_PASSED_PENDING_UI_RETEST",
+  "cause": "Path.GetFileName narrowed explicit document identity before exact catalog resolution",
+  "beforeTraceId": "c5ef05db0552593503e6939d98f1737f",
+  "semanticBoundaryChanged": false,
+  "safeDiagnosticsAdded": [
+    "source_event",
+    "source_step",
+    "source_status",
+    "source_reason",
+    "explicit nonnegative numeric counters",
+    "reference has directory"
+  ],
+  "freeContentAllowedInMetadata": false,
+  "newTests": 8,
+  "passedTests": 114,
+  "failedTests": 0,
+  "skippedTests": 0,
+  "sourceChangedDuringRun": false,
+  "manifest": "artifacts/winui-validation-20261025/document-identity-probes-unit-accepted/manifest.json",
+  "sources": [
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "sha256": "B7D0D5D734D2B5C0AA2A0BBACABF4C403C95F724F3C952270778AE0851270253"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.NativeRouterRepairContinuity.cs",
+      "sha256": "E2A23B291E2834EF7B2D7467937A96BB02AA5B2BAFB3C8C3B5E7641B36C68C74"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagTrace.cs",
+      "sha256": "2DE8E48697719A100E8C66B2CEF324FC714B1F6C1762CFEFEB8BC8CA79C2411D"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRagTraceMemory.cs",
+      "sha256": "22A0F62FD7217BE9B9053E3D878CC69921ACE84348FAE41FDAE1FE7A4A0A90A5"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedAgentV2.cs",
+      "sha256": "8EB07A886C338A0091B81BFEACE7008B02A2C48769FAB8203E91CBEB2BEB6C2E"
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/NativeDocumentPathIdentityTests.cs",
+      "sha256": "0A5CB0A4B2782F55AAC841A0BB73B3F76F66F962968737A59DDBD168B133C9CE"
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SourceTraceMetadataTests.cs",
+      "sha256": "C760F7A82774DF3B809DB985CF4D9F580414A5C95986E7DC46BAB668934F1780"
+    }
+  ]
+}

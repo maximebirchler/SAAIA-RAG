@@ -1,0 +1,122 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "1e1589530a13436f8958dfcb830481dc",
+  "startedAtUtc": "2026-10-25T12:24:57.7724971+00:00",
+  "finishedAtUtc": "2026-10-25T12:25:00.1682196+00:00",
+  "gitCommit": "3f0de18349f1191bc3eca72497a04094445234e2",
+  "gitDirty": true,
+  "profile": "Unit",
+  "filter": "(Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid)&(FullyQualifiedName~ClientProductionDiagnosticsTests.Standalone_advanced_service|FullyQualifiedName~ClientProductionDiagnosticsTests.Source_parser)",
+  "requestedProjects": [
+    "Client"
+  ],
+  "configuration": "Release",
+  "buildRequested": false,
+  "restoreRequested": false,
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-25T12:24:58.7361796+00:00",
+    "sha256": "5BEAAB112D03B681ACFAFD893D717C4B6669D274BF9794AC7145521595E09969",
+    "fileCount": 1627,
+    "inventory": "source-files-1e1589530a13436f8958dfcb830481dc-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-25T12:25:00.7415301+00:00",
+    "sha256": "5BEAAB112D03B681ACFAFD893D717C4B6669D274BF9794AC7145521595E09969",
+    "fileCount": 1627,
+    "inventory": "source-files-1e1589530a13436f8958dfcb830481dc-after.json"
+  },
+  "sourceChangedDuringRun": false,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "state": "passed",
+  "prerequisites": [],
+  "environment": {
+    "clientDataIsolation": {
+      "environmentRestored": true,
+      "enabled": true,
+      "ownedRelativePath": "client-data",
+      "source": "owned_campaign_output",
+      "requiredForClientTests": true,
+      "rootId": "911EEE59A5CE1E430F351B457044D1F71FE216C139855A274CEC6355D5585665"
+    },
+    "neutralizedVariableNames": []
+  },
+  "results": [
+    {
+      "project": "Client",
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj",
+      "status": "passed",
+      "exitCode": 0,
+      "trx": "Client-1e1589530a13436f8958dfcb830481dc.trx",
+      "trxSha256": "EB59CD02A48550D72E12B92F9304795F07D6A85A7D58F6DBA3F5EF4690B50B66",
+      "assemblies": [
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.Core.dll",
+          "role": "local_product_dependency",
+          "sha256": "C6D929E97746315F13399466BABF1D82058720BA9BEA0313E1EC836E9A9C3B2C",
+          "sizeBytes": 97280,
+          "lastWriteTimeUtc": "2026-10-25T12:00:33.0000539Z",
+          "capturedAtUtc": "2026-10-25T12:25:00.1402108+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.ToolAgent.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "57EF44B82F098471B74949299FAB81CFEF9446F0FC9E5E64A547EDF02022C8B5",
+          "sizeBytes": 4689920,
+          "lastWriteTimeUtc": "2026-10-25T12:00:59.3228074Z",
+          "capturedAtUtc": "2026-10-25T12:25:00.1449769+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.WinUI.dll",
+          "role": "local_product_dependency",
+          "sha256": "8AF740BFA1BC514AFA63611A184853D6DF651D6137281EDE4916DE5E4CFCB2C8",
+          "sizeBytes": 8204288,
+          "lastWriteTimeUtc": "2026-10-25T12:00:55.1002492Z",
+          "capturedAtUtc": "2026-10-25T12:25:00.1529283+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "AE04DB17641409F9332F8B378A4DCFAA8F1796BC24DF6209ADABB8DDD667C9E5",
+          "sizeBytes": 152064,
+          "lastWriteTimeUtc": "2026-10-25T11:32:52.4997249Z",
+          "capturedAtUtc": "2026-10-25T12:25:00.1538403+00:00"
+        }
+      ],
+      "counts": {
+        "notExecuted": 0,
+        "passed": 2,
+        "adapterReportedExecuted": 2,
+        "failed": 0,
+        "executed": 2,
+        "total": 2
+      },
+      "cases": [
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.1251164",
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests.Standalone_advanced_service_correlates_retry_poll_and_failure_without_llm_or_orchestrator"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0456957",
+          "name": "SAAIA.Client.ToolAgent.Tests.ClientProductionDiagnosticsTests.Source_parser_reports_malformed_input_and_visible_source_count_without_document_text"
+        }
+      ]
+    }
+  ],
+  "model": {
+    "state": "not_applicable",
+    "reason": "Unit and PostgreSQL profiles do not invoke a model."
+  },
+  "corpus": {
+    "state": "synthetic_fixtures",
+    "reason": "IntegrationPg fixtures create isolated databases; no production corpus is assumed."
+  },
+  "validationProfilesSha256": "8E4B990BC0A828134E5FE0D8E7B2D82406B56D2A200D8D4D37516208E3D3201D",
+  "selectionPolicy": "TRX covers selected tests; excluded profiles were not executed.",
+  "excludedProfiles": [
+    "IntegrationPg",
+    "LiveLocal",
+    "LivePaid"
+  ]
+}

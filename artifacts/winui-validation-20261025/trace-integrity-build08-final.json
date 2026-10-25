@@ -1,0 +1,5758 @@
+{
+  "schemaVersion": "saaia.winui-trace-integrity.v1",
+  "capturedAtUtc": "2026-10-25T13:40:35.4685931+00:00",
+  "status": "TRACE_INTEGRITY_FAILED",
+  "verifierScope": "Local file integrity and production diagnostic correlation; does not execute UI or network.",
+  "modelQualityValidated": false,
+  "visualUiValidated": false,
+  "pdfPageRenderingValidated": false,
+  "productStatus": "TESTE_NON_APPROUVE",
+  "eventCount": 1007,
+  "turnCount": 139,
+  "checks": [
+    {
+      "name": "production_probe_events_exist",
+      "passed": true,
+      "details": 1007
+    },
+    {
+      "name": "probe_json_is_parseable",
+      "passed": true,
+      "details": 0
+    },
+    {
+      "name": "probe_schema_correlation_and_nonnegative_clocks",
+      "passed": true,
+      "details": 0
+    },
+    {
+      "name": "turn_sequence_unique_0682827688874fb4997cc0cca21ea25e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_0682827688874fb4997cc0cca21ea25e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_0682827688874fb4997cc0cca21ea25e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_0682827688874fb4997cc0cca21ea25e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_0682827688874fb4997cc0cca21ea25e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_06fe8c2f58584121b23aec0f220c05ca",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_06fe8c2f58584121b23aec0f220c05ca",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_06fe8c2f58584121b23aec0f220c05ca",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_06fe8c2f58584121b23aec0f220c05ca",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_06fe8c2f58584121b23aec0f220c05ca",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_0aeb2c62240041678d34ab190c36c83e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_0aeb2c62240041678d34ab190c36c83e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_0aeb2c62240041678d34ab190c36c83e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_0aeb2c62240041678d34ab190c36c83e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_0aeb2c62240041678d34ab190c36c83e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_0fb118512b574086928699ad15a05219",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_0fb118512b574086928699ad15a05219",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_0fb118512b574086928699ad15a05219",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_0fb118512b574086928699ad15a05219",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_0fb118512b574086928699ad15a05219",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_10a8102a14db4027992108aa165118fc",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_10a8102a14db4027992108aa165118fc",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_10a8102a14db4027992108aa165118fc",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_10a8102a14db4027992108aa165118fc",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_10a8102a14db4027992108aa165118fc",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_124f4b57dee148d9a09058c2be8af6f1",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_124f4b57dee148d9a09058c2be8af6f1",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_124f4b57dee148d9a09058c2be8af6f1",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_124f4b57dee148d9a09058c2be8af6f1",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_124f4b57dee148d9a09058c2be8af6f1",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_133e32180b644f3e978d7cdf47a812fc",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_133e32180b644f3e978d7cdf47a812fc",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_133e32180b644f3e978d7cdf47a812fc",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_133e32180b644f3e978d7cdf47a812fc",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_133e32180b644f3e978d7cdf47a812fc",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_145c98e098a04cf6b093f037bdb41765",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_145c98e098a04cf6b093f037bdb41765",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_145c98e098a04cf6b093f037bdb41765",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_145c98e098a04cf6b093f037bdb41765",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_145c98e098a04cf6b093f037bdb41765",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_1526b7f1c12b46a0b755c4d1fd2d97d9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_1526b7f1c12b46a0b755c4d1fd2d97d9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_1526b7f1c12b46a0b755c4d1fd2d97d9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_1526b7f1c12b46a0b755c4d1fd2d97d9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_1526b7f1c12b46a0b755c4d1fd2d97d9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_15412ba18f694a828b645862b53afb2a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_15412ba18f694a828b645862b53afb2a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_15412ba18f694a828b645862b53afb2a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_15412ba18f694a828b645862b53afb2a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_15412ba18f694a828b645862b53afb2a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_165dc4fa1a0a4f6095bbe8fc81af4d96",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_165dc4fa1a0a4f6095bbe8fc81af4d96",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_165dc4fa1a0a4f6095bbe8fc81af4d96",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_165dc4fa1a0a4f6095bbe8fc81af4d96",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_165dc4fa1a0a4f6095bbe8fc81af4d96",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_16b1d8bf49e945a9b740f8cf77a5e036",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_16b1d8bf49e945a9b740f8cf77a5e036",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_16b1d8bf49e945a9b740f8cf77a5e036",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_16b1d8bf49e945a9b740f8cf77a5e036",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_16b1d8bf49e945a9b740f8cf77a5e036",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_1d2d49ef84414bc2ab616b230539ff1e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_1d2d49ef84414bc2ab616b230539ff1e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_1d2d49ef84414bc2ab616b230539ff1e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_1d2d49ef84414bc2ab616b230539ff1e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_1d2d49ef84414bc2ab616b230539ff1e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_1ddf85a8cdf04ba2a0aab6052598da9e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_1ddf85a8cdf04ba2a0aab6052598da9e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_1ddf85a8cdf04ba2a0aab6052598da9e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_1ddf85a8cdf04ba2a0aab6052598da9e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_1ddf85a8cdf04ba2a0aab6052598da9e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_1ea2e6a87faa4e1bac70a9883e672700",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_1ea2e6a87faa4e1bac70a9883e672700",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_1ea2e6a87faa4e1bac70a9883e672700",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_1ea2e6a87faa4e1bac70a9883e672700",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_1ea2e6a87faa4e1bac70a9883e672700",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_1edad2ed97c148f0b6f8c0b69f5136a4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_1edad2ed97c148f0b6f8c0b69f5136a4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_1edad2ed97c148f0b6f8c0b69f5136a4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_1edad2ed97c148f0b6f8c0b69f5136a4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_1edad2ed97c148f0b6f8c0b69f5136a4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_1f505c5a52b1411292799edae99040a9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_1f505c5a52b1411292799edae99040a9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_1f505c5a52b1411292799edae99040a9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_1f505c5a52b1411292799edae99040a9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_1f505c5a52b1411292799edae99040a9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_2078c19f47dd4a99b20b4ab1c1810727",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_2078c19f47dd4a99b20b4ab1c1810727",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_2078c19f47dd4a99b20b4ab1c1810727",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_2078c19f47dd4a99b20b4ab1c1810727",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_2078c19f47dd4a99b20b4ab1c1810727",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_2263754aec9047509a8097e497a723d9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_2263754aec9047509a8097e497a723d9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_2263754aec9047509a8097e497a723d9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_2263754aec9047509a8097e497a723d9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_2263754aec9047509a8097e497a723d9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_2599db494bde4a5d9cb6538c477cc201",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_2599db494bde4a5d9cb6538c477cc201",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_2599db494bde4a5d9cb6538c477cc201",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_2599db494bde4a5d9cb6538c477cc201",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_2599db494bde4a5d9cb6538c477cc201",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_26232581e3604115a4c9c6ee5bde54b9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_26232581e3604115a4c9c6ee5bde54b9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_26232581e3604115a4c9c6ee5bde54b9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_26232581e3604115a4c9c6ee5bde54b9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_26232581e3604115a4c9c6ee5bde54b9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_26be4f0a592243729b7f03d04db43d75",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_26be4f0a592243729b7f03d04db43d75",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_26be4f0a592243729b7f03d04db43d75",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_26be4f0a592243729b7f03d04db43d75",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_26be4f0a592243729b7f03d04db43d75",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_28d2a83397f24665aa27803e5ca1515f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_28d2a83397f24665aa27803e5ca1515f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_28d2a83397f24665aa27803e5ca1515f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_28d2a83397f24665aa27803e5ca1515f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_28d2a83397f24665aa27803e5ca1515f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_29ebf53d45084f188a51e7864901f48e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_29ebf53d45084f188a51e7864901f48e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_29ebf53d45084f188a51e7864901f48e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_29ebf53d45084f188a51e7864901f48e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_29ebf53d45084f188a51e7864901f48e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_2a15ed07362b431e88dcbee079cb13c0",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_2a15ed07362b431e88dcbee079cb13c0",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_2a15ed07362b431e88dcbee079cb13c0",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_2a15ed07362b431e88dcbee079cb13c0",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_2a15ed07362b431e88dcbee079cb13c0",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_2fdb9ced160e4ad7bf21b4a139b2fd1c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_2fdb9ced160e4ad7bf21b4a139b2fd1c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_2fdb9ced160e4ad7bf21b4a139b2fd1c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_2fdb9ced160e4ad7bf21b4a139b2fd1c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_2fdb9ced160e4ad7bf21b4a139b2fd1c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_31359dedc5ca4de6aa80a37fcd909094",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_31359dedc5ca4de6aa80a37fcd909094",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_31359dedc5ca4de6aa80a37fcd909094",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_31359dedc5ca4de6aa80a37fcd909094",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_31359dedc5ca4de6aa80a37fcd909094",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_317ab3559af54a29832a0c8d4424a127",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_317ab3559af54a29832a0c8d4424a127",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_317ab3559af54a29832a0c8d4424a127",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_317ab3559af54a29832a0c8d4424a127",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_317ab3559af54a29832a0c8d4424a127",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_35ed5a40d53a42b195deb3d518fe3748",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_35ed5a40d53a42b195deb3d518fe3748",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_35ed5a40d53a42b195deb3d518fe3748",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_35ed5a40d53a42b195deb3d518fe3748",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_35ed5a40d53a42b195deb3d518fe3748",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_37182c189f8c468abe986c9534d3474d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_37182c189f8c468abe986c9534d3474d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_37182c189f8c468abe986c9534d3474d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_37182c189f8c468abe986c9534d3474d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_37182c189f8c468abe986c9534d3474d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_396af00750f3471d82df808f618f9e1a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_396af00750f3471d82df808f618f9e1a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_396af00750f3471d82df808f618f9e1a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_396af00750f3471d82df808f618f9e1a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_396af00750f3471d82df808f618f9e1a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_3972638d34b34d3a93012a433755bf07",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_3972638d34b34d3a93012a433755bf07",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_3972638d34b34d3a93012a433755bf07",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_3972638d34b34d3a93012a433755bf07",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_3972638d34b34d3a93012a433755bf07",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_3b3232ec577a43f5a17c2045d6a02483",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_3b3232ec577a43f5a17c2045d6a02483",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_3b3232ec577a43f5a17c2045d6a02483",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_3b3232ec577a43f5a17c2045d6a02483",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_3b3232ec577a43f5a17c2045d6a02483",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_3b910e8fe9c74c6e876031f41d92c45c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_3b910e8fe9c74c6e876031f41d92c45c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_3b910e8fe9c74c6e876031f41d92c45c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_3b910e8fe9c74c6e876031f41d92c45c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_3b910e8fe9c74c6e876031f41d92c45c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_3cfbad36172044b986d38cd5662710ae",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_3cfbad36172044b986d38cd5662710ae",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_3cfbad36172044b986d38cd5662710ae",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_3cfbad36172044b986d38cd5662710ae",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_3cfbad36172044b986d38cd5662710ae",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_404968de3980411c80bdec3a667e819f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_404968de3980411c80bdec3a667e819f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_404968de3980411c80bdec3a667e819f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_404968de3980411c80bdec3a667e819f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_404968de3980411c80bdec3a667e819f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_40600c79f0cb43d3bef2cb5c8fed435d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_40600c79f0cb43d3bef2cb5c8fed435d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_40600c79f0cb43d3bef2cb5c8fed435d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_40600c79f0cb43d3bef2cb5c8fed435d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_40600c79f0cb43d3bef2cb5c8fed435d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_40a50a982fb34afe964c820756357d5a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_40a50a982fb34afe964c820756357d5a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_40a50a982fb34afe964c820756357d5a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_40a50a982fb34afe964c820756357d5a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_40a50a982fb34afe964c820756357d5a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_40ad42c7dba34353b79a4aeaa68e3318",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_40ad42c7dba34353b79a4aeaa68e3318",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_40ad42c7dba34353b79a4aeaa68e3318",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_40ad42c7dba34353b79a4aeaa68e3318",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_40ad42c7dba34353b79a4aeaa68e3318",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_42b3564ca7504f88b672d75acf4ad0db",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_42b3564ca7504f88b672d75acf4ad0db",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_42b3564ca7504f88b672d75acf4ad0db",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_42b3564ca7504f88b672d75acf4ad0db",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_42b3564ca7504f88b672d75acf4ad0db",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_44657815c4b644b3906ef313b0ec7b9b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_44657815c4b644b3906ef313b0ec7b9b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_44657815c4b644b3906ef313b0ec7b9b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_44657815c4b644b3906ef313b0ec7b9b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_44657815c4b644b3906ef313b0ec7b9b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_46f89fafaaf044eaa5d925826c79584b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_46f89fafaaf044eaa5d925826c79584b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_46f89fafaaf044eaa5d925826c79584b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_46f89fafaaf044eaa5d925826c79584b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_46f89fafaaf044eaa5d925826c79584b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_484b43a6113a415f97bf024723b3eb9f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_484b43a6113a415f97bf024723b3eb9f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_484b43a6113a415f97bf024723b3eb9f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_484b43a6113a415f97bf024723b3eb9f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_484b43a6113a415f97bf024723b3eb9f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_4d3fd12c81854e9893f8420f079a898c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_4d3fd12c81854e9893f8420f079a898c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_4d3fd12c81854e9893f8420f079a898c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_4d3fd12c81854e9893f8420f079a898c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_4d3fd12c81854e9893f8420f079a898c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_4ea37c0acc4d437eaea31c7fce7a9eb4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_4ea37c0acc4d437eaea31c7fce7a9eb4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_4ea37c0acc4d437eaea31c7fce7a9eb4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_4ea37c0acc4d437eaea31c7fce7a9eb4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_4ea37c0acc4d437eaea31c7fce7a9eb4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_50582881d70746478ff2de4da3dfe442",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_50582881d70746478ff2de4da3dfe442",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_50582881d70746478ff2de4da3dfe442",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_50582881d70746478ff2de4da3dfe442",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_50582881d70746478ff2de4da3dfe442",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_53d02e25dbcf4782b5b76900fe98ff5e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_53d02e25dbcf4782b5b76900fe98ff5e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_53d02e25dbcf4782b5b76900fe98ff5e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_53d02e25dbcf4782b5b76900fe98ff5e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_53d02e25dbcf4782b5b76900fe98ff5e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_55bbaaf5dc3b4cc78a91d7bda7d8b460",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_55bbaaf5dc3b4cc78a91d7bda7d8b460",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_55bbaaf5dc3b4cc78a91d7bda7d8b460",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_55bbaaf5dc3b4cc78a91d7bda7d8b460",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_55bbaaf5dc3b4cc78a91d7bda7d8b460",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_568f7dd7a5c0409595e985284d2561c6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_568f7dd7a5c0409595e985284d2561c6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_568f7dd7a5c0409595e985284d2561c6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_568f7dd7a5c0409595e985284d2561c6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_568f7dd7a5c0409595e985284d2561c6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_57efbe9c94a84b4abf11644d1a5a23a4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_57efbe9c94a84b4abf11644d1a5a23a4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_57efbe9c94a84b4abf11644d1a5a23a4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_57efbe9c94a84b4abf11644d1a5a23a4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_57efbe9c94a84b4abf11644d1a5a23a4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_591bfc71a0ed4306bdc3017aba657024",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_591bfc71a0ed4306bdc3017aba657024",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_591bfc71a0ed4306bdc3017aba657024",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_591bfc71a0ed4306bdc3017aba657024",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_591bfc71a0ed4306bdc3017aba657024",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_5996c686361846199b21f07b1c2f1708",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_5996c686361846199b21f07b1c2f1708",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_5996c686361846199b21f07b1c2f1708",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_5996c686361846199b21f07b1c2f1708",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_5996c686361846199b21f07b1c2f1708",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_5a496c6488fd4af3afdf9928b4c19b0e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_5a496c6488fd4af3afdf9928b4c19b0e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_5a496c6488fd4af3afdf9928b4c19b0e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_5a496c6488fd4af3afdf9928b4c19b0e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_5a496c6488fd4af3afdf9928b4c19b0e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_5a8f116cfb80448d8c7a47d791be8442",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_5a8f116cfb80448d8c7a47d791be8442",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_5a8f116cfb80448d8c7a47d791be8442",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_5a8f116cfb80448d8c7a47d791be8442",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_5a8f116cfb80448d8c7a47d791be8442",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_5d1a09843ad64b28acfd36615ff47c09",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_5d1a09843ad64b28acfd36615ff47c09",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_5d1a09843ad64b28acfd36615ff47c09",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_5d1a09843ad64b28acfd36615ff47c09",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_5d1a09843ad64b28acfd36615ff47c09",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_63e2a25506084e60b9c237b1ee54681c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_63e2a25506084e60b9c237b1ee54681c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_63e2a25506084e60b9c237b1ee54681c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_63e2a25506084e60b9c237b1ee54681c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_63e2a25506084e60b9c237b1ee54681c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_658d1f79282c40d6a10eda0cf2fe6113",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_658d1f79282c40d6a10eda0cf2fe6113",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_658d1f79282c40d6a10eda0cf2fe6113",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_658d1f79282c40d6a10eda0cf2fe6113",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_658d1f79282c40d6a10eda0cf2fe6113",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_65d4af2abf40439ebb34255708015ce4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_65d4af2abf40439ebb34255708015ce4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_65d4af2abf40439ebb34255708015ce4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_65d4af2abf40439ebb34255708015ce4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_65d4af2abf40439ebb34255708015ce4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_68cfc2ed600c449d9573ea961a464dad",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_68cfc2ed600c449d9573ea961a464dad",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_68cfc2ed600c449d9573ea961a464dad",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_68cfc2ed600c449d9573ea961a464dad",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_68cfc2ed600c449d9573ea961a464dad",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_6ae7ca62631d495789adc671adf12684",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_6ae7ca62631d495789adc671adf12684",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_6ae7ca62631d495789adc671adf12684",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_6ae7ca62631d495789adc671adf12684",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_6ae7ca62631d495789adc671adf12684",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_6d1c4c39eaf34da1a5ed14d18e158e9b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_6d1c4c39eaf34da1a5ed14d18e158e9b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_6d1c4c39eaf34da1a5ed14d18e158e9b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_6d1c4c39eaf34da1a5ed14d18e158e9b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_6d1c4c39eaf34da1a5ed14d18e158e9b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_6e3be8c1801f4da0a36fe872937f48d3",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_6e3be8c1801f4da0a36fe872937f48d3",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_6e3be8c1801f4da0a36fe872937f48d3",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_6e3be8c1801f4da0a36fe872937f48d3",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_6e3be8c1801f4da0a36fe872937f48d3",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_709e967a8bbb4cf2979fc3db9eb3cf3d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_709e967a8bbb4cf2979fc3db9eb3cf3d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_709e967a8bbb4cf2979fc3db9eb3cf3d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_709e967a8bbb4cf2979fc3db9eb3cf3d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_709e967a8bbb4cf2979fc3db9eb3cf3d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_715cc6f6531d4fe3a066ab47dc936ebb",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_715cc6f6531d4fe3a066ab47dc936ebb",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_715cc6f6531d4fe3a066ab47dc936ebb",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_715cc6f6531d4fe3a066ab47dc936ebb",
+      "passed": false,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_72db7340c0004f029402755f31568e24",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_72db7340c0004f029402755f31568e24",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_72db7340c0004f029402755f31568e24",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_72db7340c0004f029402755f31568e24",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_72db7340c0004f029402755f31568e24",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_7757e4397c3f489dbcadc2cb8a96397c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_7757e4397c3f489dbcadc2cb8a96397c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_7757e4397c3f489dbcadc2cb8a96397c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_7757e4397c3f489dbcadc2cb8a96397c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_7757e4397c3f489dbcadc2cb8a96397c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_787405f4a17c4309a1ce4fa5c341dd71",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_787405f4a17c4309a1ce4fa5c341dd71",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_787405f4a17c4309a1ce4fa5c341dd71",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_787405f4a17c4309a1ce4fa5c341dd71",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_787405f4a17c4309a1ce4fa5c341dd71",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_7a94873275df420c8e33b7f8bd92e60b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_7a94873275df420c8e33b7f8bd92e60b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_7a94873275df420c8e33b7f8bd92e60b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_7a94873275df420c8e33b7f8bd92e60b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_7a94873275df420c8e33b7f8bd92e60b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_7bbc63cd7c7d4e6cba558fcb92aca0ea",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_7bbc63cd7c7d4e6cba558fcb92aca0ea",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_7bbc63cd7c7d4e6cba558fcb92aca0ea",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_7bbc63cd7c7d4e6cba558fcb92aca0ea",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_7bbc63cd7c7d4e6cba558fcb92aca0ea",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_7c07185bb446450b81b44ee2d6dfd2e4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_7c07185bb446450b81b44ee2d6dfd2e4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_7c07185bb446450b81b44ee2d6dfd2e4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_7c07185bb446450b81b44ee2d6dfd2e4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_7c07185bb446450b81b44ee2d6dfd2e4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_81eb46518af9478b98d9dcf9eb93adda",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_81eb46518af9478b98d9dcf9eb93adda",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_81eb46518af9478b98d9dcf9eb93adda",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_81eb46518af9478b98d9dcf9eb93adda",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_81eb46518af9478b98d9dcf9eb93adda",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_831f5c26e3e446fab9b4aaa9cce6e81b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_831f5c26e3e446fab9b4aaa9cce6e81b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_831f5c26e3e446fab9b4aaa9cce6e81b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_831f5c26e3e446fab9b4aaa9cce6e81b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_831f5c26e3e446fab9b4aaa9cce6e81b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_8697c5336a634edea38a2578f64c601b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_8697c5336a634edea38a2578f64c601b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_8697c5336a634edea38a2578f64c601b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_8697c5336a634edea38a2578f64c601b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_8697c5336a634edea38a2578f64c601b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_873ad318e4c64552a936cc59684ddd6d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_873ad318e4c64552a936cc59684ddd6d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_873ad318e4c64552a936cc59684ddd6d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_873ad318e4c64552a936cc59684ddd6d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_873ad318e4c64552a936cc59684ddd6d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_87e35eb321ad45cd9c994aee3f94bb07",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_87e35eb321ad45cd9c994aee3f94bb07",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_87e35eb321ad45cd9c994aee3f94bb07",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_87e35eb321ad45cd9c994aee3f94bb07",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_87e35eb321ad45cd9c994aee3f94bb07",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_8a61adb57eca459fb860835d081dc04d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_8a61adb57eca459fb860835d081dc04d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_8a61adb57eca459fb860835d081dc04d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_8a61adb57eca459fb860835d081dc04d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_8a61adb57eca459fb860835d081dc04d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_8ad011edfe8a486980cc356dd7962515",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_8ad011edfe8a486980cc356dd7962515",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_8ad011edfe8a486980cc356dd7962515",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_8ad011edfe8a486980cc356dd7962515",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_8ad011edfe8a486980cc356dd7962515",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_8d3b3457f9e746dc877ce5c5d2c1c6d4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_8d3b3457f9e746dc877ce5c5d2c1c6d4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_8d3b3457f9e746dc877ce5c5d2c1c6d4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_8d3b3457f9e746dc877ce5c5d2c1c6d4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_8d3b3457f9e746dc877ce5c5d2c1c6d4",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_8d57f530a13847f39a129599bbecc9d0",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_8d57f530a13847f39a129599bbecc9d0",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_8d57f530a13847f39a129599bbecc9d0",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_8d57f530a13847f39a129599bbecc9d0",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_8d57f530a13847f39a129599bbecc9d0",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_9013bc22b30440a39e6274b653f48bf5",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_9013bc22b30440a39e6274b653f48bf5",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_9013bc22b30440a39e6274b653f48bf5",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_9013bc22b30440a39e6274b653f48bf5",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_9013bc22b30440a39e6274b653f48bf5",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_91074d846c844ce5a4542dd574ac9de8",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_91074d846c844ce5a4542dd574ac9de8",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_91074d846c844ce5a4542dd574ac9de8",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_91074d846c844ce5a4542dd574ac9de8",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_91074d846c844ce5a4542dd574ac9de8",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_91090fc2a2904a27ad9ce2e9e1305de7",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_91090fc2a2904a27ad9ce2e9e1305de7",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_91090fc2a2904a27ad9ce2e9e1305de7",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_91090fc2a2904a27ad9ce2e9e1305de7",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_91090fc2a2904a27ad9ce2e9e1305de7",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_93f4e19a134a48be922a208e41f7da7d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_93f4e19a134a48be922a208e41f7da7d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_93f4e19a134a48be922a208e41f7da7d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_93f4e19a134a48be922a208e41f7da7d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_93f4e19a134a48be922a208e41f7da7d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_94edd8d394834534902fbf0afffb4021",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_94edd8d394834534902fbf0afffb4021",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_94edd8d394834534902fbf0afffb4021",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_94edd8d394834534902fbf0afffb4021",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_94edd8d394834534902fbf0afffb4021",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_9e96d02024374a229d09c34ce2c673bd",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_9e96d02024374a229d09c34ce2c673bd",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_9e96d02024374a229d09c34ce2c673bd",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_9e96d02024374a229d09c34ce2c673bd",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_9e96d02024374a229d09c34ce2c673bd",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_9ef1cb9e43654ddb9484657381063c86",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_9ef1cb9e43654ddb9484657381063c86",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_9ef1cb9e43654ddb9484657381063c86",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_9ef1cb9e43654ddb9484657381063c86",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_9ef1cb9e43654ddb9484657381063c86",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_9f98eafdc66e41c498428e4a7911fc19",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_9f98eafdc66e41c498428e4a7911fc19",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_9f98eafdc66e41c498428e4a7911fc19",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_9f98eafdc66e41c498428e4a7911fc19",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_9f98eafdc66e41c498428e4a7911fc19",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_a2638938065c4ef49e1edecfcd1602bd",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_a2638938065c4ef49e1edecfcd1602bd",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_a2638938065c4ef49e1edecfcd1602bd",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_a2638938065c4ef49e1edecfcd1602bd",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_a2638938065c4ef49e1edecfcd1602bd",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_a42019385e2945d8833c96ae73b914d6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_a42019385e2945d8833c96ae73b914d6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_a42019385e2945d8833c96ae73b914d6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_a42019385e2945d8833c96ae73b914d6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_a42019385e2945d8833c96ae73b914d6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_a479496f28f8497e898a8b443386d9ed",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_a479496f28f8497e898a8b443386d9ed",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_a479496f28f8497e898a8b443386d9ed",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_a479496f28f8497e898a8b443386d9ed",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_a479496f28f8497e898a8b443386d9ed",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_a54a899be6bf46af951f0c9fd9e892cd",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_a54a899be6bf46af951f0c9fd9e892cd",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_a54a899be6bf46af951f0c9fd9e892cd",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_a54a899be6bf46af951f0c9fd9e892cd",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_a54a899be6bf46af951f0c9fd9e892cd",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_a8a918b7dec6491a9212464fc75eca26",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_a8a918b7dec6491a9212464fc75eca26",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_a8a918b7dec6491a9212464fc75eca26",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_a8a918b7dec6491a9212464fc75eca26",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_a8a918b7dec6491a9212464fc75eca26",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_aa1aad0bf2db4e8793e6a09bd90d7392",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_aa1aad0bf2db4e8793e6a09bd90d7392",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_aa1aad0bf2db4e8793e6a09bd90d7392",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_aa1aad0bf2db4e8793e6a09bd90d7392",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_aa1aad0bf2db4e8793e6a09bd90d7392",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_ae3453d89a634283b139a40e0d94958c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_ae3453d89a634283b139a40e0d94958c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_ae3453d89a634283b139a40e0d94958c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_ae3453d89a634283b139a40e0d94958c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_ae3453d89a634283b139a40e0d94958c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_b00c045cac2144708b41e45fc371c5a9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_b00c045cac2144708b41e45fc371c5a9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_b00c045cac2144708b41e45fc371c5a9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_b00c045cac2144708b41e45fc371c5a9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_b00c045cac2144708b41e45fc371c5a9",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_b365fff436564f7485c62d94fb15247e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_b365fff436564f7485c62d94fb15247e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_b365fff436564f7485c62d94fb15247e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_b365fff436564f7485c62d94fb15247e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_b365fff436564f7485c62d94fb15247e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_b3bf2a2488ea4509b7dcdff5fbc0153f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_b3bf2a2488ea4509b7dcdff5fbc0153f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_b3bf2a2488ea4509b7dcdff5fbc0153f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_b3bf2a2488ea4509b7dcdff5fbc0153f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_b3bf2a2488ea4509b7dcdff5fbc0153f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_b4e38b3b011d4762977b1cc5541b1699",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_b4e38b3b011d4762977b1cc5541b1699",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_b4e38b3b011d4762977b1cc5541b1699",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_b4e38b3b011d4762977b1cc5541b1699",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_b4e38b3b011d4762977b1cc5541b1699",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_b5b14bc69eda463fb377f77802c882cc",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_b5b14bc69eda463fb377f77802c882cc",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_b5b14bc69eda463fb377f77802c882cc",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_b5b14bc69eda463fb377f77802c882cc",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_b5b14bc69eda463fb377f77802c882cc",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_b7d4142b2641432681dbabacf4127f0e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_b7d4142b2641432681dbabacf4127f0e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_b7d4142b2641432681dbabacf4127f0e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_b7d4142b2641432681dbabacf4127f0e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_b7d4142b2641432681dbabacf4127f0e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_b8e3676a4dde4ffcaf548d6413e960a2",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_b8e3676a4dde4ffcaf548d6413e960a2",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_b8e3676a4dde4ffcaf548d6413e960a2",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_b8e3676a4dde4ffcaf548d6413e960a2",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_b8e3676a4dde4ffcaf548d6413e960a2",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_bc3c54d5932747e492cf8166c9f0a5b6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_bc3c54d5932747e492cf8166c9f0a5b6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_bc3c54d5932747e492cf8166c9f0a5b6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_bc3c54d5932747e492cf8166c9f0a5b6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_bc3c54d5932747e492cf8166c9f0a5b6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_bca55aee6c7c4b7083e922f569875e3f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_bca55aee6c7c4b7083e922f569875e3f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_bca55aee6c7c4b7083e922f569875e3f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_bca55aee6c7c4b7083e922f569875e3f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_bca55aee6c7c4b7083e922f569875e3f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_bf05a65fe80142889561c545e2d8e7c7",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_bf05a65fe80142889561c545e2d8e7c7",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_bf05a65fe80142889561c545e2d8e7c7",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_bf05a65fe80142889561c545e2d8e7c7",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_bf05a65fe80142889561c545e2d8e7c7",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_c06a3109e7b440a8b81109b9f841246f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_c06a3109e7b440a8b81109b9f841246f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_c06a3109e7b440a8b81109b9f841246f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_c06a3109e7b440a8b81109b9f841246f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_c06a3109e7b440a8b81109b9f841246f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_c33477e02b46469bb1e83717dcdd90e3",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_c33477e02b46469bb1e83717dcdd90e3",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_c33477e02b46469bb1e83717dcdd90e3",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_c33477e02b46469bb1e83717dcdd90e3",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_c33477e02b46469bb1e83717dcdd90e3",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_c4244a1eadb84bb8ac633af07b19b357",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_c4244a1eadb84bb8ac633af07b19b357",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_c4244a1eadb84bb8ac633af07b19b357",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_c4244a1eadb84bb8ac633af07b19b357",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_c4244a1eadb84bb8ac633af07b19b357",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_c5871cb53a9b4bebb231221e0740802a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_c5871cb53a9b4bebb231221e0740802a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_c5871cb53a9b4bebb231221e0740802a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_c5871cb53a9b4bebb231221e0740802a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_c5871cb53a9b4bebb231221e0740802a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_c59fe30bff1a4390831d9d711b476369",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_c59fe30bff1a4390831d9d711b476369",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_c59fe30bff1a4390831d9d711b476369",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_c59fe30bff1a4390831d9d711b476369",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_c59fe30bff1a4390831d9d711b476369",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_c6212d2f052c4f589ba70c3e5f0b2f48",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_c6212d2f052c4f589ba70c3e5f0b2f48",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_c6212d2f052c4f589ba70c3e5f0b2f48",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_c6212d2f052c4f589ba70c3e5f0b2f48",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_c6212d2f052c4f589ba70c3e5f0b2f48",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_c6b62c849939449899661b3bd07bc548",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_c6b62c849939449899661b3bd07bc548",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_c6b62c849939449899661b3bd07bc548",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_c6b62c849939449899661b3bd07bc548",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_c6b62c849939449899661b3bd07bc548",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_c7471c0d803640c7a919a361435848cf",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_c7471c0d803640c7a919a361435848cf",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_c7471c0d803640c7a919a361435848cf",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_c7471c0d803640c7a919a361435848cf",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_c7471c0d803640c7a919a361435848cf",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_c784f328ab494e22b691870f19dd9e2c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_c784f328ab494e22b691870f19dd9e2c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_c784f328ab494e22b691870f19dd9e2c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_c784f328ab494e22b691870f19dd9e2c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_c784f328ab494e22b691870f19dd9e2c",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_c991c6f571864865abae775dbf67c64e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_c991c6f571864865abae775dbf67c64e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_c991c6f571864865abae775dbf67c64e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_c991c6f571864865abae775dbf67c64e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_c991c6f571864865abae775dbf67c64e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_cc6d52b5b82d45aabdc949db09e2e064",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_cc6d52b5b82d45aabdc949db09e2e064",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_cc6d52b5b82d45aabdc949db09e2e064",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_cc6d52b5b82d45aabdc949db09e2e064",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_cc6d52b5b82d45aabdc949db09e2e064",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_cea9fceef5dd44d6a35ba915a987c60d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_cea9fceef5dd44d6a35ba915a987c60d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_cea9fceef5dd44d6a35ba915a987c60d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_cea9fceef5dd44d6a35ba915a987c60d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_cea9fceef5dd44d6a35ba915a987c60d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_d2563cfce6e842f396714208ea44ed8b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_d2563cfce6e842f396714208ea44ed8b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_d2563cfce6e842f396714208ea44ed8b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_d2563cfce6e842f396714208ea44ed8b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_d2563cfce6e842f396714208ea44ed8b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_d75a1a9e1b7e45b68f3fd42baff7da0a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_d75a1a9e1b7e45b68f3fd42baff7da0a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_d75a1a9e1b7e45b68f3fd42baff7da0a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_d75a1a9e1b7e45b68f3fd42baff7da0a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_d75a1a9e1b7e45b68f3fd42baff7da0a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_d84de611760a4c07ad1fcfc3513e1cd1",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_d84de611760a4c07ad1fcfc3513e1cd1",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_d84de611760a4c07ad1fcfc3513e1cd1",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_d84de611760a4c07ad1fcfc3513e1cd1",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_d84de611760a4c07ad1fcfc3513e1cd1",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_da0152ca19d64c879d080d31bf5e79d1",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_da0152ca19d64c879d080d31bf5e79d1",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_da0152ca19d64c879d080d31bf5e79d1",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_da0152ca19d64c879d080d31bf5e79d1",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_da0152ca19d64c879d080d31bf5e79d1",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_db4575dc3a79443d86496e2d3e40218b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_db4575dc3a79443d86496e2d3e40218b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_db4575dc3a79443d86496e2d3e40218b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_db4575dc3a79443d86496e2d3e40218b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_db4575dc3a79443d86496e2d3e40218b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_db627b353ae648f7baedbd6830e540ec",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_db627b353ae648f7baedbd6830e540ec",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_db627b353ae648f7baedbd6830e540ec",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_db627b353ae648f7baedbd6830e540ec",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_db627b353ae648f7baedbd6830e540ec",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_de5dd95622a644439d94a08eb1cea70d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_de5dd95622a644439d94a08eb1cea70d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_de5dd95622a644439d94a08eb1cea70d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_de5dd95622a644439d94a08eb1cea70d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_de5dd95622a644439d94a08eb1cea70d",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_df7a0aa527ca42269e44d2d8fa61ad79",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_df7a0aa527ca42269e44d2d8fa61ad79",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_df7a0aa527ca42269e44d2d8fa61ad79",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_df7a0aa527ca42269e44d2d8fa61ad79",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_df7a0aa527ca42269e44d2d8fa61ad79",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_e1e2f7f9769147ebb3eee3af33c77357",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_e1e2f7f9769147ebb3eee3af33c77357",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_e1e2f7f9769147ebb3eee3af33c77357",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_e1e2f7f9769147ebb3eee3af33c77357",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_e1e2f7f9769147ebb3eee3af33c77357",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_e2a549d191924f89a311134284a761f0",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_e2a549d191924f89a311134284a761f0",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_e2a549d191924f89a311134284a761f0",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_e2a549d191924f89a311134284a761f0",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_e2a549d191924f89a311134284a761f0",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_e4f29f11b0a54cb9ae1707f9b781787e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_e4f29f11b0a54cb9ae1707f9b781787e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_e4f29f11b0a54cb9ae1707f9b781787e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_e4f29f11b0a54cb9ae1707f9b781787e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_e4f29f11b0a54cb9ae1707f9b781787e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_e55e6580342f4d95ba11f3f8b4d162c6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_e55e6580342f4d95ba11f3f8b4d162c6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_e55e6580342f4d95ba11f3f8b4d162c6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_e55e6580342f4d95ba11f3f8b4d162c6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_e55e6580342f4d95ba11f3f8b4d162c6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_e5e0b0f1dfb34e2bbd34aa22d30c36d2",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_e5e0b0f1dfb34e2bbd34aa22d30c36d2",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_e5e0b0f1dfb34e2bbd34aa22d30c36d2",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_e5e0b0f1dfb34e2bbd34aa22d30c36d2",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_e5e0b0f1dfb34e2bbd34aa22d30c36d2",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_e9815e045e7b4447bec86d99a4cd90e3",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_e9815e045e7b4447bec86d99a4cd90e3",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_e9815e045e7b4447bec86d99a4cd90e3",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_e9815e045e7b4447bec86d99a4cd90e3",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_e9815e045e7b4447bec86d99a4cd90e3",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_eb6705ca0dd24978a758464efc16b4b6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_eb6705ca0dd24978a758464efc16b4b6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_eb6705ca0dd24978a758464efc16b4b6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_eb6705ca0dd24978a758464efc16b4b6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_eb6705ca0dd24978a758464efc16b4b6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_ec0286fb84b8460f8dc4e9019e6e4024",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_ec0286fb84b8460f8dc4e9019e6e4024",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_ec0286fb84b8460f8dc4e9019e6e4024",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_ec0286fb84b8460f8dc4e9019e6e4024",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_ec0286fb84b8460f8dc4e9019e6e4024",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_ed2389ed6e5442a9a260c5e13a21ec7f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_ed2389ed6e5442a9a260c5e13a21ec7f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_ed2389ed6e5442a9a260c5e13a21ec7f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_ed2389ed6e5442a9a260c5e13a21ec7f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_ed2389ed6e5442a9a260c5e13a21ec7f",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_f20f98fd55794291b86d906b44c1222e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_f20f98fd55794291b86d906b44c1222e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_f20f98fd55794291b86d906b44c1222e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_f20f98fd55794291b86d906b44c1222e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_f20f98fd55794291b86d906b44c1222e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_f4b0b33592e24443ab6bc9f34c1273f8",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_f4b0b33592e24443ab6bc9f34c1273f8",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_f4b0b33592e24443ab6bc9f34c1273f8",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_f4b0b33592e24443ab6bc9f34c1273f8",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_f4b0b33592e24443ab6bc9f34c1273f8",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_f737d33932a2411e836d53e5c57edf0e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_f737d33932a2411e836d53e5c57edf0e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_f737d33932a2411e836d53e5c57edf0e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_f737d33932a2411e836d53e5c57edf0e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_f737d33932a2411e836d53e5c57edf0e",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_f97d162b51f74fa0b50d7a7bda97a36a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_f97d162b51f74fa0b50d7a7bda97a36a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_f97d162b51f74fa0b50d7a7bda97a36a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_f97d162b51f74fa0b50d7a7bda97a36a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_f97d162b51f74fa0b50d7a7bda97a36a",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_fd41474b379f4e1ebd1a4fa12d510d4b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_fd41474b379f4e1ebd1a4fa12d510d4b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_fd41474b379f4e1ebd1a4fa12d510d4b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_fd41474b379f4e1ebd1a4fa12d510d4b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_fd41474b379f4e1ebd1a4fa12d510d4b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_fe01cd91f7c849069f37ad09a6ee8095",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_fe01cd91f7c849069f37ad09a6ee8095",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_fe01cd91f7c849069f37ad09a6ee8095",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_fe01cd91f7c849069f37ad09a6ee8095",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_fe01cd91f7c849069f37ad09a6ee8095",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "required_operation_chat.user.persistence",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "required_operation_model.call",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "required_operation_sources.parse",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "required_operation_advanced.poll.response",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "required_operation_agent.router.native.document_identity.input",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "required_operation_agent.source_backed_pipeline.document_identity.transported",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "required_terminal_success",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "required_terminal_failed",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "required_terminal_cancelled",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "support_collection_manifest_present",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "support_common_history_present",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "support_secure_store_excluded",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "support_collector_health",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "support_uses_metadata_only_mode",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "fixture_correlated_requests_match_client_turns",
+      "passed": true,
+      "details": 0
+    },
+    {
+      "name": "fixture_minimum_correlated_requests_observed",
+      "passed": true,
+      "details": 1
+    }
+  ],
+  "turns": [
+    {
+      "turnId": "0682827688874fb4997cc0cca21ea25e",
+      "traceId": "d19d8a30001c3c2a17accadb97864e4c",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "06fe8c2f58584121b23aec0f220c05ca",
+      "traceId": "281081253eaea2f71d60dcc731454f54",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "0aeb2c62240041678d34ab190c36c83e",
+      "traceId": "6da5a79647708e9ce8f59f08263a512b",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "0fb118512b574086928699ad15a05219",
+      "traceId": "26682c85f2bc380855185eca72868fd8",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "10a8102a14db4027992108aa165118fc",
+      "traceId": "9b8e164c9183986f56aef39f7206e3c0",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "124f4b57dee148d9a09058c2be8af6f1",
+      "traceId": "121ea8b615f3026c5197cc272b1b180e",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "133e32180b644f3e978d7cdf47a812fc",
+      "traceId": "058c77b68a4acde2e56a2f26829f216e",
+      "sessionId": null,
+      "eventCount": 5,
+      "terminalOutcome": "success",
+      "terminalReason": "launch_accepted_page_unverified",
+      "operations": [
+        "turn.begin",
+        "source.resolve",
+        "source.launch",
+        "source.open",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "145c98e098a04cf6b093f037bdb41765",
+      "traceId": "d7683ef0fa261a88eccf67c03e87b7cd",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "1526b7f1c12b46a0b755c4d1fd2d97d9",
+      "traceId": "96bdf6a4b13b2af90086e9b454dc59ca",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "15412ba18f694a828b645862b53afb2a",
+      "traceId": "0ef2f6121abedf983d85c543e7514ab1",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "165dc4fa1a0a4f6095bbe8fc81af4d96",
+      "traceId": "a8ab7e7c11c5728b7b549dcd0b72fc6d",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "16b1d8bf49e945a9b740f8cf77a5e036",
+      "traceId": "189509cc48a1b0018798b3f7d8744c2a",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "1d2d49ef84414bc2ab616b230539ff1e",
+      "traceId": "98d0910731a9c5a6b0f09817cbf59967",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "1ddf85a8cdf04ba2a0aab6052598da9e",
+      "traceId": "5f0985d872d896750edaaebf111308a9",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "1ea2e6a87faa4e1bac70a9883e672700",
+      "traceId": "101e427a805589d3c582ea07969e971b",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "1edad2ed97c148f0b6f8c0b69f5136a4",
+      "traceId": "11a1753700518281e69d994469d93ffc",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "1f505c5a52b1411292799edae99040a9",
+      "traceId": "b2ea4f2ede0adf4cb1ff639a1fff4b3a",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "2078c19f47dd4a99b20b4ab1c1810727",
+      "traceId": "2c0666df371d8837c2c04fd34cefe293",
+      "sessionId": "f23536a9-2296-4a1c-96b4-0b4c02a79e4b",
+      "eventCount": 3,
+      "terminalOutcome": "failed",
+      "terminalReason": "user_message_persistence_unconfirmed",
+      "operations": [
+        "turn.begin",
+        "chat.user.persistence",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "2263754aec9047509a8097e497a723d9",
+      "traceId": "ae6fccb25759a4d3a6050430537fcc7e",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "2599db494bde4a5d9cb6538c477cc201",
+      "traceId": "e114976435a2e2ed6a3f5e3ca477c2c4",
+      "sessionId": null,
+      "eventCount": 5,
+      "terminalOutcome": "success",
+      "terminalReason": "launch_accepted_page_unverified",
+      "operations": [
+        "turn.begin",
+        "source.resolve",
+        "source.launch",
+        "source.open",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "26232581e3604115a4c9c6ee5bde54b9",
+      "traceId": "7d53e704ab5746b63e9e864a88c9acc8",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "26be4f0a592243729b7f03d04db43d75",
+      "traceId": "bd8e7a56a3ffe75c8d3c68f2286f4740",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "28d2a83397f24665aa27803e5ca1515f",
+      "traceId": "4dbc0b4a7d985346626ac3f73fb673b8",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "29ebf53d45084f188a51e7864901f48e",
+      "traceId": "c57844293caa015ea7aab31f3f9d4390",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "2a15ed07362b431e88dcbee079cb13c0",
+      "traceId": "42837044e01216a1f927c88f648c8b04",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "2fdb9ced160e4ad7bf21b4a139b2fd1c",
+      "traceId": "729e2eeecb50394bc0ff045fc9420d90",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "31359dedc5ca4de6aa80a37fcd909094",
+      "traceId": "3ca1c18a82dbf12e5a8c3b0b6346b22b",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "317ab3559af54a29832a0c8d4424a127",
+      "traceId": "949ad3c5d1e502780ea01b335dad0f19",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "35ed5a40d53a42b195deb3d518fe3748",
+      "traceId": "2854764f71483ff68f718f9966b9e615",
+      "sessionId": null,
+      "eventCount": 4,
+      "terminalOutcome": "failed",
+      "terminalReason": "resolution_or_launch_failed",
+      "operations": [
+        "turn.begin",
+        "source.resolve",
+        "source.open",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "37182c189f8c468abe986c9534d3474d",
+      "traceId": "92921033e951f0088a952b34308a4d61",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "396af00750f3471d82df808f618f9e1a",
+      "traceId": "1aa4b5862529bb4308a69f2a560bfd7a",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "3972638d34b34d3a93012a433755bf07",
+      "traceId": "956dd6f39355360c843c4060f1fc398a",
+      "sessionId": null,
+      "eventCount": 2,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "3b3232ec577a43f5a17c2045d6a02483",
+      "traceId": "dceddf672a45f8719be58e058d5ccab4",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "3b910e8fe9c74c6e876031f41d92c45c",
+      "traceId": "949835541d23ce2cbbb52e96b266a6d5",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "3cfbad36172044b986d38cd5662710ae",
+      "traceId": "20cc9d70d7301cb06b8c01c7c6d9701c",
+      "sessionId": "d7683d16-3a3e-4360-b9ce-9db55ea2b5cb",
+      "eventCount": 8,
+      "terminalOutcome": "cancelled",
+      "terminalReason": "user_cancelled",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "agent.turn.begin",
+        "agent.router.catalog_context.start",
+        "agent.router.catalog_context.end",
+        "agent.router.start",
+        "model.call",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "404968de3980411c80bdec3a667e819f",
+      "traceId": "399933626347c482619c151e3d9eecb9",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "40600c79f0cb43d3bef2cb5c8fed435d",
+      "traceId": "6b07ff449caa46b409149ef75ae2378d",
+      "sessionId": null,
+      "eventCount": 5,
+      "terminalOutcome": "success",
+      "terminalReason": "launch_accepted_page_unverified",
+      "operations": [
+        "turn.begin",
+        "source.resolve",
+        "source.launch",
+        "source.open",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "40a50a982fb34afe964c820756357d5a",
+      "traceId": "e1d5ed4b322d6f4bd5dc8aea1ae9f978",
+      "sessionId": "8d6d3555-1c24-4750-91d1-ec4801ed13bc",
+      "eventCount": 45,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "agent.turn.begin",
+        "agent.router.catalog_context.start",
+        "agent.router.catalog_context.end",
+        "agent.router.start",
+        "model.call",
+        "agent.router.native.classifier.completed",
+        "agent.router.native.start",
+        "agent.router.native.accepted",
+        "agent.router.end",
+        "agent.capability_boundary.decision",
+        "agent.documentary_defaults.skipped",
+        "agent.router.legacy_structured_repair.skipped",
+        "agent.tools.stage.start",
+        "agent.tools.stage.end",
+        "agent.source_backed_pipeline.canonical_retrieval.owner_confirmed",
+        "agent.writer.stage.start",
+        "agent.answer.stage.start",
+        "agent.writer.context",
+        "agent.writer.guard.coverage.start",
+        "agent.writer.guard.coverage.selection",
+        "agent.writer.evidence_inventory.selection",
+        "agent.writer.guard.insufficient_check.start",
+        "agent.writer.guard.insufficient_check.end",
+        "agent.writer.selected",
+        "agent.writer.candidate_adjudication.skipped",
+        "agent.writer.evidence_inventory.roster",
+        "agent.writer.llm.start",
+        "agent.writer.llm.end",
+        "agent.writer.post.start",
+        "agent.writer.post.language_check.start",
+        "agent.writer.language_check.skipped",
+        "agent.writer.post.language_check.end",
+        "agent.writer.absolute_finalizer.skipped",
+        "agent.writer.post.end",
+        "agent.writer.stage.end",
+        "agent.answer.stage.end",
+        "agent.turn.final",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "40ad42c7dba34353b79a4aeaa68e3318",
+      "traceId": "8d25ea8363f915c74e3e54e80129a5f3",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "42b3564ca7504f88b672d75acf4ad0db",
+      "traceId": "5c9b64a8711e9e7856b91e8ea5978ecb",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "44657815c4b644b3906ef313b0ec7b9b",
+      "traceId": "a1e372c69cb4031b652c5cb19a9e171a",
+      "sessionId": "2dccd468-b196-4533-8de7-809868c208fa",
+      "eventCount": 104,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "advanced.poll.attempt",
+        "advanced.poll.response",
+        "advanced.result.validation",
+        "advanced.poll.complete",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "46f89fafaaf044eaa5d925826c79584b",
+      "traceId": "49ead9371115dbb3a5ba987291acc733",
+      "sessionId": "d75f4812-8065-4683-a33a-16941fae93ab",
+      "eventCount": 49,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "chat.user.persistence",
+        "sources.parse",
+        "agent.turn.begin",
+        "agent.router.catalog_context.start",
+        "agent.router.catalog_context.end",
+        "agent.router.start",
+        "model.call",
+        "agent.router.native.classifier.completed",
+        "agent.router.instance_context.completed",
+        "agent.router.native.start",
+        "agent.router.native.accepted",
+        "agent.router.end",
+        "agent.capability_boundary.decision",
+        "agent.router.llm_source_backed_decision.preserved",
+        "agent.source_backed_pipeline.active.start",
+        "agent.source_backed_catalog_context.ready",
+        "agent.source_backed_agent_v2.active",
+        "agent.lifecycle.initializing",
+        "agent.source_backed_agent_v2.step",
+        "agent.lifecycle.running",
+        "agent.iteration.prepare",
+        "agent.iteration.acquire_completion",
+        "agent.iteration.submissions_and_tools",
+        "agent.collector_health",
+        "agent.lifecycle.finalizing",
+        "agent.lifecycle.completed",
+        "agent.source_backed_pipeline.step",
+        "agent.source_backed_pipeline.active.skipped",
+        "agent.source_backed_pipeline.active.terminal",
+        "agent.turn.final",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "484b43a6113a415f97bf024723b3eb9f",
+      "traceId": "47d1cf98922e45cddd5ad054ea508d2b",
+      "sessionId": null,
+      "eventCount": 2,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "4d3fd12c81854e9893f8420f079a898c",
+      "traceId": "0ff73e35ab30b0539dc5ae15f158e721",
+      "sessionId": "d75f4812-8065-4683-a33a-16941fae93ab",
+      "eventCount": 3,
+      "terminalOutcome": "failed",
+      "terminalReason": "user_message_persistence_unconfirmed",
+      "operations": [
+        "turn.begin",
+        "chat.user.persistence",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "4ea37c0acc4d437eaea31c7fce7a9eb4",
+      "traceId": "c2af85f2a6e88fc4fb433e32436e1747",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "50582881d70746478ff2de4da3dfe442",
+      "traceId": "1db2e86d56c5e7efb4663c852f6f3238",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "53d02e25dbcf4782b5b76900fe98ff5e",
+      "traceId": "1cb86c691dbe9ad81ee7059d2a4beb2d",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "55bbaaf5dc3b4cc78a91d7bda7d8b460",
+      "traceId": "da1258f2e519a744717c7bdec11d20a2",
+      "sessionId": "8d6d3555-1c24-4750-91d1-ec4801ed13bc",
+      "eventCount": 3,
+      "terminalOutcome": "failed",
+      "terminalReason": "user_message_persistence_unconfirmed",
+      "operations": [
+        "turn.begin",
+        "chat.user.persistence",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "568f7dd7a5c0409595e985284d2561c6",
+      "traceId": "fbac75c36a649c95d677894f92f08b54",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "57efbe9c94a84b4abf11644d1a5a23a4",
+      "traceId": "206d913bf2081ea5e165f34a07fef582",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "591bfc71a0ed4306bdc3017aba657024",
+      "traceId": "a0d7bebd6fc1c3b5384b7e84cda64cdd",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "5996c686361846199b21f07b1c2f1708",
+      "traceId": "9b71a9e8b8fbcd198b14a880f9258dfa",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "5a496c6488fd4af3afdf9928b4c19b0e",
+      "traceId": "9dc6d48efd355de4266a1b256a699a86",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "5a8f116cfb80448d8c7a47d791be8442",
+      "traceId": "45bf04bb0679807adaec044c1df2f15b",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "5d1a09843ad64b28acfd36615ff47c09",
+      "traceId": "eec8c6171de32ad22aef2d67d7ee56b6",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "63e2a25506084e60b9c237b1ee54681c",
+      "traceId": "568360db0f4ca002848527aaf8269141",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "658d1f79282c40d6a10eda0cf2fe6113",
+      "traceId": "39e2e48e546f976898d49d3d64bde783",
+      "sessionId": "8d6d3555-1c24-4750-91d1-ec4801ed13bc",
+      "eventCount": 46,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "chat.user.persistence",
+        "sources.parse",
+        "agent.turn.begin",
+        "agent.router.catalog_context.start",
+        "agent.router.catalog_context.end",
+        "agent.router.start",
+        "model.call",
+        "agent.router.native.classifier.completed",
+        "agent.router.native.start",
+        "agent.router.native.accepted",
+        "agent.router.end",
+        "agent.capability_boundary.decision",
+        "agent.documentary_defaults.skipped",
+        "agent.router.legacy_structured_repair.skipped",
+        "agent.tools.stage.start",
+        "agent.tools.stage.end",
+        "agent.source_backed_pipeline.canonical_retrieval.owner_confirmed",
+        "agent.writer.stage.start",
+        "agent.answer.stage.start",
+        "agent.writer.context",
+        "agent.writer.guard.coverage.start",
+        "agent.writer.guard.coverage.selection",
+        "agent.writer.evidence_inventory.selection",
+        "agent.writer.guard.insufficient_check.start",
+        "agent.writer.guard.insufficient_check.end",
+        "agent.writer.selected",
+        "agent.writer.candidate_adjudication.skipped",
+        "agent.writer.evidence_inventory.roster",
+        "agent.writer.llm.start",
+        "agent.writer.llm.end",
+        "agent.writer.post.start",
+        "agent.writer.post.language_check.start",
+        "agent.writer.language_check.skipped",
+        "agent.writer.post.language_check.end",
+        "agent.writer.absolute_finalizer.skipped",
+        "agent.writer.post.end",
+        "agent.writer.stage.end",
+        "agent.answer.stage.end",
+        "agent.turn.final",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "65d4af2abf40439ebb34255708015ce4",
+      "traceId": "2149099318949086f93a775163ca68c5",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "68cfc2ed600c449d9573ea961a464dad",
+      "traceId": "62f1125da0e4f04a24ef603ed8b5db2f",
+      "sessionId": "f23536a9-2296-4a1c-96b4-0b4c02a79e4b",
+      "eventCount": 30,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "chat.user.persistence",
+        "sources.parse",
+        "agent.turn.begin",
+        "agent.router.catalog_context.start",
+        "agent.router.catalog_context.end",
+        "agent.router.start",
+        "model.call",
+        "agent.router.native.classifier.completed",
+        "agent.router.instance_context.completed",
+        "agent.router.native.start",
+        "agent.router.native.accepted",
+        "agent.router.end",
+        "agent.capability_boundary.decision",
+        "agent.turn.branch",
+        "agent.turn.final",
+        "advanced.create.attempt",
+        "advanced.poll.attempt",
+        "advanced.poll.response",
+        "advanced.result.validation",
+        "advanced.poll.complete",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "6ae7ca62631d495789adc671adf12684",
+      "traceId": "b7014665587fb36c3abcf3b2325df234",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "6d1c4c39eaf34da1a5ed14d18e158e9b",
+      "traceId": "232881b7139fc9cb27b1f16295b00c00",
+      "sessionId": "8d6d3555-1c24-4750-91d1-ec4801ed13bc",
+      "eventCount": 2,
+      "terminalOutcome": "failed",
+      "terminalReason": "HttpRequestException",
+      "operations": [
+        "turn.begin",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "6e3be8c1801f4da0a36fe872937f48d3",
+      "traceId": "4a697a83b6f95ca28c1aba7f98d7ddde",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "709e967a8bbb4cf2979fc3db9eb3cf3d",
+      "traceId": "e76e6434bac4b96fb6a10c065ec02dd0",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "715cc6f6531d4fe3a066ab47dc936ebb",
+      "traceId": "15b7daa95ee3a877c232cafe4cbe9d59",
+      "sessionId": "2dccd468-b196-4533-8de7-809868c208fa",
+      "eventCount": 39,
+      "terminalOutcome": "in_flight",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "chat.user.persistence",
+        "sources.parse",
+        "agent.turn.begin",
+        "agent.router.catalog_context.start",
+        "agent.router.catalog_context.end",
+        "agent.router.start",
+        "model.call",
+        "agent.router.native.classifier.completed",
+        "agent.router.instance_context.completed",
+        "agent.router.native.start",
+        "agent.router.native.repair_requested",
+        "agent.router.native.rejected",
+        "agent.router.end",
+        "agent.capability_boundary.decision",
+        "agent.turn.branch",
+        "agent.turn.final",
+        "advanced.create.attempt",
+        "advanced.poll.attempt",
+        "advanced.poll.response"
+      ]
+    },
+    {
+      "turnId": "72db7340c0004f029402755f31568e24",
+      "traceId": "40c4f1f3f4e376ae61d12f9f344e8828",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "7757e4397c3f489dbcadc2cb8a96397c",
+      "traceId": "df9e9d74412045fac4422a22c8f4c9ff",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "787405f4a17c4309a1ce4fa5c341dd71",
+      "traceId": "5d6d0e62ef622956a48cf136df95f5e7",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "7a94873275df420c8e33b7f8bd92e60b",
+      "traceId": "e71a76185e5c8588f80e7c8fef2018a8",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "7bbc63cd7c7d4e6cba558fcb92aca0ea",
+      "traceId": "34f49217ea787ec02994968e9fbe836b",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "7c07185bb446450b81b44ee2d6dfd2e4",
+      "traceId": "ced6d464c1d3eb5a40ab65cfb6c3e0cf",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "81eb46518af9478b98d9dcf9eb93adda",
+      "traceId": "78b5f505a6249ff28eb407024f7072a9",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "831f5c26e3e446fab9b4aaa9cce6e81b",
+      "traceId": "59a510a7498f8289799f0b3644958adc",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "8697c5336a634edea38a2578f64c601b",
+      "traceId": "d7e4c0f91653ffa667bc576f9a732e67",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "873ad318e4c64552a936cc59684ddd6d",
+      "traceId": "8ccf9face4f3377d4380d4f303ffac45",
+      "sessionId": null,
+      "eventCount": 5,
+      "terminalOutcome": "success",
+      "terminalReason": "launch_accepted_page_unverified",
+      "operations": [
+        "turn.begin",
+        "source.resolve",
+        "source.launch",
+        "source.open",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "87e35eb321ad45cd9c994aee3f94bb07",
+      "traceId": "b3ea2660819892cf8d1a6607f294f070",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "8a61adb57eca459fb860835d081dc04d",
+      "traceId": "de194224be4736a5c6c105d70868a549",
+      "sessionId": "f0c2e4a3-485e-4384-aec5-5bb4dba2f116",
+      "eventCount": 108,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "chat.user.persistence",
+        "sources.parse",
+        "agent.turn.begin",
+        "agent.router.catalog_context.start",
+        "agent.router.catalog_context.end",
+        "agent.router.start",
+        "model.call",
+        "agent.router.native.classifier.completed",
+        "agent.router.instance_context.completed",
+        "agent.router.native.start",
+        "agent.router.native.document_identity.input",
+        "agent.router.native.accepted",
+        "agent.router.end",
+        "agent.capability_boundary.decision",
+        "agent.router.llm_source_backed_decision.preserved",
+        "agent.source_backed_pipeline.active.start",
+        "agent.source_backed_catalog_context.ready",
+        "agent.source_backed_pipeline.document_identity.transported",
+        "agent.source_backed_agent_v2.active",
+        "agent.lifecycle.initializing",
+        "agent.source_backed_agent_v2.step",
+        "agent.lifecycle.running",
+        "agent.iteration.prepare",
+        "agent.iteration.acquire_completion",
+        "agent.lifecycle.executingtools",
+        "agent.source_backed_native_tool.start",
+        "agent.rag.search.start",
+        "agent.rag.search.backend_metrics",
+        "agent.rag.search.end",
+        "agent.source_backed_native_tool.end",
+        "agent.iteration.submissions_and_tools",
+        "agent.tool_menu.selected",
+        "agent.iteration.verify_and_review",
+        "agent.collector_health",
+        "agent.lifecycle.finalizing",
+        "agent.lifecycle.completed",
+        "agent.source_backed_pipeline.step",
+        "agent.source_backed_memory.focused_document.updated",
+        "agent.source_backed_pipeline.active.accepted",
+        "agent.turn.final",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "8ad011edfe8a486980cc356dd7962515",
+      "traceId": "f77bd81b4f0057a84675613017363421",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "8d3b3457f9e746dc877ce5c5d2c1c6d4",
+      "traceId": "9f8256393cf84dd38eed275125d384a6",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "8d57f530a13847f39a129599bbecc9d0",
+      "traceId": "95f97b5dcecc8ed22699fe0675023b1e",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "9013bc22b30440a39e6274b653f48bf5",
+      "traceId": "0972e7fe80033e42e3ce9deb4d4aa7e4",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "91074d846c844ce5a4542dd574ac9de8",
+      "traceId": "509f134f63f7b7c22a60be2ab19789c2",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "91090fc2a2904a27ad9ce2e9e1305de7",
+      "traceId": "fd5636719c98d6bc235fd2368c737b02",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "93f4e19a134a48be922a208e41f7da7d",
+      "traceId": "acee7382576aa7ff2c6c872ad104512a",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "94edd8d394834534902fbf0afffb4021",
+      "traceId": "d27c05600bdc33ced1ab26456d5259d7",
+      "sessionId": "d7683d16-3a3e-4360-b9ce-9db55ea2b5cb",
+      "eventCount": 45,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "agent.turn.begin",
+        "agent.router.catalog_context.start",
+        "agent.router.catalog_context.end",
+        "agent.router.start",
+        "model.call",
+        "agent.router.native.classifier.completed",
+        "agent.router.native.start",
+        "agent.router.native.accepted",
+        "agent.router.end",
+        "agent.capability_boundary.decision",
+        "agent.documentary_defaults.skipped",
+        "agent.router.legacy_structured_repair.skipped",
+        "agent.tools.stage.start",
+        "agent.tools.stage.end",
+        "agent.source_backed_pipeline.canonical_retrieval.owner_confirmed",
+        "agent.writer.stage.start",
+        "agent.answer.stage.start",
+        "agent.writer.context",
+        "agent.writer.guard.coverage.start",
+        "agent.writer.guard.coverage.selection",
+        "agent.writer.evidence_inventory.selection",
+        "agent.writer.guard.insufficient_check.start",
+        "agent.writer.guard.insufficient_check.end",
+        "agent.writer.selected",
+        "agent.writer.candidate_adjudication.skipped",
+        "agent.writer.evidence_inventory.roster",
+        "agent.writer.llm.start",
+        "agent.writer.llm.end",
+        "agent.writer.post.start",
+        "agent.writer.post.language_check.start",
+        "agent.writer.language_check.skipped",
+        "agent.writer.post.language_check.end",
+        "agent.writer.absolute_finalizer.skipped",
+        "agent.writer.post.end",
+        "agent.writer.stage.end",
+        "agent.answer.stage.end",
+        "agent.turn.final",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "9e96d02024374a229d09c34ce2c673bd",
+      "traceId": "be161f47180d517f72ead28c095faa2c",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "9ef1cb9e43654ddb9484657381063c86",
+      "traceId": "1dff3e428c17f2ee87cf6ec6208ebf9f",
+      "sessionId": null,
+      "eventCount": 4,
+      "terminalOutcome": "failed",
+      "terminalReason": "resolution_or_launch_failed",
+      "operations": [
+        "turn.begin",
+        "source.resolve",
+        "source.open",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "9f98eafdc66e41c498428e4a7911fc19",
+      "traceId": "07a4f71675884139cc69715275cf1b8a",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "a2638938065c4ef49e1edecfcd1602bd",
+      "traceId": "2e48e4311405016661217207225719e2",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "a42019385e2945d8833c96ae73b914d6",
+      "traceId": "459e4e6e53ff20de343297cba5e953be",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "a479496f28f8497e898a8b443386d9ed",
+      "traceId": "ac21d7210ad22e94fe216269d71cd86b",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "a54a899be6bf46af951f0c9fd9e892cd",
+      "traceId": "2cc6db83e927d39c8ed81aad66241597",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "a8a918b7dec6491a9212464fc75eca26",
+      "traceId": "65ae16461761e7cfee5adf980d8b0bda",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "aa1aad0bf2db4e8793e6a09bd90d7392",
+      "traceId": "586bcced1702736329323ed25e3c0644",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "ae3453d89a634283b139a40e0d94958c",
+      "traceId": "2df7380cf99d25778bc9c39419b9288c",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "b00c045cac2144708b41e45fc371c5a9",
+      "traceId": "436a88d13c752274dc5b9be773cc8a0e",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "b365fff436564f7485c62d94fb15247e",
+      "traceId": "ecebe997b1734f621cc9cf1335346357",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "b3bf2a2488ea4509b7dcdff5fbc0153f",
+      "traceId": "c6e47886a7d4f1364500d4ae383f6283",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "b4e38b3b011d4762977b1cc5541b1699",
+      "traceId": "2190977613139aeaf57e0dcaaeb4f202",
+      "sessionId": "a0ab9a07-0d79-4c82-8f0b-10e52d5a7870",
+      "eventCount": 49,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "chat.user.persistence",
+        "sources.parse",
+        "agent.turn.begin",
+        "agent.router.catalog_context.start",
+        "agent.router.catalog_context.end",
+        "agent.router.start",
+        "model.call",
+        "agent.router.native.classifier.completed",
+        "agent.router.instance_context.completed",
+        "agent.router.native.start",
+        "agent.router.native.accepted",
+        "agent.router.end",
+        "agent.capability_boundary.decision",
+        "agent.router.llm_source_backed_decision.preserved",
+        "agent.source_backed_pipeline.active.start",
+        "agent.source_backed_catalog_context.ready",
+        "agent.source_backed_agent_v2.active",
+        "agent.lifecycle.initializing",
+        "agent.source_backed_agent_v2.step",
+        "agent.lifecycle.running",
+        "agent.iteration.prepare",
+        "agent.iteration.acquire_completion",
+        "agent.iteration.submissions_and_tools",
+        "agent.collector_health",
+        "agent.lifecycle.finalizing",
+        "agent.lifecycle.completed",
+        "agent.source_backed_pipeline.step",
+        "agent.source_backed_pipeline.active.skipped",
+        "agent.source_backed_pipeline.active.terminal",
+        "agent.turn.final",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "b5b14bc69eda463fb377f77802c882cc",
+      "traceId": "2dda092d22c4c8bddb3f26f98cce5405",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "b7d4142b2641432681dbabacf4127f0e",
+      "traceId": "ed9f64800131746f49094ece9e5dd073",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "b8e3676a4dde4ffcaf548d6413e960a2",
+      "traceId": "26c16fbeb79ff74b70b79bd97f44ace9",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "bc3c54d5932747e492cf8166c9f0a5b6",
+      "traceId": "db0a4e61f8188976f5fb623c90c086ef",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "bca55aee6c7c4b7083e922f569875e3f",
+      "traceId": "04e73ce36cb6522ed0d890c5aacccd4b",
+      "sessionId": "8d6d3555-1c24-4750-91d1-ec4801ed13bc",
+      "eventCount": 3,
+      "terminalOutcome": "cancelled",
+      "terminalReason": "user_cancelled",
+      "operations": [
+        "turn.begin",
+        "chat.user.persistence",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "bf05a65fe80142889561c545e2d8e7c7",
+      "traceId": "d673c8fe6db5386556390459d494f151",
+      "sessionId": null,
+      "eventCount": 2,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "c06a3109e7b440a8b81109b9f841246f",
+      "traceId": "9046ce4c974eaeec6d87e22694a98e72",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "c33477e02b46469bb1e83717dcdd90e3",
+      "traceId": "c979c41d3f2247170847039308612643",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "c4244a1eadb84bb8ac633af07b19b357",
+      "traceId": "f281206c7fc085fcb0d57944f0b4a162",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "c5871cb53a9b4bebb231221e0740802a",
+      "traceId": "5a4385227e4b8f0c2b332040301aa312",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "c59fe30bff1a4390831d9d711b476369",
+      "traceId": "3a8aec1246190ed2995a2bd1615ab53a",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "c6212d2f052c4f589ba70c3e5f0b2f48",
+      "traceId": "979856943245d6403d6c10f9a1355138",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "c6b62c849939449899661b3bd07bc548",
+      "traceId": "fcbede2bfe3fc56cf4267635d4742e33",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "c7471c0d803640c7a919a361435848cf",
+      "traceId": "72fc785d4bcf95816a42e89ea14eb7e4",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "c784f328ab494e22b691870f19dd9e2c",
+      "traceId": "8b635bbbe8ca3880b6503dcb1c3f53fb",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "c991c6f571864865abae775dbf67c64e",
+      "traceId": "962b5295e4569748e39e0b8de5fe87f1",
+      "sessionId": "8d6d3555-1c24-4750-91d1-ec4801ed13bc",
+      "eventCount": 3,
+      "terminalOutcome": "failed",
+      "terminalReason": "user_message_persistence_unconfirmed",
+      "operations": [
+        "turn.begin",
+        "chat.user.persistence",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "cc6d52b5b82d45aabdc949db09e2e064",
+      "traceId": "9fcef66eb911d98674544888004de315",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "cea9fceef5dd44d6a35ba915a987c60d",
+      "traceId": "1c4855330fc412a28ffec9d220acbc0b",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "d2563cfce6e842f396714208ea44ed8b",
+      "traceId": "27aae4f20ed54f067a4cc5319327f1e2",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "d75a1a9e1b7e45b68f3fd42baff7da0a",
+      "traceId": "4f91c1e024c60ed7b4aa6b9ff720ed1c",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "d84de611760a4c07ad1fcfc3513e1cd1",
+      "traceId": "b5fa87d415775287ddd6a504852ee4de",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "da0152ca19d64c879d080d31bf5e79d1",
+      "traceId": "bb41a07419799b9117692e392ae9f408",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "db4575dc3a79443d86496e2d3e40218b",
+      "traceId": "7927060fab5908c7b987af556d3d7ca8",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "db627b353ae648f7baedbd6830e540ec",
+      "traceId": "eee3abdc29e85bdcdaee8d3769d71d28",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "de5dd95622a644439d94a08eb1cea70d",
+      "traceId": "1d1e1e28586fbb40bded5c26c48997a9",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "df7a0aa527ca42269e44d2d8fa61ad79",
+      "traceId": "88009e98ab80200e112f65fc6df1342a",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "e1e2f7f9769147ebb3eee3af33c77357",
+      "traceId": "83f60ee413436806dd0afc45d88210bd",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "e2a549d191924f89a311134284a761f0",
+      "traceId": "bbdebbf9e1ddf07ce48d01558a50f5ee",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "e4f29f11b0a54cb9ae1707f9b781787e",
+      "traceId": "341f824c3fd7a02f5dfe9630b9668b43",
+      "sessionId": "f23536a9-2296-4a1c-96b4-0b4c02a79e4b",
+      "eventCount": 48,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "chat.user.persistence",
+        "sources.parse",
+        "agent.turn.begin",
+        "agent.router.catalog_context.start",
+        "agent.router.catalog_context.end",
+        "agent.router.start",
+        "model.call",
+        "agent.router.native.classifier.completed",
+        "agent.router.instance_context.completed",
+        "agent.router.native.start",
+        "agent.router.native.repair_requested",
+        "agent.router.native.rejected",
+        "agent.router.end",
+        "agent.capability_boundary.decision",
+        "agent.router.legacy_structured_repair.skipped",
+        "agent.tools.stage.start",
+        "agent.tools.stage.end",
+        "agent.source_backed_pipeline.canonical_retrieval.owner_confirmed",
+        "agent.writer.stage.start",
+        "agent.answer.stage.start",
+        "agent.writer.context",
+        "agent.writer.guard.coverage.start",
+        "agent.writer.guard.coverage.selection",
+        "agent.writer.evidence_inventory.selection",
+        "agent.writer.guard.insufficient_check.start",
+        "agent.writer.guard.insufficient_check.end",
+        "agent.writer.selected",
+        "agent.writer.candidate_adjudication.skipped",
+        "agent.writer.evidence_inventory.roster",
+        "agent.writer.llm.start",
+        "agent.writer.llm.end",
+        "agent.writer.post.start",
+        "agent.writer.post.language_check.start",
+        "agent.writer.language_check.skipped",
+        "agent.writer.post.language_check.end",
+        "agent.writer.absolute_finalizer.skipped",
+        "agent.writer.post.end",
+        "agent.writer.stage.end",
+        "agent.answer.stage.end",
+        "agent.turn.final",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "e55e6580342f4d95ba11f3f8b4d162c6",
+      "traceId": "c5ef05db0552593503e6939d98f1737f",
+      "sessionId": "f23536a9-2296-4a1c-96b4-0b4c02a79e4b",
+      "eventCount": 49,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "chat.user.persistence",
+        "sources.parse",
+        "agent.turn.begin",
+        "agent.router.catalog_context.start",
+        "agent.router.catalog_context.end",
+        "agent.router.start",
+        "model.call",
+        "agent.router.native.classifier.completed",
+        "agent.router.instance_context.completed",
+        "agent.router.native.start",
+        "agent.router.native.accepted",
+        "agent.router.end",
+        "agent.capability_boundary.decision",
+        "agent.router.llm_source_backed_decision.preserved",
+        "agent.source_backed_pipeline.active.start",
+        "agent.source_backed_catalog_context.ready",
+        "agent.source_backed_agent_v2.active",
+        "agent.lifecycle.initializing",
+        "agent.source_backed_agent_v2.step",
+        "agent.lifecycle.running",
+        "agent.iteration.prepare",
+        "agent.iteration.acquire_completion",
+        "agent.iteration.submissions_and_tools",
+        "agent.collector_health",
+        "agent.lifecycle.finalizing",
+        "agent.lifecycle.completed",
+        "agent.source_backed_pipeline.step",
+        "agent.source_backed_pipeline.active.skipped",
+        "agent.source_backed_pipeline.active.terminal",
+        "agent.turn.final",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "e5e0b0f1dfb34e2bbd34aa22d30c36d2",
+      "traceId": "e66f7e433cf6c25c981356860c574912",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "e9815e045e7b4447bec86d99a4cd90e3",
+      "traceId": "92c55ad6f7546e9be24d74886bf10e90",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "eb6705ca0dd24978a758464efc16b4b6",
+      "traceId": "31dcf092d79fe787efbda2c576ef73d7",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "ec0286fb84b8460f8dc4e9019e6e4024",
+      "traceId": "fbf58a33eb2cc4ce4206dcd642e5cb0e",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "ed2389ed6e5442a9a260c5e13a21ec7f",
+      "traceId": "3f7eb6ef2357e4d7e8a555cde0042e19",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "f20f98fd55794291b86d906b44c1222e",
+      "traceId": "3554fedc97e999a9a674862187f54d7c",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "f4b0b33592e24443ab6bc9f34c1273f8",
+      "traceId": "b2b4e0a878b8938c1a646b8eac88441f",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "f737d33932a2411e836d53e5c57edf0e",
+      "traceId": "0406b7bbbbdc20e051b001f40bef4495",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "f97d162b51f74fa0b50d7a7bda97a36a",
+      "traceId": "ff175d604cdf5b0ed5a301786228e5ae",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "fd41474b379f4e1ebd1a4fa12d510d4b",
+      "traceId": "68a58c899494dc7b87d9f12861e1bf44",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "fe01cd91f7c849069f37ad09a6ee8095",
+      "traceId": "6ee6e4fd8b63483a31a31010cb50e56f",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    }
+  ],
+  "support": {
+    "contentMode": "metadata_only",
+    "historyTurns": 1,
+    "collectorFailures": 0,
+    "logWriteFailures": 0,
+    "collectionComplete": true,
+    "probeImplementation": "http",
+    "failedPieces": [],
+    "unavailablePieces": [
+      "models.json",
+      "downloads.manifest.json",
+      "llm/docker-compose.llm.yml",
+      "llm/llm.install.json",
+      "llm/install-llm.log",
+      "llm/active-runtime.json",
+      "llm/active-runtime.json.sha256",
+      "llm/embedded.runtime.tag",
+      "llm/embedded.cuda.runtime.tag",
+      "llm/embedded.vulkan.runtime.tag",
+      "diagnostics/agent-runtime.json"
+    ]
+  },
+  "fixture": {
+    "requestCount": 1,
+    "correlatedRequestCount": 1,
+    "requestsWithoutClientTurn": 0,
+    "minimumRequiredCorrelatedRequests": 1,
+    "note": "Uncorrelated requests are not assigned to chat turns. Their warmup/probe origin must be established separately."
+  },
+  "inputs": [
+    {
+      "path": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\local-fixture-02\\runtime\\client-data\\logs\\client_startup.log",
+      "sha256": "5242a0e5efc6d57858e3fa75580f1efc006ea77e27986631c78f4d53a0074fdc"
+    },
+    {
+      "path": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\local-fixture-02\\runtime\\client-data\\support\\support-bundle_20261025_143351_068_7145b43e51d64b2b8354e2e6f44ec669.zip",
+      "sha256": "fbea52c5f82fdecd3f1968ea2ccfed32292f817a1ca1f442d7959361f9daca15"
+    },
+    {
+      "path": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\primary-scoped-wire-requests-final.jsonl",
+      "sha256": "6ae05d277d1db6431e91bcfafdc42803487cf9b70eef5f58c28c1ab110a85eb0"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "saaia-winui-source-card-oracle-correction.v1",
+  "correctedAtUtc": "2026-10-25T12:56:09.5689365+00:00",
+  "scenario": "MissingPath",
+  "originalFixtureProofSha256": "5EBA4CDDBC579F872C160E78F5CF7DFB2DB96D350E7C7FFF79B65DB98B871B44",
+  "originalExpectation": "refused_no_fallback_file",
+  "correctedExpectation": "exact_sha256_version_recovery_or_safe_refusal",
+  "reason": "A missing requested path retains a valid canonical SHA256. Recovering the exact version by basename plus verified SHA256 is correct and excludes the archive homonym with a different hash.",
+  "knownCanonicalCaseChanged": false,
+  "hashMismatchStillRequiresRefusal": true,
+  "productCodeChanged": false,
+  "existingMessagesRewritten": false,
+  "pdfFilesModified": false,
+  "apiCalledForCorrection": false,
+  "seedScriptSha256": "D4C6CCBE43926C7D25E38E4DEB5865C19ACC5A2CC44DFECFA617D2695F7C5D3B",
+  "visualObservationSuppliedSeparately": true,
+  "productStatus": "TESTE_NON_APPROUVE"
+}

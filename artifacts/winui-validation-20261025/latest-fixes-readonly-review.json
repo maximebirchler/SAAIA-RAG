@@ -1,0 +1,129 @@
+{
+  "schemaVersion": "saaia.winui.latest-fixes-readonly-review.v1",
+  "reviewedAtUtc": "2026-10-25T12:19:33Z",
+  "baseCommit": "3f0de18349f1191bc3eca72497a04094445234e2",
+  "workingTree": true,
+  "scope": [
+    "W17 initial message persistence and acknowledgement",
+    "Composer cancellation state",
+    "Settings and configuration admission",
+    "W30 explicit manual startup",
+    "Physical source budgets and final Core/Client test gates"
+  ],
+  "reviewerLimit": "Independent of W17/isolation authors, but reviewer authored Composer/Config/W30. This is a bounded fresh read, not an independent second author review of those own changes.",
+  "executed": {
+    "productChanges": 0,
+    "productionBuilds": 0,
+    "uiActions": 0,
+    "llmCalls": 0,
+    "serverActions": 0,
+    "readOnlyArchitectureCheck": 1
+  },
+  "runningWinUiProcessProtected": 13896,
+  "blockingFindings": [],
+  "checks": [
+    {
+      "id": "L01",
+      "outcome": "PASS_CODE_REVIEW",
+      "subject": "W17 acknowledgement before draft clear or model",
+      "evidence": "InitialMessagePersistence.cs + ApiClient.ChatAcknowledgement.cs + Messages.cs",
+      "reason": "Empty/missing/non-object acknowledgement, invalid message GUID, mismatching role/content and conflicting optional owner echoes fail before the visible commit. Backend trims content and lowercases roles consistently. Current backend does not echo owners, so missing echoes are not asserted checked."
+    },
+    {
+      "id": "L02",
+      "outcome": "PASS_CODE_REVIEW",
+      "subject": "W17 independent 30-second confirmation deadline",
+      "evidence": "InitialMessagePersistence.cs lines 19-63",
+      "reason": "Positive timeout bounded to30seconds applies only to initial write. User cancellation is not linked to it. Timeout is wrapped as unconfirmed, retains draft/staged state, records confirmation_timeout, and leaves no path to start the model. HTTP business errors retain original status. Caller controls cannot exceed30seconds; API global timeout unchanged.",
+      "limit": "Cancellation of network I/O cannot prove absence of a server commit. Manual retry can duplicate a message if its earlier response was lost; persistent warning accurately asks the user to inspect history."
+    },
+    {
+      "id": "L03",
+      "outcome": "PASS_CODE_REVIEW",
+      "subject": "Composer warning lifecycle",
+      "evidence": "ComposerPersistenceNotice.cs, Messages.cs, Sessions.cs, HelpAndLocalization.cs",
+      "reason": "Warning is bound to failed session/draft, persists past transient status, clears after confirmation or meaningful edit/session change, ignores late failures from another session, and refreshes with language. It does not fabricate a durable user bubble."
+    },
+    {
+      "id": "L04",
+      "outcome": "PASS_CODE_REVIEW",
+      "subject": "Cancellation presentation and admission",
+      "evidence": "ComposerActionState.cs + ThemeChrome.cs + ConversationActivityGate.cs",
+      "reason": "Cancel demand does not release admission. State becomes Cancelling and disabled with explicit localized accessible name, stop glyph and neutral Disabled resources. Idle/disconnected/loading cases are disabled when non-invocable. Actual cancel business handler unchanged."
+    },
+    {
+      "id": "L05",
+      "outcome": "PASS_CODE_REVIEW",
+      "subject": "Settings and configuration gates",
+      "evidence": "AdminAndSettings.cs + SetupLifecycle.cs + StartupSetup.cs",
+      "reason": "Both header actions disable while conversation busy; central handlers own gate leases before first await through dialog/application. Keyboard turns remain rejected behind overlays. Configuration lease releases before entering ConnectAsync, avoiding self-refusal/deadlock; finally restores UI on failure/cancel."
+    },
+    {
+      "id": "L06",
+      "outcome": "PASS_CODE_REVIEW",
+      "subject": "W30 manual startup and error retry",
+      "evidence": "StartupSetup.cs + Overlays.cs",
+      "reason": "AutoConnect=false remains respected; disconnected presentation is neutral, exposes Connect/Configure, and primary action reaches ConnectAsync. Error retry is explicit too. Mode survives theme rebuild. Configuration cancellation retains an accessible path."
+    }
+  ],
+  "architecture": {
+    "status": "passed",
+    "proof": "artifacts/winui-validation-20261025/architecture-latest-review.json",
+    "sourceCount": 1558,
+    "maximumPhysicalLinesObserved": 8393,
+    "maximumAllowed": 9999,
+    "reviewRequiredLargeFiles": 21,
+    "violations": 0,
+    "partialAggregates": [
+      {
+        "name": "MainWindow",
+        "observed": 15290,
+        "maximum": 15376,
+        "remaining": 86
+      },
+      {
+        "name": "ToolAgentOrchestrator",
+        "observed": 79515,
+        "maximum": 79771,
+        "remaining": 256
+      },
+      {
+        "name": "SourceBackedAgentV2Runner",
+        "observed": 31918,
+        "maximum": 32174,
+        "remaining": 256
+      }
+    ],
+    "limit": "Physical ceilings passed; inherited large aggregates remain declared debt. These totals are not a complexity or product correctness score. No budget was raised."
+  },
+  "existingTargetedEvidence": [
+    {
+      "path": "artifacts/winui-validation-20261025/initial-persistence-deadline-tests/proof.json",
+      "passed": 31,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "W17 latest deadline, ACK, warning, staged text"
+    },
+    {
+      "path": "artifacts/winui-validation-20261025/composer-admission-unit/manifest.json",
+      "passed": 23,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "Core7 + Client16 composer/config/manual contracts",
+      "sourceChangedDuringRun": true
+    }
+  ],
+  "finalGates": {
+    "required": [
+      "Freeze all product/test sources after real UI corrections.",
+      "Run full Unit profile for ClientCore and Client with build in testhooks separate output, after closing the protected production UI or when root considers machine-load impact acceptable.",
+      "Require manifest passed, nonzero discovery in both projects, zero failures and no silent skips; sourceChangedDuringRun=false on the final common freeze. Keep TRX and actual assembly hashes.",
+      "Confirm latest production UI observations for the30second silent-storage case and cancelling presentation; distinguish fixture/local model/paid model evidence."
+    ],
+    "suggestedCommand": "& ./tools/test-project.ps1 -Profile Unit -Projects @('ClientCore','Client') -Configuration Release -NoRestore -OutputPath 'artifacts/winui-validation-20261025/full-client-final/manifest.json'",
+    "executedByThisReview": false,
+    "reason": "Read-only request and production WinUI pid13896 currently in a real journey. Targeted passing evidence is not substituted for full final suites."
+  },
+  "productStatus": "TESTE_NON_APPROUVE",
+  "conclusion": "No new blocking defect found in this bounded code review. Full final Core/Client tests and current real UI observations remain separate acceptance gates."
+}

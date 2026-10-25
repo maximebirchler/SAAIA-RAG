@@ -1,0 +1,898 @@
+{
+  "schema": "saaia.winui.journey-matrix.v1",
+  "createdOnUserLocalDate": "2026-10-25",
+  "authoringMethod": "Lecture du code et des limites du rapport 2026-10-24 ; aucune interaction UI exécutée par cet auteur.",
+  "executionStatus": "NOT_EXECUTED_READ_ONLY_REVIEW",
+  "acceptanceBoundary": "Cette matrice décrit ce qui doit être observé dans la vraie fenêtre. Un test compilé, un seed SQL, un HTTP 200 ou un journal seul ne prouvent pas le rendu ni le clic réel. Terra reste hors validation.",
+  "controls": [
+    {
+      "logicalName": "InputBox",
+      "explicitAutomationId": "InputBox",
+      "label": "Votre question… (placeholder localisé)",
+      "visibility": "normal"
+    },
+    {
+      "logicalName": "SendCancelButton",
+      "explicitAutomationId": "SendCancelButton",
+      "label": "Envoyer / Annuler",
+      "visibility": "normal",
+      "caveat": "IsEnabled reste true par choix visuel ; vérifier IsHitTestVisible et l'effet réel."
+    },
+    {
+      "logicalName": "MessagesList",
+      "explicitAutomationId": "MessagesList",
+      "label": "Historique des messages",
+      "visibility": "normal"
+    },
+    {
+      "logicalName": "SourcesPanel",
+      "explicitAutomationId": "SourcesPanel",
+      "label": "Sources",
+      "visibility": "panneau conditionnel, cartes aussi intégrées aux bulles"
+    },
+    {
+      "logicalName": "ItemsHost dans SourcesCardsControl",
+      "explicitAutomationId": "SourcesCardsItems",
+      "label": "Cartes Sources",
+      "visibility": "conditionnel ; même ID possible dans plusieurs instances"
+    },
+    {
+      "logicalName": "HeaderSettingsButton",
+      "explicitAutomationId": null,
+      "label": "Paramètres",
+      "visibility": "normal"
+    },
+    {
+      "logicalName": "ChatsToggleButton",
+      "explicitAutomationId": null,
+      "label": "Discussions",
+      "visibility": "normal"
+    },
+    {
+      "logicalName": "NewChatButton",
+      "explicitAutomationId": null,
+      "label": "Nouveau",
+      "visibility": "si volet Discussions ouvert"
+    },
+    {
+      "logicalName": "SessionsList",
+      "explicitAutomationId": null,
+      "label": "Liste des discussions",
+      "visibility": "si volet Discussions ouvert"
+    },
+    {
+      "logicalName": "HeaderHelpButton",
+      "explicitAutomationId": null,
+      "label": "Aide",
+      "visibility": "après connexion selon mode"
+    },
+    {
+      "logicalName": "SetupButton",
+      "explicitAutomationId": null,
+      "label": "Configuration",
+      "visibility": "selon mode intégrateur ; Configurer accessible depuis erreur startup"
+    },
+    {
+      "logicalName": "ConnectButton / ApiKeyBox / ServerUrlBox",
+      "explicitAutomationId": null,
+      "label": "Connecter / clé / URL",
+      "visibility": "barre legacy Visibility=Collapsed ; ne pas tenter comme accès normal"
+    },
+    {
+      "logicalName": "WizardApplyButton / WizardCancelButton",
+      "explicitAutomationId": null,
+      "label": "Appliquer / Annuler",
+      "visibility": "Configuration initiale"
+    },
+    {
+      "logicalName": "_exportBtn",
+      "explicitAutomationId": null,
+      "label": "Exporter diagnostic…",
+      "visibility": "Paramètres > Options avancées"
+    }
+  ],
+  "evidenceRequirements": [
+    "Identité SHA du binaire réellement lancé, architecture, configuration et absence de fournisseur externe.",
+    "Capture de la vraie fenêtre avant/après les actions via outil Computer Use autorisé, avec heure et ID scénario.",
+    "Historique fixture/backend en parallèle pour IDs session/job/messages, appels modèle nuls pour cas sans modèle.",
+    "Journal de diagnostic et manifeste support exportés par la vraie UI ; corrélation des tours/annulations.",
+    "Résultat par scénario PASS/FAIL/BLOCKED/NOT_EXECUTED avec limites et liens vers captures/logs ; pas de validation globale déduite des seuls tests."
+  ],
+  "safety": [
+    "Utiliser fixture locale à données synthétiques, profil client isolé, source possédée ; sauvegarde/restauration du profil existant.",
+    "Aucun appel Terra/RunPod/OpenAI, aucun achat, aucune lecture de secrets serveur ni opération serveur.",
+    "Ne supprimer que les discussions jetables de validation.",
+    "Ne pas lancer les anciens scripts UIAutomation ; contrôles réels par l'outil de Computer Use autorisé."
+  ],
+  "scenarios": [
+    {
+      "id": "W01",
+      "title": "Démarrage configuré",
+      "area": "startup",
+      "preconditions": "Profil de validation déjà configuré, backend de validation joignable, aucun fournisseur externe actif.",
+      "procedure": [
+        "Ouvrir le client Release x64 normal.",
+        "Observer la disparition de la surcouche et la discussion chargée."
+      ],
+      "observableAcceptance": [
+        "Fenêtre SAAIA visible et réactive ; la surcouche ne reste pas sur Initialisation.",
+        "La session sélectionnée correspond aux messages affichés ; saisie active."
+      ],
+      "controls": [
+        "startup overlay",
+        "SessionsList",
+        "MessagesList",
+        "InputBox"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/Core.cs",
+        "client/SAAIA.Client.WinUI/MainWindow/StartupSetup.cs",
+        "client/SAAIA.Client.WinUI/MainWindow/SetupLifecycle.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W02",
+      "title": "Configuration initiale et annulation",
+      "area": "setup",
+      "preconditions": "Profil isolé sans URL/clé utilisable ; ne pas remplacer le profil personnel sans sauvegarde/restauration.",
+      "procedure": [
+        "Ouvrir le client ; lire Configuration initiale.",
+        "Annuler, rouvrir Configurer, saisir URL et clé synthétiques de validation.",
+        "Tester /ready puis Tester la clé API ; appliquer."
+      ],
+      "observableAcceptance": [
+        "Annuler ne persiste pas de valeurs partielles.",
+        "Les tests distinguent disponibilité HTTP et validité de clé.",
+        "Après application, la connexion aboutit et les réglages sont repris au redémarrage."
+      ],
+      "controls": [
+        "WizardApplyButton",
+        "WizardCancelButton",
+        "BackendUrlBox",
+        "ApiKeyBox",
+        "TestReadyButton",
+        "TestApiKeyButton"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/Controls/SetupWizardDialog.xaml",
+        "client/SAAIA.Client.WinUI/Controls/SetupWizardDialog.BackendTests.cs",
+        "client/SAAIA.Client.WinUI/MainWindow/SetupLifecycle.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W03",
+      "title": "Échec réseau au démarrage puis reprise",
+      "area": "startup",
+      "preconditions": "Backend de validation momentanément indisponible, URL sans secret.",
+      "procedure": [
+        "Ouvrir le client.",
+        "Lire le message d'échec puis utiliser Réessayer quand le backend revient.",
+        "Utiliser Configurer si l'URL doit être corrigée."
+      ],
+      "observableAcceptance": [
+        "Pas connecté au serveur reste visible avec cause exploitable.",
+        "Aucune interface faussement connectée.",
+        "Réessayer rétablit un état utilisable sans nouveau processus et sans doublon de session."
+      ],
+      "controls": [
+        "startup retry button",
+        "startup configure button",
+        "InputBox"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/Overlays.cs",
+        "client/SAAIA.Client.WinUI/MainWindow/StartupSetup.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W04",
+      "title": "Clé refusée et récupération",
+      "area": "setup",
+      "preconditions": "Backend synthétique renvoyant 401/403 puis acceptant une clé synthétique.",
+      "procedure": [
+        "Tester une clé invalide dans Configuration initiale.",
+        "Remplacer par la clé synthétique acceptée et tester/appliquer."
+      ],
+      "observableAcceptance": [
+        "Refus explicite, absence de clé en clair dans diagnostic.",
+        "Correction possible ; plus de surcouche d'échec après connexion valide."
+      ],
+      "controls": [
+        "TestApiKeyButton",
+        "ApiKeyStatusText",
+        "WizardApplyButton"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/Controls/SetupWizardDialog.BackendTests.cs",
+        "client/SAAIA.Client.WinUI/MainWindow/SetupLifecycle.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W05",
+      "title": "URL principale inaccessible et alternative",
+      "area": "setup",
+      "preconditions": "Deux URL loopback de fixture ; première refuse, deuxième répond.",
+      "procedure": [
+        "Configurer les deux URL dans l'ordre.",
+        "Démarrer puis redémarrer le client."
+      ],
+      "observableAcceptance": [
+        "Une URL joignable est choisie ; pas d'attente infinie.",
+        "L'ordre préféré n'est pas réécrit silencieusement ; logs donnent le choix et la raison."
+      ],
+      "controls": [
+        "BackendUrlBox",
+        "BackendUrlAlternatesBox"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/SetupLifecycle.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W06",
+      "title": "Absence de modèle local",
+      "area": "send",
+      "preconditions": "Backend synthétique connecté ; aucun appel cloud ; runtime local volontairement indisponible.",
+      "procedure": [
+        "Envoyer une question synthétique.",
+        "Observer attente, erreur et possibilité d'un nouvel envoi."
+      ],
+      "observableAcceptance": [
+        "Indisponibilité locale compréhensible ; aucun spinner infini.",
+        "Contrôles débloqués ; aucune dépense ni bascule externe implicite."
+      ],
+      "controls": [
+        "InputBox",
+        "SendCancelButton",
+        "MessagesList"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+        "client/SAAIA.Client.WinUI/MainWindow/LocalLlm.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W07",
+      "title": "Nouvelle discussion et aller-retour",
+      "area": "sessions",
+      "preconditions": "Deux discussions synthétiques à marqueurs distincts A/B.",
+      "procedure": [
+        "Cliquer Nouveau.",
+        "Créer un message/commande dans A ; ouvrir B puis revenir A."
+      ],
+      "observableAcceptance": [
+        "Nouvel ID distinct ; historique vide avant premier message.",
+        "Sélection visuelle, messages, sources et mémoire appartiennent au même ID."
+      ],
+      "controls": [
+        "NewChatButton",
+        "SessionsList",
+        "MessagesList"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/Sessions.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W08",
+      "title": "Renommer une discussion non active",
+      "area": "sessions",
+      "preconditions": "A active ; B dans la liste.",
+      "procedure": [
+        "Ouvrir … de B, Renommer, saisir un nom unique, Enregistrer.",
+        "Rouvrir le menu et fermer un second renommage sans enregistrer."
+      ],
+      "observableAcceptance": [
+        "B change de titre ; A et ses messages restent actifs.",
+        "Annuler ne modifie rien ; nom vide produit le titre par défaut ; longueur maximum 120."
+      ],
+      "controls": [
+        "SessionsList",
+        "session menu …",
+        "Renommer",
+        "Enregistrer",
+        "Fermer"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/Sessions.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W09",
+      "title": "Suppression annulée puis non active",
+      "area": "sessions",
+      "preconditions": "A active ; B jetable.",
+      "procedure": [
+        "Ouvrir Supprimer B puis Fermer.",
+        "Rouvrir et confirmer Supprimer B."
+      ],
+      "observableAcceptance": [
+        "Première fermeture ne supprime pas B.",
+        "Confirmation retire B ; A et ses messages/sources restent chargés."
+      ],
+      "controls": [
+        "SessionsList",
+        "Supprimer",
+        "Fermer"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/Sessions.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W10",
+      "title": "Suppression de la discussion courante et dernière",
+      "area": "sessions",
+      "preconditions": "Uniquement des discussions de validation jetables.",
+      "procedure": [
+        "Supprimer la discussion active.",
+        "Puis supprimer la dernière discussion de validation restante."
+      ],
+      "observableAcceptance": [
+        "Charge une discussion valide après suppression active.",
+        "Dernière suppression produit une nouvelle discussion utilisable ; pas de réutilisation de l'ID supprimé."
+      ],
+      "controls": [
+        "SessionsList",
+        "Supprimer",
+        "NewChatButton",
+        "InputBox"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/Sessions.cs",
+        "client/SAAIA.Client.WinUI/MainWindow/SetupLifecycle.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W11",
+      "title": "Chargement de discussion en échec",
+      "area": "sessions",
+      "preconditions": "A active ; fixture bloque le GET messages de B sans toucher A.",
+      "procedure": [
+        "Cliquer B ; observer l'erreur.",
+        "Réessayer après restauration de B."
+      ],
+      "observableAcceptance": [
+        "Après échec : sélection de A restaurée ; son historique et ses sources/mémoire restent cohérents.",
+        "Après réussite : B devient actif une seule fois."
+      ],
+      "controls": [
+        "SessionsList",
+        "MessagesList",
+        "SourcesPanel"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/Sessions.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W12",
+      "title": "Saisie clavier et envoi unique",
+      "area": "send",
+      "preconditions": "Fixture locale à réponse déterministe ou commande directe sans LLM.",
+      "procedure": [
+        "Saisir une ligne ; Shift+Entrée deux fois ; saisir une seconde ligne.",
+        "Entrée pour envoyer ; répéter rapidement Entrée/clic Envoyer."
+      ],
+      "observableAcceptance": [
+        "Deux retours restent présents ; curseur et sélection cohérents.",
+        "Un seul tour est admis et un seul message utilisateur durable ; pas de double envoi."
+      ],
+      "controls": [
+        "InputBox",
+        "SendCancelButton",
+        "MessagesList"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/Messages.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W13",
+      "title": "Envoi, progression, fin et rechargement",
+      "area": "send",
+      "preconditions": "Fixture déterministe avec deltas et sources synthétiques ; pas de LLM externe.",
+      "procedure": [
+        "Envoyer via le bouton puis attendre la fin.",
+        "Changer de discussion et revenir ; fermer/reprendre le client."
+      ],
+      "observableAcceptance": [
+        "Une bulle utilisateur et une bulle assistant ; un seul indicateur de progression.",
+        "Réponse finale non dupliquée, spinner arrêté, état Envoyer restauré.",
+        "Réponse et sources rechargées identiques au résultat final."
+      ],
+      "controls": [
+        "InputBox",
+        "SendCancelButton",
+        "MessagesList",
+        "SourcesCardsItems"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+        "client/SAAIA.Client.WinUI/MainWindow/AdvancedAnalysisTracking.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W14",
+      "title": "Annulation pendant sauvegarde initiale",
+      "area": "cancel",
+      "preconditions": "Fixture retarde le POST du message utilisateur ; instrumentation du nombre d'appels modèle.",
+      "procedure": [
+        "Envoyer puis Annuler avant la fin du POST.",
+        "Attendre la fin du POST."
+      ],
+      "observableAcceptance": [
+        "Le message utilisateur est durable une fois ; aucun appel modèle ensuite.",
+        "Le bouton ne permet pas un nouveau tour avant libération effective.",
+        "Saisie et conversations redeviennent utilisables."
+      ],
+      "controls": [
+        "SendCancelButton",
+        "InputBox",
+        "NewChatButton",
+        "SessionsList"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+        "client/SAAIA.Client.Core/Conversation/ConversationActivityGate.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W15",
+      "title": "Annulation pendant progression/streaming",
+      "area": "cancel",
+      "preconditions": "Fixture modèle loopback ou local autorisé, réponse lente avec deltas.",
+      "procedure": [
+        "Envoyer puis Annuler après début de réponse.",
+        "Attendre stabilisation ; recharger la discussion ; envoyer un nouveau tour."
+      ],
+      "observableAcceptance": [
+        "Deltas arrêtés ; réponse partielle garde Génération interrompue et pas de spinner.",
+        "Aucune fin tardive n'écrase le tour suivant.",
+        "Nouveau tour utilise un token neuf, non annulé ; journal comporte cancelled."
+      ],
+      "controls": [
+        "SendCancelButton",
+        "MessagesList",
+        "InputBox"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+        "client/SAAIA.Client.Core/Conversation/ConversationActivityGate.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W16",
+      "title": "Interdiction de mutation pendant tour ou chargement",
+      "area": "concurrency",
+      "preconditions": "Tour lent ou GET messages lent de fixture.",
+      "procedure": [
+        "Pendant le tour tenter Nouveau, autre discussion, renommage/suppression, Aide.",
+        "Après Annuler, retenter avant fin effective.",
+        "Répéter pendant chargement lent."
+      ],
+      "observableAcceptance": [
+        "Aucun changement de session/mémoire ni suppression admis avant libération.",
+        "Liste, Nouveau et entrée désactivés ; Annuler disponible pendant le tour.",
+        "Les contrôles reviennent actifs après succès, erreur ou annulation."
+      ],
+      "controls": [
+        "SessionsList",
+        "NewChatButton",
+        "HeaderHelpButton",
+        "InputBox",
+        "SendCancelButton"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/StartupSetup.cs",
+        "client/SAAIA.Client.WinUI/MainWindow/Sessions.cs",
+        "client/SAAIA.Client.WinUI/MainWindow/Messages.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W17",
+      "title": "Erreur transport lors de sauvegarde utilisateur",
+      "area": "failure",
+      "preconditions": "Fixture fait échouer le POST initial puis rétablit la connexion.",
+      "procedure": [
+        "Saisir un texte unique et envoyer.",
+        "Observer le message d'erreur, changer/recharger la discussion, puis réessayer."
+      ],
+      "observableAcceptance": [
+        "Aucun appel modèle tant que question non sauvée.",
+        "Le texte non durable est clairement récupérable ou identifié comme non envoyé ; pas de faux succès silencieux.",
+        "Après rétablissement : un seul envoi durable, interface non bloquée."
+      ],
+      "controls": [
+        "InputBox",
+        "SendCancelButton",
+        "MessagesList"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/Messages.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W18",
+      "title": "Sources visibles et sélection de message",
+      "area": "sources",
+      "preconditions": "Deux réponses synthétiques avec sources distinctes dans une discussion.",
+      "procedure": [
+        "Observer cartes intégrées à chaque bulle.",
+        "Sélectionner chaque réponse ; ouvrir/fermer le panneau Sources si exposé."
+      ],
+      "observableAcceptance": [
+        "Titre, page et extrait correspondent au message choisi.",
+        "La réception d'une autre source n'attribue pas sa provenance au mauvais message.",
+        "Pas de cartes dupliquées ni de panneau vide quand des cartes sont attendues."
+      ],
+      "controls": [
+        "MessagesList",
+        "SourcesPanel",
+        "SourcesCardsItems"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+        "client/SAAIA.Client.WinUI/Controls/SourcesCardsControl.xaml"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W19",
+      "title": "Ouverture source par carte et lien",
+      "area": "sources",
+      "preconditions": "Fichier synthétique possédé, local et autorisé, avec page cible connue.",
+      "procedure": [
+        "Cliquer Ouvrir de la carte.",
+        "Cliquer le lien documentaire de la réponse.",
+        "Observer l'application externe et la page physique."
+      ],
+      "observableAcceptance": [
+        "Même document/révision ; nom Unicode et espaces préservés.",
+        "Lancement accepté Windows distinct de page effectivement affichée.",
+        "La page physique observée doit être consignée, pas déduite d'un retour true de Launcher."
+      ],
+      "controls": [
+        "SourcesCardsItems",
+        "Ouvrir",
+        "LinkifiedTextBlock"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/Controls/SourcesCardsControl.xaml.cs",
+        "client/SAAIA.Client.WinUI/Controls/LinkifiedTextBlock.xaml.cs",
+        "client/SAAIA.Client.WinUI/Services/DocumentLauncher.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W20",
+      "title": "Source manquante et révision ambiguë",
+      "area": "sources",
+      "preconditions": "Sources synthétiques absente/ambiguë et une valide ; aucun fichier privé.",
+      "procedure": [
+        "Ouvrir la source absente puis ambiguë.",
+        "Fermer chaque erreur et ouvrir la source valide."
+      ],
+      "observableAcceptance": [
+        "Erreur localisée exploitable ; ambiguïté bloque le choix arbitraire.",
+        "Aucune fenêtre/boucle bloquée ; le chemin valide fonctionne ensuite.",
+        "Diagnostic source possède une issue indépendante de la réussite du chat."
+      ],
+      "controls": [
+        "SourcesCardsItems",
+        "Ouvrir",
+        "Fermer"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/Services/DocumentLauncher.cs",
+        "client/SAAIA.Client.Core/Sources/SourceLocator.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W21",
+      "title": "Analyse avancée terminale et sources persistées",
+      "area": "advanced",
+      "preconditions": "Job synthétique déjà terminal ; aucune création de job payant.",
+      "procedure": [
+        "Charger la discussion contenant le job.",
+        "Observer réponse et cartes, puis redémarrer le client."
+      ],
+      "observableAcceptance": [
+        "Réponse finale présente, plus de spinner ni message périmé.",
+        "Même job/identité/révision et sources après reprise.",
+        "Pas de nouvel appel modèle et pas de nouveau job."
+      ],
+      "controls": [
+        "MessagesList",
+        "SourcesCardsItems"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/AdvancedAnalysisTracking.cs",
+        "client/SAAIA.Client.WinUI/Services/AdvancedAnalysisPersistedState.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W22",
+      "title": "Reprise durable d'analyse avancée",
+      "area": "advanced",
+      "preconditions": "Fixture job queued/running ; progression simulée sans worker payant.",
+      "procedure": [
+        "Charger la discussion puis fermer la fenêtre.",
+        "Faire progresser la fixture puis rouvrir ; terminer le job."
+      ],
+      "observableAcceptance": [
+        "Reprend le même job et la révision monotone ; aucun second job.",
+        "Fermeture arrête le polling local, ne prétend pas annuler le job serveur.",
+        "Une seule bulle est mise à jour/persistée et devient terminale."
+      ],
+      "controls": [
+        "MessagesList",
+        "SourcesCardsItems"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/AdvancedAnalysisTracking.cs",
+        "client/SAAIA.Client.WinUI/Services/AdvancedAnalysisClientService.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W23",
+      "title": "Analyse avancée et changement de discussion",
+      "area": "advanced",
+      "preconditions": "Job synthétique en cours dans A ; B sans job.",
+      "procedure": [
+        "Ouvrir A puis B pendant le polling.",
+        "Terminer le job de A ; revenir A."
+      ],
+      "observableAcceptance": [
+        "B ne reçoit ni réponse ni sources de A.",
+        "A retrouve sa réponse durable finale ; polling non dupliqué.",
+        "Les sondes de reprise portent job/session d'origine."
+      ],
+      "controls": [
+        "SessionsList",
+        "MessagesList",
+        "SourcesPanel"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/AdvancedAnalysisTracking.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W24",
+      "title": "Polling interrompu et révisions invalides",
+      "area": "advanced",
+      "preconditions": "Fixture simule 503 puis rétablissement, ancienne révision et mauvais SessionId.",
+      "procedure": [
+        "Charger une reprise ; injecter brièvement erreur réseau/ancienne révision.",
+        "Restaurer la fixture correcte puis finir."
+      ],
+      "observableAcceptance": [
+        "Erreur non transformée en succès ; l'UI reste réactive.",
+        "Révisions régressives et identités incohérentes n'écrasent pas l'état valide.",
+        "Réessai borné/issue observable et sources persistées cohérentes."
+      ],
+      "controls": [
+        "MessagesList",
+        "SourcesCardsItems"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/Services/AdvancedAnalysisClientService.cs",
+        "client/SAAIA.Client.Core/AdvancedAnalysis/AdvancedAnalysisJobPoller.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W25",
+      "title": "Paramètres, langue et apparence",
+      "area": "settings",
+      "preconditions": "Profil de validation sauvegardé.",
+      "procedure": [
+        "Ouvrir Paramètres ; changer langue/thème puis Fermer sans Appliquer.",
+        "Rouvrir, changer/appliquer, redémarrer.",
+        "Ouvrir Options avancées et revenir Général."
+      ],
+      "observableAcceptance": [
+        "Fermer n'applique pas les préférences ; Appliquer persiste.",
+        "Entêtes, Envoyer/Annuler, menus et cartes suivent la langue choisie.",
+        "Fenêtre et dialogue lisibles sombre/clair, sans zone inaccessible."
+      ],
+      "controls": [
+        "HeaderSettingsButton",
+        "Général",
+        "Options avancées",
+        "Appliquer",
+        "Fermer"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/Controls/UserSettingsDialog.cs",
+        "client/SAAIA.Client.WinUI/Controls/UserSettingsDialog.Layout.cs",
+        "client/SAAIA.Client.WinUI/Controls/UserSettingsDialog.Settings.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W26",
+      "title": "Export support depuis la vraie fenêtre",
+      "area": "diagnostics",
+      "preconditions": "Au moins un tour, une erreur et une annulation exécutés sur fixture ; clés synthétiques à marqueurs.",
+      "procedure": [
+        "Paramètres → Options avancées → Exporter diagnostic….",
+        "Attendre résultat ; lire ZIP et manifeste par outil de fichier, hors pilotage UI."
+      ],
+      "observableAcceptance": [
+        "ZIP créé et chemin affiché ; bouton/libération après erreur.",
+        "Historique des vrais tours testé, versions et pièces présentes/absentes/erreur.",
+        "Clés/marqueurs secrets absents ; pas de contenu exact sans opt-in."
+      ],
+      "controls": [
+        "HeaderSettingsButton",
+        "Options avancées",
+        "Exporter diagnostic…"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/Controls/UserSettingsDialog.RepairAndSupport.cs",
+        "client/SAAIA.Client.WinUI/Services/SupportBundleBuilder.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W27",
+      "title": "Redimensionnement et navigation/scroll",
+      "area": "layout",
+      "preconditions": "Discussion synthétique avec réponse longue et plusieurs cartes.",
+      "procedure": [
+        "Réduire la largeur, maximiser/restaurer, ouvrir/fermer Discussions.",
+        "Remonter pendant streaming puis cliquer Aller en bas."
+      ],
+      "observableAcceptance": [
+        "Saisie/bouton demeurent accessibles, pas de recouvrement des contrôles.",
+        "Le scroll volontaire vers le haut est respecté ; Aller en bas réactive le suivi.",
+        "Dialogue/menus restent dans la fenêtre."
+      ],
+      "controls": [
+        "ChatsToggleButton",
+        "MessagesScroll",
+        "JumpBottomButton",
+        "InputBox"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/WindowFrame.cs",
+        "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+        "client/SAAIA.Client.WinUI/MainWindow/ThemeChrome.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W28",
+      "title": "Aide et commande directe sans modèle",
+      "area": "direct_command",
+      "preconditions": "Backend de fixture répond aux requêtes catalogue ; pas d'opération admin mutante.",
+      "procedure": [
+        "Ouvrir Aide ; utiliser une recherche documentaire guidée.",
+        "Déclencher une action de consultation ; recharger sa discussion."
+      ],
+      "observableAcceptance": [
+        "Commande et résultat apparaissent dans le bon historique.",
+        "Aucun appel LLM pour la commande déterministe ; sources et compteurs réels.",
+        "Les mêmes règles annulation/admission/persistance s'appliquent."
+      ],
+      "controls": [
+        "HeaderHelpButton",
+        "Aide",
+        "MessagesList",
+        "SendCancelButton"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/HelpAndLocalization.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": []
+    },
+    {
+      "id": "W29",
+      "title": "Paramètres pendant une réponse et son admission",
+      "area": "concurrency",
+      "preconditions": "Réponse synthétique ralentie ; enregistrer les options et la configuration provider/mémoire avant l'envoi.",
+      "procedure": [
+        "Envoyer une question lente puis tenter d'ouvrir Paramètres pendant la sauvegarde et pendant la réponse.",
+        "Si une ouverture est encore possible, observer les contrôles sans lancer réparation/téléchargement réel ni activer un fournisseur externe.",
+        "Après correction : retenter pendant l'admission, puis après fin ; vérifier que les paramètres sont alors accessibles."
+      ],
+      "observableAcceptance": [
+        "Pendant admission/tour, ouverture refusée ou bouton désactivé ; aucune mutation du provider, langue/mode de mémoire ou options du tour.",
+        "Aucune réparation locale concurrente du modèle actif.",
+        "Après libération de la conversation, Paramètres fonctionne et les modifications explicites s'appliquent aux tours suivants."
+      ],
+      "controls": [
+        "HeaderSettingsButton",
+        "Paramètres",
+        "Appliquer",
+        "Options avancées"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/StartupSetup.cs",
+        "client/SAAIA.Client.WinUI/MainWindow/AdminAndSettings.cs",
+        "client/SAAIA.Client.WinUI/Services/RagChatAgent.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": [],
+      "reviewFinding": "STATIC_CONFIRMED_ADMISSION_GAP_UI_REPRODUCTION_PENDING"
+    },
+    {
+      "id": "W30",
+      "title": "Connexion automatique désactivée et reprise visible",
+      "area": "startup",
+      "preconditions": "Profil de validation AutoConnect=false avec clé synthétique et backend valide ; utilisateur standard ShowAdvancedUi=false.",
+      "procedure": [
+        "Démarrer le client.",
+        "Identifier l'action visible permettant de se connecter sans éditer de fichier ni passer en mode intégrateur."
+      ],
+      "observableAcceptance": [
+        "État déconnecté explicite et action de connexion/configuration accessible.",
+        "Pas de fenêtre vide sans action puisque la barre legacy Connecter est masquée."
+      ],
+      "controls": [
+        "startup retry button",
+        "startup configure button",
+        "HeaderSettingsButton",
+        "ConnectButton (legacy masqué)"
+      ],
+      "sourceRefs": [
+        "client/SAAIA.Client.WinUI/MainWindow/StartupSetup.cs",
+        "client/SAAIA.Client.WinUI/MainWindow/AdminAndSettings.cs",
+        "client/SAAIA.Client.WinUI/Services/AppSettings.cs"
+      ],
+      "status": "NOT_EXECUTED",
+      "executionEvidence": [],
+      "reviewFinding": "POSSIBLE_DEAD_END_REPRODUCTION_PENDING"
+    }
+  ]
+}

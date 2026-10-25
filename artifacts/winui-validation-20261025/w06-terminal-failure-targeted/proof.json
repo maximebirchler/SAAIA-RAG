@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "saaia-winui-w06-terminal-local-model-failure-fix.v1",
+  "capturedAtUtc": "2026-10-25T13:26:07.2056435+00:00",
+  "state": "TARGETED_UNIT_VALIDATED_NATIVE_BUILD07_RETEST_PENDING",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "nativeBefore": {
+    "contradiction": "agent.lifecycle.failed and source_backed_pipeline.active.failed were followed by active.terminal, agent.turn.final and turn.end success.",
+    "capture": "../native-ui/73-missing-local-model-fails-safe-but-message-not-actionable.json",
+    "turnId": "7f99d99ae13944409afaac7884587e57",
+    "sessionId": "03957eeb-5d79-42a5-892b-bdaab7d150bd",
+    "origin": "Provider Local ExecuteCompletionAsync: agent_tool_decision then submit_semantic_plan failed HTTP transport; backend catalog calls succeeded.",
+    "llmEndpointPort": 18090,
+    "traceId": "aa50c449cf3434424210fb80c7dbac86",
+    "elapsedMs": 10434,
+    "profile": "missing-model"
+  },
+  "correction": {
+    "classification": "Only HttpRequestException thrown inside the local LLM provider transport is wrapped as LocalLlmUnavailableException. Backend HTTP failures are not inferred to be LLM failures.",
+    "nonRegression": "Intermediate failed probes and recovered transport failures do not report terminal failure. Expected insufficiency remains success; explicit cancellation remains cancelled.",
+    "newAutomaticRetry": false,
+    "userText": "Six localized actionable messages: verify local model running and configured address in Settings, then retry.",
+    "mainWindowModified": false,
+    "outcome": "Only CompleteFailedSourceBackedPipelineAsync supplies a terminalFailureReason. FinalizeAndReturn reports failed and records an unrecovered terminal failure in the owning shared journal. Outer success cannot overwrite it.",
+    "metadata": "Structured constant reason local_model_unavailable or pipeline_execution_failed; no raw exception message in pipeline failure probes.",
+    "providerSwitch": false
+  },
+  "tests": {
+    "totalPassed": 67,
+    "failed": 0,
+    "cases": [
+      "Actual fake-HTTP Local provider native completion, regular completion and streaming → terminal failure → borrowed/outer shared scopes; failed probes and turn.end retain the same reason.",
+      "Underlying raw exception text is excluded from metadata and replaced by actionable FR/EN terminal text.",
+      "Unmarked backend HttpRequestException remains generic pipeline failure; no local-model attribution.",
+      "User cancellation remains cancellation.",
+      "Intermediate failed model.call followed by success remains successful.",
+      "Expected insufficiency remains successful.",
+      "Terminal failure is isolated to its owning turn and does not contaminate next turn.",
+      "Provider architecture, observer isolation, terminal localization and trace metadata regression suites."
+    ],
+    "clientCorePassed": 17,
+    "clientPassed": 50,
+    "sourceChangedDuringRun": false,
+    "manifest": "manifest.json",
+    "sourceFingerprint": "A75701E81A3B587A78661424B9CB7780401863DB50C466C901519EAEA66B9BFC",
+    "skipped": 0
+  },
+  "files": [
+    "client/SAAIA.Client.WinUI/ToolAgent/LocalLlmUnavailableException.cs",
+    "client/SAAIA.Client.WinUI/ToolAgent/OpenAiCompatibleLlmProvider.cs",
+    "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedTerminalAnswer.cs",
+    "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRagTerminal.cs",
+    "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRag.cs",
+    "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.TurnFinalization.cs",
+    "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagTrace.cs",
+    "client/SAAIA.Client.Core/Diagnostics/ClientDiagnosticJournal.cs",
+    "client/SAAIA.Client.Core.Tests/ClientDiagnosticJournalTests.cs",
+    "client/SAAIA.Client.ToolAgent.Tests/LocalModelFailurePropagationTests.cs"
+  ],
+  "architecture": {
+    "sizeReviews": 21,
+    "proof": "../architecture-after-w06.json",
+    "state": "passed",
+    "sources": 1577
+  },
+  "pending": [
+    "Parent production build07 without test hooks and native W06 retest.",
+    "Full unit suite at the final frozen source fingerprint.",
+    "Final support export, primary trace accounting and live input sealing after UI ends."
+  ]
+}

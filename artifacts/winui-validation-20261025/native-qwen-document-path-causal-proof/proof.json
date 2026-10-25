@@ -1,0 +1,135 @@
+{
+  "schemaVersion": "saaia-winui-native-qwen-document-path-causal-proof-v1",
+  "capturedAtUtc": "2026-10-25T13:04:29.5684738+00:00",
+  "verdict": "NATIVE_QWEN_EXACT_DOCUMENT_ANSWER_SOURCE_AND_PAGE_VALIDATED",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "scope": "Real WinUI Release, actual local Qwen3-4B, production backend isolated on loopback, synthetic two-homonymous-document corpus. No Terra or paid provider.",
+  "before": {
+    "traceId": "2190977613139aeaf57e0dcaaeb4f202",
+    "candidates": 2,
+    "referenceChars": 20,
+    "exactMatches": 2,
+    "rootCause": "SourceBackedRagRouting reduced the canonical mission path to basename before SourceBackedIntake. Previous tests bypassed this adapter.",
+    "branch": "Llm mission with UsesFocusedDocument=true",
+    "resolutionStatus": "Ambiguous",
+    "outcome": "Unnecessary clarification",
+    "referenceHasDirectory": 0
+  },
+  "causalRed": {
+    "manifest": "../document-intake-path-red-compiled/manifest.json",
+    "ranBeforeProductCorrection": true,
+    "total": 26,
+    "failed": 9
+  },
+  "correction": {
+    "targetedGreen": {
+      "manifest": "../document-intake-path-green/manifest.json",
+      "failed": 0,
+      "passed": 145
+    },
+    "semanticHeuristicAdded": false,
+    "probes": "Lengths and directory/focus/origin flags only",
+    "identity": "Preserve canonical mission and tool paths via trim-only transport"
+  },
+  "nativeAfter": {
+    "advancedTrackingMetadataPresent": false,
+    "renderedSources": 1,
+    "turnId": "8a61adb57eca459fb860835d081dc04d",
+    "providerCallCount": 9,
+    "agentTotalMs": 12435,
+    "tools": [
+      "rag.search",
+      "documents.context"
+    ],
+    "traceId": "de194224be4736a5c6c105d70868a549",
+    "advancedFixtureProviderRequests": 0,
+    "advancedProbeEvents": 0,
+    "sourceCardPage2Visible": true,
+    "uiCaptureSha256": "99FCC8439F606701AB6385DE81F353BEBF6AE3653A0526E5FE68429E95FD4AC0",
+    "nativeUi": "../native-ui/65-qwen-document-after-intake-fix.json",
+    "evidenceItems": 2,
+    "sourceCardHashPrefixVisible": true,
+    "resolverStatus": "Resolved",
+    "nativeInputMeasurements": {
+      "source_request_chars": 92,
+      "announced_reference_chars": 31,
+      "announced_reference_has_directory": 1,
+      "uses_focused_document": 1
+    },
+    "assemblySha256": "474FBE9E8461AD8832A650AAA75BEEE03A58608FD103A744D74F6B6232FC1C07",
+    "syntheticCode4826InVisibleAnswer": true,
+    "sessionId": "f0c2e4a3-485e-4384-aec5-5bb4dba2f116",
+    "resolverMeasurements": {
+      "source_seq": 1,
+      "source_candidate_count": 1,
+      "source_exact_match_count": 1,
+      "source_requested_reference_length": 31,
+      "source_pages": 3,
+      "source_items": 5,
+      "source_elapsed_ms": 82,
+      "source_reference_has_directory": 1
+    },
+    "missionIntakeMeasurements": {
+      "source_request_chars": 92,
+      "mission_reference_chars": 31,
+      "intake_reference_chars": 31,
+      "mission_reference_has_directory": 1,
+      "intake_reference_has_directory": 1,
+      "uses_focused_document": 1,
+      "llm_origin": 1
+    },
+    "localModel": "Qwen3-4B-Instruct-2507",
+    "resolverReason": "resolved_exact_current_catalog",
+    "allObservedCallsLocal": true
+  },
+  "persistence": {
+    "canonicalSource": {
+      "docId": "aca1a813-c593-59e5-bdf2-1cd12d1b8e40",
+      "docPath": "Validation/Guide-Validation.pdf",
+      "sourceHash": "840c999b2bfe8305aee9fdddf05f01b1686f3ec92eeb76cfe5c5af9354672121",
+      "revisionId": "7ac0ec90-3ddf-51ec-80b9-f65e8a81f79b",
+      "chunkId": "a0303851-13ee-5ddc-9aeb-fd084d56344e",
+      "pageStart": 2,
+      "pageEnd": 2,
+      "evidenceId": "E2",
+      "categoryPath": "Validation"
+    },
+    "actualPdfSha256": "840C999B2BFE8305AEE9FDDDF05F01B1686F3EC92EEB76CFE5C5AF9354672121",
+    "turnMatchesProbe": true,
+    "contentSha256": "41E3978A3F10B460BE2421F12284BE08459F681BA95CF06C4D4E104DA35B122D",
+    "traceMatchesProbe": true,
+    "actualPdfHashMatchesSourceRevision": true,
+    "assistantMessageId": "f78a462f-bc47-481a-b16f-3918982d17f0",
+    "messageCount": 2,
+    "readOnlyGet": true
+  },
+  "pdfNative": {
+    "observedPageSelector": "2 of 2",
+    "wrongHomonymousArchiveNotOpened": true,
+    "requestedPage": 2,
+    "proofSha256": "D33D4A1BFE3F3A7B3DC975CF5E85015602A8B287CCE2238979A69CFF68F0F57B",
+    "proof": "../native-ui/66-qwen-real-source-pdf-page2.json",
+    "observedVisibleMarker": "VALIDATION WINUI - PAGE 2 - CODE ORION 4826"
+  },
+  "fullUnit": {
+    "sourceChangedDuringRun": false,
+    "sourceFingerprint": "87301FD00E5D744D93148861E5DC8C4856786CA30084346C71C10E3C7BB53229",
+    "totalPassed": 2449,
+    "manifest": "../final-core-client-unit-accepted/manifest.json",
+    "corePassed": 76,
+    "failed": 0,
+    "clientPassed": 2373,
+    "skipped": 0
+  },
+  "privacy": {
+    "secretsCopied": false,
+    "rawClientLogCopied": false,
+    "rawConversationCopied": false,
+    "retained": "Selected metadata probes, synthetic corpus canonical identifiers, hashes, counts and links to existing native captures"
+  },
+  "limits": [
+    "One synthetic direct documentary case; does not establish the complete small-model capability boundary or meal-planning acceptance.",
+    "Before-build Qwen arguments were not retained; deterministic RED proves the adapter defect and after-build probes show the 31-character path preserved.",
+    "No paid model execution or remote deployment was performed."
+  ]
+}

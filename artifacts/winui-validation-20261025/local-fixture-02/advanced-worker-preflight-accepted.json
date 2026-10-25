@@ -1,0 +1,70 @@
+{
+  "externalCalls": 0,
+  "semanticApproval": false,
+  "final": {
+    "jobId": "7abcef9e-83a5-4aa3-a79f-188cc996a058",
+    "handoffId": "083913a9-4cdb-46a4-96e3-3e511510eb41",
+    "sessionId": "700f86e7-c684-40d9-8783-b2e828c403fb",
+    "status": "succeeded",
+    "revision": 4,
+    "attemptCount": 1,
+    "cancelRequested": false,
+    "createdAtUtc": "2026-10-25T12:38:03.69529+01:00",
+    "updatedAtUtc": "2026-10-25T12:38:07.957026+01:00",
+    "availableAtUtc": "2026-10-25T12:38:03.69529+01:00",
+    "expiresAtUtc": "2026-10-26T12:38:03.69529+01:00",
+    "startedAtUtc": "2026-10-25T12:38:03.932658+01:00",
+    "finishedAtUtc": "2026-10-25T12:38:07.957026+01:00",
+    "providerKey": "winui-fixture-customer-server",
+    "providerModel": "saaia-winui-fixture",
+    "result": {
+      "claims": [],
+      "outcome": "insufficient_documentation",
+      "evidence": [],
+      "answerText": "Validation synthétique du parcours avancé : le worker a terminé ses opérations. Ce résultat contrôlé ne constitue pas une validation sémantique du modèle.",
+      "inputTokens": 64,
+      "providerKey": "winui-fixture-customer-server",
+      "outputTokens": 24,
+      "providerModel": "saaia-winui-fixture",
+      "schemaVersion": "saaia.advanced-analysis-result.v1",
+      "selectionMode": "",
+      "completedAtUtc": "2026-10-25T12:38:07.9568545+01:00",
+      "cacheWriteTokens": null,
+      "estimatedCostUsd": null,
+      "cachedInputTokens": null,
+      "providerCallCount": 2,
+      "elapsedMilliseconds": 4019
+    }
+  },
+  "sessionId": "700f86e7-c684-40d9-8783-b2e828c403fb",
+  "providerIsDeterministicFixture": true,
+  "jobId": "7abcef9e-83a5-4aa3-a79f-188cc996a058",
+  "userId": "e37e7ce2-30f5-4395-8f19-873c217bb7d1",
+  "passed": true,
+  "realWorker": true,
+  "performedThroughUi": false,
+  "snapshots": [
+    {
+      "atUtc": "2026-10-25T11:38:03.6976334+00:00",
+      "status": "queued",
+      "revision": 1
+    },
+    {
+      "atUtc": "2026-10-25T11:38:04.0272746+00:00",
+      "status": "running",
+      "revision": 2
+    },
+    {
+      "atUtc": "2026-10-25T11:38:06.2382540+00:00",
+      "status": "running",
+      "revision": 3
+    },
+    {
+      "atUtc": "2026-10-25T11:38:08.1406625+00:00",
+      "status": "succeeded",
+      "revision": 4
+    }
+  ],
+  "schemaVersion": "saaia-winui-worker-preflight.v1",
+  "injectedTerminalState": false
+}

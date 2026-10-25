@@ -1,0 +1,323 @@
+{
+  "schemaVersion": "saaia-winui-runtime-ownership-network-audit.v1",
+  "capturedAtUtc": "2026-10-25T13:23:51.1750166+00:00",
+  "readOnly": true,
+  "uiStillActive": true,
+  "ownedRoots": [
+    {
+      "executable": "postgres.exe",
+      "startedAtUtc": "2026-10-25T11:33:24.1569144Z",
+      "pid": 20068,
+      "instanceName": null,
+      "role": "postgres",
+      "manifestIdentityMatches": true,
+      "children": [
+        {
+          "executable": "conhost.exe",
+          "startedAtUtc": "2026-10-25T11:33:24.1607611Z",
+          "parentPid": 20068,
+          "pid": 38832
+        },
+        {
+          "executable": "postgres.exe",
+          "startedAtUtc": "2026-10-25T11:33:24.2176308Z",
+          "parentPid": 20068,
+          "pid": 38308
+        },
+        {
+          "executable": "postgres.exe",
+          "startedAtUtc": "2026-10-25T11:33:24.2306714Z",
+          "parentPid": 20068,
+          "pid": 35128
+        },
+        {
+          "executable": "postgres.exe",
+          "startedAtUtc": "2026-10-25T11:33:24.2340649Z",
+          "parentPid": 20068,
+          "pid": 38608
+        },
+        {
+          "executable": "postgres.exe",
+          "startedAtUtc": "2026-10-25T11:33:24.2571255Z",
+          "parentPid": 20068,
+          "pid": 29056
+        },
+        {
+          "executable": "postgres.exe",
+          "startedAtUtc": "2026-10-25T11:33:24.2599286Z",
+          "parentPid": 20068,
+          "pid": 37704
+        },
+        {
+          "executable": "postgres.exe",
+          "startedAtUtc": "2026-10-25T11:33:24.2628345Z",
+          "parentPid": 20068,
+          "pid": 36676
+        },
+        {
+          "executable": "postgres.exe",
+          "startedAtUtc": "2026-10-25T13:22:13.7286375Z",
+          "parentPid": 20068,
+          "pid": 38272
+        },
+        {
+          "executable": "postgres.exe",
+          "startedAtUtc": "2026-10-25T13:22:35.1332285Z",
+          "parentPid": 20068,
+          "pid": 42496
+        }
+      ]
+    },
+    {
+      "executable": "python.exe",
+      "startedAtUtc": "2026-10-25T11:33:24.7503695Z",
+      "pid": 38616,
+      "instanceName": null,
+      "role": "fixture-http",
+      "manifestIdentityMatches": true,
+      "children": [
+        {
+          "executable": "conhost.exe",
+          "startedAtUtc": "2026-10-25T11:33:24.7564330Z",
+          "parentPid": 38616,
+          "pid": 18764
+        }
+      ]
+    },
+    {
+      "executable": "pwsh.exe",
+      "startedAtUtc": "2026-10-25T11:33:25.2955592Z",
+      "pid": 39792,
+      "instanceName": null,
+      "role": "backend-runner",
+      "manifestIdentityMatches": true,
+      "children": [
+        {
+          "executable": "conhost.exe",
+          "startedAtUtc": "2026-10-25T11:33:25.3059185Z",
+          "parentPid": 39792,
+          "pid": 5972
+        },
+        {
+          "executable": "dotnet.exe",
+          "startedAtUtc": "2026-10-25T11:33:25.5601100Z",
+          "parentPid": 39792,
+          "pid": 1840
+        }
+      ]
+    },
+    {
+      "executable": "python.exe",
+      "startedAtUtc": "2026-10-25T11:37:04.0461968Z",
+      "pid": 38436,
+      "instanceName": null,
+      "role": "advanced-fixture-http",
+      "manifestIdentityMatches": true,
+      "children": [
+        {
+          "executable": "conhost.exe",
+          "startedAtUtc": "2026-10-25T11:37:04.0550060Z",
+          "parentPid": 38436,
+          "pid": 3796
+        }
+      ]
+    },
+    {
+      "executable": "pwsh.exe",
+      "startedAtUtc": "2026-10-25T11:37:04.0722824Z",
+      "pid": 39784,
+      "instanceName": null,
+      "role": "advanced-backend-runner",
+      "manifestIdentityMatches": true,
+      "children": [
+        {
+          "executable": "conhost.exe",
+          "startedAtUtc": "2026-10-25T11:37:04.0806439Z",
+          "parentPid": 39784,
+          "pid": 13612
+        },
+        {
+          "executable": "dotnet.exe",
+          "startedAtUtc": "2026-10-25T11:37:04.2929878Z",
+          "parentPid": 39784,
+          "pid": 39820
+        }
+      ]
+    },
+    {
+      "executable": "pwsh.exe",
+      "startedAtUtc": "2026-10-25T11:38:24.4536097Z",
+      "pid": 37844,
+      "instanceName": null,
+      "role": "local-model-runner",
+      "manifestIdentityMatches": true,
+      "children": [
+        {
+          "executable": "conhost.exe",
+          "startedAtUtc": "2026-10-25T11:38:24.4600407Z",
+          "parentPid": 37844,
+          "pid": 28080
+        },
+        {
+          "executable": "llama-server.exe",
+          "startedAtUtc": "2026-10-25T11:38:24.7009626Z",
+          "parentPid": 37844,
+          "pid": 3172
+        }
+      ]
+    },
+    {
+      "executable": "python.exe",
+      "startedAtUtc": "2026-10-25T11:40:37.5931648Z",
+      "pid": 2200,
+      "instanceName": null,
+      "role": "storage-proxy",
+      "manifestIdentityMatches": true,
+      "children": [
+        {
+          "executable": "conhost.exe",
+          "startedAtUtc": "2026-10-25T11:40:37.6006093Z",
+          "parentPid": 2200,
+          "pid": 30960
+        }
+      ]
+    },
+    {
+      "executable": "python.exe",
+      "startedAtUtc": "2026-10-25T12:12:54.1990878Z",
+      "pid": 12548,
+      "instanceName": "ui-faults-v2",
+      "role": "storage-proxy",
+      "manifestIdentityMatches": true,
+      "children": [
+        {
+          "executable": "conhost.exe",
+          "startedAtUtc": "2026-10-25T12:12:54.2048476Z",
+          "parentPid": 12548,
+          "pid": 17864
+        }
+      ]
+    },
+    {
+      "executable": "python.exe",
+      "startedAtUtc": "2026-10-25T12:28:01.4231491Z",
+      "pid": 17244,
+      "instanceName": "offline-recovery",
+      "role": "storage-proxy",
+      "manifestIdentityMatches": true,
+      "children": [
+        {
+          "executable": "conhost.exe",
+          "startedAtUtc": "2026-10-25T12:28:01.4322667Z",
+          "parentPid": 17244,
+          "pid": 40600
+        }
+      ]
+    },
+    {
+      "executable": "python.exe",
+      "startedAtUtc": "2026-10-25T13:17:40.3191102Z",
+      "pid": 39964,
+      "instanceName": "advanced-poll-w24",
+      "role": "storage-proxy",
+      "manifestIdentityMatches": true,
+      "children": [
+        {
+          "executable": "conhost.exe",
+          "startedAtUtc": "2026-10-25T13:17:40.3255788Z",
+          "parentPid": 39964,
+          "pid": 35008
+        }
+      ]
+    }
+  ],
+  "ownedListeningSockets": [
+    {
+      "loopback": true,
+      "address": "127.0.0.1",
+      "port": 5127,
+      "pid": 1840
+    },
+    {
+      "loopback": true,
+      "address": "127.0.0.1",
+      "port": 5137,
+      "pid": 39820
+    },
+    {
+      "loopback": true,
+      "address": "127.0.0.1",
+      "port": 5147,
+      "pid": 2200
+    },
+    {
+      "loopback": true,
+      "address": "127.0.0.1",
+      "port": 5157,
+      "pid": 12548
+    },
+    {
+      "loopback": true,
+      "address": "127.0.0.1",
+      "port": 5158,
+      "pid": 17244
+    },
+    {
+      "loopback": true,
+      "address": "127.0.0.1",
+      "port": 5167,
+      "pid": 39964
+    },
+    {
+      "loopback": true,
+      "address": "127.0.0.1",
+      "port": 18087,
+      "pid": 38616
+    },
+    {
+      "loopback": true,
+      "address": "127.0.0.1",
+      "port": 18088,
+      "pid": 3172
+    },
+    {
+      "loopback": true,
+      "address": "127.0.0.1",
+      "port": 18089,
+      "pid": 38436
+    },
+    {
+      "loopback": true,
+      "address": "127.0.0.1",
+      "port": 62401,
+      "pid": 20068
+    }
+  ],
+  "ownedRootCount": 10,
+  "ownedProcessAndDirectChildCount": 31,
+  "allRootManifestIdentitiesMatch": true,
+  "allOwnedListenersLoopback": true,
+  "establishedConnectionsAtCapture": 7,
+  "nonLoopbackEstablishedConnectionsAtCapture": 0,
+  "normalPostgres5432": [
+    {
+      "address": "::",
+      "port": 5432,
+      "neverOwnedOrStopped": true,
+      "pid": 7844
+    },
+    {
+      "address": "0.0.0.0",
+      "port": 5432,
+      "neverOwnedOrStopped": true,
+      "pid": 7844
+    }
+  ],
+  "servicesStopped": false,
+  "processCommandLinesPublished": false,
+  "limits": [
+    "Point-in-time socket/process observation; no network interception or historical external-traffic certification.",
+    "User PostgreSQL5432 executable/start are inaccessible under the current token; only listeners/PID are observed and excluded from the owned stop plan.",
+    "All configured upstreams in this fixture are loopback; no paid provider was called by this audit."
+  ]
+}

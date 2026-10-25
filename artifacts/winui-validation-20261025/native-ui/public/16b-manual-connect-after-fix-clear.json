@@ -1,0 +1,38 @@
+{
+  "atUtc": "2026-10-25T11:52:48.644Z",
+  "name": "16b-manual-connect-after-fix-clear",
+  "description": "W30 fixed manual startup, unoccluded native screenshot.",
+  "window": {
+    "app": "process:C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+    "id": 10160618,
+    "title": "SAAIA"
+  },
+  "accessibility": {
+    "focused_element": "19 modifier (disabled, settable, string) Tape ta question... ID: InputBox",
+    "tree": "Window: \"SAAIA\", App: SAAIA.Client.WinUI.exe.\n\t0 fenêtre SAAIA Secondary Actions: Raise\n\t\t1 volet Non Client Input Sink Window\n\t\t2 volet AppWindow Custom Title Bar\n\t\t\t3 Bouton Minimize ID: Minimize\n\t\t\t4 Bouton Maximize ID: Maximize\n\t\t\t5 Bouton Close ID: Close\n\t\t6 volet\n\t\t\t7 volet\n\t\t\t\t8 image\n\t\t\t\t9 texte SAAIA\n\t\t\t\t10 bouton Discussions ID: ChatsToggleButton\n\t\t\t\t11 bouton Aide ID: HeaderHelpButton\n\t\t\t\t\t12 texte ?\n\t\t\t\t13 bouton Paramètres ID: HeaderSettingsButton\n\t\t\t\t14 texte Discussions ID: ChatsHeaderText\n\t\t\t\t15 bouton (disabled) Nouveau ID: NewChatButton\n\t\t\t\t16 liste (disabled) ID: SessionsList\n\t\t\t\t17 volet ID: MessagesScroll\n\t\t\t\t\t18 liste ID: MessagesList\n\t\t\t\t19 modifier (disabled, settable, string) Tape ta question... ID: InputBox\n\t\t\t\t20 bouton Envoyer ID: SendCancelButton\n\t\t\t\t21 image\n\t\t\t\t22 texte Client déconnecté\n\t\t\t\t23 texte La connexion automatique est désactivée. Connectez-vous lorsque vous êtes prêt.\n\t\t\t\t24 texte\n\t\t\t\t25 bouton Configurer\n\t\t\t\t26 bouton Se connecter\n\t\t27 barre de titre (settable, string) Value: SAAIA\n\t\t\t28 barre de menus Système ID: MenuBar\n\t\t\t\t29 élément de menu Système\n\t\t\t30 Bouton Réduire\n\t\t\t31 Bouton Agrandir\n\t\t\t32 Bouton Fermer\n\nThe focused UI element is 19 modifier (disabled, settable, string) Tape ta question... ID: InputBox."
+  },
+  "screenshots": [
+    "../16b-manual-connect-after-fix-clear-0.png"
+  ],
+  "publicProjection": {
+    "schemaVersion": "saaia.winui.native-observation-public-projection.v1",
+    "createdAtUtc": "2026-10-25T13:45:48.678Z",
+    "originalFileName": "16b-manual-connect-after-fix-clear.json",
+    "originalSha256": "4627042F46A5D30258FF22EB81E68C99171724AD9BF7DACC2FF139C75D5D01B5",
+    "originalObservationUnmodified": true,
+    "purpose": "Adresses d’infrastructure privée masquées si présentes ; capture claire conservée sur autorisation explicite de l’opérateur.",
+    "redactions": {
+      "tailnetUrls": 0,
+      "lanUrls": 0,
+      "bareTailnetHosts": 0,
+      "bareLanAddresses": 0
+    },
+    "loopbackUrlsPreserved": true,
+    "canonicalDocumentIdentitiesPreserved": true,
+    "screenshotsReferenceBase": "relative_to_this_public_json",
+    "screenshotsRemoved": 0,
+    "screenshotsPolicy": "OPERATOR_PREVIOUSLY_INSPECTED_CLEAR_OR_MASKED_SYNTHETIC_KEY_CAPTURE",
+    "imageAnalysisPerformedByProjectionAuthor": false,
+    "rawOriginalRequiredForPublicEvidence": false
+  }
+}

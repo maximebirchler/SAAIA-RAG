@@ -1,0 +1,14 @@
+{
+  "atUtc": "2026-10-25T13:01:40.529Z",
+  "method": "Native PDF viewer, displayed pixels and UIA inspected after real Qwen source click",
+  "source": "Actual local Qwen answer, not the controlled UI card",
+  "answerTrace": "de194224be4736a5c6c105d70868a549",
+  "sourceOpenTrace": "e114976435a2e2ed6a3f5e3ca477c2c4",
+  "sourceFile": "Validation/Guide-Validation.pdf",
+  "requestedPage": 2,
+  "observedPageSelector": "2 of 2",
+  "observedVisibleMarker": "VALIDATION WINUI - PAGE 2 - CODE ORION 4826",
+  "wrongHomonymousArchiveNotOpened": true,
+  "privateScreenshotExcludedFromGit": true,
+  "screenshotSha256": "176ebc4bafe061b7733a97a48b5e8de532f5010f15135a3080c6379ea7eab203"
+}

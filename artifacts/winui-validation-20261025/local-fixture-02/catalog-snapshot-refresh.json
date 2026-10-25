@@ -1,0 +1,12 @@
+{
+  "tenants": [
+    {
+      "tenantId": "77777777-7777-4777-8777-777777777777",
+      "success": true,
+      "message": "ok",
+      "docs": 2,
+      "nodes": 3,
+      "computedAtUtc": "2026-10-25T11:47:36.1644441Z"
+    }
+  ]
+}

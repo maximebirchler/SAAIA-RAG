@@ -1,0 +1,920 @@
+{
+  "schemaVersion": "saaia.winui.execution-matrix-final.v1",
+  "compiledAtUtc": "2026-10-25T13:37:13.135Z",
+  "status": "EXECUTION_EVIDENCE_RECONCILED_WITH_EXPLICIT_REMAINING_GATES",
+  "authoringMethod": "Reconciliation read-only des scénarios préparatoires, observations du parent opérateur, snapshots d’accessibilité, métadonnées/captures et preuves transport/SQL/unités. Aucun clic UI exécuté par l’auteur de cette matrice.",
+  "baseMatrix": "journey-matrix.json",
+  "snapshotBoundary": "Observations natives01–89 et preuves techniques rapprochées après fin de l’opérateur. Aucun nouveau test requis ni lancé par ce rapprochement.",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "globalApprovalClaimed": false,
+  "statusLegend": {
+    "PASS_OBSERVED": "Comportement central observé dans le vrai client ; variantes non exécutées conservées dans limits/subchecks.",
+    "PASS_FIXTURE": "Vrai client et métier exécutés avec fournisseur, proxy ou corpus déterministe ; pas une validation de qualitéLLM.",
+    "PARTIAL_OBSERVED": "Une partie native est prouvée, mais des critères du scénario initial restent non exécutés.",
+    "UNIT_ONLY": "Contrats automatisés ou compilés seulement ; aucun PASS natif de ce cas.",
+    "NOT_EXECUTED": "Aucune exécution prouvée de cette variante.",
+    "AWAITING_CONFIRMATION": "Suppression effective non exécutée, confirmation Windows demandée selon opérateur ; aucune nouvelle demande de permission par cet auteur.",
+    "FAIL_BEFORE_FIX": "Échec historique conservé pour causalité, distinct du retest accepté.",
+    "FAIL_OBSERVED": "Défaut constaté dans le vrai client, correction ou retest encore requis. Ne pas compter comme acceptation.",
+    "NOT_APPLICABLE_IN_OBSERVED_UI": "Contrôle conditionnel absent du parcours observé ; aucune interaction inventée."
+  },
+  "evidenceTiers": {
+    "nativeProductionUi": "Vrai binaire Release x64, profil et backend isolés sur loopback, captures réelles et accessibilité consignées par le parent.",
+    "nativeLocalModel": "Qwen3-4B-Instruct-2507 réellement exécuté sur ce PC pour65/66 ; backend réel isolé et corpus synthétique de deux homonymes.",
+    "advancedFixtureProvider": "53–58 : vrai client, backend, worker, stockageSQL durable et redémarrage ; fournisseur avancé déterministe.",
+    "controlledSourceCard": "59/60/63/64 : messages contrôlés seedés viaAPI, distincts d’une réponse modèle.",
+    "unit": "Core/Client testhooks isolés ; aucune dépenseprovider ni clicUI déduit des résultats."
+  },
+  "separateOfflineGate": {
+    "proof": "full-client-unit-build08-acceptance-summary.json",
+    "manifest": "final-core-client-unit-build08/manifest.json",
+    "corePassed": 80,
+    "clientPassed": 2378,
+    "totalPassed": 2458,
+    "failed": 0,
+    "skipped": 0,
+    "sourceChangedDuringRun": false,
+    "sourceFingerprint": "AC3A4AB986393CA32487B3385B58BA59A03993AA728231867A11F8412C9CCE9A",
+    "trxHashesIndependentlyRecomputedAndMatched": true,
+    "clientDataIsolation": "explicit_environment_absolute_owned_output_root",
+    "environmentRestored": true,
+    "noRestore": true,
+    "additionalUserFilter": false,
+    "limit": "Suite Unit complète finale pour les sources gelées build08 ; aucun PASSUI ni qualité sémantique Terra déduits.",
+    "previousAcceptedProof": "full-client-unit-acceptance-summary.json",
+    "previousAcceptedTotal": 2449
+  },
+  "binaryAnchor": {
+    "launch": "client-launch-22-build08-final-support.json",
+    "additionalLaunch": "client-launch-21-build08-missing-model.json",
+    "assemblySha256": "B69435EFD628A9C7DA1F2A9677CA5D75AC4C3D3FE45A2E8A79208C8F675E16DA",
+    "limit": "Binaire final build08 pour86–89 ; les observations antérieures conservent les manifests de leurs builds respectives."
+  },
+  "importantCorrectionsToInitialMatrix": [
+    "SendCancelButton est désormais réellement IsEnabled=false quand non invocable ; la caveat initiale décrivait le défaut avant correctif.",
+    "MissingPath autorise la récupération de la version exacte parSHA ; absence globale vérifiée séparément en67.",
+    "Annulation du dialogue39 observée ; aucune suppression effective.",
+    "Disposition normale et maximisée56 observée ; pas de largeur minimale arbitraire.",
+    "Trace volontairement interrompue déclarée sans terminal fabriqué ; vérificateur strict non réétiquetéPASS."
+  ],
+  "scenarios": [
+    {
+      "id": "W01",
+      "title": "Démarrage configuré",
+      "status": "PASS_OBSERVED",
+      "observedScope": "Vrai client Release et backend isolé : fenêtre utilisable, session correcte et résultat documentaire rechargé.",
+      "evidence": [
+        "native-ui/01-connected-empty.json",
+        "native-ui/27-latest-production-connected-local-qwen.json",
+        "native-ui/69-manual-connected-build06.json"
+      ],
+      "limits": [],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W02",
+      "title": "Configuration initiale et annulation",
+      "status": "PARTIAL_OBSERVED",
+      "observedScope": "Premier lancement sans clé, annulation puis reprise de l’assistant et application d’une clé synthétique observés.",
+      "evidence": [
+        "native-ui/45-first-setup-required.json",
+        "native-ui/46-first-setup-cancel-recovery.json",
+        "native-ui/47-first-setup-completed.json",
+        "native-ui/32-configuration-applied.json"
+      ],
+      "limits": [
+        "L’observation45 n’a pas de PNG.",
+        "La conservation exacte de toutes les valeurs après Annuler et le redémarrage du même profil initial ne sont pas documentés séparément."
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W03",
+      "title": "Échec réseau au démarrage puis reprise",
+      "status": "PASS_OBSERVED",
+      "observedScope": "Panne réseau sur loopback puis vrai clic Réessayer : connexion et historique restaurés.",
+      "evidence": [
+        "native-ui/41-backend-offline.json",
+        "native-ui/42-offline-retry-recovered.json"
+      ],
+      "limits": [
+        "L’observation40, intitulée /ready503, montre une interface encore connectée ; elle n’est pas comptée comme échec de connexion."
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W04",
+      "title": "Clé refusée et récupération",
+      "status": "PARTIAL_OBSERVED",
+      "observedScope": "Vraie401 de l’API, erreur française et actions de récupération vérifiées ; configuration avec clé valide observée séparément.",
+      "evidence": [
+        "native-ui/43-unauthorized-startup.json",
+        "native-ui/61-unauthorized-localized-fixed.json",
+        "native-ui/47-first-setup-completed.json"
+      ],
+      "limits": [
+        "403 et réponse401 tardive après nouvelle authentification : unités seulement.",
+        "Le remplacement de la clé invalide dans la même instance de l’assistant n’a pas de preuve dédiée."
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W05",
+      "title": "URL principale inaccessible et alternative",
+      "status": "PARTIAL_OBSERVED",
+      "observedScope": "La primaire5159 indisponible est contournée par l’alternative5157 dans le vrai client.",
+      "evidence": [
+        "native-ui/44-backend-fallback.json"
+      ],
+      "limits": [
+        "La conservation de l’ordre enregistré et un second démarrage du profil de bascule n’ont pas de preuve dédiée."
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W06",
+      "title": "Absence de modèle local",
+      "status": "PASS_OBSERVED",
+      "observedScope": "Service du modèle local réellement absent : message final build08 clair, contrôles libérés, aucune source inventée. Correction de l’adresse via Configuration puis test /v1/models et nouveau tour Qwen réel : code4826/E2 et source exacte page2.",
+      "evidence": [
+        "native-ui/73-missing-local-model-fails-safe-but-message-not-actionable.json",
+        "native-ui/85-build07-local-model-error-explicit-message.json",
+        "w06-independent-readonly-review.json",
+        "native-ui/86-build08-local-model-unavailable-actionable-final.json",
+        "native-ui/87-local-model-recovery-configuration-test.json",
+        "native-ui/88-build08-qwen-answer-after-local-model-recovery.json"
+      ],
+      "limits": [
+        "Portée native : service HTTP local absent puis remis à disposition. Réinstallation, téléchargement et panne matérielle non exécutés."
+      ],
+      "subchecks": [
+        {
+          "name": "Message final sans direction vers un menu inexistant",
+          "status": "PASS_OBSERVED"
+        },
+        {
+          "name": "Contrôles libérés et aucune source inventée",
+          "status": "PASS_OBSERVED"
+        },
+        {
+          "name": "Reconfiguration puis test réel du modèle",
+          "status": "PASS_OBSERVED"
+        },
+        {
+          "name": "Réponse après récupération",
+          "status": "PASS_OBSERVED"
+        }
+      ],
+      "remainingPriority": "PRE_TERRA_CORE_JOURNEY",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W07",
+      "title": "Nouvelle discussion et aller-retour",
+      "status": "PASS_OBSERVED",
+      "observedScope": "Nouveau crée une discussion vide ; changements de discussion puis retours chargent les historiques correspondants.",
+      "evidence": [
+        "native-ui/05-new-session.json",
+        "native-ui/06-rename-inactive-keeps-active.json",
+        "native-ui/11-interrupted-session-reloaded.json",
+        "native-ui/38-session-load-retry-success.json",
+        "native-ui/55-other-chat-during-background.json",
+        "native-ui/58-advanced-origin-terminal.json"
+      ],
+      "limits": [
+        "L’observation11 repose sur accessibilité et journal sans PNG ; les autres changements possèdent des captures."
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W08",
+      "title": "Renommer une discussion non active",
+      "status": "PARTIAL_OBSERVED",
+      "observedScope": "Renommer une discussion inactive conserve l’autre discussion active ; Annuler un second renommage conserve titre et messages.",
+      "evidence": [
+        "native-ui/06-rename-inactive-keeps-active.json",
+        "native-ui/76-session-rename-cancel-preserves-title.json"
+      ],
+      "limits": [
+        "Titre vide et longueur120 ne sont pas exécutés visuellement."
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W09",
+      "title": "Suppression annulée puis non active",
+      "status": "AWAITING_CONFIRMATION",
+      "observedScope": "Fermer le dialogue de suppression conserveB. Aucune suppression effective exécutée.",
+      "evidence": [
+        "native-ui/39-delete-cancel.json"
+      ],
+      "limits": [
+        "Une confirmation Windows était demandée selon l’opérateur ; aucun clic final de suppression n’est affirmé.",
+        "L’observation39 possède accessibilité et journal mais pas de PNG."
+      ],
+      "subchecks": [
+        {
+          "name": "Fermer conserve la discussion",
+          "status": "PASS_OBSERVED"
+        },
+        {
+          "name": "Supprimer effectivement une discussion inactive",
+          "status": "AWAITING_CONFIRMATION"
+        }
+      ],
+      "remainingPriority": "REQUIRED_BEFORE_CLAIMING_ALL_WINUI_JOURNEYS",
+      "preTerraBlockingGap": "EFFECTIVE_DELETION_NOT_EXECUTED_USER_CONFIRMATION_PENDING"
+    },
+    {
+      "id": "W10",
+      "title": "Suppression de la discussion courante et dernière",
+      "status": "AWAITING_CONFIRMATION",
+      "observedScope": "Aucune suppression effective de la discussion active ou de la dernière discussion n’a été exécutée.",
+      "evidence": [],
+      "limits": [
+        "Ces variantes ne sont déduites ni du dialogue annulé ni des tests compilés."
+      ],
+      "subchecks": [
+        {
+          "name": "Suppression de la discussion active",
+          "status": "AWAITING_CONFIRMATION"
+        },
+        {
+          "name": "Suppression de la dernière discussion",
+          "status": "AWAITING_CONFIRMATION"
+        }
+      ],
+      "remainingPriority": "REQUIRED_BEFORE_CLAIMING_ALL_WINUI_JOURNEYS",
+      "preTerraBlockingGap": "EFFECTIVE_DELETION_NOT_EXECUTED_USER_CONFIRMATION_PENDING"
+    },
+    {
+      "id": "W11",
+      "title": "Chargement de discussion en échec",
+      "status": "PASS_OBSERVED",
+      "observedScope": "Un GET messages500 conserve historique et brouillon ; l’erreur devient visible aprèsW32 et un retry charge la bonne discussion.",
+      "evidence": [
+        "native-ui/37-session-load-failure.json",
+        "native-ui/38-session-load-retry-success.json",
+        "native-ui/48-session-load-error-visible-fixed.json"
+      ],
+      "limits": [
+        "37 montre le défaut de feedback initial ;48 est le retest du correctif."
+      ],
+      "remainingPriority": "PRE_TERRA_CORE_JOURNEY",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W12",
+      "title": "Saisie clavier et envoi unique",
+      "status": "PASS_FIXTURE",
+      "observedScope": "Deux Shift+Entrée restent dans la saisie ; Entrée produit un seul tour malgré répétition. Vrai client/backend et fournisseur déterministe.",
+      "evidence": [
+        "native-ui/07-multiline-before-send.json",
+        "native-ui/08-multiline-single-response.json"
+      ],
+      "limits": [
+        "L’accessibilité normalise les retours ; les actions opérateur et l’historique rechargé complètent la capture."
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W13",
+      "title": "Envoi, progression, fin et rechargement",
+      "status": "PASS_OBSERVED",
+      "observedScope": "Envoi et fin dans le vrai client ; vraie réponse Qwen avec source ensuite rechargée au redémarrage et à la connexion manuelle.",
+      "evidence": [
+        "native-ui/02-first-response.json",
+        "native-ui/65-qwen-document-after-intake-fix.json",
+        "native-ui/69-manual-connected-build06.json"
+      ],
+      "limits": [
+        "Un cas documentaire local ne définit pas la frontière complète du petit modèle et ne valide pas Terra."
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W14",
+      "title": "Annulation pendant sauvegarde initiale",
+      "status": "PASS_FIXTURE",
+      "observedScope": "Annulation pendant POST retardé : admission conservée, aucun modèle ensuite ; état Annulation en cours désactivé et deadline30s observés.",
+      "evidence": [
+        "native-ui/20-persistence-pending-gated.json",
+        "native-ui/21-cancel-during-user-storage.json",
+        "native-ui/22-storage-cancellation-settled.json",
+        "native-ui/35-cancelling-confirmation.json",
+        "native-ui/36-confirmation-deadline-return.json",
+        "local-fixture-02/persistence-deadline-proof.json"
+      ],
+      "limits": [
+        "Retard injecté par proxy contrôlé ; client, backend et stockage réels.",
+        "La réponse perdue n’exclut pas le commit : le cas deadline a eu un commit tardif unique sans assistant."
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W15",
+      "title": "Annulation pendant progression/streaming",
+      "status": "PARTIAL_OBSERVED",
+      "observedScope": "Appel modèle lent annulé, interruption durable au rechargement et envoi ultérieur possible.",
+      "evidence": [
+        "native-ui/04-cancel-requested.json",
+        "native-ui/11-interrupted-session-reloaded.json",
+        "native-ui/08-multiline-single-response.json"
+      ],
+      "limits": [
+        "Pas de preuve dédiée de deltas déjà affichés puis arrêtés.",
+        "Le retest final du bouton Annulation en cours porte sur le POST initial, pas sur un flux de deltas."
+      ],
+      "subchecks": [
+        {
+          "name": "Annuler un appel modèle lent et recharger son interruption",
+          "status": "PASS_FIXTURE"
+        },
+        {
+          "name": "L’ancien propriétaire ne peut libérer ou annuler un nouveau tour",
+          "status": "UNIT_ONLY"
+        },
+        {
+          "name": "Arrêter des deltas déjà affichés et retester le tour suivant",
+          "status": "NOT_EXECUTED"
+        }
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W16",
+      "title": "Interdiction de mutation pendant tour ou chargement",
+      "status": "PARTIAL_OBSERVED",
+      "observedScope": "Input, Nouveau, liste, menus, Aide, Paramètres et Configuration bloqués pendant tour/annulation ; réactivation constatée.",
+      "evidence": [
+        "native-ui/20-persistence-pending-gated.json",
+        "native-ui/35-cancelling-confirmation.json",
+        "native-ui/36-confirmation-deadline-return.json",
+        "native-ui/53-advanced-work-in-progress.json"
+      ],
+      "limits": [
+        "Les tentatives clavier derrière un dialogue et pendant un GET lent restent des contrats unitaires, sans séquence native dédiée."
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W17",
+      "title": "Erreur transport lors de sauvegarde utilisateur",
+      "status": "PASS_FIXTURE",
+      "observedScope": "POST500 avec brouillon conservé, avertissement visible, aucune fausse bulle ni modèle ; retry explicite et deadline indépendante vérifiés.",
+      "evidence": [
+        "native-ui/10-storage-failure-before-fix.json",
+        "native-ui/12-failed-draft-disappears-on-reload.json",
+        "native-ui/19-retry-after-failure-succeeded.json",
+        "native-ui/28-storage-failure-visible-warning.json",
+        "native-ui/36-confirmation-deadline-return.json",
+        "native-ui/51-new-endpoint-storage-failure-confirmed.json",
+        "local-fixture-02/persistence-deadline-proof.json"
+      ],
+      "limits": [
+        "10/12 sont les échecs avant correctif, pas une acceptation.",
+        "ACK vide ou malformé : unités avec transport injecté, pas UI native.",
+        "Un renvoi manuel après réponse perdue peut dupliquer le message ; l’avertissement demande d’inspecter l’historique."
+      ],
+      "remainingPriority": "PRE_TERRA_CORE_JOURNEY",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W18",
+      "title": "Sources visibles et sélection de message",
+      "status": "PASS_FIXTURE",
+      "observedScope": "Deux assistants contrôlés d’une même discussion conservent leurs cartes Validation/page2 et Archive/page1, y compris après clics successifs sur B puis A. Carte Qwen réelle et rechargement vérifiés séparément.",
+      "evidence": [
+        "native-ui/59-source-card-page2-controlled.json",
+        "native-ui/65-qwen-document-after-intake-fix.json",
+        "native-ui/69-manual-connected-build06.json",
+        "native-ui/77-two-messages-distinct-source-cards.json",
+        "local-fixture-02/source-selection-two-message-readback-proof.json",
+        "native-ui/78-two-messages-source-interaction-keeps-provenance.json"
+      ],
+      "limits": [
+        "Le test à deux messages est seedé sans modèle ; il prouve le rendu et la provenance attachée à chaque bulle.",
+        "Aucun panneau Sources séparé n’est exposé dans ce parcours : ne pas inventer d’interaction avec ce panneau.",
+        "Le seed a signalé un échec de contrôle JSON après stockage des deux messages ; échec préservé et vérification séparée en lecture seule, sans nouveau POST."
+      ],
+      "subchecks": [
+        {
+          "name": "Deux messages d’une même discussion, sources distinctes sans contamination",
+          "status": "PASS_FIXTURE"
+        },
+        {
+          "name": "Carte d’une vraie réponse locale et rechargement",
+          "status": "PASS_OBSERVED"
+        },
+        {
+          "name": "Panneau Sources séparé non exposé dans ce parcours",
+          "status": "NOT_APPLICABLE_IN_OBSERVED_UI"
+        }
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W19",
+      "title": "Ouverture source par carte et lien",
+      "status": "PASS_OBSERVED",
+      "observedScope": "Lien documentaire ouvert physiquement page1 ; carte contrôlée puis carte du vrai Qwen ouvertes page2 du bon PDF.",
+      "evidence": [
+        "native-ui/25-two-distinct-document-links.json",
+        "native-ui/26-pdf-link-page1.json",
+        "native-ui/60-pdf-card-page2.json",
+        "native-ui/66-qwen-real-source-pdf-page2.json"
+      ],
+      "limits": [
+        "Nom Unicode et espaces non exercés par Guide-Validation.pdf.",
+        "Captures du lecteur PDF privées exclues deGit ; page, marqueur, traces et empreintes conservés."
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W20",
+      "title": "Source manquante et révision ambiguë",
+      "status": "PARTIAL_OBSERVED",
+      "observedScope": "Hash incorrect refusé ; chemin manquant récupéré parSHA exact ; absence réelle de la version citée refusée sans ouvrir l’homonyme.",
+      "evidence": [
+        "native-ui/63-source-hash-mismatch-refused.json",
+        "native-ui/64-pdf-missing-path-exact-recovery.json",
+        "native-ui/67-source-absent-safe-refusal-fixed.json",
+        "local-fixture-02/source-absence-restored-proof.json"
+      ],
+      "limits": [
+        "63 révèle l’ancien titre générique ;67 observe Version citée indisponible après correctif.",
+        "Ambiguïté entre révisions sans hash exact : unités seulement.",
+        "Le cas MissingPath initial n’était pas une absence globale ; l’oracle a été corrigé explicitement."
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W21",
+      "title": "Analyse avancée terminale et sources persistées",
+      "status": "PARTIAL_OBSERVED",
+      "observedScope": "Même message avancé et mêmejob repris, résultat terminal unique affiché par le vrai client et produit par le vrai worker.",
+      "evidence": [
+        "native-ui/54-advanced-resumed-after-restart.json",
+        "native-ui/58-advanced-origin-terminal.json",
+        "local-fixture-02/advanced-resume-proof.json"
+      ],
+      "limits": [
+        "Le fournisseur est une fixture déterministe.",
+        "Aucune carte source dans ce résultat fixture : sources avancées terminales et nouveau redémarrage après terminal non observés."
+      ],
+      "subchecks": [
+        {
+          "name": "Résultat terminal unique après reprise",
+          "status": "PASS_FIXTURE"
+        },
+        {
+          "name": "Sources avancées terminales après nouveau redémarrage",
+          "status": "UNIT_ONLY"
+        }
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W22",
+      "title": "Reprise durable d’analyse avancée",
+      "status": "PASS_FIXTURE",
+      "observedScope": "Vrai processus fermé puis rouvert pendant le job du worker ; mêmejob/message, polling repris puis terminal unique sans nouveaujob.",
+      "evidence": [
+        "native-ui/53-advanced-work-in-progress.json",
+        "native-ui/54-advanced-resumed-after-restart.json",
+        "native-ui/58-advanced-origin-terminal.json",
+        "local-fixture-02/advanced-resume-proof.json",
+        "trace-interruption-accounting.json",
+        "support-resume-origin-visibility.json"
+      ],
+      "limits": [
+        "Fournisseur déterministe : aucune qualité sémantique ni planning de repas validé.",
+        "Trace d’origine interrompue volontairement déclarée sans terminal fabriqué ; vérificateur strict non réétiquetéPASS.",
+        "Export final primaire exécuté, mais son historique borné ne contient pas Configuration.originTraceId du tour de reprise antérieur. La corrélation d’origine demeure établie par SQL/sondes."
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W23",
+      "title": "Analyse avancée et changement de discussion",
+      "status": "PASS_FIXTURE",
+      "observedScope": "DiscussionB distincte pendant puis après le job deA ; retourA correct et empreintes des autres historiques inchangées.",
+      "evidence": [
+        "native-ui/55-other-chat-during-background.json",
+        "native-ui/57-other-chat-after-background-completion.json",
+        "native-ui/58-advanced-origin-terminal.json",
+        "local-fixture-02/advanced-resume-proof.json"
+      ],
+      "limits": [
+        "Le fournisseur est une fixture ; aucune carte source avancée dans ce résultat."
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W24",
+      "title": "Polling interrompu et révisions invalides",
+      "status": "PASS_FIXTURE",
+      "observedScope": "Vrai job du worker : deux GET503, révision régressive et mauvaise SessionId injectés ; refus des états invalides puis fin du même job sur une seule bulle. Preuves HTTP, sondes, SQL et empreintes corrélées.",
+      "evidence": [
+        "native-ui/79-polling-http503-recovers-running.json",
+        "native-ui/80-polling-regressive-revision-does-not-replace-valid-state.json",
+        "native-ui/81-polling-session-mismatch-not-shown-as-result.json",
+        "native-ui/82-polling-faults-final-same-job-terminal.json",
+        "local-fixture-02/advanced-polling-faults-proof.json"
+      ],
+      "limits": [
+        "Les réponses GET fautives sont contrôlées ; le job final et le worker sont réels, avec fournisseur déterministe.",
+        "Les empreintes SQL prouvent l’état final, pas un audit historique de chaque écriture. Le rejet avant callback est vérifié dans le contrôle de flux.",
+        "Les autres contrats malformés non injectés visuellement restent des unités."
+      ],
+      "subchecks": [
+        {
+          "name": "Deux503 suivis de récupération du même job",
+          "status": "PASS_FIXTURE"
+        },
+        {
+          "name": "Révision régressive et mauvaise session rejetées",
+          "status": "PASS_FIXTURE"
+        },
+        {
+          "name": "Terminal unique et historiques tiers inchangés",
+          "status": "PASS_FIXTURE"
+        },
+        {
+          "name": "Autres contrats malformés non injectés",
+          "status": "UNIT_ONLY"
+        }
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W25",
+      "title": "Paramètres, langue et apparence",
+      "status": "PARTIAL_OBSERVED",
+      "observedScope": "Langue anglaise et thème clair appliqués via le vrai dialogue ; changement English/Light sans Appliquer puis Fermer conserve Français/Sombre à la réouverture et dans settings.json.",
+      "evidence": [
+        "native-ui/15-english-light-theme.json",
+        "native-ui/49-support-export-build04.json",
+        "native-ui/69-manual-connected-build06.json",
+        "native-ui/74-settings-unapplied-language-theme-preview.json",
+        "native-ui/75-settings-close-without-apply-preserves-fr-dark.json"
+      ],
+      "limits": [
+        "Redémarrage après application du même choix non documenté séparément.",
+        "Pas de matrice de tous les états, cartes et menus dans les deux thèmes."
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W26",
+      "title": "Export support depuis la vraie fenêtre",
+      "status": "PASS_OBSERVED",
+      "observedScope": "Export final build08 effectué depuis le vrai client primaire, boutons réactivés et ZIP créé :51 entrées,1007 sondes valides,14 contrôles de collecte/confidentialité réussis. Aucun marqueur connu de clé ou de texte détecté.",
+      "evidence": [
+        "native-ui/14-support-export-result-initial.json",
+        "native-ui/14b-support-export-result-clear.json",
+        "native-ui/49-support-export-build04.json",
+        "local-fixture-02/support-bundle-review-build04-accepted.json",
+        "native-ui/89-build08-final-support-export-from-ui.json",
+        "local-fixture-02/support-bundle-review-build08-final.json",
+        "support-resume-origin-visibility.json"
+      ],
+      "limits": [
+        "Pièces optionnelles manquantes déclarées, distinctes d’un échec de collecte.",
+        "L’export final contient un seul tour récent ; Configuration.originTraceId du tour de reprise antérieur n’y est pas directement confirmé. La chaîne de reprise est prouvée par SQL et sondes séparément.",
+        "L’échec d’export et son réarmement ne sont pas exécutés nativement."
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W27",
+      "title": "Redimensionnement et navigation/scroll",
+      "status": "PARTIAL_OBSERVED",
+      "observedScope": "Fenêtre normale, maximisée puis1036×641 : messages, saisie, boutons et menus accessibles ; masquer Discussions réorganise les messages sans masquer le compositeur.",
+      "evidence": [
+        "native-ui/56-maximized-layout.json",
+        "native-ui/69-manual-connected-build06.json",
+        "native-ui/83-narrow-window-layout-controls-accessible.json",
+        "native-ui/84-small-window-chats-pane-hidden.json"
+      ],
+      "limits": [
+        "La taille1036×641 est observée ; aucune couverture de toutes les largeurs arbitraires ni de la taille minimale technique.",
+        "Scroll volontaire pendant deltas et bouton Aller en bas pas exécutés dans une séquence dédiée."
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W28",
+      "title": "Aide et commande directe sans modèle",
+      "status": "PASS_FIXTURE",
+      "observedScope": "Aide/catalogue et recherche guidée réels : deux catégories et deux homonymes distingués sans réponseLLM.",
+      "evidence": [
+        "native-ui/13-guided-catalog-result.json",
+        "native-ui/23-guided-catalog-two-categories.json",
+        "native-ui/24-guided-document-search.json",
+        "native-ui/25-two-distinct-document-links.json"
+      ],
+      "limits": [
+        "Le premier zéro catégorie provenait d’un snapshot fixture non rafraîchi ;23 utilise la préparation corrigée.",
+        "Annulation d’une commande directe longue non observée."
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W29",
+      "title": "Paramètres et configuration pendant une réponse",
+      "status": "PASS_OBSERVED",
+      "observedScope": "Ancienne ouverture Paramètres pendant un tour reproduite ; après correctif Paramètres et Configuration sont désactivés pendant admission/tour puis réactivés.",
+      "evidence": [
+        "native-ui/03-settings-during-active-turn-before-fix.json",
+        "native-ui/20-persistence-pending-gated.json",
+        "native-ui/35-cancelling-confirmation.json",
+        "native-ui/36-confirmation-deadline-return.json",
+        "native-ui/53-advanced-work-in-progress.json"
+      ],
+      "limits": [
+        "La lease du dialogue et l’exclusion des envois clavier sont vérifiées en unité, sans séquence native exhaustive.",
+        "Aucune réparation ni aucun téléchargement lancés pour prouver ce blocage."
+      ],
+      "remainingPriority": "PRE_TERRA_CORE_JOURNEY",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W30",
+      "title": "Connexion automatique désactivée et reprise visible",
+      "status": "PASS_OBSERVED",
+      "observedScope": "AutoConnectfalse respecté : état déconnecté clair, Configurer et Se connecter visibles ; clic manuel recharge historique/source. Retest build06.",
+      "evidence": [
+        "native-ui/09-autoconnect-off-before-fix.json",
+        "native-ui/16b-manual-connect-after-fix-clear.json",
+        "native-ui/17-manual-connect-success.json",
+        "native-ui/68-build06-manual-disconnected.json",
+        "native-ui/69-manual-connected-build06.json"
+      ],
+      "limits": [
+        "09 est l’échec initial ;68/69 portent l’acceptation native finale."
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W31",
+      "title": "Configuration appliquée et transport effectivement remplacé",
+      "status": "PASS_OBSERVED",
+      "observedScope": "Nouvel endpoint réellement utilisé après Appliquer. Sous AutoConnectfalse, la reconfiguration vers5159 échoue, vide l’ancien état, puis le retour5157 attend Se connecter et recharge le bon historique.",
+      "evidence": [
+        "native-ui/32-configuration-applied.json",
+        "native-ui/33-wizard-url-not-live.json",
+        "native-ui/50-wizard-reconnected-fixed.json",
+        "native-ui/51-new-endpoint-storage-failure-confirmed.json",
+        "native-ui/69-manual-connected-build06.json",
+        "w31-final-fix-proof.json",
+        "native-ui/70-manual-reconfiguration-unreachable-clears-old-connection.json",
+        "native-ui/71-manual-reconfiguration-restored-awaits-explicit-connect.json",
+        "native-ui/72-manual-reconfiguration-recovery-connected.json"
+      ],
+      "limits": [
+        "Snapshots des trackers, révocation admin et réponses401 tardives : unités injectées, pas toutes les races reproduites nativement."
+      ],
+      "subchecks": [
+        {
+          "name": "Nouvel endpoint après application",
+          "status": "PASS_OBSERVED"
+        },
+        {
+          "name": "Échec sous AutoConnectfalse sans ancien état utilisable",
+          "status": "PASS_OBSERVED"
+        },
+        {
+          "name": "Retour au mode manuel puis récupération explicite",
+          "status": "PASS_OBSERVED"
+        },
+        {
+          "name": "Snapshots et authentification admin tardive",
+          "status": "UNIT_ONLY"
+        }
+      ],
+      "remainingPriority": "PRE_TERRA_CORE_JOURNEY",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "W32",
+      "title": "Erreur de chargement visible sans perdre la discussion",
+      "status": "PASS_OBSERVED",
+      "observedScope": "Erreur de chargement500 visible dans InfoBar, ancien historique et brouillon préservés ; retry charge la bonne discussion.",
+      "evidence": [
+        "native-ui/37-session-load-failure.json",
+        "native-ui/38-session-load-retry-success.json",
+        "native-ui/48-session-load-error-visible-fixed.json"
+      ],
+      "limits": [
+        "Les erreurs create/rename/delete partagent le renderer mais ne sont pas exécutées nativement.",
+        "Changement de langue d’une notice active : revue/contrat unitaire sans capture dédiée."
+      ],
+      "remainingPriority": "COMPLEMENTARY_UI_VARIANTS",
+      "preTerraBlockingGap": null
+    },
+    {
+      "id": "DOC_IDENTITY",
+      "title": "Identité documentaire de la mission jusqu’au PDF réel",
+      "status": "PASS_OBSERVED",
+      "observedScope": "Adaptateur mission/intake corrigé causalement ; vrai Qwen répond4826 avecE2, documentValidation exact, hash source égal au PDF et page2 physiquement affichée.",
+      "evidence": [
+        "native-ui/62-qwen-clarification-still-present-build05.json",
+        "native-ui/65-qwen-document-after-intake-fix.json",
+        "native-ui/66-qwen-real-source-pdf-page2.json",
+        "native-qwen-document-path-causal-proof/proof.json",
+        "document-intake-path-green/proof.json"
+      ],
+      "limits": [
+        "Un cas synthétique de question directe ; aucune frontière globale du petit modèle.",
+        "Aucun test Terra, RunPod ou planning de repas complexe.",
+        "Captures du lecteur PDF privées exclues deGit ; empreintes, marqueur, page et trace conservés."
+      ],
+      "remainingPriority": "PRE_TERRA_CORE_JOURNEY",
+      "preTerraBlockingGap": null
+    }
+  ],
+  "remainingEvidenceGaps": [
+    {
+      "id": "W02",
+      "status": "PARTIAL_OBSERVED",
+      "priority": "COMPLEMENTARY_UI_VARIANTS",
+      "limits": [
+        "L’observation45 n’a pas de PNG.",
+        "La conservation exacte de toutes les valeurs après Annuler et le redémarrage du même profil initial ne sont pas documentés séparément."
+      ]
+    },
+    {
+      "id": "W04",
+      "status": "PARTIAL_OBSERVED",
+      "priority": "COMPLEMENTARY_UI_VARIANTS",
+      "limits": [
+        "403 et réponse401 tardive après nouvelle authentification : unités seulement.",
+        "Le remplacement de la clé invalide dans la même instance de l’assistant n’a pas de preuve dédiée."
+      ]
+    },
+    {
+      "id": "W05",
+      "status": "PARTIAL_OBSERVED",
+      "priority": "COMPLEMENTARY_UI_VARIANTS",
+      "limits": [
+        "La conservation de l’ordre enregistré et un second démarrage du profil de bascule n’ont pas de preuve dédiée."
+      ]
+    },
+    {
+      "id": "W08",
+      "status": "PARTIAL_OBSERVED",
+      "priority": "COMPLEMENTARY_UI_VARIANTS",
+      "limits": [
+        "Titre vide et longueur120 ne sont pas exécutés visuellement."
+      ]
+    },
+    {
+      "id": "W09",
+      "status": "AWAITING_CONFIRMATION",
+      "priority": "REQUIRED_BEFORE_CLAIMING_ALL_WINUI_JOURNEYS",
+      "limits": [
+        "Une confirmation Windows était demandée selon l’opérateur ; aucun clic final de suppression n’est affirmé.",
+        "L’observation39 possède accessibilité et journal mais pas de PNG."
+      ]
+    },
+    {
+      "id": "W10",
+      "status": "AWAITING_CONFIRMATION",
+      "priority": "REQUIRED_BEFORE_CLAIMING_ALL_WINUI_JOURNEYS",
+      "limits": [
+        "Ces variantes ne sont déduites ni du dialogue annulé ni des tests compilés."
+      ]
+    },
+    {
+      "id": "W15",
+      "status": "PARTIAL_OBSERVED",
+      "priority": "COMPLEMENTARY_UI_VARIANTS",
+      "limits": [
+        "Pas de preuve dédiée de deltas déjà affichés puis arrêtés.",
+        "Le retest final du bouton Annulation en cours porte sur le POST initial, pas sur un flux de deltas."
+      ]
+    },
+    {
+      "id": "W16",
+      "status": "PARTIAL_OBSERVED",
+      "priority": "COMPLEMENTARY_UI_VARIANTS",
+      "limits": [
+        "Les tentatives clavier derrière un dialogue et pendant un GET lent restent des contrats unitaires, sans séquence native dédiée."
+      ]
+    },
+    {
+      "id": "W20",
+      "status": "PARTIAL_OBSERVED",
+      "priority": "COMPLEMENTARY_UI_VARIANTS",
+      "limits": [
+        "63 révèle l’ancien titre générique ;67 observe Version citée indisponible après correctif.",
+        "Ambiguïté entre révisions sans hash exact : unités seulement.",
+        "Le cas MissingPath initial n’était pas une absence globale ; l’oracle a été corrigé explicitement."
+      ]
+    },
+    {
+      "id": "W21",
+      "status": "PARTIAL_OBSERVED",
+      "priority": "COMPLEMENTARY_UI_VARIANTS",
+      "limits": [
+        "Le fournisseur est une fixture déterministe.",
+        "Aucune carte source dans ce résultat fixture : sources avancées terminales et nouveau redémarrage après terminal non observés."
+      ]
+    },
+    {
+      "id": "W25",
+      "status": "PARTIAL_OBSERVED",
+      "priority": "COMPLEMENTARY_UI_VARIANTS",
+      "limits": [
+        "Redémarrage après application du même choix non documenté séparément.",
+        "Pas de matrice de tous les états, cartes et menus dans les deux thèmes."
+      ]
+    },
+    {
+      "id": "W27",
+      "status": "PARTIAL_OBSERVED",
+      "priority": "COMPLEMENTARY_UI_VARIANTS",
+      "limits": [
+        "La taille1036×641 est observée ; aucune couverture de toutes les largeurs arbitraires ni de la taille minimale technique.",
+        "Scroll volontaire pendant deltas et bouton Aller en bas pas exécutés dans une séquence dédiée."
+      ]
+    }
+  ],
+  "outOfScope": [
+    "Terra/RunPod/OpenAI payant",
+    "Validation sémantique du planning de repas",
+    "Déploiement serveur",
+    "Git/staging par cet auteur"
+  ],
+  "mutationsByThisAuthorDuringMatrixTask": {
+    "product": 0,
+    "git": 0,
+    "uiActions": 0,
+    "paidCalls": 0,
+    "newToolPreparedNotExecuted": "tools/validation-winui/seed-source-selection-session.ps1 prepared; root executed the seed once. This author performed read-only API reconciliation after correcting the tool; no new seed.",
+    "newToolAuthorization": "Parent explicit request after the read-only matrix task; not part of the earlier frozen unit fingerprint."
+  },
+  "scenarioStatusCounts": {
+    "PASS_OBSERVED": 13,
+    "PARTIAL_OBSERVED": 10,
+    "AWAITING_CONFIRMATION": 2,
+    "PASS_FIXTURE": 8
+  },
+  "openWorkAtSnapshot": [
+    "W09 : annulation39 exécutée, suppression effective d’une discussion inactive non exécutée ; confirmation utilisateur en attente.",
+    "W10 : suppression active et dernière discussion non exécutées ; confirmation utilisateur en attente.",
+    "Variantes complémentaires non exécutées : titre vide/120caractères, scroll pendant deltas/Aller en bas, Unicode/espaces du chemin et autres cas déclarés par scénario.",
+    "Configuration.originTraceId de l’ancienne reprise non retrouvé dans l’historique borné de l’export final ; chaîne SQL/sondes conservée."
+  ],
+  "earlierLocalDocumentaryAnchor": {
+    "launch": "client-launch-16-build06-main.json",
+    "assemblySha256": "474FBE9E8461AD8832A650AAA75BEEE03A58608FD103A744D74F6B6232FC1C07",
+    "nativeEvidence": [
+      "native-ui/65-qwen-document-after-intake-fix.json",
+      "native-ui/66-qwen-real-source-pdf-page2.json"
+    ],
+    "limit": "Build06 du premier succès documentaire physique. Le succès réel88 reteste Qwen après récupération sur build08."
+  },
+  "remainingApprovalGates": [
+    {
+      "id": "W09_effective_delete",
+      "status": "AWAITING_CONFIRMATION",
+      "authorizationReceived": false,
+      "uiExecuted": false
+    },
+    {
+      "id": "W10_active_and_last_delete",
+      "status": "AWAITING_CONFIRMATION",
+      "authorizationReceived": false,
+      "uiExecuted": false
+    }
+  ],
+  "interpretationBoundary": "Ces résultats ne permettent ni l’affirmation tous les parcours validés ni l’acceptation du planning de repas. Aucun Terra ni fournisseur payant exécuté.",
+  "notes": "notes-final.md",
+  "linkIntegrityProof": "execution-matrix-evidence-integrity-final.json"
+}

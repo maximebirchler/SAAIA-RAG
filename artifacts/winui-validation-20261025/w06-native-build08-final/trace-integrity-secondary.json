@@ -1,0 +1,584 @@
+{
+  "schemaVersion": "saaia.winui-trace-integrity.v1",
+  "capturedAtUtc": "2026-10-25T13:34:09.9698666+00:00",
+  "status": "TRACE_INTEGRITY_VALIDATED",
+  "verifierScope": "Local file integrity and production diagnostic correlation; does not execute UI or network.",
+  "modelQualityValidated": false,
+  "visualUiValidated": false,
+  "pdfPageRenderingValidated": false,
+  "productStatus": "TESTE_NON_APPROUVE",
+  "eventCount": 210,
+  "turnCount": 11,
+  "checks": [
+    {
+      "name": "production_probe_events_exist",
+      "passed": true,
+      "details": 210
+    },
+    {
+      "name": "probe_json_is_parseable",
+      "passed": true,
+      "details": 0
+    },
+    {
+      "name": "probe_schema_correlation_and_nonnegative_clocks",
+      "passed": true,
+      "details": 0
+    },
+    {
+      "name": "turn_sequence_unique_2ce5cdb81d5649dd9b6fc1d8a1411454",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_2ce5cdb81d5649dd9b6fc1d8a1411454",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_2ce5cdb81d5649dd9b6fc1d8a1411454",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_2ce5cdb81d5649dd9b6fc1d8a1411454",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_2ce5cdb81d5649dd9b6fc1d8a1411454",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_3a1ccade08c24c9a88f0f73c9d7c23a6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_3a1ccade08c24c9a88f0f73c9d7c23a6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_3a1ccade08c24c9a88f0f73c9d7c23a6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_3a1ccade08c24c9a88f0f73c9d7c23a6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_3a1ccade08c24c9a88f0f73c9d7c23a6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_3cf3b2d8adf0489aa43c3eb6fcfcc3e6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_3cf3b2d8adf0489aa43c3eb6fcfcc3e6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_3cf3b2d8adf0489aa43c3eb6fcfcc3e6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_3cf3b2d8adf0489aa43c3eb6fcfcc3e6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_3cf3b2d8adf0489aa43c3eb6fcfcc3e6",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_48322dcbbb7342d6a373046a22ba3130",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_48322dcbbb7342d6a373046a22ba3130",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_48322dcbbb7342d6a373046a22ba3130",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_48322dcbbb7342d6a373046a22ba3130",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_48322dcbbb7342d6a373046a22ba3130",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_7f99d99ae13944409afaac7884587e57",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_7f99d99ae13944409afaac7884587e57",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_7f99d99ae13944409afaac7884587e57",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_7f99d99ae13944409afaac7884587e57",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_7f99d99ae13944409afaac7884587e57",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_8f303142ad3e42719cfc5df776000831",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_8f303142ad3e42719cfc5df776000831",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_8f303142ad3e42719cfc5df776000831",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_8f303142ad3e42719cfc5df776000831",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_8f303142ad3e42719cfc5df776000831",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_9d8bed0f392e4aec826ae93310ef8a92",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_9d8bed0f392e4aec826ae93310ef8a92",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_9d8bed0f392e4aec826ae93310ef8a92",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_9d8bed0f392e4aec826ae93310ef8a92",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_9d8bed0f392e4aec826ae93310ef8a92",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_af77cf3b0dd5474781fbffcfd4596641",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_af77cf3b0dd5474781fbffcfd4596641",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_af77cf3b0dd5474781fbffcfd4596641",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_af77cf3b0dd5474781fbffcfd4596641",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_af77cf3b0dd5474781fbffcfd4596641",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_ccad2b615a854f7eb275259df8a3e791",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_ccad2b615a854f7eb275259df8a3e791",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_ccad2b615a854f7eb275259df8a3e791",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_ccad2b615a854f7eb275259df8a3e791",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_ccad2b615a854f7eb275259df8a3e791",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_d6163b1454a44aca97775a8474bfda86",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_d6163b1454a44aca97775a8474bfda86",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_d6163b1454a44aca97775a8474bfda86",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_d6163b1454a44aca97775a8474bfda86",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_d6163b1454a44aca97775a8474bfda86",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_fc1afb84b5a743a4892193683d3a935b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_fc1afb84b5a743a4892193683d3a935b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_fc1afb84b5a743a4892193683d3a935b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_fc1afb84b5a743a4892193683d3a935b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_fc1afb84b5a743a4892193683d3a935b",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "required_operation_model.call",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "required_operation_agent.source_backed_pipeline.active.terminal",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "required_operation_agent.turn.final",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "required_terminal_failed",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "required_terminal_success",
+      "passed": true,
+      "details": null
+    }
+  ],
+  "turns": [
+    {
+      "turnId": "2ce5cdb81d5649dd9b6fc1d8a1411454",
+      "traceId": "8b335363cea741db5ab4d431bd47483e",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "3a1ccade08c24c9a88f0f73c9d7c23a6",
+      "traceId": "8105ac51998948bcfd735b2ae96ebc1b",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "3cf3b2d8adf0489aa43c3eb6fcfcc3e6",
+      "traceId": "1e6685e969e38ebe274d2b31487d8c45",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "48322dcbbb7342d6a373046a22ba3130",
+      "traceId": "f27072bb1a70c9f467feb62fa5312de6",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "7f99d99ae13944409afaac7884587e57",
+      "traceId": "aa50c449cf3434424210fb80c7dbac86",
+      "sessionId": "03957eeb-5d79-42a5-892b-bdaab7d150bd",
+      "eventCount": 27,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "chat.user.persistence",
+        "sources.parse",
+        "agent.turn.begin",
+        "agent.router.catalog_context.start",
+        "agent.router.catalog_context.end",
+        "agent.router.start",
+        "model.call",
+        "agent.router.native.fallback",
+        "agent.router.end",
+        "agent.capability_boundary.decision",
+        "agent.source_backed_pipeline.active.start",
+        "agent.source_backed_catalog_context.ready",
+        "agent.source_backed_pipeline.document_identity.transported",
+        "agent.source_backed_agent_v2.active",
+        "agent.lifecycle.initializing",
+        "agent.source_backed_agent_v2.step",
+        "agent.collector_health",
+        "agent.lifecycle.failed",
+        "agent.source_backed_pipeline.active.failed",
+        "agent.source_backed_pipeline.error",
+        "agent.source_backed_pipeline.active.terminal",
+        "agent.turn.final",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "8f303142ad3e42719cfc5df776000831",
+      "traceId": "55c4348b3f94d81c8045ca1324565831",
+      "sessionId": "03957eeb-5d79-42a5-892b-bdaab7d150bd",
+      "eventCount": 27,
+      "terminalOutcome": "failed",
+      "terminalReason": "local_model_unavailable",
+      "operations": [
+        "turn.begin",
+        "chat.user.persistence",
+        "sources.parse",
+        "agent.turn.begin",
+        "agent.router.catalog_context.start",
+        "agent.router.catalog_context.end",
+        "agent.router.start",
+        "model.call",
+        "agent.router.native.fallback",
+        "agent.router.end",
+        "agent.capability_boundary.decision",
+        "agent.source_backed_pipeline.active.start",
+        "agent.source_backed_catalog_context.ready",
+        "agent.source_backed_pipeline.document_identity.transported",
+        "agent.source_backed_agent_v2.active",
+        "agent.lifecycle.initializing",
+        "agent.source_backed_agent_v2.step",
+        "agent.collector_health",
+        "agent.lifecycle.failed",
+        "agent.source_backed_pipeline.active.failed",
+        "agent.source_backed_pipeline.error",
+        "agent.source_backed_pipeline.active.terminal",
+        "agent.turn.final",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "9d8bed0f392e4aec826ae93310ef8a92",
+      "traceId": "60b1a41f432fed3428ea1982f96aef9c",
+      "sessionId": "03957eeb-5d79-42a5-892b-bdaab7d150bd",
+      "eventCount": 27,
+      "terminalOutcome": "failed",
+      "terminalReason": "local_model_unavailable",
+      "operations": [
+        "turn.begin",
+        "chat.user.persistence",
+        "sources.parse",
+        "agent.turn.begin",
+        "agent.router.catalog_context.start",
+        "agent.router.catalog_context.end",
+        "agent.router.start",
+        "model.call",
+        "agent.router.native.fallback",
+        "agent.router.end",
+        "agent.capability_boundary.decision",
+        "agent.source_backed_pipeline.active.start",
+        "agent.source_backed_catalog_context.ready",
+        "agent.source_backed_pipeline.document_identity.transported",
+        "agent.source_backed_agent_v2.active",
+        "agent.lifecycle.initializing",
+        "agent.source_backed_agent_v2.step",
+        "agent.collector_health",
+        "agent.lifecycle.failed",
+        "agent.source_backed_pipeline.active.failed",
+        "agent.source_backed_pipeline.error",
+        "agent.source_backed_pipeline.active.terminal",
+        "agent.turn.final",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "af77cf3b0dd5474781fbffcfd4596641",
+      "traceId": "5666d4f6c08a164260df101be3760620",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "ccad2b615a854f7eb275259df8a3e791",
+      "traceId": "908a7a459b314986f4ec7364e4a78dc9",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "d6163b1454a44aca97775a8474bfda86",
+      "traceId": "1d738197c934afa958307f342616bc33",
+      "sessionId": "b932dce2-e45a-42c7-a49d-ff564b222ff4",
+      "eventCount": 108,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "chat.user.persistence",
+        "sources.parse",
+        "agent.turn.begin",
+        "agent.router.catalog_context.start",
+        "agent.router.catalog_context.end",
+        "agent.router.start",
+        "model.call",
+        "agent.router.native.classifier.completed",
+        "agent.router.instance_context.completed",
+        "agent.router.native.start",
+        "agent.router.native.document_identity.input",
+        "agent.router.native.accepted",
+        "agent.router.end",
+        "agent.capability_boundary.decision",
+        "agent.router.llm_source_backed_decision.preserved",
+        "agent.source_backed_pipeline.active.start",
+        "agent.source_backed_catalog_context.ready",
+        "agent.source_backed_pipeline.document_identity.transported",
+        "agent.source_backed_agent_v2.active",
+        "agent.lifecycle.initializing",
+        "agent.source_backed_agent_v2.step",
+        "agent.lifecycle.running",
+        "agent.iteration.prepare",
+        "agent.iteration.acquire_completion",
+        "agent.lifecycle.executingtools",
+        "agent.source_backed_native_tool.start",
+        "agent.rag.search.start",
+        "agent.rag.search.backend_metrics",
+        "agent.rag.search.end",
+        "agent.source_backed_native_tool.end",
+        "agent.iteration.submissions_and_tools",
+        "agent.tool_menu.selected",
+        "agent.iteration.verify_and_review",
+        "agent.collector_health",
+        "agent.lifecycle.finalizing",
+        "agent.lifecycle.completed",
+        "agent.source_backed_pipeline.step",
+        "agent.source_backed_memory.focused_document.updated",
+        "agent.source_backed_pipeline.active.accepted",
+        "agent.turn.final",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "fc1afb84b5a743a4892193683d3a935b",
+      "traceId": "9fd3a43ec6baee47c61be844bae5fbb5",
+      "sessionId": null,
+      "eventCount": 3,
+      "terminalOutcome": "skipped",
+      "terminalReason": "empty_payload",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "turn.end"
+      ]
+    }
+  ],
+  "support": null,
+  "fixture": null,
+  "inputs": [
+    {
+      "path": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\local-fixture-02\\runtime\\client-profiles\\missing-model\\logs\\client_startup.log",
+      "sha256": "f6d1537f287585e432e92438a5ef41d670b834cdfaa2aee5bc694049e77563bf"
+    }
+  ]
+}

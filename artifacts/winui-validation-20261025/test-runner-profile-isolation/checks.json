@@ -1,0 +1,50 @@
+{
+  "normalProfileModifiedByThisScript": false,
+  "priorNormalProfileAppendPreserved": true,
+  "apiRequestsWereInMemoryFixtures": true,
+  "checks": [
+    {
+      "environmentRestored": true,
+      "name": "owned",
+      "manifestSha256": "0BBFB06657A70D36D26955F02F6BA9471B8B4296DA8E7EE45DD9CAB31A030899",
+      "isolatedProbeEvents": 15,
+      "passed": true,
+      "source": "owned_campaign_output",
+      "executedTests": 2
+    },
+    {
+      "environmentRestored": true,
+      "name": "explicit",
+      "manifestSha256": "529FFF6A19DEB391B56239C3662AA3742F57578544DCB38CA94F9634F69128DF",
+      "isolatedProbeEvents": 15,
+      "passed": true,
+      "source": "explicit_environment",
+      "executedTests": 2
+    },
+    {
+      "name": "invalid-relative",
+      "passed": true,
+      "rejectedBeforeTests": true,
+      "executedTests": 0
+    },
+    {
+      "name": "normal_profile_unchanged_during_isolated_tests",
+      "passed": true,
+      "coveredFiles": 556,
+      "issues": 0,
+      "unchangedFiles": 556
+    },
+    {
+      "passed": true,
+      "name": "runner_source_unchanged_during_checks"
+    }
+  ],
+  "privateBaselineExcludedFromVersioning": true,
+  "runnerSha256": "BCCBC26A9F5A29B0D0B647F8B5B111B230FEDF1028BC99B54E9BD6CB3A4736EC",
+  "passed": true,
+  "modelCalled": false,
+  "productSourcesChanged": false,
+  "normalProfileRestored": false,
+  "buildRequested": false,
+  "schemaVersion": "saaia-client-test-profile-isolation-checks.v1"
+}

@@ -1,0 +1,17 @@
+{
+  "atUtc": "2026-10-25T11:43:08.569Z",
+  "name": "09-autoconnect-off-before-fix",
+  "description": "W30: configured standard-user profile with AutoConnect=false; inspect whether a visible connection action exists.",
+  "window": {
+    "app": "process:C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+    "id": 64489844,
+    "title": "SAAIA"
+  },
+  "accessibility": {
+    "focused_element": "19 modifier (disabled, settable, string) Tape ta question... ID: InputBox",
+    "tree": "Window: \"SAAIA\", App: SAAIA.Client.WinUI.exe.\n\t0 fenêtre SAAIA Secondary Actions: Raise\n\t\t1 volet Non Client Input Sink Window\n\t\t2 volet AppWindow Custom Title Bar\n\t\t\t3 Bouton Minimize ID: Minimize\n\t\t\t4 Bouton Maximize ID: Maximize\n\t\t\t5 Bouton Close ID: Close\n\t\t6 volet\n\t\t\t7 volet\n\t\t\t\t8 image\n\t\t\t\t9 texte SAAIA\n\t\t\t\t10 bouton Discussions ID: ChatsToggleButton\n\t\t\t\t11 bouton Aide ID: HeaderHelpButton\n\t\t\t\t\t12 texte ?\n\t\t\t\t13 bouton Paramètres ID: HeaderSettingsButton\n\t\t\t\t14 texte Discussions ID: ChatsHeaderText\n\t\t\t\t15 bouton (disabled) Nouveau ID: NewChatButton\n\t\t\t\t16 liste (disabled) ID: SessionsList\n\t\t\t\t17 volet ID: MessagesScroll\n\t\t\t\t\t18 liste ID: MessagesList\n\t\t\t\t19 modifier (disabled, settable, string) Tape ta question... ID: InputBox\n\t\t\t\t20 bouton Envoyer ID: SendCancelButton\n\t\t21 barre de titre (settable, string) Value: SAAIA\n\t\t\t22 barre de menus Système ID: MenuBar\n\t\t\t\t23 élément de menu Système\n\t\t\t24 Bouton Réduire\n\t\t\t25 Bouton Agrandir\n\t\t\t26 Bouton Fermer\n\nThe focused UI element is 19 modifier (disabled, settable, string) Tape ta question... ID: InputBox."
+  },
+  "screenshots": [
+    "09-autoconnect-off-before-fix-0.png"
+  ]
+}

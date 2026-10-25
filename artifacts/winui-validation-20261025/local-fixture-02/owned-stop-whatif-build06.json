@@ -1,0 +1,200 @@
+{
+  "schemaVersion": "saaia-winui-owned-stop-plan.v2",
+  "capturedAtUtc": "2026-10-25T13:21:06.9043977+00:00",
+  "prevalidationPassed": true,
+  "whatIf": true,
+  "processesStopped": false,
+  "databaseStopped": false,
+  "ownedManifestMutated": false,
+  "sourceSha256": "9012AA2B29C900C2581CD11B98DEBC8E56314CA88AA8FF770C5C1BFA364CEEF1",
+  "manifestSha256": "422E0661A671D0AE44A736E70028B7859CB768185DBBC5AA87FFE73A6A8258B3",
+  "services": [
+    {
+      "role": "backend-runner",
+      "instanceName": null,
+      "pid": 39792,
+      "startedAtUtc": "2026-10-25T11:33:25.2955592Z",
+      "port": 5127,
+      "active": true,
+      "executable": "pwsh.exe",
+      "identityVerified": true,
+      "childFirstThenWrapperFlush": true,
+      "workChild": {
+        "pid": 1840,
+        "executable": "dotnet.exe",
+        "startedAtUtc": "2026-10-25T11:33:25.5601100Z"
+      },
+      "directConsoleChildren": [
+        5972
+      ],
+      "plannedStop": "Exact child stop; await wrapper exit and log flush, then verify listener absent"
+    },
+    {
+      "role": "advanced-backend-runner",
+      "instanceName": null,
+      "pid": 39784,
+      "startedAtUtc": "2026-10-25T11:37:04.0722824Z",
+      "port": 5137,
+      "active": true,
+      "executable": "pwsh.exe",
+      "identityVerified": true,
+      "childFirstThenWrapperFlush": true,
+      "workChild": {
+        "pid": 39820,
+        "executable": "dotnet.exe",
+        "startedAtUtc": "2026-10-25T11:37:04.2929878Z"
+      },
+      "directConsoleChildren": [
+        13612
+      ],
+      "plannedStop": "Exact child stop; await wrapper exit and log flush, then verify listener absent"
+    },
+    {
+      "role": "local-model-runner",
+      "instanceName": null,
+      "pid": 37844,
+      "startedAtUtc": "2026-10-25T11:38:24.4536097Z",
+      "port": 18088,
+      "active": true,
+      "executable": "pwsh.exe",
+      "identityVerified": true,
+      "childFirstThenWrapperFlush": true,
+      "workChild": {
+        "pid": 3172,
+        "executable": "llama-server.exe",
+        "startedAtUtc": "2026-10-25T11:38:24.7009626Z"
+      },
+      "directConsoleChildren": [
+        28080
+      ],
+      "plannedStop": "Exact child stop; await wrapper exit and log flush, then verify listener absent"
+    },
+    {
+      "role": "storage-proxy",
+      "instanceName": null,
+      "pid": 2200,
+      "startedAtUtc": "2026-10-25T11:40:37.5931648Z",
+      "port": 5147,
+      "active": true,
+      "executable": "python.exe",
+      "identityVerified": true,
+      "childFirstThenWrapperFlush": false,
+      "workChild": null,
+      "directConsoleChildren": [
+        30960
+      ],
+      "plannedStop": "Exact verified direct helper stop; verify listener absent"
+    },
+    {
+      "role": "storage-proxy",
+      "instanceName": "ui-faults-v2",
+      "pid": 12548,
+      "startedAtUtc": "2026-10-25T12:12:54.1990878Z",
+      "port": 5157,
+      "active": true,
+      "executable": "python.exe",
+      "identityVerified": true,
+      "childFirstThenWrapperFlush": false,
+      "workChild": null,
+      "directConsoleChildren": [
+        17864
+      ],
+      "plannedStop": "Exact verified direct helper stop; verify listener absent"
+    },
+    {
+      "role": "storage-proxy",
+      "instanceName": "offline-recovery",
+      "pid": 17244,
+      "startedAtUtc": "2026-10-25T12:28:01.4231491Z",
+      "port": 5158,
+      "active": true,
+      "executable": "python.exe",
+      "identityVerified": true,
+      "childFirstThenWrapperFlush": false,
+      "workChild": null,
+      "directConsoleChildren": [
+        40600
+      ],
+      "plannedStop": "Exact verified direct helper stop; verify listener absent"
+    },
+    {
+      "role": "storage-proxy",
+      "instanceName": "advanced-poll-w24",
+      "pid": 39964,
+      "startedAtUtc": "2026-10-25T13:17:40.3191102Z",
+      "port": 5167,
+      "active": true,
+      "executable": "python.exe",
+      "identityVerified": true,
+      "childFirstThenWrapperFlush": false,
+      "workChild": null,
+      "directConsoleChildren": [
+        35008
+      ],
+      "plannedStop": "Exact verified direct helper stop; verify listener absent"
+    },
+    {
+      "role": "fixture-http",
+      "instanceName": null,
+      "pid": 38616,
+      "startedAtUtc": "2026-10-25T11:33:24.7503695Z",
+      "port": 18087,
+      "active": true,
+      "executable": "python.exe",
+      "identityVerified": true,
+      "childFirstThenWrapperFlush": false,
+      "workChild": null,
+      "directConsoleChildren": [
+        18764
+      ],
+      "plannedStop": "Exact verified direct helper stop; verify listener absent"
+    },
+    {
+      "role": "advanced-fixture-http",
+      "instanceName": null,
+      "pid": 38436,
+      "startedAtUtc": "2026-10-25T11:37:04.0461968Z",
+      "port": 18089,
+      "active": true,
+      "executable": "python.exe",
+      "identityVerified": true,
+      "childFirstThenWrapperFlush": false,
+      "workChild": null,
+      "directConsoleChildren": [
+        3796
+      ],
+      "plannedStop": "Exact verified direct helper stop; verify listener absent"
+    }
+  ],
+  "postgres": {
+    "port": 62401,
+    "pid": 20068,
+    "pidStartExecutableDataDirectoryAndPortVerified": true,
+    "active": true,
+    "stopMethod": "pg_ctl fast on verified owned data directory, last"
+  },
+  "protected5432": [
+    {
+      "pid": 7844,
+      "address": "::",
+      "startedAtUtc": null,
+      "identityDetailsReadable": false,
+      "executable": null,
+      "pathSha256": null
+    },
+    {
+      "pid": 7844,
+      "address": "0.0.0.0",
+      "startedAtUtc": null,
+      "identityDetailsReadable": false,
+      "executable": null,
+      "pathSha256": null
+    }
+  ],
+  "normalUserProfileTouched": false,
+  "limits": [
+    "Prevalidation is a point-in-time read-only observation. Identity and ownership are rechecked immediately before every actual stop.",
+    "The operator must first close the isolated WinUI client and finish deliberate job tests. WhatIf does not close clients, change controls or stop anything.",
+    "First runtime wrappers buffered output; stop the verified work child first and let the wrapper flush. Never kill the wrapper tree."
+  ]
+}

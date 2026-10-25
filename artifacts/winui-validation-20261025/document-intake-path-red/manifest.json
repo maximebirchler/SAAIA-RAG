@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "a7356e69001b49099585d7f17ef06140",
+  "startedAtUtc": "2026-10-25T12:52:52.8232631+00:00",
+  "finishedAtUtc": "2026-10-25T12:53:00.0632890+00:00",
+  "gitCommit": "3f0de18349f1191bc3eca72497a04094445234e2",
+  "gitDirty": true,
+  "profile": "Unit",
+  "filter": "(Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid)&(FullyQualifiedName~NativeDocumentPathIdentityTests)",
+  "requestedProjects": [
+    "Client"
+  ],
+  "configuration": "Release",
+  "buildRequested": true,
+  "restoreRequested": false,
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-25T12:52:53.7717078+00:00",
+    "sha256": "54EB0C731EE8AD26BD44AC063C4195C6B364D6006D4F5434A9438896B3766983",
+    "fileCount": 1639,
+    "inventory": "source-files-a7356e69001b49099585d7f17ef06140-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-25T12:53:00.7180800+00:00",
+    "sha256": "54EB0C731EE8AD26BD44AC063C4195C6B364D6006D4F5434A9438896B3766983",
+    "fileCount": 1639,
+    "inventory": "source-files-a7356e69001b49099585d7f17ef06140-after.json"
+  },
+  "sourceChangedDuringRun": false,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "state": "failed",
+  "prerequisites": [],
+  "environment": {
+    "clientDataIsolation": {
+      "source": "owned_campaign_output",
+      "requiredForClientTests": true,
+      "enabled": true,
+      "environmentRestored": true,
+      "ownedRelativePath": "client-data",
+      "rootId": "FA29376B211EB93E43977D43E75B37B3F68D1A5EF63FC6B4262039A888B1C34E"
+    },
+    "neutralizedVariableNames": []
+  },
+  "results": [
+    {
+      "project": "Client",
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj",
+      "status": "failed",
+      "exitCode": 1,
+      "trx": "Client-a7356e69001b49099585d7f17ef06140.trx",
+      "trxSha256": null,
+      "assemblies": [],
+      "counts": null,
+      "cases": []
+    }
+  ],
+  "model": {
+    "reason": "Unit and PostgreSQL profiles do not invoke a model.",
+    "state": "not_applicable"
+  },
+  "corpus": {
+    "reason": "IntegrationPg fixtures create isolated databases; no production corpus is assumed.",
+    "state": "synthetic_fixtures"
+  },
+  "validationProfilesSha256": "8E4B990BC0A828134E5FE0D8E7B2D82406B56D2A200D8D4D37516208E3D3201D",
+  "selectionPolicy": "TRX covers selected tests; excluded profiles were not executed.",
+  "excludedProfiles": [
+    "IntegrationPg",
+    "LiveLocal",
+    "LivePaid"
+  ]
+}

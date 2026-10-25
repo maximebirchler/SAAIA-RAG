@@ -1,0 +1,8 @@
+S├®rie de tests pour C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll (.NETCoreApp,Version=v8.0)
+Version de VSTest 17.11.1 (x64)
+
+D├®marrage de l'ex├®cution de tests, patientez...
+Au total, 1 fichiers de test ont correspondu au mod├¿le sp├®cifi├®.
+Fichier de r├®sultats┬á: C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\artifacts\winui-validation-20261025\test-runner-profile-isolation\explicit\Client-a5420633b3bd4b19b482419990f4a366.trx
+
+R├®ussi!  - ├®chec┬á:     0, r├®ussite┬á:     2, ignor├®e(s)┬á:     0, total┬á:     2, dur├®e┬á: 59 ms - SAAIA.Client.ToolAgent.Tests.dll (net8.0)

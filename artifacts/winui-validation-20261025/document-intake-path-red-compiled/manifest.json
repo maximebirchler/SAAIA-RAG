@@ -1,0 +1,242 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "7540feee27664825948a8a24b9989658",
+  "startedAtUtc": "2026-10-25T12:53:07.0250233+00:00",
+  "finishedAtUtc": "2026-10-25T12:53:16.3718573+00:00",
+  "gitCommit": "3f0de18349f1191bc3eca72497a04094445234e2",
+  "gitDirty": true,
+  "profile": "Unit",
+  "filter": "(Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid)&(FullyQualifiedName~NativeDocumentPathIdentityTests)",
+  "requestedProjects": [
+    "Client"
+  ],
+  "configuration": "Release",
+  "buildRequested": true,
+  "restoreRequested": false,
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-25T12:53:07.9623111+00:00",
+    "sha256": "D2BEE184D63BFBC3193F48C35D8EDC62ED4DBD8F203B8F2F085A03DB79984CC2",
+    "fileCount": 1639,
+    "inventory": "source-files-7540feee27664825948a8a24b9989658-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-25T12:53:17.0414496+00:00",
+    "sha256": "D2BEE184D63BFBC3193F48C35D8EDC62ED4DBD8F203B8F2F085A03DB79984CC2",
+    "fileCount": 1639,
+    "inventory": "source-files-7540feee27664825948a8a24b9989658-after.json"
+  },
+  "sourceChangedDuringRun": false,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "state": "failed",
+  "prerequisites": [],
+  "environment": {
+    "clientDataIsolation": {
+      "enabled": true,
+      "rootId": "B2C9855F44A74A7539031E5137B4C2C7A679C76F84CEEA5E971883DD67B416D4",
+      "environmentRestored": true,
+      "requiredForClientTests": true,
+      "ownedRelativePath": "client-data",
+      "source": "owned_campaign_output"
+    },
+    "neutralizedVariableNames": []
+  },
+  "results": [
+    {
+      "project": "Client",
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj",
+      "status": "failed",
+      "exitCode": 1,
+      "trx": "Client-7540feee27664825948a8a24b9989658.trx",
+      "trxSha256": "B37FBF60350E8615EE7B3AFB70B2D26A00934B161D4E5B1DC12FEAB148BC5EE8",
+      "assemblies": [
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.Core.dll",
+          "role": "local_product_dependency",
+          "sha256": "C6D929E97746315F13399466BABF1D82058720BA9BEA0313E1EC836E9A9C3B2C",
+          "sizeBytes": 97280,
+          "lastWriteTimeUtc": "2026-10-25T12:00:33.0000539Z",
+          "capturedAtUtc": "2026-10-25T12:53:16.3440823+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.ToolAgent.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "04D67675F5F6FB1C2EC009951E305B8A56398C85B459BE78DC64FB3053A8C085",
+          "sizeBytes": 4724736,
+          "lastWriteTimeUtc": "2026-10-25T12:53:15.0608678Z",
+          "capturedAtUtc": "2026-10-25T12:53:16.3493684+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.WinUI.dll",
+          "role": "local_product_dependency",
+          "sha256": "10BB6F3A4709757F01C14FCBA7B1C428062DF83341DD1E03F6A7BE4B5D7BAC5F",
+          "sizeBytes": 8219136,
+          "lastWriteTimeUtc": "2026-10-25T12:43:37.1733722Z",
+          "capturedAtUtc": "2026-10-25T12:53:16.3577341+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "AE04DB17641409F9332F8B378A4DCFAA8F1796BC24DF6209ADABB8DDD667C9E5",
+          "sizeBytes": 152064,
+          "lastWriteTimeUtc": "2026-10-25T11:32:52.4997249Z",
+          "capturedAtUtc": "2026-10-25T12:53:16.3585040+00:00"
+        }
+      ],
+      "counts": {
+        "adapterReportedExecuted": 26,
+        "executed": 26,
+        "passed": 17,
+        "total": 26,
+        "notExecuted": 0,
+        "failed": 9
+      },
+      "cases": [
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: \"Validation/Guide-Validation.pdf\", focused: False)",
+          "outcome": "Failed",
+          "duration": "00:00:00.0001046"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: \"Lis Validation/Guide.pdf.\", announced: \"Guide.pdf\", expected: \"Validation/Guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000066"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_repair_preserves_the_complete_explicit_reference(reference: \"Guide-Validation.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001943"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: \"C:\\\\published\\\\Validation\\\\Guide-Validation.pdf\", focused: False)",
+          "outcome": "Failed",
+          "duration": "00:00:00.0000833"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: \"Validation\\\\Guide-Validation.pdf\", focused: False)",
+          "outcome": "Failed",
+          "duration": "00:00:00.0002296"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: \"Lis Validation/Guide.pdf puis Archive/Guide.pdf.\", announced: \"Guide.pdf\", expected: \"Guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000222"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: \"Lis Validation/Guide.pdf.backup.\", announced: \"Guide.pdf\", expected: \"Guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000046"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: \"Validation\\\\Guide-Validation.pdf\", focused: True)",
+          "outcome": "Failed",
+          "duration": "00:00:00.0001033"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_repair_preserves_the_complete_explicit_reference(reference: \"Validation/Guide-Validation.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0026696"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: \"Lis Validation/OtherGuide.pdf.\", announced: \"Guide.pdf\", expected: \"Guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0003174"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: \"Lis « Internal Docs/Guide.pdf ».\", announced: \"Guide.pdf\", expected: \"Internal Docs/Guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000933"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: \"Guide-Validation.pdf\", focused: False)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0023285"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: \"Lis Guide.pdf.\", announced: \"Guide.pdf\", expected: \"Guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001394"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_mission_preserves_document_reference_until_exact_catalog_resolution(reference: \"Validation/Guide-Validation.pdf\", unique: True)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002066"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: \"Internal Docs/Guide-Validation.pdf\")",
+          "outcome": "Failed",
+          "duration": "00:00:00.0066870"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: \"Lis ../Validation/Guide.pdf.\", announced: \"Guide.pdf\", expected: \"Guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0003952"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: \"Validation/Guide-Validation.pdf\", focused: True)",
+          "outcome": "Failed",
+          "duration": "00:00:00.0001025"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: \"Validation\\\\Guide-Validation.pdf\")",
+          "outcome": "Failed",
+          "duration": "00:00:00.0004861"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_mission_preserves_document_reference_until_exact_catalog_resolution(reference: \"Guide-Validation.pdf\", unique: False)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0020169"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_repair_preserves_the_complete_explicit_reference(reference: \"Validation\\\\Guide-Validation.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000370"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: \"C:\\\\published\\\\Validation\\\\Guide-Validation.pdf\", focused: True)",
+          "outcome": "Failed",
+          "duration": "00:00:00.0013111"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: \"Lis https://host/Guide.pdf puis Validation/Guide.p\"···, announced: \"Guide.pdf\", expected: \"Guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000959"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Path_recovery_is_exact_unique_and_never_guesses_or_expands_scope(request: \"Lis Validation/Guide.pdf.\", announced: \"Archive/Guide.pdf\", expected: \"Archive/Guide.pdf\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000073"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Explicit_unique_user_path_survives_a_basename_only_model_route_and_reaches_the_resolver(path: \"Validation/Guide-Validation.pdf\")",
+          "outcome": "Failed",
+          "duration": "00:00:00.0007695"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Executed_mission_to_intake_transport_retains_canonical_identity_and_ambiguity(reference: \"Guide-Validation.pdf\", focused: True)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001039"
+        },
+        {
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeDocumentPathIdentityTests.Router_mission_preserves_document_reference_until_exact_catalog_resolution(reference: \"Validation\\\\Guide-Validation.pdf\", unique: True)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0311437"
+        }
+      ]
+    }
+  ],
+  "model": {
+    "reason": "Unit and PostgreSQL profiles do not invoke a model.",
+    "state": "not_applicable"
+  },
+  "corpus": {
+    "reason": "IntegrationPg fixtures create isolated databases; no production corpus is assumed.",
+    "state": "synthetic_fixtures"
+  },
+  "validationProfilesSha256": "8E4B990BC0A828134E5FE0D8E7B2D82406B56D2A200D8D4D37516208E3D3201D",
+  "selectionPolicy": "TRX covers selected tests; excluded profiles were not executed.",
+  "excludedProfiles": [
+    "IntegrationPg",
+    "LiveLocal",
+    "LivePaid"
+  ]
+}

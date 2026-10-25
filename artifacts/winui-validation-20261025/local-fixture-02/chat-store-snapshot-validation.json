@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "saaia-winui-chat-store-snapshot-validation.v1",
+  "proof": "chat-store-snapshots/20261025T115712044Z-initial-durable-accepted.json",
+  "proofSha256": "C7A7C62EE742BB192065FC8641C6362F6FC92CB02AC5DD78A835B27492CAB4D9",
+  "rows": 10,
+  "aggregateMatchesRows": true,
+  "roleCountsMatch": true,
+  "rawContentFieldAbsent": true,
+  "earlierRejectedSnapshot": "20261025T115629531Z-initial-durable.json",
+  "earlierRejectionReason": "Aggregate totals used Measure-Object on OrderedDictionary keys and incorrectly read zero; per-session rows were correct. Accepted snapshot sums keys explicitly."
+}

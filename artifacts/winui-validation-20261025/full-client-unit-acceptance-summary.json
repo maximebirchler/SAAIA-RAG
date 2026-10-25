@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "saaia.winui.full-client-unit-acceptance.v1",
+  "status": "ACCEPTED_FULL_UNIT_PROFILE",
+  "acceptedManifest": "artifacts/winui-validation-20261025/final-core-client-unit-accepted/manifest.json",
+  "results": {
+    "ClientCore": {
+      "passed": 76,
+      "failed": 0,
+      "skipped": 0
+    },
+    "Client": {
+      "passed": 2373,
+      "failed": 0,
+      "skipped": 0
+    },
+    "totalPassed": 2449
+  },
+  "sourceChangedDuringRun": false,
+  "sourceFingerprintBefore": "87301FD00E5D744D93148861E5DC8C4856786CA30084346C71C10E3C7BB53229",
+  "sourceFingerprintAfter": "87301FD00E5D744D93148861E5DC8C4856786CA30084346C71C10E3C7BB53229",
+  "configuration": "Release",
+  "restoreRequested": false,
+  "selection": "Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid",
+  "extraUserFilter": "",
+  "trxHashesIndependentlyMatched": true,
+  "clientDataIsolation": {
+    "enabled": true,
+    "source": "owned_campaign_output",
+    "ownedRelativePath": "client-data",
+    "environmentRestored": true
+  },
+  "pathsVerifiedBeforeExecution": {
+    "WinUiIntermediate": "obj/testhooks/AnyCPU/Release",
+    "WinUiOutput": "bin/testhooks/AnyCPU/Release/SAAIA.Client.WinUI.dll",
+    "baseIntermediate": "obj/",
+    "baseIntermediateLimit": "NuGet assets shared in read mode under NoRestore; root explicitly accepted this existing contract. No production build or restore ran concurrently."
+  },
+  "firstRunPreserved": {
+    "manifest": "artifacts/winui-validation-20261025/final-core-client-unit/manifest.json",
+    "ClientCorePassed": 76,
+    "ClientPassed": 2364,
+    "ClientFailed": 1,
+    "sourceChangedDuringRun": false,
+    "cause": "Only the managed-model ownership test still expected the normal Windows profile even under an isolated client profile."
+  },
+  "testCorrection": {
+    "path": "client/SAAIA.Client.ToolAgent.Tests/GovernanceArtifactStoreTests.cs",
+    "productChanged": false,
+    "behavior": "Positive active managed root via ModelLibrary.ModelsDir; external/temp and known-catalog negatives retained; normal profile explicitly external when active root differs.",
+    "targetedManifest": "artifacts/winui-validation-20261025/managed-model-test-correction/manifest.json",
+    "targetedPassed": 1,
+    "causalProof": "artifacts/winui-validation-20261025/full-suite-first-failure-analysis.json"
+  },
+  "commonFreeze": "Runtime tools, root SourceOpen/UI sources, and diagnostics intake adapter sources were frozen and their build jobs completed before accepted suite start.",
+  "limits": [
+    "This acceptance is the complete offline Unit profile for portable Core and WinUI client testhooks. It is not a paid-provider or semantic planning acceptance.",
+    "Real production UI observations and production binary hashes remain separate evidence owned by the parent.",
+    "The first failed run remains preserved; it is not relabeled as a product failure or counted as an accepted run."
+  ],
+  "productStatus": "TESTE_NON_APPROUVE",
+  "productionBuildsByThisAgent": 0,
+  "paidCalls": 0
+}

@@ -1,0 +1,60 @@
+{
+  "scopePath": "",
+  "totalDocuments": 2,
+  "maxDepth": 1,
+  "totalNonEmptyFolders": 2,
+  "topLevelFolderCount": 2,
+  "leafFolderCount": 2,
+  "foldersByDepth": [
+    {
+      "depth": 1,
+      "folderCount": 2
+    }
+  ],
+  "documentsByDepth": [
+    {
+      "depth": 1,
+      "documentCount": 2
+    }
+  ],
+  "rootFolders": [
+    {
+      "path": "Archive",
+      "name": "Archive",
+      "totalDocuments": 1,
+      "directDocuments": 1,
+      "subfolderCount": 0
+    },
+    {
+      "path": "Validation",
+      "name": "Validation",
+      "totalDocuments": 1,
+      "directDocuments": 1,
+      "subfolderCount": 0
+    }
+  ],
+  "includesEmptyFolders": false,
+  "emptyFoldersKnown": false,
+  "folderTree": {
+    "name": "",
+    "path": "",
+    "docCount": 2,
+    "directDocCount": 0,
+    "children": [
+      {
+        "name": "Archive",
+        "path": "Archive",
+        "docCount": 1,
+        "directDocCount": 1,
+        "children": []
+      },
+      {
+        "name": "Validation",
+        "path": "Validation",
+        "docCount": 1,
+        "directDocCount": 1,
+        "children": []
+      }
+    ]
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "schemaVersion": "saaia-winui-final-readonly-review.v1",
+  "capturedAtUtc": "2026-10-25T13:44:04.3486012+00:00",
+  "state": "FINAL_INPUTS_FROZEN_AND_REVIEWED_WITH_EXPLICIT_LIMITS",
+  "readOnly": true,
+  "productOrToolsChangedByReview": false,
+  "winUiProcessesRemaining": 0,
+  "trace": {
+    "onlyDeclaredInterruption": "15b7daa95ee3a877c232cafe4cbe9d59",
+    "allowInFlight": false,
+    "turns": 139,
+    "unexpectedIncomplete": 0,
+    "otherStrictFailures": 0,
+    "strictProof": "trace-integrity-build08-final.json",
+    "events": 1007,
+    "accountingPassed": true,
+    "strictStatus": "TRACE_INTEGRITY_FAILED",
+    "proof": "trace-interruption-accounting-final.json",
+    "missingTerminalCount": 1
+  },
+  "wire": {
+    "passed": true,
+    "secondary": 42,
+    "primary": 1,
+    "correlated": 43,
+    "unexplained": 0,
+    "proof": "shared-fixture-request-accounting-final.json"
+  },
+  "normalProfile": {
+    "scope": "Only baseline client/logs/governance/llm-dev scopes; unrecorded paths and Windows credential stores are outside proof.",
+    "knownHistoricalAppend": {
+      "restoredOrTruncated": false,
+      "originalPrefixMatches": true,
+      "unchangedSincePostRunnerIsolationFix": true,
+      "appendedBytes": 10913,
+      "currentSha256": "c22ed04a09f099f751572b367da16cb7ae06e20ccc1277504b0c4e9fcf682822",
+      "cause": "Diagnostic tests before test runner isolation was fixed; later controlled checks and full suites use isolated roots.",
+      "baselineBytes": 24854,
+      "file": "logs/client_startup.log",
+      "currentBytes": 35767
+    },
+    "baselineFiles": 556,
+    "differences": 1,
+    "secureStoreUnchanged": true,
+    "currentFiles": 556,
+    "unchanged": 555,
+    "proof": "user-profile-comparison-final.json",
+    "readIssues": 0,
+    "coveredProfileAllUnchanged": false
+  },
+  "canonicalPdfs": [
+    {
+      "docId": "aca1a813-c593-59e5-bdf2-1cd12d1b8e40",
+      "docPath": "Validation/Guide-Validation.pdf",
+      "exists": true,
+      "expectedSha256": "840c999b2bfe8305aee9fdddf05f01b1686f3ec92eeb76cfe5c5af9354672121",
+      "actualSha256": "840c999b2bfe8305aee9fdddf05f01b1686f3ec92eeb76cfe5c5af9354672121",
+      "matchesOriginalSeed": true
+    },
+    {
+      "docId": "14381074-14ae-52a7-9d8b-58eea4a50585",
+      "docPath": "Archive/Guide-Validation.pdf",
+      "exists": true,
+      "expectedSha256": "224c0c983004319f143023ac666762a4fa64c495e5c6f68a0de8d29099959662",
+      "actualSha256": "224c0c983004319f143023ac666762a4fa64c495e5c6f68a0de8d29099959662",
+      "matchesOriginalSeed": true
+    }
+  ],
+  "support": {
+    "failedPieces": 0,
+    "advancedChainReview": "support-advanced-origin-chain-final-review.json",
+    "directOriginConfigurationInZip": false,
+    "zipProbesMatchSealedPrimary": true,
+    "collectionComplete": true,
+    "zipPrimaryProbes": 1007,
+    "explicitLimit": "The latest process exports one memory turn. Configuration.originTraceId/jobId was not emitted into persistent CLIENT_PROBE, so the ZIP alone cannot show the explicit job lineage after later restarts. The separate persisted metadata/SQL proof establishes it; no direct ZIP link is invented.",
+    "proof": "local-fixture-02/support-bundle-review-build08-final.json",
+    "metadataOnly": true,
+    "passed": true,
+    "bundleSha256": "FBEA52C5F82FDECD3F1968EA2CCFED32292F817A1CA1F442D7959361F9DACA15"
+  },
+  "w06": "w06-native-build08-final/proof.json",
+  "documentIdentity": "native-qwen-document-path-causal-proof/proof.json",
+  "fullUnit": {
+    "passed": 2458.0,
+    "sourceFingerprint": "AC3A4AB986393CA32487B3385B58BA59A03993AA728231867A11F8412C9CCE9A",
+    "sourceChangedDuringRun": false,
+    "proof": "full-client-unit-build08-acceptance-summary.json",
+    "failed": 0.0
+  },
+  "limits": [
+    "Strict validator intentionally remains failed for exactly one documented process interruption; accounting does not relabel it strict success.",
+    "Normal profile is not fully unchanged: the single old log append is preserved and documented.",
+    "Latest support ZIP contains origin/resume probes but does not independently retain Configuration.originTraceId/jobId across later process restarts.",
+    "Failure assistant Sources=null prevents durable trace metadata correlation for W06 failure; native production probes establish the failure, and recovery has durable trace metadata.",
+    "No Terra planning run or paid provider call occurred in these validation steps."
+  ],
+  "productStatus": "TESTE_NON_APPROUVE"
+}

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "saaia-winui-stop-guard-checks.v1",
+  "capturedAtUtc": "2026-10-25T13:23:06.0622978+00:00",
+  "readOnlyWhatIfInvocations": true,
+  "negativeChecks": [
+    {
+      "passed": true,
+      "name": "refuse_production_postgres5432",
+      "failureObserved": "Refusing the user/production PostgreSQL port."
+    },
+    {
+      "passed": true,
+      "name": "refuse_other_data_directory",
+      "failureObserved": "Owned PostgreSQL directory mismatch."
+    },
+    {
+      "passed": true,
+      "name": "refuse_reused_pid_start",
+      "failureObserved": "PID was reused; refusing to stop an unrelated process."
+    },
+    {
+      "passed": true,
+      "name": "refuse_wrong_postgres_executable",
+      "failureObserved": "Owned PostgreSQL executable path mismatch."
+    }
+  ],
+  "staticChecks": {
+    "wrapperTimeoutPreservesInsteadOfKills": true,
+    "postgresStopAfterHelperLoop": true,
+    "noTreeKill": true,
+    "whatIfReturnsBeforeActualStop": true
+  },
+  "allOwnedRootIdentitiesStillAlive": true,
+  "ownershipManifestUnchanged": true,
+  "actualStopAttempted": false,
+  "passed": true
+}

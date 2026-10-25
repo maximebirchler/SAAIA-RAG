@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "saaia-winui-full-client-unit-build08-acceptance.v1",
+  "capturedAtUtc": "2026-10-25T13:31:22.4141172+00:00",
+  "passed": true,
+  "status": "FULL_UNIT_PROFILE_ACCEPTED_BUILD08",
+  "manifest": "final-core-client-unit-build08/manifest.json",
+  "runId": "4e704c37295c44efb9e6a71c500a1b7b",
+  "startedAtUtc": "2026-10-25T14:30:02.6736909+01:00",
+  "finishedAtUtc": "2026-10-25T14:30:23.9021273+01:00",
+  "configuration": "Release",
+  "restoreRequested": false,
+  "profile": "Unit",
+  "filter": "Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid",
+  "sourceChangedDuringRun": false,
+  "sourceFingerprintBefore": "AC3A4AB986393CA32487B3385B58BA59A03993AA728231867A11F8412C9CCE9A",
+  "sourceFingerprintAfter": "AC3A4AB986393CA32487B3385B58BA59A03993AA728231867A11F8412C9CCE9A",
+  "expectedFrozenFingerprintMatches": true,
+  "sourceFileCount": 1645,
+  "clientDataIsolation": {
+    "enabled": true,
+    "requiredForClientTests": true,
+    "rootId": "6EC431F87040FACBAEE53834BEBF02AC6E394107629A17EA1B02D70AA95F4078",
+    "source": "explicit_environment",
+    "ownedRelativePath": null,
+    "environmentRestored": true
+  },
+  "results": [
+    {
+      "project": "ClientCore",
+      "counts": {
+        "adapterReportedExecuted": 80,
+        "notExecuted": 0,
+        "executed": 80,
+        "failed": 0,
+        "passed": 80,
+        "total": 80
+      },
+      "trx": "ClientCore-4e704c37295c44efb9e6a71c500a1b7b.trx",
+      "manifestSha256": "2F4E9139483BC2D64987CD5191FF962F7B8D8DCC0A8B6FEB0FD04887FF9029B9",
+      "actualSha256": "2F4E9139483BC2D64987CD5191FF962F7B8D8DCC0A8B6FEB0FD04887FF9029B9",
+      "matches": true,
+      "testAssemblyPaths": [
+        "client\\SAAIA.Client.Core.Tests\\bin\\Release\\net8.0\\SAAIA.Client.Core.Tests.dll"
+      ],
+      "winUiDependencyPaths": []
+    },
+    {
+      "project": "Client",
+      "counts": {
+        "adapterReportedExecuted": 2378,
+        "notExecuted": 0,
+        "executed": 2378,
+        "failed": 0,
+        "passed": 2378,
+        "total": 2378
+      },
+      "trx": "Client-4e704c37295c44efb9e6a71c500a1b7b.trx",
+      "manifestSha256": "9888364064342B1CCC63F373F12E0D7B75213F3617672D3105C126EB26EBFDC4",
+      "actualSha256": "9888364064342B1CCC63F373F12E0D7B75213F3617672D3105C126EB26EBFDC4",
+      "matches": true,
+      "testAssemblyPaths": [
+        "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.ToolAgent.Tests.dll"
+      ],
+      "winUiDependencyPaths": [
+        "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.WinUI.dll"
+      ]
+    }
+  ],
+  "totalPassed": 2458.0,
+  "totalFailed": 0.0,
+  "totalNotExecuted": 0.0,
+  "productionBuildsByThisRun": 0,
+  "paidCalls": 0,
+  "productStatus": "TESTE_NON_APPROUVE",
+  "limits": [
+    "Complete offline Unit profile Core+Client, without an added user filter. This does not prove an unexecuted native UI scenario or Terra meal-planning quality.",
+    "WinUI testhooks use separate AnyCPU output. NuGet assets under obj are read without restore, as explicitly approved by root.",
+    "The earlier accepted2449 run and its first failed test-only oracle remain preserved separately. This new run covers the final W06 guidance and failure propagation."
+  ]
+}

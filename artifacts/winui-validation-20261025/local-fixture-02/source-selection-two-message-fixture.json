@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "saaia-winui-source-selection-session-fixture.v1",
+  "startedAtUtc": "2026-10-25T13:17:49.3683869+00:00",
+  "state": "failed_or_unconfirmed_do_not_retry",
+  "backend": "production_owned_loopback_backend",
+  "userId": "018a790c-01e0-4b04-b413-d09a80d2daab",
+  "sessionId": "f8d12da3-ba30-4cb8-9ef0-bea786980a76",
+  "modelExecuted": false,
+  "pdfFilesModified": false,
+  "existingSessionsModified": false,
+  "expectedMessageCount": 2,
+  "messages": [
+    {
+      "sourcesJsonSha256": "ac6bc0956c276b42a21ec524fe6ecef29b72563937bec997f68ba85d6dab75e8",
+      "canonicalSource": {
+        "evidenceId": "UI_FIXTURE_SOURCE_A",
+        "categoryPath": "Validation",
+        "docId": "aca1a813-c593-59e5-bdf2-1cd12d1b8e40",
+        "revisionId": "7ac0ec90-3ddf-51ec-80b9-f65e8a81f79b",
+        "pageStart": 2,
+        "docName": "Guide-Validation.pdf",
+        "score": 1.0,
+        "docPath": "Validation/Guide-Validation.pdf",
+        "category": "Validation",
+        "chunkId": "a0303851-13ee-5ddc-9aeb-fd084d56344e",
+        "sourceHash": "840c999b2bfe8305aee9fdddf05f01b1686f3ec92eeb76cfe5c5af9354672121",
+        "docLanguage": "fr",
+        "pageEnd": 2
+      },
+      "contentSha256": "ae7c9127fbf97da4951735790187f4ebf27c30c5e8c1591b6fc5abd1d39c535e",
+      "marker": "UI_FIXTURE_SOURCE_A",
+      "messageId": "2ab3bd54-23d6-4ff2-ad06-a43fe5d1a9b9"
+    },
+    {
+      "sourcesJsonSha256": "8a2289dac7fd550511cee858ac21867ca8cde88921ef52f2ada65d775629d2f3",
+      "canonicalSource": {
+        "evidenceId": "UI_FIXTURE_SOURCE_B",
+        "categoryPath": "Archive",
+        "docId": "14381074-14ae-52a7-9d8b-58eea4a50585",
+        "revisionId": "22ba5f2e-ecf3-5ed4-a1bd-a8c23502352f",
+        "pageStart": 1,
+        "docName": "Guide-Validation.pdf",
+        "score": 1.0,
+        "docPath": "Archive/Guide-Validation.pdf",
+        "category": "Archive",
+        "chunkId": "6366d25c-955f-56de-93ac-20d13099af2c",
+        "sourceHash": "224c0c983004319f143023ac666762a4fa64c495e5c6f68a0de8d29099959662",
+        "docLanguage": "fr",
+        "pageEnd": 1
+      },
+      "contentSha256": "e30d06b3356be34b9cf508cf125e893ca7a715d488de6e347f0f25e2fc27ca29",
+      "marker": "UI_FIXTURE_SOURCE_B",
+      "messageId": "92cd0cb8-765a-4d07-8ad1-3ae6af9eeb04"
+    }
+  ],
+  "uiSelectionValidated": false,
+  "productStatus": "TESTE_NON_APPROUVE",
+  "failureType": "RuntimeException"
+}

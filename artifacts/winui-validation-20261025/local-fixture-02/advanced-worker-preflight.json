@@ -1,0 +1,70 @@
+{
+  "providerIsDeterministicFixture": true,
+  "jobId": "a54c4cb5-2816-4940-9069-af92b01f7962",
+  "semanticApproval": false,
+  "realWorker": true,
+  "injectedTerminalState": false,
+  "performedThroughUi": false,
+  "userId": "4ac76c44-b135-495d-8635-e2505b7f3502",
+  "passed": false,
+  "externalCalls": 0,
+  "final": {
+    "jobId": "a54c4cb5-2816-4940-9069-af92b01f7962",
+    "handoffId": "c31c5a7b-b5f2-4723-8d0d-5a2df9b83836",
+    "sessionId": "1d159924-0212-465e-99f2-7447778cb656",
+    "status": "succeeded",
+    "revision": 4,
+    "attemptCount": 1,
+    "cancelRequested": false,
+    "createdAtUtc": "2026-10-25T12:37:44.347355+01:00",
+    "updatedAtUtc": "2026-10-25T12:37:48.604527+01:00",
+    "availableAtUtc": "2026-10-25T12:37:44.347355+01:00",
+    "expiresAtUtc": "2026-10-26T12:37:44.347355+01:00",
+    "startedAtUtc": "2026-10-25T12:37:44.369563+01:00",
+    "finishedAtUtc": "2026-10-25T12:37:48.604527+01:00",
+    "providerKey": "winui-fixture-customer-server",
+    "providerModel": "saaia-winui-fixture",
+    "result": {
+      "claims": [],
+      "outcome": "insufficient_documentation",
+      "evidence": [],
+      "answerText": "Validation synthétique du parcours avancé : le worker a terminé ses opérations. Ce résultat contrôlé ne constitue pas une validation sémantique du modèle.",
+      "inputTokens": 64,
+      "providerKey": "winui-fixture-customer-server",
+      "outputTokens": 24,
+      "providerModel": "saaia-winui-fixture",
+      "schemaVersion": "saaia.advanced-analysis-result.v1",
+      "selectionMode": "",
+      "completedAtUtc": "2026-10-25T12:37:48.5983699+01:00",
+      "cacheWriteTokens": null,
+      "estimatedCostUsd": null,
+      "cachedInputTokens": null,
+      "providerCallCount": 2,
+      "elapsedMilliseconds": 4194
+    }
+  },
+  "schemaVersion": "saaia-winui-worker-preflight.v1",
+  "sessionId": "1d159924-0212-465e-99f2-7447778cb656",
+  "snapshots": [
+    {
+      "status": "queued",
+      "atUtc": "2026-10-25T11:37:44.3601247+00:00",
+      "revision": 1
+    },
+    {
+      "status": "running",
+      "atUtc": "2026-10-25T11:37:44.6784439+00:00",
+      "revision": 2
+    },
+    {
+      "status": "running",
+      "atUtc": "2026-10-25T11:37:46.5560309+00:00",
+      "revision": 3
+    },
+    {
+      "status": "succeeded",
+      "atUtc": "2026-10-25T11:37:48.7766310+00:00",
+      "revision": 4
+    }
+  ]
+}

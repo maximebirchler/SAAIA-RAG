@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "saaia-winui-environment-validation.v1",
+  "verifiedAtUtc": "2026-10-25T11:43:58.8069626+00:00",
+  "backendBuild": {
+    "errors": 0,
+    "assemblySha256": "F3FC7D187A4ADC884D05AA7BBEEE110B5766917D678E8AA50CDF7FA016092546",
+    "warnings": 0,
+    "configuration": "Release"
+  },
+  "postgres": {
+    "existingDatabaseModified": false,
+    "isolated": true,
+    "dataDirectoryVerified": true
+  },
+  "syntheticDocuments": {
+    "sourceHashMatchesFile": true,
+    "count": 2,
+    "canonicalSqlSeed": true,
+    "duplicateFilenameDifferentPaths": true
+  },
+  "retrieval": {
+    "denseReturned": 0,
+    "returned": 2,
+    "query": "ORION",
+    "retrievers": [
+      "sparse_bm25"
+    ]
+  },
+  "canonicalContext": {
+    "pageStart": 2,
+    "found": true,
+    "pageEnd": 2,
+    "correctSyntheticCode": true
+  },
+  "advancedWorker": {
+    "resultOutcome": "insufficient_documentation",
+    "terminalStatus": "succeeded",
+    "realWorker": true,
+    "injectedTerminalState": false,
+    "testedThroughUi": false,
+    "providerCalls": 2,
+    "passed": true
+  },
+  "localModel": {
+    "existingWeightsModified": false,
+    "port": 18088,
+    "downloadPerformed": false,
+    "model": "Qwen3-4B-Instruct-2507 Q5_K_M",
+    "ready": true
+  },
+  "injection": {
+    "scenariosAppliedByThisAgent": false,
+    "sqlFaultTriggersAdded": false,
+    "upstreamPort": 5127,
+    "proxyPort": 5147,
+    "productCodeModified": false
+  },
+  "harnessCorrections": [
+    "First startup missed Db/Migrations under isolated content root; fixed copy, initial owned cluster stopped, second fresh cluster ready.",
+    "First worker preflight expected completed rather than SQL terminal status succeeded; assertion corrected, raw failed assertion evidence retained."
+  ],
+  "limitations": [
+    "UI interactions and visual outcomes are validated separately by the parent agent.",
+    "TEI/Qdrant adapters and LLM fixture are deterministic substitutes; lexical/canonical SQL and backend are real.",
+    "First HTTP fixture18087 started before header-capture extension; do not claim captured turn/session headers there.",
+    "Live backend/model wrappers started before streaming-log correction; their stdout/stderr files are flushed at owned process exit.",
+    "No Terra, RunPod, other paid API, external corpus, existing server or database accessed."
+  ],
+  "productStatus": "TESTE_NON_APPROUVE"
+}

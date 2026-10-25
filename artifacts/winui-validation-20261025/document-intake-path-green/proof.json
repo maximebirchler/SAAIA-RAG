@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "saaia-winui-document-intake-path-proof-v1",
+  "capturedAtUtc": "2026-10-25T12:56:13.8701217+00:00",
+  "observedTraceId": "2190977613139aeaf57e0dcaaeb4f202",
+  "observed": {
+    "nativeQuestionChars": 92,
+    "explicitPathPreservedEventPresent": false,
+    "resolverRequestedReferenceChars": 20,
+    "resolverReferenceHasDirectory": false,
+    "candidateCount": 2,
+    "exactMatchCount": 2,
+    "sourceUsesFocusedDocument": true
+  },
+  "causalFinding": "Canonical mission identity was reduced by Path.GetFileName in ResolveSourceBackedRequestedDocumentName, immediately before SourceBackedIntake construction. Earlier tests incorrectly bypassed that adapter.",
+  "red": {
+    "passed": 17,
+    "productPatchApplied": false,
+    "total": 26,
+    "failed": 9,
+    "manifest": "../document-intake-path-red-compiled/manifest.json"
+  },
+  "green": {
+    "manifest": "manifest.json",
+    "failed": 0,
+    "skipped": 0,
+    "sourceChangedDuringRun": false,
+    "passed": 145,
+    "total": 145
+  },
+  "correction": {
+    "canonicalLlmMission": "trim only, preserving directory",
+    "selection": "no semantic routing or fuzzy selection changes",
+    "canonicalLegacyMission": "trim only, preserving directory",
+    "canonicalToolArguments": "docPath/docRef/document preserved",
+    "rawLegacyQuestionExtraction": "existing basename extraction retained; outside canonical Llm mission contract"
+  },
+  "newMetadataProbes": [
+    "router.native.document_identity.input",
+    "source_backed_pipeline.document_identity.transported"
+  ],
+  "audit": {
+    "repairContinuity": "complete reference preserved",
+    "nativeMission": "complete reference preserved",
+    "runnerNamedResolution": "trim only",
+    "intakeAdapter": "fixed canonical path preservation",
+    "legacyRawQuestionExtractor": "unchanged intentionally, previously could capture leading question words; not promoted over canonical Llm identity",
+    "displayAndLabels": "GetFileName retained for DocName/labels/diagnostic content eligibility; DocPath retained separately",
+    "routeReader": "trim only",
+    "initialActions": "normalized JSON retains docPath/docRef",
+    "catalogResolver": "full reference retained for final equality; filename/stem searches only widen observation, never exact-path selection",
+    "semanticMission": "serializes complete mission"
+  },
+  "limits": {
+    "product": "TESTE_NON_APPROUVE",
+    "latestQwenArguments": "not stored in metadata mode; added probes distinguish full-path input from repair on next native run",
+    "nativeRetestOfCurrentPatch": "pending parent build06"
+  }
+}

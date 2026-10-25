@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "saaia-winui-missing-model-profile.v1",
+  "capturedAtUtc": "2026-10-25T13:15:14.2815163+00:00",
+  "profileName": "missing-model",
+  "sourceProfile": "manual-reconfiguration",
+  "copiedFiles": [
+    "client/settings.json",
+    "client/secure.json"
+  ],
+  "onlySettingsOverridesApplied": true,
+  "isolatedRootRelative": "local-fixture-02/runtime/client-profiles/missing-model",
+  "backendUrl": "http://127.0.0.1:5157",
+  "modelUrl": "http://127.0.0.1:18090",
+  "portObservedNotListening": true,
+  "autoConnect": true,
+  "manageLocalProcess": false,
+  "autoStart": false,
+  "eagerLoad": false,
+  "syntheticSecureStoreCopiedWithoutDisclosure": true,
+  "normalUserProfileTouched": false,
+  "clientLaunched": false,
+  "modelDownloaded": false,
+  "modelStarted": false
+}

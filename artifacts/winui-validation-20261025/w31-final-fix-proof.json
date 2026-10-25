@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "saaia.winui.w31-final-context-admin.v1",
+  "capturedAtUtc": "2026-10-25T12:40:36Z",
+  "supersedesForAcceptance": "artifacts/winui-validation-20261025/w31-fix-proof.json",
+  "status": "TARGETED_TESTS_PASSED_CODE_FROZEN_PENDING_LATEST_PRODUCTION_UI",
+  "tests": {
+    "manifest": "artifacts/winui-validation-20261025/w31-final-tests/manifest.json",
+    "passed": 74,
+    "failed": 0,
+    "skipped": 0,
+    "sourceChangedDuringRun": false,
+    "sourceFingerprintAfter": "9B5AC7167B1154F19C992F412CD18305F2BE9E37BA0940C6E2C2A45B97684849",
+    "clientDataRoot": "explicit isolated artifacts/winui-validation-20261025/w31-final-tests/client-data",
+    "profileRestored": true
+  },
+  "finalBehavior": [
+    "Applying configuration reconnects an existing live client even when AutoConnect=false. Initial unconnected manual startup remains manual.",
+    "Reconnect clears old memory/session/messages/sources/alerts/staged composer and background tracking; failure exposes disconnected error with no usable previous agent.",
+    "Every tracker retains an owned API context; old endpoint/user/key contexts cannot write to a newly selected endpoint or display its sources there.",
+    "Current admin logout propagates to the next same-connection background request; another endpoint's admin credential is never adopted.",
+    "A401/403 invalidates only the admin identity and authentication revision actually sent by that rejected request. A later authentication, including reusing the same key value, survives stale rejection.",
+    "Known HTTP authentication failures are localized without raw English .NET exception text; detailed exception remains diagnostic."
+  ],
+  "newAdminRegressionTests": [
+    "Real deterministic HttpMessageHandler records X-Admin-Key removed after same-context logout.",
+    "Real deterministic handler records old-owner request stays on old endpoint with its original credential when active endpoint changes.",
+    "Held401 response released after authentication with a different key does not clear current authentication.",
+    "Held401 response released after authentication with the same key does not clear the newer authentication revision.",
+    "Rejected current credential is invalidated; equal credential text on another endpoint remains untouched."
+  ],
+  "architecture": {
+    "proof": "artifacts/winui-validation-20261025/w31-final-architecture.json",
+    "status": "passed",
+    "sources": 1569,
+    "largeFilesRequiringReview": 21,
+    "violations": 0,
+    "mainWindow": {
+      "lines": 15293,
+      "ceiling": 15376,
+      "remaining": 83
+    },
+    "ceilingsRaised": false
+  },
+  "review": "Diagnostics agent independently reviewed W31 and the stale401 revision fix; no blocking finding left in that bounded review.",
+  "limits": [
+    "Latest admin revision delta has not been exercised in production UI by this agent.",
+    "Complete Core/Client Unit suites remain a final common-freeze gate.",
+    "Background snapshots are ownership-scoped configurable ApiClient instances, not a new immutable public type.",
+    "Profile and URI fixtures in tests are synthetic; no server or paid provider was contacted."
+  ],
+  "productionBuildsByThisAgent": 0,
+  "uiActionsByThisAgent": 0,
+  "paidCalls": 0
+}

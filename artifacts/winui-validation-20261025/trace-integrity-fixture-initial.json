@@ -1,0 +1,191 @@
+{
+  "schemaVersion": "saaia.winui-trace-integrity.v1",
+  "capturedAtUtc": "2026-10-25T11:38:57.0757129+00:00",
+  "status": "TRACE_INTEGRITY_VALIDATED",
+  "verifierScope": "Local file integrity and production diagnostic correlation; does not execute UI or network.",
+  "modelQualityValidated": false,
+  "visualUiValidated": false,
+  "pdfPageRenderingValidated": false,
+  "productStatus": "TESTE_NON_APPROUVE",
+  "eventCount": 53,
+  "turnCount": 2,
+  "checks": [
+    {
+      "name": "production_probe_events_exist",
+      "passed": true,
+      "details": 53
+    },
+    {
+      "name": "probe_json_is_parseable",
+      "passed": true,
+      "details": 0
+    },
+    {
+      "name": "probe_schema_correlation_and_nonnegative_clocks",
+      "passed": true,
+      "details": 0
+    },
+    {
+      "name": "turn_sequence_unique_3cfbad36172044b986d38cd5662710ae",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_3cfbad36172044b986d38cd5662710ae",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_3cfbad36172044b986d38cd5662710ae",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_3cfbad36172044b986d38cd5662710ae",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_3cfbad36172044b986d38cd5662710ae",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_sequence_unique_94edd8d394834534902fbf0afffb4021",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_trace_identity_stable_94edd8d394834534902fbf0afffb4021",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_begin_visible_94edd8d394834534902fbf0afffb4021",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_unique_94edd8d394834534902fbf0afffb4021",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "turn_terminal_is_last_94edd8d394834534902fbf0afffb4021",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "required_operation_turn.begin",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "required_operation_turn.end",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "required_operation_model.call",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "required_operation_agent.turn.final",
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "fixture_correlated_requests_match_client_turns",
+      "passed": true,
+      "details": 0
+    }
+  ],
+  "turns": [
+    {
+      "turnId": "3cfbad36172044b986d38cd5662710ae",
+      "traceId": "20cc9d70d7301cb06b8c01c7c6d9701c",
+      "sessionId": "d7683d16-3a3e-4360-b9ce-9db55ea2b5cb",
+      "eventCount": 8,
+      "terminalOutcome": "cancelled",
+      "terminalReason": "user_cancelled",
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "agent.turn.begin",
+        "agent.router.catalog_context.start",
+        "agent.router.catalog_context.end",
+        "agent.router.start",
+        "model.call",
+        "turn.end"
+      ]
+    },
+    {
+      "turnId": "94edd8d394834534902fbf0afffb4021",
+      "traceId": "d27c05600bdc33ced1ab26456d5259d7",
+      "sessionId": "d7683d16-3a3e-4360-b9ce-9db55ea2b5cb",
+      "eventCount": 45,
+      "terminalOutcome": "success",
+      "terminalReason": null,
+      "operations": [
+        "turn.begin",
+        "sources.parse",
+        "agent.turn.begin",
+        "agent.router.catalog_context.start",
+        "agent.router.catalog_context.end",
+        "agent.router.start",
+        "model.call",
+        "agent.router.native.classifier.completed",
+        "agent.router.native.start",
+        "agent.router.native.accepted",
+        "agent.router.end",
+        "agent.capability_boundary.decision",
+        "agent.documentary_defaults.skipped",
+        "agent.router.legacy_structured_repair.skipped",
+        "agent.tools.stage.start",
+        "agent.tools.stage.end",
+        "agent.source_backed_pipeline.canonical_retrieval.owner_confirmed",
+        "agent.writer.stage.start",
+        "agent.answer.stage.start",
+        "agent.writer.context",
+        "agent.writer.guard.coverage.start",
+        "agent.writer.guard.coverage.selection",
+        "agent.writer.evidence_inventory.selection",
+        "agent.writer.guard.insufficient_check.start",
+        "agent.writer.guard.insufficient_check.end",
+        "agent.writer.selected",
+        "agent.writer.candidate_adjudication.skipped",
+        "agent.writer.evidence_inventory.roster",
+        "agent.writer.llm.start",
+        "agent.writer.llm.end",
+        "agent.writer.post.start",
+        "agent.writer.post.language_check.start",
+        "agent.writer.language_check.skipped",
+        "agent.writer.post.language_check.end",
+        "agent.writer.absolute_finalizer.skipped",
+        "agent.writer.post.end",
+        "agent.writer.stage.end",
+        "agent.answer.stage.end",
+        "agent.turn.final",
+        "turn.end"
+      ]
+    }
+  ],
+  "support": null,
+  "fixture": {
+    "requestCount": 3,
+    "correlatedRequestCount": 0,
+    "requestsWithoutClientTurn": 3,
+    "note": "Uncorrelated readiness/probe requests are counted separately and are not fabricated as chat turns."
+  },
+  "inputs": [
+    {
+      "path": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\local-fixture-02\\runtime\\client-data\\logs\\client_startup.log",
+      "sha256": "b6c8f29ee05edb72a87eadb446d07aaf3f269b1538c03081802005706974e159"
+    },
+    {
+      "path": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\local-fixture-02\\fixture-events.jsonl",
+      "sha256": "13df8970d613cac14fef5a819eb582c716b7e226a2fea06316eb53ffa1362031"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "atUtc": "2026-10-25T13:24:55.632Z",
+  "name": "84-small-window-chats-pane-hidden",
+  "description": "Petite fenêtre1036×641 : volet Discussions masqué, messages réorganisés et compositeur toujours visible.",
+  "window": {
+    "app": "process:C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+    "id": 24644210,
+    "title": "SAAIA"
+  },
+  "accessibility": {
+    "focused_element": "208 texte Compare les deux guides « Validation/Guide-Validation.pdf » et « Archive/Guide-Validation.pdf » : relève leurs codes ORION, présente les différences dans un tableau, puis justifie une conclusion avec les pages de chaque source.",
+    "tree": "Window: \"SAAIA\", App: SAAIA.Client.WinUI.exe.\n\t0 fenêtre SAAIA Secondary Actions: Raise\n\t\t1 volet Non Client Input Sink Window\n\t\t2 volet AppWindow Custom Title Bar\n\t\t\t3 Bouton Minimize ID: Minimize\n\t\t\t4 Bouton Maximize ID: Maximize\n\t\t\t5 Bouton Close ID: Close\n\t\t6 volet\n\t\t\t7 volet\n\t\t\t\t8 image\n\t\t\t\t9 texte SAAIA\n\t\t\t\t10 bouton Discussions ID: ChatsToggleButton\n\t\t\t\t11 bouton Configuration ID: SetupButton\n\t\t\t\t12 bouton Aide ID: HeaderHelpButton\n\t\t\t\t\t13 texte ?\n\t\t\t\t14 bouton Paramètres ID: HeaderSettingsButton\n\t\t\t\t66 volet ID: MessagesScroll\n\t\t\t\t\t67 liste ID: MessagesList\n\t\t\t\t\t\t207 élément de liste SAAIA.Client.WinUI.Models.ChatMessageItem\n\t\t\t\t\t\t\t208 texte Compare les deux guides « Validation/Guide-Validation.pdf » et « Archive/Guide-Validation.pdf » : relève leurs codes ORION, présente les différences dans un tableau, puis justifie une conclusion avec les pages de chaque source.\n\t\t\t\t\t\t\t209 texte 25.10 14:21\n\t\t\t\t\t\t\t210 bouton ID: CopyBtn\n\t\t\t\t\t\t211 élément de liste SAAIA.Client.WinUI.Models.ChatMessageItem\n\t\t\t\t\t\t\t212 image\n\t\t\t\t\t\t\t213 texte Validation synthétique du parcours avancé : le worker a terminé ses opérations. Ce résultat contrôlé ne constitue pas une validation sémantique du modèle. ID: Rtb\n\t\t\t\t\t\t\t217 bouton ID: CopyBtn\n\t\t\t\t\t\t\t218 texte 25.10 14:22\n\t\t\t\t94 modifier (settable, string) Tape ta question... ID: InputBox\n\t\t\t\t95 bouton (disabled) Envoyer ID: SendCancelButton\n\t\t96 barre de titre (settable, string) Value: SAAIA\n\t\t\t97 barre de menus Système ID: MenuBar\n\t\t\t\t278 élément de menu Système\n\t\t\t99 Bouton Réduire\n\t\t\t100 Bouton Agrandir\n\t\t\t101 Bouton Fermer\n\nThe focused UI element is 208 texte Compare les deux guides « Validation/Guide-Validation.pdf » et « Archive/Guide-Validation.pdf » : relève leurs codes ORION, présente les différences dans un tableau, puis justifie une conclusion avec les pages de chaque source.."
+  },
+  "screenshots": [
+    "84-small-window-chats-pane-hidden-0.png"
+  ]
+}

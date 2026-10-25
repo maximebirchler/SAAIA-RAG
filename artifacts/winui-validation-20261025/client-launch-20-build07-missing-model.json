@@ -1,0 +1,13 @@
+{
+  "startedAtUtc": "2026-10-25T13:26:20.8122061+00:00",
+  "pid": 42128,
+  "executable": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+  "assemblySha256": "F634918ABAC537A7D9EA3C57FC26530FE52CA1976F15607DFD8B8E08E9E3A00B",
+  "clientDataRoot": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\local-fixture-02\\runtime\\client-profiles\\missing-model",
+  "profileName": "missing-model",
+  "documentsRoot": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-validation-20261025\\local-fixture-02\\runtime\\documents",
+  "providerMode": "Local",
+  "externalPolicy": "ProductionLocal",
+  "inheritedProviderEnvironmentRemoved": true,
+  "purpose": "Launch only; no UI automation. Native interactions are performed separately through Computer Use."
+}

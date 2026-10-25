@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "saaia.winui.final-unit-causal-failure.v1",
+  "firstFullSuite": "artifacts/winui-validation-20261025/final-core-client-unit/manifest.json",
+  "firstResults": {
+    "ClientCore": {
+      "passed": 76,
+      "failed": 0,
+      "skipped": 0
+    },
+    "Client": {
+      "passed": 2364,
+      "failed": 1,
+      "skipped": 0,
+      "total": 2365
+    }
+  },
+  "firstSourceChangedDuringRun": false,
+  "firstSourceFingerprint": "4293A7B56A678FB11D6CF6E2E34C5ED8CC6402593FF912FC71CB031D16B681B0",
+  "firstTestIsolation": "owned campaign output; no fallback to normal client profile",
+  "failedCase": "GovernanceArtifactStoreTests.Retired_model_migration_only_recognizes_unknown_artifacts_in_managed_directory",
+  "cause": "The test built a managed-model path in the normal Windows profile. Production had intentionally moved managed ownership to ClientDataPaths.Root/Models. Under the required isolated test profile, the normal-profile path must be external, so production correctly returned false.",
+  "testOnlyCorrection": "Positive path now comes from ModelLibrary.ModelsDir. Existing external-temp and supported-catalog negatives remain. When the active models root differs from the normal profile, that old normal-profile path is now explicitly asserted external.",
+  "productChangedForThisFailure": false,
+  "paidCalls": 0,
+  "targetedRetest": {
+    "manifest": "artifacts/winui-validation-20261025/managed-model-test-correction/manifest.json",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "nextGate": "Wait for diagnostics source freeze, then full ClientCore+Client Unit into final-core-client-unit-accepted without overwriting the failed evidence.",
+  "status": "CAUSAL_TEST_FIX_PASSED_TARGETED_AWAITING_FULL_COMMON_FREEZE"
+}
