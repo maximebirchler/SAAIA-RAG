@@ -1,0 +1,16 @@
+{
+  "checks": [
+    {
+      "name": "dry-run never reads the malformed secret sentinel",
+      "passed": true
+    },
+    {
+      "name": "Execute without explicit authorization is blocked before key access and output mutation",
+      "passed": true
+    }
+  ],
+  "secretsRead": 0,
+  "servicesStarted": 0,
+  "providerCalls": 0,
+  "schemaVersion": "saaia-luna-dry-run-tests.v1"
+}

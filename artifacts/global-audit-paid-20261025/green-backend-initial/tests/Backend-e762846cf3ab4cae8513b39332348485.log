@@ -1,0 +1,14 @@
+  Identification des projets à restaurer...
+  Tous les projets sont à jour pour la restauration.
+  SAAIA.AdvancedValidationJobGuard -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\tools\SAAIA.AdvancedValidationJobGuard\bin\Release\net8.0\SAAIA.AdvancedValidationJobGuard.dll
+  SAAIA.Contracts -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\contracts\SAAIA.Contracts\bin\Release\net8.0\SAAIA.Contracts.dll
+  SAAIA.Backend -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\bin\Release\net8.0\SAAIA.Backend.dll
+  SAAIA.Backend.Tests -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll
+Série de tests pour C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll (.NETCoreApp,Version=v8.0)
+Version de VSTest 17.11.1 (x64)
+
+Démarrage de l'exécution de tests, patientez...
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+Fichier de résultats : C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\artifacts\global-audit-paid-20261025\green-backend-initial\tests\Backend-e762846cf3ab4cae8513b39332348485.trx
+
+Réussi!  - échec :     0, réussite :     5, ignorée(s) :     0, total :     5, durée : 3 s - SAAIA.Backend.Tests.dll (net8.0)

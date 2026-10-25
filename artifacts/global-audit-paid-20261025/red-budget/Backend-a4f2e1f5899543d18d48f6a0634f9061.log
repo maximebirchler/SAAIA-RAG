@@ -1,0 +1,77 @@
+  Identification des projets à restaurer...
+  Tous les projets sont à jour pour la restauration.
+  SAAIA.AdvancedValidationJobGuard -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\tools\SAAIA.AdvancedValidationJobGuard\bin\Release\net8.0\SAAIA.AdvancedValidationJobGuard.dll
+  SAAIA.Contracts -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\contracts\SAAIA.Contracts\bin\Release\net8.0\SAAIA.Contracts.dll
+  SAAIA.Backend -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\bin\Release\net8.0\SAAIA.Backend.dll
+C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisBudgetPersistenceTests.cs(51,9): warning xUnit2031: Do not use a Where clause to filter before calling Assert.Single. Use the overload of Assert.Single that accepts a filtering function. (https://xunit.net/xunit.analyzers/rules/xUnit2031) [C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\SAAIA.Backend.Tests.csproj]
+  SAAIA.Backend.Tests -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll
+Série de tests pour C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll (.NETCoreApp,Version=v8.0)
+Version de VSTest 17.11.1 (x64)
+
+Démarrage de l'exécution de tests, patientez...
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+[xUnit.net 00:00:00.31]     SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Failed_terminal_append_keeps_reservation_recoverable_instead_of_refunding_it [FAIL]
+[xUnit.net 00:00:00.34]     SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Invalid_cost_rows_fail_closed(row: "{\"costUsd\":-1}") [FAIL]
+[xUnit.net 00:00:00.34]     SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Invalid_cost_rows_fail_closed(row: "{}") [FAIL]
+[xUnit.net 00:00:00.35]     SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.A_guard_created_before_another_settlement_observes_the_new_campaign_charge [FAIL]
+[xUnit.net 00:00:00.35]     SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Unsettled_call_survives_restart_and_keeps_the_job_call_slot [FAIL]
+[xUnit.net 00:00:00.35]     SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Two_independent_guards_cannot_both_admit_the_same_last_job_slot [FAIL]
+[xUnit.net 00:00:00.35]     SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Missing_usage_does_not_treat_four_characters_as_a_token_upper_bound [FAIL]
+  Échoué SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Failed_terminal_append_keeps_reservation_recoverable_instead_of_refunding_it [27 ms]
+  Message d'erreur :
+   System.InvalidOperationException : Unknown advanced-analysis budget reservation.
+  Arborescence des appels de procédure :
+     at SAAIA.Backend.AdvancedAnalysis.AdvancedAnalysisExternalBudgetGuard.Close(Reservation reservation, AdvancedAnalysisLlmUsage usage, String usageSource, Boolean success, String errorCode, Int64 elapsedMilliseconds, Int32 httpAttemptCount, String observedModelId, AdvancedAnalysisRateLimitTelemetry rateLimit) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\AdvancedAnalysis\AdvancedAnalysisExternalBudgetGuard.cs:line 231
+   at SAAIA.Backend.AdvancedAnalysis.AdvancedAnalysisExternalBudgetGuard.Complete(Reservation reservation, AdvancedAnalysisLlmUsage usage, Int64 elapsedMilliseconds, Int32 httpAttemptCount, String observedModelId, AdvancedAnalysisRateLimitTelemetry rateLimit) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\AdvancedAnalysis\AdvancedAnalysisExternalBudgetGuard.cs:line 145
+   at SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Failed_terminal_append_keeps_reservation_recoverable_instead_of_refunding_it() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisBudgetPersistenceTests.cs:line 77
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Échoué SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Invalid_cost_rows_fail_closed(row: "{\"costUsd\":-1}") [11 ms]
+  Message d'erreur :
+   Assert.Throws() Failure: No exception was thrown
+Expected: typeof(System.InvalidOperationException)
+  Arborescence des appels de procédure :
+     at SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Invalid_cost_rows_fail_closed(String row) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisBudgetPersistenceTests.cs:line 92
+   at InvokeStub_AdvancedAnalysisBudgetPersistenceTests.Invalid_cost_rows_fail_closed(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithOneArg(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Échoué SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Invalid_cost_rows_fail_closed(row: "{}") [< 1 ms]
+  Message d'erreur :
+   Assert.Throws() Failure: No exception was thrown
+Expected: typeof(System.InvalidOperationException)
+  Arborescence des appels de procédure :
+     at SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Invalid_cost_rows_fail_closed(String row) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisBudgetPersistenceTests.cs:line 92
+   at InvokeStub_AdvancedAnalysisBudgetPersistenceTests.Invalid_cost_rows_fail_closed(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithOneArg(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Échoué SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.A_guard_created_before_another_settlement_observes_the_new_campaign_charge [8 ms]
+  Message d'erreur :
+   Assert.Throws() Failure: No exception was thrown
+Expected: typeof(SAAIA.Backend.AdvancedAnalysis.AdvancedAnalysisProviderException)
+  Arborescence des appels de procédure :
+     at SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.A_guard_created_before_another_settlement_observes_the_new_campaign_charge() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisBudgetPersistenceTests.cs:line 62
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Échoué SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Unsettled_call_survives_restart_and_keeps_the_job_call_slot [< 1 ms]
+  Message d'erreur :
+   Assert.Throws() Failure: No exception was thrown
+Expected: typeof(SAAIA.Backend.AdvancedAnalysis.AdvancedAnalysisProviderException)
+  Arborescence des appels de procédure :
+     at SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Unsettled_call_survives_restart_and_keeps_the_job_call_slot() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisBudgetPersistenceTests.cs:line 33
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Échoué SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Two_independent_guards_cannot_both_admit_the_same_last_job_slot [4 ms]
+  Message d'erreur :
+   Assert.Single() Failure: The collection contained 2 items
+Collection: [True, True]
+  Arborescence des appels de procédure :
+     at SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Two_independent_guards_cannot_both_admit_the_same_last_job_slot() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisBudgetPersistenceTests.cs:line 51
+--- End of stack trace from previous location ---
+  Échoué SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Missing_usage_does_not_treat_four_characters_as_a_token_upper_bound [1 ms]
+  Message d'erreur :
+   A four-character average is not a conservative admission bound.
+  Arborescence des appels de procédure :
+     at SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Missing_usage_does_not_treat_four_characters_as_a_token_upper_bound() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisBudgetPersistenceTests.cs:line 102
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+Fichier de résultats : C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\artifacts\global-audit-paid-20261025\red-budget\Backend-a4f2e1f5899543d18d48f6a0634f9061.trx
+
+Échoué!  - échec :     7, réussite :     1, ignorée(s) :     0, total :     8, durée : 39 ms - SAAIA.Backend.Tests.dll (net8.0)

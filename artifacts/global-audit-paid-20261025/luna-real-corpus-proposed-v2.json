@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "saaia-local-openai-paid-campaign.v1",
+  "campaignId": "0b0a1828b77044aa8a44551939fd8e34",
+  "provider": {
+    "mode": "OpenAI",
+    "baseUrl": "https://api.openai.com/v1",
+    "model": "gpt-5.6-luna"
+  },
+  "budget": {
+    "authorizedUsd": 0.5,
+    "hardStopUsd": 0.5,
+    "maximumCostPerJobUsd": 0.5,
+    "priorCampaignCostUsd": 0.0
+  },
+  "pricing": {
+    "inputUsdPerMillion": 0.2,
+    "observedAtUtc": "2026-10-25T00:00:00Z",
+    "cachedInputUsdPerMillion": 0.02,
+    "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+    "outputUsdPerMillion": 1.2,
+    "cacheWriteUsdPerMillion": 0.2,
+    "observationBasis": "Official pricing and capabilities verified by the parent operator on 2026-10-25; not fetched by this script."
+  },
+  "execution": {
+    "maximumJobAttempts": 1,
+    "maximumCallsPerJob": 4,
+    "fixturePort": 18107,
+    "plannerMaxTokens": 512,
+    "backendPort": 5157,
+    "repetitions": 1,
+    "maximumJobs": 1,
+    "writerMaxTokens": 1024,
+    "backendAssemblySha256": "7F87B6AE3BD45AB629642D9556DC9E9E1DF5025D27414BA91F09682A770676E2",
+    "maximumHttpAttempts": 1,
+    "timeoutSeconds": 120,
+    "paidBackendPort": 5158
+  },
+  "corpus": {
+    "sha256": "AA11E234FB3336EE76644958E888D83565E25BA875264BA75F7CE22B32D25C18",
+    "path": "out/remote-deploy/30-recettes-preferees-des-francais.pdf",
+    "pageNumbers": [
+      2,
+      5,
+      6,
+      7
+    ]
+  },
+  "case": {
+    "question": "Dans la recette du bœuf bourguignon, pour combien de personnes les ingrédients sont-ils prévus et quelle quantité de vin rouge faut-il ?",
+    "expectedOutcome": "answered",
+    "expectedAnswerDescription": "Réponse factuelle attendue : 4 personnes et 1,5 litre de vin rouge, avec citation canonique de la page 5. Aucun fait supplémentaire inventé."
+  },
+  "spendAuthorization": {
+    "status": "PROPOSED",
+    "authorizedAtUtc": null,
+    "basis": null
+  },
+  "boundaries": {
+    "vectorRetrievalValidated": false,
+    "teiQdrantAreProtocolSubstitutes": true,
+    "clientProviderMustRemain": "Local",
+    "ingestionValidated": false
+  }
+}

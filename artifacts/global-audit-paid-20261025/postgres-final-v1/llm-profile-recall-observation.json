@@ -1,0 +1,343 @@
+{
+  "directProfileMatches": [
+    {
+      "Score": 0.92,
+      "DocId": "99999999-2222-2222-2222-777777777777",
+      "DocPath": "Generic/LlmProfileRecall.pdf",
+      "DocName": "LlmProfileRecall.pdf",
+      "PageStart": 1,
+      "PageEnd": 1,
+      "ChunkId": "bbbbbbbb-4444-4444-4444-777777777777",
+      "ChunkIndex": -1,
+      "Text": "LLM profile: the document explains pressure envelope validation and maintenance governance. Content cues: Pressure envelope validation (p.1).",
+      "IngestionVersion": 1,
+      "HashDoc": "090909",
+      "EmbedText": "Generic/LlmProfileRecall.pdf LlmProfileRecall.pdf LLM profile: the document explains pressure envelope validation and maintenance governance. LLM profile: the document explains pressure envelope validation and maintenance governance. LlmProfileRecall.pdf, 1 page(s). Operational baseline. Ordinary operational page text without the distinctive enrichment phrase.. pressure envelope validation pressure envelope validation xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx operational baseline distinctive enrichment llmprofilerecall ordinary phrase text without accumulator cluster maintenance governance Operational baseline operational baseline distinctive enrichment llmprofilerecall ordinary phrase text When should the pressure envelope validation be reviewed? LlmProfileRecall.pdf: operational LlmProfileRecall.pdf: baseline LlmProfileRecall.pdf: distinctive LlmProfileRecall.pdf: enrichment LlmProfileRecall.pdf: llmprofilerecall LlmProfileRecall.pdf: ordinary Use page chunks for exact thresholds. deterministic_profile_from_extracted_text use_page_chunks_for_exact_facts_quantities_steps_and_citations pressure envelope validation pressure envelope validation xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx accumulator cluster maintenance governance When should the pressure envelope validation be reviewed? Use page chunks for exact thresholds. Operational baseline operational baseline section Operational baseline operational baseline distinctive enrichment ordinary phrase text without llmprofilerecall operational baseline operational baseline distinctive enrichment ordinary phrase text without llmprofilerecall Pressure envelope validation accumulator cluster validation review",
+      "EmbeddingBasis": "document_profile_v1",
+      "SectionOrdinal": null,
+      "UnitOrdinal": null,
+      "SectionTitle": "Profile summary",
+      "HeadingPath": "Profile summary",
+      "ChunkType": "document_profile",
+      "PrevChunkId": null,
+      "NextChunkId": null,
+      "SameSectionChunkId": null,
+      "RerankScore": null,
+      "OffsetStart": null,
+      "OffsetEnd": null,
+      "MatchedContentCards": [
+        {
+          "Title": "Pressure envelope validation",
+          "ContentCardId": "cccccccc-5555-5555-5555-777777777777",
+          "PageStart": 1,
+          "PageEnd": 1,
+          "Kind": "llm_content_card",
+          "Signals": [
+            "structured_facts",
+            "accumulator cluster",
+            "validation review"
+          ],
+          "Evidence": {
+            "schemaVersion": "content_card_evidence_v1",
+            "scaleBasis": null,
+            "quantityFacts": [],
+            "nonScalableReasons": [],
+            "confidence": null,
+            "language": null,
+            "facts": [
+              {
+                "kind": "fact",
+                "label": "fact",
+                "value": null,
+                "unit": null,
+                "sourceText": "Pressure envelope validation accumulator cluster validation review",
+                "pageStart": 1,
+                "pageEnd": 1,
+                "confidence": null
+              }
+            ]
+          }
+        }
+      ],
+      "Category": "generic",
+      "ContentRole": null,
+      "NavigationReason": null,
+      "OriginalChunkType": null,
+      "NavigationScore": null,
+      "ContentDensityScore": null,
+      "EmbeddingModel": null,
+      "EmbeddingInputFormat": null,
+      "ProfileSignals": {
+        "ProfileVersion": "llm_backoffice_v1",
+        "Language": "en",
+        "Keywords": [
+          "pressure envelope validation",
+          "pressure envelope validation xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        ],
+        "Entities": [],
+        "Topics": [
+          "maintenance governance"
+        ],
+        "HypotheticalQuestions": [
+          "When should the pressure envelope validation be reviewed?"
+        ],
+        "Limits": [
+          "Use page chunks for exact thresholds."
+        ],
+        "MatchedTerms": [
+          "envelope validation",
+          "pressure envelope",
+          "pressure envelope validation",
+          "envelope",
+          "pressure",
+          "validation"
+        ],
+        "MatchCount": 6
+      },
+      "ExtractionTextStatus": null,
+      "ExtractionTextSparse": null,
+      "ExtractionOcrCandidate": null,
+      "ExtractionQualitySignals": null,
+      "SourceUnitOrdinals": null,
+      "SourceUnitStartOrdinal": null,
+      "SourceUnitEndOrdinal": null,
+      "SourceUnitCount": null,
+      "ChunkComposition": null
+    }
+  ],
+  "httpBody": {
+    "requestId": "it-88888888111111111111777777777777",
+    "query": "pressure envelope validation",
+    "queryNormalized": "pressure envelope validation",
+    "category": "generic",
+    "topK": 2,
+    "minScore": 0.25,
+    "candidates": 20,
+    "maxPerDoc": 2,
+    "maxPerPage": 2,
+    "metrics": {
+      "tookMs": 150,
+      "returned": 1,
+      "exactMatchReturned": 0,
+      "denseReturned": 0,
+      "sparseReturned": 0,
+      "linkedReturned": 0,
+      "retrieversUsed": [
+        "document_profile"
+      ],
+      "dataHash": "5ae2c6146d7fe4c7dbc31aef457fbaacbe18ea791161495eea2b19ca0dcd9287",
+      "ttlSeconds": 600,
+      "teiMs": 0,
+      "rerankMs": 0,
+      "sparseMs": 31,
+      "qdrantMs": 0,
+      "candidatesEvaluated": 20,
+      "degradedRetrievers": null,
+      "degradedRetrieverErrors": null,
+      "exactMs": 30,
+      "quotedTitleMs": 0,
+      "localTitleTokenMs": 0,
+      "titleAnchorRouteMs": 40,
+      "sparsePhaseMs": 47,
+      "denseMs": 0,
+      "profileMs": 24,
+      "linkedMs": 0,
+      "fusionMs": 0,
+      "rerankPhaseMs": 0,
+      "selectionMs": 2
+    },
+    "items": [
+      {
+        "score": 0.679064,
+        "docId": "99999999-2222-2222-2222-777777777777",
+        "docName": "LlmProfileRecall.pdf",
+        "docPath": "Generic/LlmProfileRecall.pdf",
+        "category": "generic",
+        "categoryRef": null,
+        "docLanguage": "en",
+        "profileLanguage": "en",
+        "pageStart": 1,
+        "pageEnd": 1,
+        "chunkId": "bbbbbbbb-4444-4444-4444-777777777777",
+        "chunkIndex": -1,
+        "text": "LLM profile: the document explains pressure envelope validation and maintenance governance. Content cues: Pressure envelope validation (p.1).",
+        "retriever": "document_profile",
+        "provenance": "retriever:document_profile",
+        "exactMatchHit": false,
+        "sourceHash": "090909",
+        "revisionId": "3ee8ad32-53bc-38d1-c72b-037e335fef49",
+        "embeddingBasis": "document_profile_v1",
+        "chunkType": "document_profile",
+        "sectionTitle": "Profile summary",
+        "headingPath": "Profile summary",
+        "prevChunkId": null,
+        "nextChunkId": null,
+        "sameSectionChunkId": null,
+        "provenanceInfo": {
+          "channel": "document_profile",
+          "label": "retriever:document_profile",
+          "sourceHash": "090909",
+          "chunkId": "bbbbbbbb-4444-4444-4444-777777777777",
+          "pageStart": 1,
+          "pageEnd": 1,
+          "offsetStart": null,
+          "offsetEnd": null
+        },
+        "context": {
+          "chunkType": "document_profile",
+          "sectionTitle": "Profile summary",
+          "headingPath": "Profile summary",
+          "prevChunkId": null,
+          "nextChunkId": null,
+          "sameSectionChunkId": null,
+          "contentRole": null,
+          "navigationReason": null,
+          "originalChunkType": null,
+          "navigationScore": null,
+          "contentDensityScore": null,
+          "sourceUnitOrdinals": null,
+          "sourceUnitStartOrdinal": null,
+          "sourceUnitEndOrdinal": null,
+          "sourceUnitCount": null,
+          "chunkComposition": null
+        },
+        "categoryPath": "Generic",
+        "snippet": "LLM profile: the document explains pressure envelope validation and maintenance governance. Content cues: Pressure envelope validation (p.1).",
+        "rerankScore": null,
+        "hasTable": false,
+        "hasWarning": false,
+        "contextualSnippet": null,
+        "hypQuestionsMatched": true,
+        "extractionQuality": {
+          "extractionSource": "pdf_text",
+          "ocrAttempted": false,
+          "ocrApplied": false,
+          "documentQualityStatus": "manual_review_low_text",
+          "documentExtractionConfidence": 0.35,
+          "documentManualReviewRecommended": true,
+          "pageQualityStatus": "page_ok_low_value_text",
+          "pageExtractionConfidence": 0.78,
+          "pageManualReviewRecommended": false,
+          "textStatus": "low_text",
+          "ocrRecommended": true,
+          "signals": [
+            "many_sparse_pages",
+            "ocr_recommended",
+            "sparse_text_on_page"
+          ],
+          "chunkTextStatus": null,
+          "chunkTextSparse": null,
+          "chunkOcrCandidate": null,
+          "chunkQualitySignals": null,
+          "diagnosticSummary": {
+            "nativeTextStatus": null,
+            "nativeOcrRecommended": null,
+            "ocrMode": null,
+            "ocrLanguages": null,
+            "ocrDurationMs": null,
+            "ocrFailureReason": null,
+            "ocrAppliedReason": null,
+            "ocrTimedOut": null,
+            "ocrAttemptedPageCount": null,
+            "ocrSkippedPageCount": null,
+            "ocrPagesWithNovelTextCount": null,
+            "pageCount": 1,
+            "textPageCount": 1,
+            "emptyPageCount": 0,
+            "sparsePageCount": 1,
+            "imagePageCount": null,
+            "pageWarningCount": null,
+            "pageReviewRecommendedCount": null,
+            "retrievalChunkQuality": {
+              "totalChunkCount": 1,
+              "searchableChunkCount": 1,
+              "rejectedChunkCount": 0,
+              "manualReviewRecommended": false,
+              "rejectionReasons": null
+            }
+          }
+        },
+        "matchedContentCards": [
+          {
+            "title": "Pressure envelope validation",
+            "contentCardId": "cccccccc-5555-5555-5555-777777777777",
+            "pageStart": 1,
+            "pageEnd": 1,
+            "kind": "llm_content_card",
+            "signals": [
+              "structured_facts",
+              "accumulator cluster",
+              "validation review"
+            ],
+            "evidence": {
+              "schemaVersion": "content_card_evidence_v1",
+              "scaleBasis": null,
+              "quantityFacts": [],
+              "nonScalableReasons": [],
+              "confidence": null,
+              "language": null,
+              "facts": [
+                {
+                  "kind": "fact",
+                  "label": "fact",
+                  "value": null,
+                  "unit": null,
+                  "sourceText": "Pressure envelope validation accumulator cluster validation review",
+                  "pageStart": 1,
+                  "pageEnd": 1,
+                  "confidence": null
+                }
+              ]
+            }
+          }
+        ],
+        "selectionHints": {
+          "evidenceRole": "low_confidence",
+          "actionabilityScore": 0,
+          "supportScore": 0,
+          "fragmentScore": 8,
+          "navigationScore": 0,
+          "qualityPenalty": 23
+        },
+        "profileSignals": {
+          "profileVersion": "llm_backoffice_v1",
+          "language": "en",
+          "keywords": [
+            "pressure envelope validation",
+            "pressure envelope validation xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          ],
+          "entities": null,
+          "topics": [
+            "maintenance governance"
+          ],
+          "hypotheticalQuestions": [
+            "When should the pressure envelope validation be reviewed?"
+          ],
+          "limits": [
+            "Use page chunks for exact thresholds."
+          ],
+          "matchedTerms": [
+            "envelope validation",
+            "pressure envelope",
+            "pressure envelope validation",
+            "envelope",
+            "pressure",
+            "validation"
+          ],
+          "matchCount": 6
+        }
+      }
+    ],
+    "guidance": {
+      "behavior": "answer_with_caveat",
+      "reason": "source_quality_requires_manual_review_caveat",
+      "responseShape": "qualified_answer",
+      "clarifyingQuestion": null,
+      "qualificationNote": "Les elements retrouves (LLMPROFILERECALL) semblent exploitables, mais au moins une source selectionnee a une qualite d\u0027extraction ou OCR faible. Reponds depuis les passages cites et signale l\u0027incertitude si une valeur, une formulation ou un detail de page semble ambigu.",
+      "matchedDocHints": [
+        "LLMPROFILERECALL"
+      ]
+    },
+    "diagnostics": null
+  }
+}

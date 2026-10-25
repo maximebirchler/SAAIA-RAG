@@ -1,0 +1,6 @@
+  Identification des projets à restaurer...
+  Tous les projets sont à jour pour la restauration.
+  SAAIA.AdvancedValidationJobGuard -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\tools\SAAIA.AdvancedValidationJobGuard\bin\Release\net8.0\SAAIA.AdvancedValidationJobGuard.dll
+  SAAIA.Contracts -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\contracts\SAAIA.Contracts\bin\Release\net8.0\SAAIA.Contracts.dll
+  SAAIA.Backend -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\bin\Release\net8.0\SAAIA.Backend.dll
+C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisBudgetPersistenceTests.cs(170,15): error CS0121: L'appel est ambigu entre les méthodes ou propriétés suivantes : 'AdvancedAnalysisExternalBudgetGuard.Fail(AdvancedAnalysisExternalBudgetGuard.Reservation, string, long, int)' et 'AdvancedAnalysisExternalBudgetGuard.Fail(AdvancedAnalysisExternalBudgetGuard.Reservation, string, AdvancedAnalysisLlmUsage, long, int)' [C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\SAAIA.Backend.Tests.csproj]

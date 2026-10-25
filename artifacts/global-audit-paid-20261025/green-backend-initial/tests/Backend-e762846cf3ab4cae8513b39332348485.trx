@@ -1,0 +1,58 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="42029eed-83b8-4fbd-9962-3fbd9e555c7b" name="maxim@MAXBI 2026-10-25 20:29:35" runUser="MAXBI\maxim" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-25T20:29:35.8346340+01:00" queuing="2026-10-25T20:29:35.8346341+01:00" start="2026-10-25T20:29:32.6061227+01:00" finish="2026-10-25T20:29:38.2004961+01:00" />
+  <TestSettings name="default" id="b54ef387-0963-4499-8e46-ccf3ebcd83a3">
+    <Deployment runDeploymentRoot="maxim_MAXBI_2026-10-25_20_29_35" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="099d298c-566b-424d-a8d9-42f66a45380d" testId="f8aad3e1-003b-fc3c-d6ff-67f5750031ea" testName="SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Failed_admitted_tool_time_is_charged_once_and_survives_resume" computerName="MAXBI" duration="00:00:00.9039621" startTime="2026-10-25T20:29:38.1626387+01:00" endTime="2026-10-25T20:29:38.1626390+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="099d298c-566b-424d-a8d9-42f66a45380d" />
+    <UnitTestResult executionId="462d97da-3fb2-4724-8262-9d6c5bbdafef" testId="8dfc8d59-d10b-27b8-9173-bea6daf7ab1f" testName="SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(cancel: False)" computerName="MAXBI" duration="00:00:00.7696172" startTime="2026-10-25T20:29:36.2234696+01:00" endTime="2026-10-25T20:29:36.2234699+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="462d97da-3fb2-4724-8262-9d6c5bbdafef" />
+    <UnitTestResult executionId="d4055f57-a73d-42d8-9bdf-e146af5b1a7a" testId="807c9660-b570-e516-7d3c-a53f9fd95e99" testName="SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Concurrent_distinct_handoffs_share_user_quota_but_do_not_block_other_owners" computerName="MAXBI" duration="00:00:01.1441794" startTime="2026-10-25T20:29:34.6135779+01:00" endTime="2026-10-25T20:29:34.6135878+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d4055f57-a73d-42d8-9bdf-e146af5b1a7a" />
+    <UnitTestResult executionId="b58d72ce-a6a8-4cea-aced-f3da62e5b14b" testId="2c05275c-2bfd-1085-410b-d548a6a7be25" testName="SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Heartbeat_database_failure_cancels_and_observes_provider_before_worker_returns" computerName="MAXBI" duration="00:00:01.0323671" startTime="2026-10-25T20:29:37.2583476+01:00" endTime="2026-10-25T20:29:37.2583478+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b58d72ce-a6a8-4cea-aced-f3da62e5b14b" />
+    <UnitTestResult executionId="18e74de8-c904-4af8-8128-3f74787223c2" testId="a559cf4c-d7a0-c131-b733-a0dc96046c3f" testName="SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(cancel: True)" computerName="MAXBI" duration="00:00:00.8385908" startTime="2026-10-25T20:29:35.4535437+01:00" endTime="2026-10-25T20:29:35.4535440+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="18e74de8-c904-4af8-8128-3f74787223c2" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(cancel: False)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="8dfc8d59-d10b-27b8-9173-bea6daf7ab1f">
+      <Execution id="462d97da-3fb2-4724-8262-9d6c5bbdafef" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests" name="Job_mutation_and_audit_roll_back_together_when_audit_is_rejected" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(cancel: True)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="a559cf4c-d7a0-c131-b733-a0dc96046c3f">
+      <Execution id="18e74de8-c904-4af8-8128-3f74787223c2" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests" name="Job_mutation_and_audit_roll_back_together_when_audit_is_rejected" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Concurrent_distinct_handoffs_share_user_quota_but_do_not_block_other_owners" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="807c9660-b570-e516-7d3c-a53f9fd95e99">
+      <Execution id="d4055f57-a73d-42d8-9bdf-e146af5b1a7a" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests" name="Concurrent_distinct_handoffs_share_user_quota_but_do_not_block_other_owners" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Failed_admitted_tool_time_is_charged_once_and_survives_resume" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="f8aad3e1-003b-fc3c-d6ff-67f5750031ea">
+      <Execution id="099d298c-566b-424d-a8d9-42f66a45380d" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests" name="Failed_admitted_tool_time_is_charged_once_and_survives_resume" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Heartbeat_database_failure_cancels_and_observes_provider_before_worker_returns" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="2c05275c-2bfd-1085-410b-d548a6a7be25">
+      <Execution id="b58d72ce-a6a8-4cea-aced-f3da62e5b14b" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests" name="Heartbeat_database_failure_cancels_and_observes_provider_before_worker_returns" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="f8aad3e1-003b-fc3c-d6ff-67f5750031ea" executionId="099d298c-566b-424d-a8d9-42f66a45380d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8dfc8d59-d10b-27b8-9173-bea6daf7ab1f" executionId="462d97da-3fb2-4724-8262-9d6c5bbdafef" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="807c9660-b570-e516-7d3c-a53f9fd95e99" executionId="d4055f57-a73d-42d8-9bdf-e146af5b1a7a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2c05275c-2bfd-1085-410b-d548a6a7be25" executionId="b58d72ce-a6a8-4cea-aced-f3da62e5b14b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a559cf4c-d7a0-c131-b733-a0dc96046c3f" executionId="18e74de8-c904-4af8-8128-3f74787223c2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Les résultats ne figurent pas dans une liste" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="Tous les résultats chargés" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="5" executed="5" passed="5" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 8.0.27)&#xD;
+[xUnit.net 00:00:00.27]   Discovering: SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:00.47]   Discovered:  SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:00.48]   Starting:    SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:05.20]   Finished:    SAAIA.Backend.Tests&#xD;
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

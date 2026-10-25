@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "saaia-source-scope-reconciliation.v1",
+  "globalSourceChangedDuringRun": true,
+  "changedPaths": [
+    "client/SAAIA.Client.ToolAgent.Tests/GlobalClientAuditRegressionTests.cs",
+    "client/SAAIA.Client.WinUI/ToolAgent/NativeRouting/NativeRouterToolCatalog.cs",
+    "client/SAAIA.Client.WinUI/ToolAgent/RouterPlan.cs",
+    "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedIntakeFactory.cs",
+    "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentDocumentaryToolBatch.cs",
+    "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.ProcessIterationSubmissionsAndTools.cs",
+    "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedResearchScopePolicy.cs",
+    "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+    "tools/validation-paid/Test-OwnedRealCorpus.ps1"
+  ],
+  "backendAndContractsChanged": [],
+  "interpretation": "Global edits were concurrent; only the explicitly listed component scopes can be considered stable. Binary hashes remain those in the original run manifest."
+}

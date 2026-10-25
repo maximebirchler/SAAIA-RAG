@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "saaia-local-openai-paid-campaign.v1",
+  "campaignId": "979524739f32496987d0827c7bdd88b6",
+  "provider": {
+    "mode": "OpenAI",
+    "baseUrl": "https://api.openai.com/v1",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "none"
+  },
+  "budget": {
+    "hardStopUsd": 0.5,
+    "priorCampaignCostUsd": 0.0,
+    "authorizedUsd": 0.5,
+    "maximumCostPerJobUsd": 0.5
+  },
+  "pricing": {
+    "outputUsdPerMillion": 1.2,
+    "cacheWriteUsdPerMillion": 0.2,
+    "observedAtUtc": "2026-10-25T19:15:28Z",
+    "observationBasis": "Official model/pricing documentation verified by the parent operator for the 2026-10-25T19:15:28Z availability probe; none reasoning support verified. Not fetched by this script.",
+    "inputUsdPerMillion": 0.2,
+    "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+    "cachedInputUsdPerMillion": 0.02
+  },
+  "execution": {
+    "paidBackendPort": 5158,
+    "fixturePort": 18107,
+    "maximumJobs": 1,
+    "writerMaxTokens": 1024,
+    "maximumJobAttempts": 1,
+    "timeoutSeconds": 120,
+    "repetitions": 1,
+    "maximumCallsPerJob": 4,
+    "plannerMaxTokens": 512,
+    "backendPort": 5157,
+    "maximumHttpAttempts": 1,
+    "backendAssemblySha256": "90AF887987448FE9B6ED5D166236D2CA00A051E9FCB7D1D833A90C1AD7E90469"
+  },
+  "corpus": {
+    "path": "out/remote-deploy/30-recettes-preferees-des-francais.pdf",
+    "sha256": "AA11E234FB3336EE76644958E888D83565E25BA875264BA75F7CE22B32D25C18",
+    "pageNumbers": [
+      2,
+      5,
+      6,
+      7
+    ]
+  },
+  "case": {
+    "expectedOutcome": "answered",
+    "question": "Dans la recette du bœuf bourguignon, pour combien de personnes les ingrédients sont-ils prévus et quelle quantité de vin rouge faut-il ?",
+    "expectedAnswerDescription": "Réponse factuelle attendue : 4 personnes et 1,5 litre de vin rouge, avec citation canonique de la page 5. Aucun fait supplémentaire inventé."
+  },
+  "spendAuthorization": {
+    "status": "PROPOSED",
+    "authorizedAtUtc": null,
+    "basis": null
+  },
+  "boundaries": {
+    "teiQdrantAreProtocolSubstitutes": true,
+    "ingestionValidated": false,
+    "vectorRetrievalValidated": false,
+    "clientProviderMustRemain": "Local"
+  }
+}

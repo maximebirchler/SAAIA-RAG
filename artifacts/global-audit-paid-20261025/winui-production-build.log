@@ -1,0 +1,13 @@
+  Identification des projets à restaurer...
+  Restauration effectuée de C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\contracts\SAAIA.Contracts\SAAIA.Contracts.csproj (en 55 ms).
+  Restauration effectuée de C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.Core\SAAIA.Client.Core.csproj (en 57 ms).
+  Restauration effectuée de C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.WinUI\SAAIA.Client.WinUI.csproj (en 167 ms).
+  SAAIA.Contracts -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\contracts\SAAIA.Contracts\bin\x64\Release\net8.0\SAAIA.Contracts.dll
+  SAAIA.Client.Core -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.Core\bin\x64\Release\net8.0\SAAIA.Client.Core.dll
+  SAAIA.Client.WinUI -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.WinUI\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64\SAAIA.Client.WinUI.dll
+
+La génération a réussi.
+    0 Avertissement(s)
+    0 Erreur(s)
+
+Temps écoulé 00:00:23.67

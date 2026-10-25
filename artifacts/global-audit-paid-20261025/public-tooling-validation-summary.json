@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "saaia-paid-tooling-safe-proof-summary.v1",
+  "recordedAtUtc": "2026-10-25T19:40:30.1625747+00:00",
+  "powershellGuardsPassed": 30,
+  "pythonCorpusTestsPassed": 10,
+  "pythonTestExecution": "Observed from bundled local Python unittest execution; no skipped tests",
+  "dryRunKeyBoundaryChecksPassed": 2,
+  "modifiedPowerShellFilesParsed": 15,
+  "parseErrors": 0,
+  "localServicesStartedByThisAgent": 0,
+  "secretValuesReadByThisAgent": 0,
+  "providerCallsByThisAgent": 0,
+  "dotnetBuildOrTestByThisAgent": 0,
+  "realCorpusPreflightExecutedBy": "parent operator",
+  "admissionPreflightExtendedStillPending": true,
+  "publicProofs": [
+    {
+      "path": "artifacts/global-audit-paid-20261025/offline-paid-guards-78817545d02d4db0a546f51c31539e84/checks.json",
+      "sha256": "281D26987B5709DA77A7B74C26FC1357B38CD1515F63B3D99DBE43872E6D90FF",
+      "bytes": 3065
+    },
+    {
+      "path": "artifacts/global-audit-paid-20261025/offline-dry-boundary-v3/checks.json",
+      "sha256": "FFFD55C9FD222D46895F9422E90164A2C8E9BFD97EFA2A3D049176917AEFF7E1",
+      "bytes": 391
+    },
+    {
+      "path": "artifacts/global-audit-paid-20261025/real-corpus-local-preflight-v1/corpus-preflight.json",
+      "sha256": "80E4AC04A920F0D3A3947DFD025B218CBABD9B599DB6FCF9F9C10BD52729B19E",
+      "bytes": 878
+    },
+    {
+      "path": "artifacts/global-audit-paid-20261025/luna-real-corpus-proposed-v3.json",
+      "sha256": "01509F5DF34A0ECB8D233216040BAEBFB8F941491694066FA1D1AD7854FA0E29",
+      "bytes": 2267
+    }
+  ],
+  "excluded": [
+    "runtime/**",
+    "SQL",
+    "PDF original copies",
+    "DPAPI stores",
+    "fixture-secrets",
+    "raw backend logs",
+    "exact prompts and responses"
+  ],
+  "productStatus": "TESTE_NON_APPROUVE"
+}

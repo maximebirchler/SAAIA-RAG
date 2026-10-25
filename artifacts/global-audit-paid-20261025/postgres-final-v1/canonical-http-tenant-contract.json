@@ -1,0 +1,369 @@
+{
+  "schemaVersion": 1,
+  "syntheticCorpus": true,
+  "postgresVerified": true,
+  "transport": "loopback-kestrel",
+  "realApiKeyMiddleware": true,
+  "backgroundWorkersEnabled": false,
+  "externalRetrieversStubbed": true,
+  "firstTenant": "5f4fe88f-7f18-4702-8d74-80b8f9b9e99b",
+  "secondTenant": "166a61da-ae6b-4f22-8448-0cee030f67e8",
+  "firstDoc": "a477fb13-b862-42d9-8a9c-43e09d2cc532",
+  "secondDoc": "74702d75-463b-45e5-83bd-bd9a13c978af",
+  "observations": [
+    {
+      "operation": "search",
+      "status": 401,
+      "payload": {
+        "error": "Missing API key.",
+        "requestId": "0HNPIPV15HFGC:00000001"
+      }
+    },
+    {
+      "operation": "search",
+      "status": 401,
+      "payload": {
+        "error": "Invalid API key.",
+        "requestId": "0HNPIPV15HFGC:00000002"
+      }
+    },
+    {
+      "operation": "search",
+      "status": 200,
+      "payload": {
+        "requestId": "0HNPIPV15HFGC:00000003",
+        "query": "verification",
+        "queryNormalized": "verification",
+        "topK": 20,
+        "minScore": 0,
+        "candidates": 80,
+        "maxPerDoc": 20,
+        "maxPerPage": 20,
+        "metrics": {
+          "tookMs": 33,
+          "returned": 1,
+          "exactMatchReturned": 0,
+          "denseReturned": 0,
+          "sparseReturned": 1,
+          "linkedReturned": 0,
+          "retrieversUsed": [
+            "sparse_bm25"
+          ],
+          "dataHash": "019ad85131b97ce0f0e8a09f2590bdc9e235414cf00447637d4ad6e5d8ad57c2",
+          "ttlSeconds": 600,
+          "teiMs": 0,
+          "rerankMs": 0,
+          "sparseMs": 31,
+          "qdrantMs": 0,
+          "candidatesEvaluated": 80,
+          "exactMs": 33,
+          "quotedTitleMs": 0,
+          "localTitleTokenMs": 0,
+          "titleAnchorRouteMs": 0,
+          "sparsePhaseMs": 31,
+          "denseMs": 0,
+          "profileMs": 0,
+          "linkedMs": 0,
+          "fusionMs": 0,
+          "rerankPhaseMs": 0,
+          "selectionMs": 0
+        },
+        "items": [
+          {
+            "score": 0.9545,
+            "docId": "a477fb13-b862-42d9-8a9c-43e09d2cc532",
+            "docName": "http-contract.pdf",
+            "docPath": "Knowledge/http-contract.pdf",
+            "category": "knowledge",
+            "docLanguage": "en",
+            "profileLanguage": "en",
+            "pageStart": 1,
+            "pageEnd": 1,
+            "chunkId": "18d28415-a47a-0f50-baf7-1234a7ccd19f",
+            "chunkIndex": 0,
+            "text": "Amber verification records the first tenant\u0027s instrument and its original measurement procedure.",
+            "retriever": "sparse_bm25",
+            "provenance": "retriever:sparse_bm25",
+            "exactMatchHit": false,
+            "sourceHash": "080808",
+            "revisionId": "2f6d2322-3b2f-bff9-19c8-7c31d508ef17",
+            "embeddingBasis": "source_backed_sparse_fts_v1",
+            "chunkType": "unit_exact_v1",
+            "sectionTitle": "Amber verification",
+            "headingPath": "Amber verification",
+            "provenanceInfo": {
+              "channel": "sparse_bm25",
+              "label": "retriever:sparse_bm25",
+              "sourceHash": "080808",
+              "chunkId": "18d28415-a47a-0f50-baf7-1234a7ccd19f",
+              "pageStart": 1,
+              "pageEnd": 1
+            },
+            "context": {
+              "chunkType": "unit_exact_v1",
+              "sectionTitle": "Amber verification",
+              "headingPath": "Amber verification",
+              "contentRole": "content",
+              "navigationScore": 0,
+              "contentDensityScore": 0
+            },
+            "categoryPath": "Knowledge",
+            "snippet": "Amber verification records the first tenant\u0027s instrument and its original measurement procedure.",
+            "hasTable": false,
+            "hasWarning": false,
+            "hypQuestionsMatched": true,
+            "extractionQuality": {
+              "extractionSource": "pdf_text",
+              "ocrAttempted": false,
+              "ocrApplied": false,
+              "documentQualityStatus": "extraction_ok",
+              "documentExtractionConfidence": 1,
+              "documentManualReviewRecommended": false,
+              "pageQualityStatus": "page_ok",
+              "pageExtractionConfidence": 1,
+              "pageManualReviewRecommended": false,
+              "textStatus": "ok",
+              "ocrRecommended": false,
+              "signals": [
+                "text_extraction_ok"
+              ],
+              "chunkTextSparse": false,
+              "chunkOcrCandidate": false,
+              "diagnosticSummary": {
+                "pageCount": 1,
+                "textPageCount": 1,
+                "emptyPageCount": 0,
+                "sparsePageCount": 0,
+                "retrievalChunkQuality": {
+                  "totalChunkCount": 1,
+                  "searchableChunkCount": 1,
+                  "rejectedChunkCount": 0,
+                  "manualReviewRecommended": false
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "search",
+      "status": 200,
+      "payload": {
+        "requestId": "0HNPIPV15HFGC:00000004",
+        "query": "verification",
+        "queryNormalized": "verification",
+        "topK": 20,
+        "minScore": 0,
+        "candidates": 80,
+        "maxPerDoc": 20,
+        "maxPerPage": 20,
+        "metrics": {
+          "tookMs": 33,
+          "returned": 1,
+          "exactMatchReturned": 0,
+          "denseReturned": 0,
+          "sparseReturned": 1,
+          "linkedReturned": 0,
+          "retrieversUsed": [
+            "sparse_bm25"
+          ],
+          "dataHash": "9f3fde862d7e8b324690dc8e28a109c93de42ce204cdd8bb3c9fdc71ed60705c",
+          "ttlSeconds": 600,
+          "teiMs": 0,
+          "rerankMs": 0,
+          "sparseMs": 32,
+          "qdrantMs": 0,
+          "candidatesEvaluated": 80,
+          "exactMs": 33,
+          "quotedTitleMs": 0,
+          "localTitleTokenMs": 0,
+          "titleAnchorRouteMs": 0,
+          "sparsePhaseMs": 32,
+          "denseMs": 0,
+          "profileMs": 0,
+          "linkedMs": 0,
+          "fusionMs": 0,
+          "rerankPhaseMs": 0,
+          "selectionMs": 0
+        },
+        "items": [
+          {
+            "score": 0.9545,
+            "docId": "74702d75-463b-45e5-83bd-bd9a13c978af",
+            "docName": "http-contract.pdf",
+            "docPath": "Knowledge/http-contract.pdf",
+            "category": "knowledge",
+            "docLanguage": "en",
+            "profileLanguage": "en",
+            "pageStart": 1,
+            "pageEnd": 1,
+            "chunkId": "afb4b118-927b-d51d-e6ad-91f7ef066659",
+            "chunkIndex": 0,
+            "text": "Violet verification records the second tenant\u0027s instrument and its separate measurement procedure.",
+            "retriever": "sparse_bm25",
+            "provenance": "retriever:sparse_bm25",
+            "exactMatchHit": false,
+            "sourceHash": "080808",
+            "revisionId": "19193510-3286-7dcc-0232-49b5615c499b",
+            "embeddingBasis": "source_backed_sparse_fts_v1",
+            "chunkType": "unit_exact_v1",
+            "sectionTitle": "Violet verification",
+            "headingPath": "Violet verification",
+            "provenanceInfo": {
+              "channel": "sparse_bm25",
+              "label": "retriever:sparse_bm25",
+              "sourceHash": "080808",
+              "chunkId": "afb4b118-927b-d51d-e6ad-91f7ef066659",
+              "pageStart": 1,
+              "pageEnd": 1
+            },
+            "context": {
+              "chunkType": "unit_exact_v1",
+              "sectionTitle": "Violet verification",
+              "headingPath": "Violet verification",
+              "contentRole": "content",
+              "navigationScore": 0,
+              "contentDensityScore": 0
+            },
+            "categoryPath": "Knowledge",
+            "snippet": "Violet verification records the second tenant\u0027s instrument and its separate measurement procedure.",
+            "hasTable": false,
+            "hasWarning": false,
+            "hypQuestionsMatched": true,
+            "extractionQuality": {
+              "extractionSource": "pdf_text",
+              "ocrAttempted": false,
+              "ocrApplied": false,
+              "documentQualityStatus": "extraction_ok",
+              "documentExtractionConfidence": 1,
+              "documentManualReviewRecommended": false,
+              "pageQualityStatus": "page_ok",
+              "pageExtractionConfidence": 1,
+              "pageManualReviewRecommended": false,
+              "textStatus": "ok",
+              "ocrRecommended": false,
+              "signals": [
+                "text_extraction_ok"
+              ],
+              "chunkTextSparse": false,
+              "chunkOcrCandidate": false,
+              "diagnosticSummary": {
+                "pageCount": 1,
+                "textPageCount": 1,
+                "emptyPageCount": 0,
+                "sparsePageCount": 0,
+                "retrievalChunkQuality": {
+                  "totalChunkCount": 1,
+                  "searchableChunkCount": 1,
+                  "rejectedChunkCount": 0,
+                  "manualReviewRecommended": false
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "search",
+      "status": 200,
+      "payload": {
+        "requestId": "0HNPIPV15HFGC:00000005",
+        "query": "verification",
+        "queryNormalized": "verification",
+        "topK": 20,
+        "minScore": 0,
+        "candidates": 80,
+        "maxPerDoc": 20,
+        "maxPerPage": 20,
+        "metrics": {
+          "tookMs": 35,
+          "returned": 0,
+          "exactMatchReturned": 0,
+          "denseReturned": 0,
+          "sparseReturned": 0,
+          "linkedReturned": 0,
+          "retrieversUsed": [],
+          "ttlSeconds": 600,
+          "teiMs": 0,
+          "rerankMs": 0,
+          "sparseMs": 33,
+          "qdrantMs": 0,
+          "candidatesEvaluated": 80,
+          "exactMs": 35,
+          "quotedTitleMs": 0,
+          "localTitleTokenMs": 0,
+          "titleAnchorRouteMs": 0,
+          "sparsePhaseMs": 33,
+          "denseMs": 0,
+          "profileMs": 0,
+          "linkedMs": 0,
+          "fusionMs": 0,
+          "rerankPhaseMs": 0,
+          "selectionMs": 0
+        },
+        "items": []
+      }
+    },
+    {
+      "operation": "context",
+      "status": 200,
+      "payload": {
+        "found": true,
+        "anchorFound": true,
+        "contextKind": "around_chunk",
+        "usage": "Use this indexed chunk text as source-backed context. Cite the returned document and page range, and continue with nextOffset or adjacent page/chunk context if the evidence is incomplete.",
+        "document": {
+          "docId": "a477fb13-b862-42d9-8a9c-43e09d2cc532",
+          "docPath": "Knowledge/http-contract.pdf",
+          "docName": "http-contract.pdf",
+          "category": "knowledge",
+          "pageCount": 1,
+          "revisionId": "2f6d2322-3b2f-bff9-19c8-7c31d508ef17",
+          "sourceHash": "080808"
+        },
+        "scope": {
+          "chunkId": "18d28415-a47a-0f50-baf7-1234a7ccd19f",
+          "before": 1,
+          "after": 1,
+          "limit": 5,
+          "offset": 0
+        },
+        "total": 1,
+        "items": [
+          {
+            "chunkId": "18d28415-a47a-0f50-baf7-1234a7ccd19f",
+            "chunkIndex": 0,
+            "pageStart": 1,
+            "pageEnd": 1,
+            "text": "Amber verification records the first tenant\u0027s instrument and its original measurement procedure.",
+            "tokenCount": 12,
+            "chunkType": "unit_exact_v1",
+            "contentRole": "content",
+            "sectionTitle": "Amber verification",
+            "headingPath": "Amber verification"
+          }
+        ]
+      }
+    },
+    {
+      "operation": "context",
+      "status": 200,
+      "payload": {
+        "found": false,
+        "error": "doc_not_found",
+        "docId": "a477fb13-b862-42d9-8a9c-43e09d2cc532",
+        "chunkId": "18d28415-a47a-0f50-baf7-1234a7ccd19f"
+      }
+    },
+    {
+      "operation": "search",
+      "status": 401,
+      "payload": {
+        "error": "Invalid API key.",
+        "requestId": "0HNPIPV15HFGC:00000008"
+      }
+    }
+  ]
+}

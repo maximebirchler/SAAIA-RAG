@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "saaia-owned-real-corpus-preflight.v1",
+  "executed": true,
+  "passed": true,
+  "providerCalls": 0,
+  "paidSecretsRead": 0,
+  "profileSha256": "C5A417F5816902304B3406DC4819470E42CA40C359A784E29E332A0C43A89903",
+  "backendAssemblySha256": "7F87B6AE3BD45AB629642D9556DC9E9E1DF5025D27414BA91F09682A770676E2",
+  "realPdf": true,
+  "ingestionValidated": false,
+  "vectorIndexIsProtocolSubstitute": true,
+  "expectedPageNumber": 5,
+  "expectedTextPatternCount": 2,
+  "cleanup": {
+    "zeroJobs": true,
+    "ownedEnvironmentStopped": true
+  },
+  "state": "passed_local_canonical_tools",
+  "catalogDocumentCount": 1,
+  "canonicalSearchHitCount": 2,
+  "canonicalReadFound": true,
+  "canonicalReadExactIdentity": true,
+  "expectedTextPatternsMatched": 2,
+  "readTextSha256": "8DAA4D7EC8F6D4FA452FE912FE29223FEADB3A6B9BDB544EE04EFDDB321D22AB"
+}

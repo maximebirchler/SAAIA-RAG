@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "28d96962ba084590b173bd1341e600ea",
+  "startedAtUtc": "2026-10-25T19:38:35.4326729+00:00",
+  "finishedAtUtc": "2026-10-25T19:38:41.1407279+00:00",
+  "gitCommit": "1e6b7e51c7a1fd9ae0a57e4b903bff57a71a1bb2",
+  "gitDirty": true,
+  "profile": "Unit",
+  "filter": "(Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid)&(FullyQualifiedName~AdvancedAnalysisBudgetPersistenceTests|FullyQualifiedName~Ambiguous_http_failure|FullyQualifiedName~Grid_planner_refinement_preserves_non_evidence_conversation_for_the_actual_writer|FullyQualifiedName~Follow_up_context_is_separate_non_evidence_data_in_actual_planner_and_writer_payloads)",
+  "requestedProjects": [
+    "Backend"
+  ],
+  "configuration": "Release",
+  "buildRequested": true,
+  "restoreRequested": true,
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-25T19:38:36.4883781+00:00",
+    "sha256": "1E685EEF2D40E0A75D74A175D6422706A343F6FEAB5F8CEE982CCB7E1F7FE8FA",
+    "fileCount": 1685,
+    "inventory": "source-files-28d96962ba084590b173bd1341e600ea-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-25T19:38:41.7382643+00:00",
+    "sha256": "1E685EEF2D40E0A75D74A175D6422706A343F6FEAB5F8CEE982CCB7E1F7FE8FA",
+    "fileCount": 1685,
+    "inventory": "source-files-28d96962ba084590b173bd1341e600ea-after.json"
+  },
+  "sourceChangedDuringRun": false,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "state": "failed",
+  "prerequisites": [],
+  "environment": {
+    "neutralizedVariableNames": [],
+    "clientDataIsolation": {
+      "enabled": false,
+      "source": "not_selected",
+      "ownedRelativePath": null,
+      "requiredForClientTests": true,
+      "rootId": null,
+      "environmentRestored": null
+    }
+  },
+  "results": [
+    {
+      "project": "Backend",
+      "path": "backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj",
+      "status": "failed",
+      "exitCode": 1,
+      "trx": "Backend-28d96962ba084590b173bd1341e600ea.trx",
+      "trxSha256": null,
+      "assemblies": [],
+      "counts": null,
+      "cases": []
+    }
+  ],
+  "model": {
+    "state": "not_applicable",
+    "reason": "Unit and PostgreSQL profiles do not invoke a model."
+  },
+  "corpus": {
+    "state": "synthetic_fixtures",
+    "reason": "IntegrationPg fixtures create isolated databases; no production corpus is assumed."
+  },
+  "validationProfilesSha256": "8E4B990BC0A828134E5FE0D8E7B2D82406B56D2A200D8D4D37516208E3D3201D",
+  "selectionPolicy": "TRX covers selected tests; excluded profiles were not executed.",
+  "excludedProfiles": [
+    "IntegrationPg",
+    "LiveLocal",
+    "LivePaid"
+  ]
+}

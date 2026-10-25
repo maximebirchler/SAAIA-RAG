@@ -1,0 +1,176 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "ef568814084d4abb867bf249c2839066",
+  "startedAtUtc": "2026-10-25T19:30:37.0402706+00:00",
+  "finishedAtUtc": "2026-10-25T19:30:47.4353029+00:00",
+  "gitCommit": "1e6b7e51c7a1fd9ae0a57e4b903bff57a71a1bb2",
+  "gitDirty": true,
+  "profile": "Unit",
+  "filter": "(Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid)&(FullyQualifiedName~GlobalClientAuditRegressionTests|FullyQualifiedName~NativeRouterResponseReaderTests)",
+  "requestedProjects": [
+    "ClientCore",
+    "Client"
+  ],
+  "configuration": "Release",
+  "buildRequested": true,
+  "restoreRequested": true,
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-25T19:30:37.9860777+00:00",
+    "sha256": "DBEE706331789B131585603190E5CCC0DFCF5A9F83513E8CA9C5A1005C10889F",
+    "fileCount": 1682,
+    "inventory": "source-files-ef568814084d4abb867bf249c2839066-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-25T19:30:47.9393285+00:00",
+    "sha256": "DBEE706331789B131585603190E5CCC0DFCF5A9F83513E8CA9C5A1005C10889F",
+    "fileCount": 1682,
+    "inventory": "source-files-ef568814084d4abb867bf249c2839066-after.json"
+  },
+  "sourceChangedDuringRun": false,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "state": "failed",
+  "prerequisites": [],
+  "environment": {
+    "neutralizedVariableNames": [],
+    "clientDataIsolation": {
+      "ownedRelativePath": "client-data",
+      "environmentRestored": true,
+      "requiredForClientTests": true,
+      "enabled": true,
+      "rootId": "5044F76332A1A7337A7A22934EF88D55CDC345D141C6AA3F41C56CB2B2133C26",
+      "source": "owned_campaign_output"
+    }
+  },
+  "results": [
+    {
+      "project": "ClientCore",
+      "path": "client/SAAIA.Client.Core.Tests/SAAIA.Client.Core.Tests.csproj",
+      "status": "passed",
+      "exitCode": 0,
+      "trx": "ClientCore-ef568814084d4abb867bf249c2839066.trx",
+      "trxSha256": "1C942A8D42168ABA91169C7D0745223D18A273FCB63AB8D7F5B419CF0A4293D0",
+      "assemblies": [
+        {
+          "path": "client\\SAAIA.Client.Core.Tests\\bin\\Release\\net8.0\\SAAIA.Client.Core.dll",
+          "role": "local_product_dependency",
+          "sha256": "7ACBD2AA48F506B17A978D18DEF031F75DDACA77AC3B175F6224DD70A03F6B40",
+          "sizeBytes": 97280,
+          "lastWriteTimeUtc": "2026-10-25T19:30:39.4053430Z",
+          "capturedAtUtc": "2026-10-25T19:30:41.0690826+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.Core.Tests\\bin\\Release\\net8.0\\SAAIA.Client.Core.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "59321872DF43887F9863DD7C6C7A7C9B20B519B3AB8B1C8248E84F6FFD4343B6",
+          "sizeBytes": 73728,
+          "lastWriteTimeUtc": "2026-10-25T19:30:39.5489403Z",
+          "capturedAtUtc": "2026-10-25T19:30:41.0698255+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.Core.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "90D1392374F88383D3D58917596BBF8D9ECD63CCB767C04B342D5749DFA34D08",
+          "sizeBytes": 154112,
+          "lastWriteTimeUtc": "2026-10-25T19:25:46.1319826Z",
+          "capturedAtUtc": "2026-10-25T19:30:41.0705363+00:00"
+        }
+      ],
+      "counts": {
+        "total": 12,
+        "failed": 0,
+        "passed": 12,
+        "adapterReportedExecuted": 12,
+        "executed": 12,
+        "notExecuted": 0
+      },
+      "cases": [
+        {
+          "duration": "00:00:00.0014524",
+          "name": "SAAIA.Client.Core.Tests.NativeRouterResponseReaderTests.Malformed_axes_cannot_be_accepted_as_a_grid(json: \"{\\\"rowHeader\\\":\\\"Jour\\\",\\\"rows\\\":[\\\"Lundi\\\",17],\\\"\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001303",
+          "name": "SAAIA.Client.Core.Tests.NativeRouterResponseReaderTests.Malformed_axes_cannot_be_accepted_as_a_grid(json: \"{\\\"rowHeader\\\":\\\"Jour\\\",\\\"rows\\\":[\\\"Lundi\\\\nMardi\\\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000083",
+          "name": "SAAIA.Client.Core.Tests.NativeRouterResponseReaderTests.Malformed_axes_cannot_be_accepted_as_a_grid(json: \"{\\\"rowHeader\\\":\\\"Jour\\\",\\\"rows\\\":\\\"Lundi\\\",\\\"colum\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.1052323",
+          "name": "SAAIA.Client.Core.Tests.NativeRouterResponseReaderTests.Reader_is_portable_and_uses_the_normal_core_assembly",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0132058",
+          "name": "SAAIA.Client.Core.Tests.NativeRouterResponseReaderTests.Grid_preserves_literal_axes_and_requires_their_actual_cartesian_cardinality",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001649",
+          "name": "SAAIA.Client.Core.Tests.NativeRouterResponseReaderTests.Grid_column_limit_is_explicit_and_never_clips_the_model_axes(count: 12, accepted: True)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0014863",
+          "name": "SAAIA.Client.Core.Tests.NativeRouterResponseReaderTests.Grid_column_limit_is_explicit_and_never_clips_the_model_axes(count: 13, accepted: False)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000124",
+          "name": "SAAIA.Client.Core.Tests.NativeRouterResponseReaderTests.Malformed_axes_cannot_be_accepted_as_a_grid(json: \"{\\\"rowHeader\\\":\\\"Jour\\\",\\\"rows\\\":[\\\"Lundi\\\",\\\"lund\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000104",
+          "name": "SAAIA.Client.Core.Tests.NativeRouterResponseReaderTests.Malformed_axes_cannot_be_accepted_as_a_grid(json: \"{\\\"rowHeader\\\":\\\"Jour\\\",\\\"rows\\\":[\\\"Lundi(\\\"],\\\"co\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0030023",
+          "name": "SAAIA.Client.Core.Tests.NativeRouterResponseReaderTests.A_non_grid_route_accepts_absent_axes_without_inventing_a_layout",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000474",
+          "name": "SAAIA.Client.Core.Tests.NativeRouterResponseReaderTests.Malformed_axes_cannot_be_accepted_as_a_grid(json: \"{\\\"rowHeader\\\":\\\"Jour\\\",\\\"rows\\\":[\\\"Lundi\\\"],\\\"col\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0012627",
+          "name": "SAAIA.Client.Core.Tests.NativeRouterResponseReaderTests.Typed_router_values_allow_case_insensitive_keys_without_coercing_strings_or_floats",
+          "outcome": "Passed"
+        }
+      ]
+    },
+    {
+      "project": "Client",
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj",
+      "status": "failed",
+      "exitCode": 1,
+      "trx": "Client-ef568814084d4abb867bf249c2839066.trx",
+      "trxSha256": null,
+      "assemblies": [],
+      "counts": null,
+      "cases": []
+    }
+  ],
+  "model": {
+    "state": "not_applicable",
+    "reason": "Unit and PostgreSQL profiles do not invoke a model."
+  },
+  "corpus": {
+    "state": "synthetic_fixtures",
+    "reason": "IntegrationPg fixtures create isolated databases; no production corpus is assumed."
+  },
+  "validationProfilesSha256": "8E4B990BC0A828134E5FE0D8E7B2D82406B56D2A200D8D4D37516208E3D3201D",
+  "selectionPolicy": "TRX covers selected tests; excluded profiles were not executed.",
+  "excludedProfiles": [
+    "IntegrationPg",
+    "LiveLocal",
+    "LivePaid"
+  ]
+}

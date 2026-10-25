@@ -1,0 +1,217 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "29c468eec85c4d85a18cff79254391d1",
+  "startedAtUtc": "2026-10-25T19:25:43.5255930+00:00",
+  "finishedAtUtc": "2026-10-25T19:25:51.1994037+00:00",
+  "gitCommit": "1e6b7e51c7a1fd9ae0a57e4b903bff57a71a1bb2",
+  "gitDirty": true,
+  "profile": "Unit",
+  "filter": "(Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid)&(FullyQualifiedName~AdvancedAnalysisBudgetPersistenceTests|FullyQualifiedName~OpenAi_budget_|FullyQualifiedName~Cache_write_|FullyQualifiedName~Native_reservation_includes_)",
+  "requestedProjects": [
+    "Backend"
+  ],
+  "configuration": "Release",
+  "buildRequested": true,
+  "restoreRequested": true,
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-25T19:25:44.7107191+00:00",
+    "sha256": "D1C217B058D07A4C55A34035FABD042BECE3DD749CF5A3BDCB7B452456A7E17F",
+    "fileCount": 1674,
+    "inventory": "source-files-29c468eec85c4d85a18cff79254391d1-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-25T19:25:51.7573358+00:00",
+    "sha256": "D1C217B058D07A4C55A34035FABD042BECE3DD749CF5A3BDCB7B452456A7E17F",
+    "fileCount": 1674,
+    "inventory": "source-files-29c468eec85c4d85a18cff79254391d1-after.json"
+  },
+  "sourceChangedDuringRun": false,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "state": "passed",
+  "prerequisites": [],
+  "environment": {
+    "neutralizedVariableNames": [],
+    "clientDataIsolation": {
+      "requiredForClientTests": true,
+      "source": "not_selected",
+      "ownedRelativePath": null,
+      "rootId": null,
+      "environmentRestored": null,
+      "enabled": false
+    }
+  },
+  "results": [
+    {
+      "project": "Backend",
+      "path": "backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj",
+      "status": "passed",
+      "exitCode": 0,
+      "trx": "Backend-29c468eec85c4d85a18cff79254391d1.trx",
+      "trxSha256": "3D530968138326D5922EF863085ABD301F12BAF524CD1372BE647DD603E49AB2",
+      "assemblies": [
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.AdvancedValidationJobGuard.dll",
+          "role": "local_product_dependency",
+          "sha256": "CC30E630C9DDB8363AE455253898EFC331DE8330FC0233FF5725EC7D28DE5EEA",
+          "sizeBytes": 62464,
+          "lastWriteTimeUtc": "2026-10-25T19:22:42.3433445Z",
+          "capturedAtUtc": "2026-10-25T19:25:51.1741159+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.dll",
+          "role": "local_product_dependency",
+          "sha256": "0F86D0EF9BC9C531B69E59F0B7F21EBBCED72FB15A5407CE97609D17DEFFD859",
+          "sizeBytes": 7778304,
+          "lastWriteTimeUtc": "2026-10-25T19:25:48.1719654Z",
+          "capturedAtUtc": "2026-10-25T19:25:51.1815269+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "980AD04CFC6BEA7AD0916E292EF7894F49B9084715511664A62F88C5CD4973BD",
+          "sizeBytes": 4716544,
+          "lastWriteTimeUtc": "2026-10-25T19:25:49.6710237Z",
+          "capturedAtUtc": "2026-10-25T19:25:51.1861339+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "90D1392374F88383D3D58917596BBF8D9ECD63CCB767C04B342D5749DFA34D08",
+          "sizeBytes": 154112,
+          "lastWriteTimeUtc": "2026-10-25T19:25:46.1319826Z",
+          "capturedAtUtc": "2026-10-25T19:25:51.1868174+00:00"
+        }
+      ],
+      "counts": {
+        "passed": 21,
+        "notExecuted": 0,
+        "failed": 0,
+        "executed": 21,
+        "total": 21,
+        "adapterReportedExecuted": 21
+      },
+      "cases": [
+        {
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Cache_write_pricing_preserves_reads_writes_and_unknown_write_upper_bound(writeTokens: null, expected: \"0.000324\")",
+          "duration": "00:00:00.0001770",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Cache_write_pricing_preserves_reads_writes_and_unknown_write_upper_bound(writeTokens: 60, expected: \"0.000314\")",
+          "duration": "00:00:00.0000099",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Cache_write_pricing_preserves_reads_writes_and_unknown_write_upper_bound(writeTokens: 0, expected: \"0.000284\")",
+          "duration": "00:00:00.0013622",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.OpenAi_budget_records_rejected_http_calls_without_reserved_cost",
+          "duration": "00:00:00.0162605",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Cache_write_reservation_rejects_a_job_that_only_base_input_pricing_would_admit",
+          "duration": "00:00:00.0006782",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Missing_usage_does_not_treat_four_characters_as_a_token_upper_bound",
+          "duration": "00:00:00.0071325",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.OpenAi_budget_uses_provider_usage_for_a_billed_invalid_response(cacheWriteTokens: 0, expectedCost: \"0.034872\", expectedUsageSource: \"provider_usage\")",
+          "duration": "00:00:00.0168333",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Provider_retains_reported_cache_write_tokens_across_its_calls(secondCallWrites: 60, expectedTotalWrites: 120)",
+          "duration": "00:00:00.1188802",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Unsettled_call_survives_restart_and_keeps_the_job_call_slot",
+          "duration": "00:00:00.0074406",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Failed_terminal_append_keeps_reservation_recoverable_instead_of_refunding_it",
+          "duration": "00:00:00.0463781",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.OpenAi_budget_keeps_per_job_call_limit_across_guard_restarts",
+          "duration": "00:00:00.0114861",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Two_independent_guards_cannot_both_admit_the_same_last_job_slot",
+          "duration": "00:00:00.0238873",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Invalid_cost_rows_fail_closed(row: \"{\\\"costUsd\\\":\\\"invalid\\\"}\")",
+          "duration": "00:00:00.0032928",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.OpenAi_budget_prices_the_reference_7000_input_1000_output_call",
+          "duration": "00:00:00.0000907",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Native_reservation_includes_function_definitions_and_tool_history_when_usage_is_missing",
+          "duration": "00:00:00.0573124",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.OpenAi_budget_uses_provider_usage_for_a_billed_invalid_response(cacheWriteTokens: null, expectedCost: \"0.03819\", expectedUsageSource: \"provider_usage_cache_write_upper_bound\")",
+          "duration": "00:00:00.0110797",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.OpenAi_budget_rejects_a_call_whose_reservation_exceeds_job_limit",
+          "duration": "00:00:00.0008001",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.A_guard_created_before_another_settlement_observes_the_new_campaign_charge",
+          "duration": "00:00:00.0143115",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Invalid_cost_rows_fail_closed(row: \"{}\")",
+          "duration": "00:00:00.0007576",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Invalid_cost_rows_fail_closed(row: \"{\\\"costUsd\\\":-1}\")",
+          "duration": "00:00:00.0015000",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Provider_retains_reported_cache_write_tokens_across_its_calls(secondCallWrites: null, expectedTotalWrites: null)",
+          "duration": "00:00:00.0009087",
+          "outcome": "Passed"
+        }
+      ]
+    }
+  ],
+  "model": {
+    "reason": "Unit and PostgreSQL profiles do not invoke a model.",
+    "state": "not_applicable"
+  },
+  "corpus": {
+    "reason": "IntegrationPg fixtures create isolated databases; no production corpus is assumed.",
+    "state": "synthetic_fixtures"
+  },
+  "validationProfilesSha256": "8E4B990BC0A828134E5FE0D8E7B2D82406B56D2A200D8D4D37516208E3D3201D",
+  "selectionPolicy": "TRX covers selected tests; excluded profiles were not executed.",
+  "excludedProfiles": [
+    "IntegrationPg",
+    "LiveLocal",
+    "LivePaid"
+  ]
+}

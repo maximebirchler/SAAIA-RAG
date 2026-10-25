@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "saaia-local-paid-result.v1",
+  "startedAtUtc": "2026-10-25T19:29:30.6652373+00:00",
+  "profileSha256": "DCF34A2967688F988D0113874B7EA199F180E1F214EF1F86FC41EEE9801DB014",
+  "executed": false,
+  "completed": false,
+  "model": "gpt-5.6-luna",
+  "incrementalCapUsd": 0.5,
+  "priorCampaignCostUsd": 0.0,
+  "backendAssemblySha256": "BDA03F578FAE87BFC2558C7599BEC62CCB3EA355673ED6C6163B490B245B8271",
+  "secretRead": false,
+  "logicalTerminalLedgerRows": 0,
+  "pricing": {
+    "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+    "outputUsdPerMillion": 1.2,
+    "cacheWriteUsdPerMillion": 0.2,
+    "observationBasis": "Official pricing and capabilities verified by the parent operator on 2026-10-25; not fetched by this script.",
+    "observedAtUtc": "2026-10-25T00:00:00Z",
+    "cachedInputUsdPerMillion": 0.02,
+    "inputUsdPerMillion": 0.2
+  },
+  "expectedModel": "gpt-5.6-luna",
+  "providerUsageLedgerSha256": null,
+  "state": "prepared",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "semanticApproval": "PENDING",
+  "limits": [
+    "TEI/Qdrant are deterministic loopback protocol substitutes; canonical SQL retrieval and original PDF text are real.",
+    "PDF extraction is seeded for this focused test; this does not validate ingestion, OCR or vector recall.",
+    "The single backend job does not validate local-client routing or native UI. No client or local model is launched."
+  ],
+  "cleanup": {
+    "ownedEnvironmentStopped": null,
+    "errors": [],
+    "zeroActiveJobs": null
+  }
+}

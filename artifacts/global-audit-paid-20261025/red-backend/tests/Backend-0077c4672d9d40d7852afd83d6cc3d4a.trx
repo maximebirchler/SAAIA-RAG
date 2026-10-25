@@ -1,0 +1,185 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="0a001ad5-b72e-40d4-965e-d6c456073f32" name="maxim@MAXBI 2026-10-25 20:22:54" runUser="MAXBI\maxim" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-25T20:22:54.9976385+01:00" queuing="2026-10-25T20:22:54.9976390+01:00" start="2026-10-25T20:22:49.5958308+01:00" finish="2026-10-25T20:22:58.9340691+01:00" />
+  <TestSettings name="default" id="46474592-ab54-4c4d-821d-24f0c42d6009">
+    <Deployment runDeploymentRoot="maxim_MAXBI_2026-10-25_20_22_54" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="ced8bd35-77b0-489e-aa0d-9c0600ce9262" testId="807c9660-b570-e516-7d3c-a53f9fd95e99" testName="SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Concurrent_distinct_handoffs_share_user_quota_but_do_not_block_other_owners" computerName="MAXBI" duration="00:00:01.7054125" startTime="2026-10-25T20:22:54.9795690+01:00" endTime="2026-10-25T20:22:54.9795785+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ced8bd35-77b0-489e-aa0d-9c0600ce9262">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Collections differ&#xD;
+                                            ↓ (pos 1)&#xD;
+Expected: int[]                       [202, 429]&#xD;
+Actual:   OrderedEnumerable&lt;int, int&gt; [202, 202]&#xD;
+                                            ↑ (pos 1)</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Concurrent_distinct_handoffs_share_user_quota_but_do_not_block_other_owners() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs:line 138&#xD;
+   at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Concurrent_distinct_handoffs_share_user_quota_but_do_not_block_other_owners() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs:line 140&#xD;
+   at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Concurrent_distinct_handoffs_share_user_quota_but_do_not_block_other_owners() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs:line 140&#xD;
+   at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Concurrent_distinct_handoffs_share_user_quota_but_do_not_block_other_owners() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs:line 140&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="1a5cda7f-ef27-4496-bcaa-62d8ffb02cbf" testId="f8aad3e1-003b-fc3c-d6ff-67f5750031ea" testName="SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Failed_admitted_tool_time_is_charged_once_and_survives_resume" computerName="MAXBI" duration="00:00:00.9698709" startTime="2026-10-25T20:22:58.8937825+01:00" endTime="2026-10-25T20:22:58.8937827+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1a5cda7f-ef27-4496-bcaa-62d8ffb02cbf">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Values differ&#xD;
+Expected: 67&#xD;
+Actual:   0</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Failed_admitted_tool_time_is_charged_once_and_survives_resume() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisWorkerTests.ToolTiming.cs:line 64&#xD;
+   at SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Failed_admitted_tool_time_is_charged_once_and_survives_resume() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisWorkerTests.ToolTiming.cs:line 69&#xD;
+   at SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Failed_admitted_tool_time_is_charged_once_and_survives_resume() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisWorkerTests.ToolTiming.cs:line 69&#xD;
+   at SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Failed_admitted_tool_time_is_charged_once_and_survives_resume() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisWorkerTests.ToolTiming.cs:line 69&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="abdb2273-7806-409a-826e-1c99dbfe44e8" testId="8dfc8d59-d10b-27b8-9173-bea6daf7ab1f" testName="SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(cancel: False)" computerName="MAXBI" duration="00:00:00.8434883" startTime="2026-10-25T20:22:56.8866343+01:00" endTime="2026-10-25T20:22:56.8866347+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="abdb2273-7806-409a-826e-1c99dbfe44e8">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Empty() Failure: Collection was not empty&#xD;
+Collection: [Tuple ("queued", 1, False)]</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(Boolean cancel) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs:line 70&#xD;
+   at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(Boolean cancel) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs:line 71&#xD;
+   at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(Boolean cancel) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs:line 71&#xD;
+   at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(Boolean cancel) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs:line 71&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="1c9efb78-2551-452c-9939-45fd977ea0cf" testId="a559cf4c-d7a0-c131-b733-a0dc96046c3f" testName="SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(cancel: True)" computerName="MAXBI" duration="00:00:01.0639068" startTime="2026-10-25T20:22:56.0427823+01:00" endTime="2026-10-25T20:22:56.0427825+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1c9efb78-2551-452c-9939-45fd977ea0cf">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Strings differ&#xD;
+           ↓ (pos 0)&#xD;
+Expected: "queued"&#xD;
+Actual:   "canceled"&#xD;
+           ↑ (pos 0)</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(Boolean cancel) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs:line 66&#xD;
+   at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(Boolean cancel) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs:line 71&#xD;
+   at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(Boolean cancel) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs:line 71&#xD;
+   at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(Boolean cancel) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs:line 71&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="d2f203b3-4883-4315-9b52-353f56cf7796" testId="2c05275c-2bfd-1085-410b-d548a6a7be25" testName="SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Heartbeat_database_failure_cancels_and_observes_provider_before_worker_returns" computerName="MAXBI" duration="00:00:01.0334911" startTime="2026-10-25T20:22:57.9231027+01:00" endTime="2026-10-25T20:22:57.9231029+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d2f203b3-4883-4315-9b52-353f56cf7796">
+      <Output>
+        <ErrorInfo>
+          <Message>A failed heartbeat must cancel the in-flight provider before returning.</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Heartbeat_database_failure_cancels_and_observes_provider_before_worker_returns() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisWorkerTests.LeaseFailure.cs:line 60&#xD;
+   at SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Heartbeat_database_failure_cancels_and_observes_provider_before_worker_returns() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisWorkerTests.LeaseFailure.cs:line 72&#xD;
+   at SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Heartbeat_database_failure_cancels_and_observes_provider_before_worker_returns() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisWorkerTests.LeaseFailure.cs:line 72&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(cancel: False)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="8dfc8d59-d10b-27b8-9173-bea6daf7ab1f">
+      <Execution id="abdb2273-7806-409a-826e-1c99dbfe44e8" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests" name="Job_mutation_and_audit_roll_back_together_when_audit_is_rejected" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(cancel: True)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="a559cf4c-d7a0-c131-b733-a0dc96046c3f">
+      <Execution id="1c9efb78-2551-452c-9939-45fd977ea0cf" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests" name="Job_mutation_and_audit_roll_back_together_when_audit_is_rejected" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Concurrent_distinct_handoffs_share_user_quota_but_do_not_block_other_owners" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="807c9660-b570-e516-7d3c-a53f9fd95e99">
+      <Execution id="ced8bd35-77b0-489e-aa0d-9c0600ce9262" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests" name="Concurrent_distinct_handoffs_share_user_quota_but_do_not_block_other_owners" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Failed_admitted_tool_time_is_charged_once_and_survives_resume" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="f8aad3e1-003b-fc3c-d6ff-67f5750031ea">
+      <Execution id="1a5cda7f-ef27-4496-bcaa-62d8ffb02cbf" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests" name="Failed_admitted_tool_time_is_charged_once_and_survives_resume" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Heartbeat_database_failure_cancels_and_observes_provider_before_worker_returns" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="2c05275c-2bfd-1085-410b-d548a6a7be25">
+      <Execution id="d2f203b3-4883-4315-9b52-353f56cf7796" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests" name="Heartbeat_database_failure_cancels_and_observes_provider_before_worker_returns" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="807c9660-b570-e516-7d3c-a53f9fd95e99" executionId="ced8bd35-77b0-489e-aa0d-9c0600ce9262" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f8aad3e1-003b-fc3c-d6ff-67f5750031ea" executionId="1a5cda7f-ef27-4496-bcaa-62d8ffb02cbf" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8dfc8d59-d10b-27b8-9173-bea6daf7ab1f" executionId="abdb2273-7806-409a-826e-1c99dbfe44e8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a559cf4c-d7a0-c131-b733-a0dc96046c3f" executionId="1c9efb78-2551-452c-9939-45fd977ea0cf" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2c05275c-2bfd-1085-410b-d548a6a7be25" executionId="d2f203b3-4883-4315-9b52-353f56cf7796" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Les résultats ne figurent pas dans une liste" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="Tous les résultats chargés" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="5" executed="5" passed="0" failed="5" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 8.0.27)&#xD;
+[xUnit.net 00:00:01.80]   Discovering: SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:02.00]   Discovered:  SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:02.01]   Starting:    SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:03.74]       Assert.Equal() Failure: Collections differ&#xD;
+[xUnit.net 00:00:03.74]                                                   ↓ (pos 1)&#xD;
+[xUnit.net 00:00:03.74]       Expected: int[]                       [202, 429]&#xD;
+[xUnit.net 00:00:03.74]       Actual:   OrderedEnumerable&lt;int, int&gt; [202, 202]&#xD;
+[xUnit.net 00:00:03.74]                                                   ↑ (pos 1)&#xD;
+[xUnit.net 00:00:03.74]       Stack Trace:&#xD;
+[xUnit.net 00:00:03.74]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs(138,0): at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Concurrent_distinct_handoffs_share_user_quota_but_do_not_block_other_owners()&#xD;
+[xUnit.net 00:00:03.74]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs(140,0): at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Concurrent_distinct_handoffs_share_user_quota_but_do_not_block_other_owners()&#xD;
+[xUnit.net 00:00:03.74]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs(140,0): at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Concurrent_distinct_handoffs_share_user_quota_but_do_not_block_other_owners()&#xD;
+[xUnit.net 00:00:03.74]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs(140,0): at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Concurrent_distinct_handoffs_share_user_quota_but_do_not_block_other_owners()&#xD;
+[xUnit.net 00:00:03.74]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:04.81]       Assert.Equal() Failure: Strings differ&#xD;
+[xUnit.net 00:00:04.81]                  ↓ (pos 0)&#xD;
+[xUnit.net 00:00:04.81]       Expected: "queued"&#xD;
+[xUnit.net 00:00:04.81]       Actual:   "canceled"&#xD;
+[xUnit.net 00:00:04.81]                  ↑ (pos 0)&#xD;
+[xUnit.net 00:00:04.81]       Stack Trace:&#xD;
+[xUnit.net 00:00:04.81]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs(66,0): at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(Boolean cancel)&#xD;
+[xUnit.net 00:00:04.81]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs(71,0): at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(Boolean cancel)&#xD;
+[xUnit.net 00:00:04.81]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs(71,0): at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(Boolean cancel)&#xD;
+[xUnit.net 00:00:04.81]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs(71,0): at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(Boolean cancel)&#xD;
+[xUnit.net 00:00:04.81]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:05.65]       Assert.Empty() Failure: Collection was not empty&#xD;
+[xUnit.net 00:00:05.65]       Collection: [Tuple ("queued", 1, False)]&#xD;
+[xUnit.net 00:00:05.65]       Stack Trace:&#xD;
+[xUnit.net 00:00:05.65]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs(70,0): at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(Boolean cancel)&#xD;
+[xUnit.net 00:00:05.65]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs(71,0): at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(Boolean cancel)&#xD;
+[xUnit.net 00:00:05.65]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs(71,0): at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(Boolean cancel)&#xD;
+[xUnit.net 00:00:05.65]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisEndpointsTests.AtomicAdmission.cs(71,0): at SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(Boolean cancel)&#xD;
+[xUnit.net 00:00:05.65]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:06.69]       A failed heartbeat must cancel the in-flight provider before returning.&#xD;
+[xUnit.net 00:00:06.69]       Stack Trace:&#xD;
+[xUnit.net 00:00:06.69]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisWorkerTests.LeaseFailure.cs(60,0): at SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Heartbeat_database_failure_cancels_and_observes_provider_before_worker_returns()&#xD;
+[xUnit.net 00:00:06.69]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisWorkerTests.LeaseFailure.cs(72,0): at SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Heartbeat_database_failure_cancels_and_observes_provider_before_worker_returns()&#xD;
+[xUnit.net 00:00:06.69]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisWorkerTests.LeaseFailure.cs(72,0): at SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Heartbeat_database_failure_cancels_and_observes_provider_before_worker_returns()&#xD;
+[xUnit.net 00:00:06.69]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:07.66]       Assert.Equal() Failure: Values differ&#xD;
+[xUnit.net 00:00:07.66]       Expected: 67&#xD;
+[xUnit.net 00:00:07.66]       Actual:   0&#xD;
+[xUnit.net 00:00:07.66]       Stack Trace:&#xD;
+[xUnit.net 00:00:07.66]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisWorkerTests.ToolTiming.cs(64,0): at SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Failed_admitted_tool_time_is_charged_once_and_survives_resume()&#xD;
+[xUnit.net 00:00:07.66]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisWorkerTests.ToolTiming.cs(69,0): at SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Failed_admitted_tool_time_is_charged_once_and_survives_resume()&#xD;
+[xUnit.net 00:00:07.66]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisWorkerTests.ToolTiming.cs(69,0): at SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Failed_admitted_tool_time_is_charged_once_and_survives_resume()&#xD;
+[xUnit.net 00:00:07.66]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\AdvancedAnalysisWorkerTests.ToolTiming.cs(69,0): at SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Failed_admitted_tool_time_is_charged_once_and_survives_resume()&#xD;
+[xUnit.net 00:00:07.66]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:07.66]   Finished:    SAAIA.Backend.Tests&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-25T20:22:54.9783994+01:00">
+        <Text>[xUnit.net 00:00:03.74]     SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Concurrent_distinct_handoffs_share_user_quota_but_do_not_block_other_owners [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-25T20:22:56.0427082+01:00">
+        <Text>[xUnit.net 00:00:04.81]     SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(cancel: True) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-25T20:22:56.8866103+01:00">
+        <Text>[xUnit.net 00:00:05.65]     SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected(cancel: False) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-25T20:22:57.9231448+01:00">
+        <Text>[xUnit.net 00:00:06.69]     SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Heartbeat_database_failure_cancels_and_observes_provider_before_worker_returns [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-25T20:22:58.8937733+01:00">
+        <Text>[xUnit.net 00:00:07.66]     SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Failed_admitted_tool_time_is_charged_once_and_survives_resume [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

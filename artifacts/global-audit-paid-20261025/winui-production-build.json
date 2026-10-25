@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "saaia-production-build.v1",
+  "configuration": "Release",
+  "platform": "x64",
+  "runtime": "win-x64",
+  "testHooks": false,
+  "exitCode": 0,
+  "passed": true,
+  "nativeUiStarted": false,
+  "assemblySha256": "134F92E49B7B24EEB05EF41541696EE28E691C7DDBC7C8E864F8F34F25FB5ECC",
+  "capturedAtUtc": "2026-10-25T19:48:31.0478857+00:00"
+}

@@ -1,0 +1,241 @@
+{
+  "schemaVersion": "saaia-global-audit-validation.v1",
+  "capturedAtUtc": "2026-10-25T19:48:57.5258547+00:00",
+  "baseCommit": "1e6b7e51c7a1fd9ae0a57e4b903bff57a71a1bb2",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "state": "OFFLINE_VALIDATED_PAID_BLOCKED_EXPIRED_KEY",
+  "unitPassingTotal": 4977.0,
+  "unitComponents": [
+    {
+      "project": "Backend",
+      "manifest": "unit-final-v2/manifest.json",
+      "manifestSha256": "B7481F75DE95053D19DA78ACD8FB2F1D46BB001F667320FE690629EB547D363B",
+      "counts": {
+        "passed": 2456,
+        "failed": 0,
+        "notExecuted": 0,
+        "total": 2456,
+        "executed": 2456,
+        "adapterReportedExecuted": 2456
+      },
+      "trx": "Backend-74aedc15ff944f5292699dc03211e000.trx",
+      "trxSha256": "14AEC145F80A9BAB97D44166A760FCB5FE06E91D836538A5C92378DF0ACDA4A1",
+      "sourceChangedDuringRun": false,
+      "assemblyFingerprints": [
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.AdvancedValidationJobGuard.dll",
+          "role": "local_product_dependency",
+          "sha256": "CC30E630C9DDB8363AE455253898EFC331DE8330FC0233FF5725EC7D28DE5EEA",
+          "sizeBytes": 62464,
+          "lastWriteTimeUtc": "2026-10-25T19:22:42.3433445Z",
+          "capturedAtUtc": "2026-10-25T20:44:06.1666053+01:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.dll",
+          "role": "local_product_dependency",
+          "sha256": "90AF887987448FE9B6ED5D166236D2CA00A051E9FCB7D1D833A90C1AD7E90469",
+          "sizeBytes": 7784448,
+          "lastWriteTimeUtc": "2026-10-25T19:38:40.0206027Z",
+          "capturedAtUtc": "2026-10-25T20:44:06.1740123+01:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "9B4A17D2F6953EA2D67C52C4B9F494FD839F3D712BC098380A9945FAFE9756AD",
+          "sizeBytes": 4729856,
+          "lastWriteTimeUtc": "2026-10-25T19:38:51.8506276Z",
+          "capturedAtUtc": "2026-10-25T20:44:06.1786725+01:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "2A5BE4A60132DCC697F690C24432FF8D0E44F08E30F62CB3D393DF8E6AEA5A96",
+          "sizeBytes": 154112,
+          "lastWriteTimeUtc": "2026-10-25T19:38:37.8994752Z",
+          "capturedAtUtc": "2026-10-25T20:44:06.1793955+01:00"
+        }
+      ]
+    },
+    {
+      "project": "Contracts",
+      "manifest": "unit-final-v2/manifest.json",
+      "manifestSha256": "B7481F75DE95053D19DA78ACD8FB2F1D46BB001F667320FE690629EB547D363B",
+      "counts": {
+        "passed": 20,
+        "failed": 0,
+        "notExecuted": 0,
+        "total": 20,
+        "executed": 20,
+        "adapterReportedExecuted": 20
+      },
+      "trx": "Contracts-74aedc15ff944f5292699dc03211e000.trx",
+      "trxSha256": "E99510A75499A208210BC6EB82AD1D5B216D11577965D388EB8C1C4D7EE18DA4",
+      "sourceChangedDuringRun": false,
+      "assemblyFingerprints": [
+        {
+          "path": "contracts\\SAAIA.Contracts.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "2A5BE4A60132DCC697F690C24432FF8D0E44F08E30F62CB3D393DF8E6AEA5A96",
+          "sizeBytes": 154112,
+          "lastWriteTimeUtc": "2026-10-25T19:38:37.8994752Z",
+          "capturedAtUtc": "2026-10-25T20:44:07.743004+01:00"
+        },
+        {
+          "path": "contracts\\SAAIA.Contracts.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "AEFE6A400F6A88506B4EB1DA79FB7FD3817AF9697BFA56C0475FDB1AED975105",
+          "sizeBytes": 34304,
+          "lastWriteTimeUtc": "2026-10-25T19:44:07.0196362Z",
+          "capturedAtUtc": "2026-10-25T20:44:07.7435783+01:00"
+        }
+      ]
+    },
+    {
+      "project": "ClientCore",
+      "manifest": "unit-final-v2/manifest.json",
+      "manifestSha256": "B7481F75DE95053D19DA78ACD8FB2F1D46BB001F667320FE690629EB547D363B",
+      "counts": {
+        "passed": 82,
+        "failed": 0,
+        "notExecuted": 0,
+        "total": 82,
+        "executed": 82,
+        "adapterReportedExecuted": 82
+      },
+      "trx": "ClientCore-74aedc15ff944f5292699dc03211e000.trx",
+      "trxSha256": "91F8EC7379962095B76EF41E1FD40149BB3309A2CACB273ED5FDEBE007554D77",
+      "sourceChangedDuringRun": false,
+      "assemblyFingerprints": [
+        {
+          "path": "client\\SAAIA.Client.Core.Tests\\bin\\Release\\net8.0\\SAAIA.Client.Core.dll",
+          "role": "local_product_dependency",
+          "sha256": "5DFBDE37A74C7DA5DFD5CF07BA11C9162D9E9D496F0F3A9CBA794B7E4D63A448",
+          "sizeBytes": 97280,
+          "lastWriteTimeUtc": "2026-10-25T19:44:08.9268964Z",
+          "capturedAtUtc": "2026-10-25T20:44:10.0197638+01:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.Core.Tests\\bin\\Release\\net8.0\\SAAIA.Client.Core.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "3C4A9E98DDBEE9F0C175309E43BD416DC841CB1A0D8B0AB5A8231BED704D3BD2",
+          "sizeBytes": 73728,
+          "lastWriteTimeUtc": "2026-10-25T19:44:09.0972335Z",
+          "capturedAtUtc": "2026-10-25T20:44:10.0202987+01:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.Core.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "2A5BE4A60132DCC697F690C24432FF8D0E44F08E30F62CB3D393DF8E6AEA5A96",
+          "sizeBytes": 154112,
+          "lastWriteTimeUtc": "2026-10-25T19:38:37.8994752Z",
+          "capturedAtUtc": "2026-10-25T20:44:10.0208938+01:00"
+        }
+      ]
+    },
+    {
+      "project": "Client",
+      "manifest": "client-final-v3/manifest.json",
+      "manifestSha256": "7EF0E4AF7106DEE67C8A0DF7DA5AA405C948050120B07E0F6D858E6758968E49",
+      "counts": {
+        "passed": 2419,
+        "notExecuted": 0,
+        "total": 2419,
+        "adapterReportedExecuted": 2419,
+        "failed": 0,
+        "executed": 2419
+      },
+      "trx": "Client-fc89b3ec2f7140328f17ee935a4529c3.trx",
+      "trxSha256": "10369FB8F5BB88D84F99FC9BBCCB85AEC4FBC85457E9207C70634944803BEE0F",
+      "sourceChangedDuringRun": false,
+      "assemblyFingerprints": [
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.Core.dll",
+          "role": "local_product_dependency",
+          "sha256": "5DFBDE37A74C7DA5DFD5CF07BA11C9162D9E9D496F0F3A9CBA794B7E4D63A448",
+          "sizeBytes": 97280,
+          "lastWriteTimeUtc": "2026-10-25T19:44:08.9268964Z",
+          "capturedAtUtc": "2026-10-25T20:46:30.4533191+01:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.ToolAgent.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "18D29E9BEC3D52955DB216F5B7CF0290A911268E443D8D7CCDD5802EE2BEAF69",
+          "sizeBytes": 4793344,
+          "lastWriteTimeUtc": "2026-10-25T19:46:13.9208169Z",
+          "capturedAtUtc": "2026-10-25T20:46:30.4581745+01:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.WinUI.dll",
+          "role": "local_product_dependency",
+          "sha256": "0F2AC119CA7DA51FE1D01067851957F9F290E4E57EB078709942C728B5A2151A",
+          "sizeBytes": 8245248,
+          "lastWriteTimeUtc": "2026-10-25T19:44:34.5819783Z",
+          "capturedAtUtc": "2026-10-25T20:46:30.4659374+01:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "2A5BE4A60132DCC697F690C24432FF8D0E44F08E30F62CB3D393DF8E6AEA5A96",
+          "sizeBytes": 154112,
+          "lastWriteTimeUtc": "2026-10-25T19:38:37.8994752Z",
+          "capturedAtUtc": "2026-10-25T20:46:30.4666863+01:00"
+        }
+      ]
+    }
+  ],
+  "postgres": {
+    "failed": 0,
+    "notExecuted": 2,
+    "backendContractsAndProfileSourceUnchanged": true,
+    "globalSourceDrift": true,
+    "skippedTests": [
+      {
+        "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_runtime_ready_v5_cases_match_expected_behavior_and_primary_document",
+        "outcome": "NotExecuted"
+      },
+      {
+        "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_runtime_ready_writer_cases_keep_prudent_guidance_shape",
+        "outcome": "NotExecuted"
+      }
+    ],
+    "backendAssemblySha256": "90AF887987448FE9B6ED5D166236D2CA00A051E9FCB7D1D833A90C1AD7E90469",
+    "manifestSha256": "A566B0F09EE2147AEE36826C8223B95EF211FC1FB21A540387089F801D30C98E",
+    "manifest": "postgres-final-v1/tests/manifest.json",
+    "sameBackendBinaryAsFinalUnits": true,
+    "componentReconciliation": "postgres-source-reconciliation.json",
+    "passed": 271
+  },
+  "localRealCorpus": {
+    "canonicalSqlSearchReadValidated": true,
+    "vectorRecallValidated": false,
+    "proofSha256": "457DEF860159B6EBE77704DF2A2609EA6B7E6DDDA67EA2658593245A9B97B23A",
+    "proof": "real-corpus-admission-preflight-v2/corpus-preflight.json",
+    "ingestionValidated": false,
+    "http202AndCancellationValidated": true,
+    "ocrValidated": false,
+    "workerEnabled": false
+  },
+  "paid": {
+    "retryAutomatically": false,
+    "errorCode": "expired_secret_key",
+    "observedModel": null,
+    "semanticRagValidated": false,
+    "chargedCostUsd": 0,
+    "attempts": 1,
+    "newPurchasePerformed": false,
+    "modelPlanned": "gpt-5.6-luna",
+    "httpStatus": 401,
+    "corpusTransmitted": false,
+    "availabilityProof": "paid-availability-result.json",
+    "incrementalCapUsd": 0.5,
+    "providerBalanceKnown": false
+  },
+  "limits": [
+    "Unit results are a composite of three passed components in unit-final-v2 and the separately rebuilt Client in client-final-v3; unit-final-v2 as a whole failed one outdated schema expectation.",
+    "The two IntegrationPg skips are explicit historical legacy-retrieval/writer oracles; they are not accepted as passed.",
+    "PG global inventory changed only in unrelated client/tool paths; original manifests and reconciliation are retained unchanged.",
+    "No native UI journey or real local model benchmark was rerun in this campaign.",
+    "No paid semantic RAG result or meal-planning result is approved.",
+    "The new mandatory client-category guard is not a backend ACL or a server read_source category enforcement contract."
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "saaia-paid-tooling-parse-proof.v1",
+  "recordedAtUtc": "2026-10-25T19:41:49.3978005+00:00",
+  "scriptsParsed": 15,
+  "parseErrors": 0,
+  "errors": [],
+  "sourceFingerprints": [
+    {
+      "path": "tools/test-project.ps1",
+      "sha256": "EDFFD17EEFB2B823876FE25349D9FB5AA58E5081DCF5D529139A93E11F3CD8E8"
+    },
+    {
+      "path": "tools/test-advanced-server-provider.ps1",
+      "sha256": "4AD661DED220C2145695AC9F70F50D64133A887210595F4A42CB26178DB3801A"
+    },
+    {
+      "path": "tools/test-advanced-product-path-provider.ps1",
+      "sha256": "0A16F38BBE9A4E9E274D502F3E776F928BFF75E740D1A03561926B8FC5DC8A95"
+    },
+    {
+      "path": "tools/test-advanced-product-path-openai.ps1",
+      "sha256": "FBDB3D0D430EFA67463E79AFDBF8BCB0BE49EC2FE60966307D6FCEFB903051EB"
+    },
+    {
+      "path": "tools/test-advanced-analysis-agent-bank.ps1",
+      "sha256": "2ABF1E3CC090E2CD56CE23A29F047B43BF34983A48900427FA98030B8BF89580"
+    },
+    {
+      "path": "tools/test-openai-terra-provider.ps1",
+      "sha256": "856F9806697E803A675023F57F2AFB7DCF9D2312BC0B384C4B1975FD2452D543"
+    },
+    {
+      "path": "tools/test-openai-terra-agent-bank.ps1",
+      "sha256": "A6FFE8D9D4AE63EFF0CAD7105705D6EC257D37D2CB17009B91349DDDF2506D4C"
+    },
+    {
+      "path": "tools/validation-paid/invoke-local-luna-campaign.ps1",
+      "sha256": "2D5D1793DB2A24377B39F442293AB874CBBE88F44584F9B1B1F07FEE2D82313A"
+    },
+    {
+      "path": "tools/validation-paid/new-luna-campaign-profile.ps1",
+      "sha256": "A0DCF63B718CAF60B916CE9A6C3278E8E8C4CB4DD03A50CDB1A48A87E3D19044"
+    },
+    {
+      "path": "tools/validation-paid/PaidCampaign.Common.ps1",
+      "sha256": "4A42C04FD77B405D08A54705B48BD0A7B8688A741214041DA9E594A3DD18F0A3"
+    },
+    {
+      "path": "tools/validation-paid/PaidLedger.ps1",
+      "sha256": "8C84C370F50CB307F1C308AB1A096329B1F98558D521F320332024ACC772D10D"
+    },
+    {
+      "path": "tools/validation-paid/PaidRuntime.ps1",
+      "sha256": "C5C186B2A29E866FD6DD347EF0DC6A4C30C1CDEB95A609F1CD2E75BECB7D2943"
+    },
+    {
+      "path": "tools/validation-paid/Test-LunaDryRun.ps1",
+      "sha256": "1C0BF80C07D3C12C29F1DDD189031746BCDDBA88E4B91A321BEB8FF4D5079872"
+    },
+    {
+      "path": "tools/validation-paid/Test-OwnedRealCorpus.ps1",
+      "sha256": "5FB75CEC49B77E92C5E32B3C85DA90FFC5DA45C4F52D8F5D1F3FC558C2152B68"
+    },
+    {
+      "path": "tools/validation-paid/Test-PaidGuards.ps1",
+      "sha256": "4C70ADDA91A2D485DD68FD9DC3D34D3044799E1D80DB98B4BB101505A6C28BBB"
+    }
+  ],
+  "dotnetCommands": 0,
+  "servicesStarted": 0,
+  "providerCalls": 0,
+  "secretReads": 0
+}

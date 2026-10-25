@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "saaia-source-commit.v1",
+  "sourceCommit": "b3b051120f5dc40283bbd4b1fcc61bed55fd7ea2",
+  "baseCommit": "1e6b7e51c7a1fd9ae0a57e4b903bff57a71a1bb2",
+  "branch": "SAAIA_V3.1",
+  "subject": "Fix RAG context, scope and durable paid execution safeguards",
+  "changedFiles": 109,
+  "localCommitVerified": true,
+  "remotePushAtThisSnapshot": false
+}

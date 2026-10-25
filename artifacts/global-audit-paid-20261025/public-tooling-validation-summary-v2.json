@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "saaia-paid-tooling-safe-proof-summary.v2",
+  "recordedAtUtc": "2026-10-25T19:42:07.4521991+00:00",
+  "powershellGuardsPassed": 30,
+  "pythonCorpusTestsPassed": 10,
+  "dryRunKeyBoundaryChecksPassed": 2,
+  "powerShellScriptsParsed": 15,
+  "parseErrors": 0,
+  "realCorpusAndAdmissionPassed": true,
+  "realPreflightExecutedBy": "parent operator",
+  "admissionWorkerEnabled": false,
+  "admissionProviderKeySynthetic": true,
+  "admissionQueued202ThenCanceled": true,
+  "admissionLogicalLedgerRows": 0,
+  "admissionDurableReservationStarts": 0,
+  "activeJobsAtClosure": 0,
+  "canceledAdmissionJobsPreserved": 1,
+  "nativeUiOrModelQualityValidated": false,
+  "providerCallsByThisAgent": 0,
+  "servicesStartedByThisAgent": 0,
+  "secretValuesReadByThisAgent": 0,
+  "publicProofs": [
+    {
+      "path": "artifacts/global-audit-paid-20261025/offline-paid-guards-final-v1/checks.json",
+      "sha256": "BC3C63699C724876D8466D65F4E9468A7F87FF770500CB696915AAF8E08CD80B",
+      "bytes": 3065
+    },
+    {
+      "path": "artifacts/global-audit-paid-20261025/offline-dry-boundary-v3/checks.json",
+      "sha256": "FFFD55C9FD222D46895F9422E90164A2C8E9BFD97EFA2A3D049176917AEFF7E1",
+      "bytes": 391
+    },
+    {
+      "path": "artifacts/global-audit-paid-20261025/real-corpus-admission-preflight-v2/corpus-preflight.json",
+      "sha256": "457DEF860159B6EBE77704DF2A2609EA6B7E6DDDA67EA2658593245A9B97B23A",
+      "bytes": 1555
+    },
+    {
+      "path": "artifacts/global-audit-paid-20261025/luna-real-corpus-proposed-v3.json",
+      "sha256": "01509F5DF34A0ECB8D233216040BAEBFB8F941491694066FA1D1AD7854FA0E29",
+      "bytes": 2267
+    },
+    {
+      "path": "artifacts/global-audit-paid-20261025/paid-tooling-final-parse-v1.json",
+      "sha256": "F303DBA076D19ECC4AD2FC4139232FEC91CFCA4EAFA7AC2CA930AAE2F7CE165F",
+      "bytes": 2689
+    }
+  ],
+  "excluded": [
+    "runtime/**",
+    "original PDFs",
+    "SQL seeds",
+    "DPAPI",
+    "fixture secrets",
+    "raw backend logs",
+    "exact payloads"
+  ],
+  "productStatus": "TESTE_NON_APPROUVE"
+}

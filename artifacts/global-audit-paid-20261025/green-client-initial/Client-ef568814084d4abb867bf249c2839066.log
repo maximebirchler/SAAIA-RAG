@@ -1,0 +1,8 @@
+  Identification des projets à restaurer...
+  Tous les projets sont à jour pour la restauration.
+  SAAIA.Contracts -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\contracts\SAAIA.Contracts\bin\Release\net8.0\SAAIA.Contracts.dll
+  SAAIA.Client.Core -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.Core\bin\Release\net8.0\SAAIA.Client.Core.dll
+  SAAIA.Contracts -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\contracts\SAAIA.Contracts\bin\testhooks\AnyCPU\Release\SAAIA.Contracts.dll
+  SAAIA.Client.Core -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.Core\bin\testhooks\AnyCPU\Release\SAAIA.Client.Core.dll
+C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.WinUI\ToolAgent\SourceBackedRag\SourceBackedAgentV2SystemPrompt.cs(7,1): error CS8999: La ligne ne commence pas par le même espace que la dernière ligne du littéral de chaîne brute. [C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.WinUI\SAAIA.Client.WinUI.csproj]
+C:\Users\maxim\.nuget\packages\microsoft.windowsappsdk.winui\1.8.260204000\buildTransitive\Microsoft.UI.Xaml.Markup.Compiler.interop.targets(845,9): error MSB3073: La commande ""C:\Users\maxim\.nuget\packages\microsoft.windowsappsdk.winui\1.8.260204000\buildTransitive\..\tools\net6.0\..\net472\XamlCompiler.exe" "obj\testhooks\AnyCPU\Release\\input.json" "obj\testhooks\AnyCPU\Release\\output.json"" s'est arrêtée avec le code 1. [C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.WinUI\SAAIA.Client.WinUI.csproj]

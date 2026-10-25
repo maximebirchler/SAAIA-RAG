@@ -1,0 +1,123 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="33b9cdb0-463c-4c66-9597-79cc783ebd1f" name="maxim@MAXBI 2026-10-25 20:29:15" runUser="MAXBI\maxim" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-25T20:29:15.3307831+01:00" queuing="2026-10-25T20:29:15.3307832+01:00" start="2026-10-25T20:29:14.3268898+01:00" finish="2026-10-25T20:29:15.3359548+01:00" />
+  <TestSettings name="default" id="881f2e54-4a37-4017-99f6-7e3c50232b5f">
+    <Deployment runDeploymentRoot="maxim_MAXBI_2026-10-25_20_29_15" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="c214571c-bf06-44ae-8ca3-074747585d53" testId="4632b689-9687-1642-d664-4a760b95b9bd" testName="SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 429, uncertain: False)" computerName="MAXBI" duration="00:00:00.0128291" startTime="2026-10-25T20:29:15.2247264+01:00" endTime="2026-10-25T20:29:15.2247268+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c214571c-bf06-44ae-8ca3-074747585d53" />
+    <UnitTestResult executionId="a272f010-6145-48d3-8ce7-405835e1e4b9" testId="7ab97f1c-c9d9-a80f-d58c-3c072e47ff3f" testName="SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 502, uncertain: True)" computerName="MAXBI" duration="00:00:00.0099957" startTime="2026-10-25T20:29:15.2700398+01:00" endTime="2026-10-25T20:29:15.2700399+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a272f010-6145-48d3-8ce7-405835e1e4b9">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Values differ&#xD;
+Expected: True&#xD;
+Actual:   False</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(Int32 status, Boolean uncertain) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\OpenAiCompatibleAdvancedAnalysisProviderTests.BudgetRejections.cs:line 31&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="e1d658cb-93c1-48db-a74b-55e65aea6f4f" testId="75c08bad-5904-da3b-dd21-089e01231801" testName="SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 500, uncertain: True)" computerName="MAXBI" duration="00:00:00.0794395" startTime="2026-10-25T20:29:15.2136066+01:00" endTime="2026-10-25T20:29:15.2136161+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e1d658cb-93c1-48db-a74b-55e65aea6f4f">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Values differ&#xD;
+Expected: True&#xD;
+Actual:   False</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(Int32 status, Boolean uncertain) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\OpenAiCompatibleAdvancedAnalysisProviderTests.BudgetRejections.cs:line 31&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="1e20e6cf-d9a7-44fd-b461-5bf97f1f1d68" testId="6afca986-f0c7-4a1e-2512-f3a82d66004d" testName="SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 408, uncertain: True)" computerName="MAXBI" duration="00:00:00.0113256" startTime="2026-10-25T20:29:15.2475729+01:00" endTime="2026-10-25T20:29:15.2475730+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1e20e6cf-d9a7-44fd-b461-5bf97f1f1d68">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Values differ&#xD;
+Expected: True&#xD;
+Actual:   False</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(Int32 status, Boolean uncertain) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\OpenAiCompatibleAdvancedAnalysisProviderTests.BudgetRejections.cs:line 31&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="16284b8a-eafa-427f-be36-3b4401af41a8" testId="3a4d10dc-bd6e-2e31-2fca-7fb315750ead" testName="SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 400, uncertain: False)" computerName="MAXBI" duration="00:00:00.0118426" startTime="2026-10-25T20:29:15.2592870+01:00" endTime="2026-10-25T20:29:15.2592872+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="16284b8a-eafa-427f-be36-3b4401af41a8" />
+    <UnitTestResult executionId="e2558907-b12c-4a1b-b134-73d2e265890e" testId="69b21670-1e53-5101-4731-9fe40b9dcacf" testName="SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 401, uncertain: False)" computerName="MAXBI" duration="00:00:00.0111753" startTime="2026-10-25T20:29:15.2357160+01:00" endTime="2026-10-25T20:29:15.2357161+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e2558907-b12c-4a1b-b134-73d2e265890e" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 400, uncertain: False)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="3a4d10dc-bd6e-2e31-2fca-7fb315750ead">
+      <Execution id="16284b8a-eafa-427f-be36-3b4401af41a8" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests" name="Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 502, uncertain: True)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="7ab97f1c-c9d9-a80f-d58c-3c072e47ff3f">
+      <Execution id="a272f010-6145-48d3-8ce7-405835e1e4b9" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests" name="Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 500, uncertain: True)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="75c08bad-5904-da3b-dd21-089e01231801">
+      <Execution id="e1d658cb-93c1-48db-a74b-55e65aea6f4f" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests" name="Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 429, uncertain: False)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="4632b689-9687-1642-d664-4a760b95b9bd">
+      <Execution id="c214571c-bf06-44ae-8ca3-074747585d53" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests" name="Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 408, uncertain: True)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="6afca986-f0c7-4a1e-2512-f3a82d66004d">
+      <Execution id="1e20e6cf-d9a7-44fd-b461-5bf97f1f1d68" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests" name="Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 401, uncertain: False)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="69b21670-1e53-5101-4731-9fe40b9dcacf">
+      <Execution id="e2558907-b12c-4a1b-b134-73d2e265890e" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests" name="Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="4632b689-9687-1642-d664-4a760b95b9bd" executionId="c214571c-bf06-44ae-8ca3-074747585d53" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7ab97f1c-c9d9-a80f-d58c-3c072e47ff3f" executionId="a272f010-6145-48d3-8ce7-405835e1e4b9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="75c08bad-5904-da3b-dd21-089e01231801" executionId="e1d658cb-93c1-48db-a74b-55e65aea6f4f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6afca986-f0c7-4a1e-2512-f3a82d66004d" executionId="1e20e6cf-d9a7-44fd-b461-5bf97f1f1d68" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3a4d10dc-bd6e-2e31-2fca-7fb315750ead" executionId="16284b8a-eafa-427f-be36-3b4401af41a8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="69b21670-1e53-5101-4731-9fe40b9dcacf" executionId="e2558907-b12c-4a1b-b134-73d2e265890e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Les résultats ne figurent pas dans une liste" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="Tous les résultats chargés" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="6" executed="6" passed="3" failed="3" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 8.0.27)&#xD;
+[xUnit.net 00:00:00.24]   Discovering: SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:00.41]   Discovered:  SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:00.42]   Starting:    SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:00.52]       Assert.Equal() Failure: Values differ&#xD;
+[xUnit.net 00:00:00.52]       Expected: True&#xD;
+[xUnit.net 00:00:00.52]       Actual:   False&#xD;
+[xUnit.net 00:00:00.52]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.52]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\OpenAiCompatibleAdvancedAnalysisProviderTests.BudgetRejections.cs(31,0): at SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(Int32 status, Boolean uncertain)&#xD;
+[xUnit.net 00:00:00.52]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:00.56]       Assert.Equal() Failure: Values differ&#xD;
+[xUnit.net 00:00:00.56]       Expected: True&#xD;
+[xUnit.net 00:00:00.56]       Actual:   False&#xD;
+[xUnit.net 00:00:00.56]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.56]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\OpenAiCompatibleAdvancedAnalysisProviderTests.BudgetRejections.cs(31,0): at SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(Int32 status, Boolean uncertain)&#xD;
+[xUnit.net 00:00:00.56]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:00.58]       Assert.Equal() Failure: Values differ&#xD;
+[xUnit.net 00:00:00.58]       Expected: True&#xD;
+[xUnit.net 00:00:00.58]       Actual:   False&#xD;
+[xUnit.net 00:00:00.58]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.58]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\OpenAiCompatibleAdvancedAnalysisProviderTests.BudgetRejections.cs(31,0): at SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(Int32 status, Boolean uncertain)&#xD;
+[xUnit.net 00:00:00.58]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:00.58]   Finished:    SAAIA.Backend.Tests&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-25T20:29:15.2128460+01:00">
+        <Text>[xUnit.net 00:00:00.52]     SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 500, uncertain: True) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-25T20:29:15.2476847+01:00">
+        <Text>[xUnit.net 00:00:00.56]     SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 408, uncertain: True) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-25T20:29:15.2701053+01:00">
+        <Text>[xUnit.net 00:00:00.58]     SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 502, uncertain: True) [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

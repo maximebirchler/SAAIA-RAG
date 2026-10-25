@@ -1,0 +1,142 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "33c8e329f1a340e3ac4c6cf399061628",
+  "startedAtUtc": "2026-10-25T19:29:08.3278602+00:00",
+  "finishedAtUtc": "2026-10-25T19:29:15.4448543+00:00",
+  "gitCommit": "1e6b7e51c7a1fd9ae0a57e4b903bff57a71a1bb2",
+  "gitDirty": true,
+  "profile": "Unit",
+  "filter": "(Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid)&(FullyQualifiedName~Ambiguous_http_failure)",
+  "requestedProjects": [
+    "Backend"
+  ],
+  "configuration": "Release",
+  "buildRequested": true,
+  "restoreRequested": true,
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-25T19:29:09.3526444+00:00",
+    "sha256": "7B085A290C2B911E14D963393DC0BFFE81653BBD488188C084B3DF1355D2DFB4",
+    "fileCount": 1680,
+    "inventory": "source-files-33c8e329f1a340e3ac4c6cf399061628-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-25T19:29:16.0476421+00:00",
+    "sha256": "7B085A290C2B911E14D963393DC0BFFE81653BBD488188C084B3DF1355D2DFB4",
+    "fileCount": 1680,
+    "inventory": "source-files-33c8e329f1a340e3ac4c6cf399061628-after.json"
+  },
+  "sourceChangedDuringRun": false,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "state": "failed",
+  "prerequisites": [],
+  "environment": {
+    "clientDataIsolation": {
+      "requiredForClientTests": true,
+      "source": "not_selected",
+      "enabled": false,
+      "ownedRelativePath": null,
+      "environmentRestored": null,
+      "rootId": null
+    },
+    "neutralizedVariableNames": []
+  },
+  "results": [
+    {
+      "project": "Backend",
+      "path": "backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj",
+      "status": "failed",
+      "exitCode": 1,
+      "trx": "Backend-33c8e329f1a340e3ac4c6cf399061628.trx",
+      "trxSha256": "CD4436E6E59ECE74D1B2A80EC0249DF42AB58B9A230CD11D4672F03952D47322",
+      "assemblies": [
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.AdvancedValidationJobGuard.dll",
+          "role": "local_product_dependency",
+          "sha256": "CC30E630C9DDB8363AE455253898EFC331DE8330FC0233FF5725EC7D28DE5EEA",
+          "sizeBytes": 62464,
+          "lastWriteTimeUtc": "2026-10-25T19:22:42.3433445Z",
+          "capturedAtUtc": "2026-10-25T19:29:15.4211971+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.dll",
+          "role": "local_product_dependency",
+          "sha256": "BDA03F578FAE87BFC2558C7599BEC62CCB3EA355673ED6C6163B490B245B8271",
+          "sizeBytes": 7783424,
+          "lastWriteTimeUtc": "2026-10-25T19:29:12.7430110Z",
+          "capturedAtUtc": "2026-10-25T19:29:15.4287353+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "DA862CEDEEC027AC2677520B16DAD09214C4BBF3B1631DC31E19D367D93C645A",
+          "sizeBytes": 4725248,
+          "lastWriteTimeUtc": "2026-10-25T19:29:14.1409763Z",
+          "capturedAtUtc": "2026-10-25T19:29:15.4334065+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "90D1392374F88383D3D58917596BBF8D9ECD63CCB767C04B342D5749DFA34D08",
+          "sizeBytes": 154112,
+          "lastWriteTimeUtc": "2026-10-25T19:25:46.1319826Z",
+          "capturedAtUtc": "2026-10-25T19:29:15.4340849+00:00"
+        }
+      ],
+      "counts": {
+        "failed": 3,
+        "adapterReportedExecuted": 6,
+        "passed": 3,
+        "notExecuted": 0,
+        "total": 6,
+        "executed": 6
+      },
+      "cases": [
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0128291",
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 429, uncertain: False)"
+        },
+        {
+          "outcome": "Failed",
+          "duration": "00:00:00.0099957",
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 502, uncertain: True)"
+        },
+        {
+          "outcome": "Failed",
+          "duration": "00:00:00.0794395",
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 500, uncertain: True)"
+        },
+        {
+          "outcome": "Failed",
+          "duration": "00:00:00.0113256",
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 408, uncertain: True)"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0118426",
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 400, uncertain: False)"
+        },
+        {
+          "outcome": "Passed",
+          "duration": "00:00:00.0111753",
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 401, uncertain: False)"
+        }
+      ]
+    }
+  ],
+  "model": {
+    "state": "not_applicable",
+    "reason": "Unit and PostgreSQL profiles do not invoke a model."
+  },
+  "corpus": {
+    "state": "synthetic_fixtures",
+    "reason": "IntegrationPg fixtures create isolated databases; no production corpus is assumed."
+  },
+  "validationProfilesSha256": "8E4B990BC0A828134E5FE0D8E7B2D82406B56D2A200D8D4D37516208E3D3201D",
+  "selectionPolicy": "TRX covers selected tests; excluded profiles were not executed.",
+  "excludedProfiles": [
+    "IntegrationPg",
+    "LiveLocal",
+    "LivePaid"
+  ]
+}

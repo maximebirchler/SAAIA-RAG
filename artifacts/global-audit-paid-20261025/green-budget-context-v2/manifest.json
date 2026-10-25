@@ -1,0 +1,242 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "5f83837c751f4fda9c0d2ecae8d7dc81",
+  "startedAtUtc": "2026-10-25T19:38:48.0321958+00:00",
+  "finishedAtUtc": "2026-10-25T19:38:53.5455486+00:00",
+  "gitCommit": "1e6b7e51c7a1fd9ae0a57e4b903bff57a71a1bb2",
+  "gitDirty": true,
+  "profile": "Unit",
+  "filter": "(Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid)&(FullyQualifiedName~AdvancedAnalysisBudgetPersistenceTests|FullyQualifiedName~Ambiguous_http_failure|FullyQualifiedName~Grid_planner_refinement_preserves_non_evidence_conversation_for_the_actual_writer|FullyQualifiedName~Follow_up_context_is_separate_non_evidence_data_in_actual_planner_and_writer_payloads)",
+  "requestedProjects": [
+    "Backend"
+  ],
+  "configuration": "Release",
+  "buildRequested": true,
+  "restoreRequested": true,
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-25T19:38:48.9786631+00:00",
+    "sha256": "6D6CA76C5E5FE3DAB0DA54CA70616D154476E01E277C84FF7016ACEE16ADF728",
+    "fileCount": 1685,
+    "inventory": "source-files-5f83837c751f4fda9c0d2ecae8d7dc81-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-25T19:38:54.1224145+00:00",
+    "sha256": "0145D6B3B7520F6D22A77DE7BF736FFB7F74FA126781DFECFEC0D7D8389BD765",
+    "fileCount": 1685,
+    "inventory": "source-files-5f83837c751f4fda9c0d2ecae8d7dc81-after.json"
+  },
+  "sourceChangedDuringRun": true,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "state": "passed",
+  "prerequisites": [],
+  "environment": {
+    "neutralizedVariableNames": [],
+    "clientDataIsolation": {
+      "ownedRelativePath": null,
+      "environmentRestored": null,
+      "source": "not_selected",
+      "requiredForClientTests": true,
+      "enabled": false,
+      "rootId": null
+    }
+  },
+  "results": [
+    {
+      "project": "Backend",
+      "path": "backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj",
+      "status": "passed",
+      "exitCode": 0,
+      "trx": "Backend-5f83837c751f4fda9c0d2ecae8d7dc81.trx",
+      "trxSha256": "A82353070CA830B901FF0D1932F854857E9149183674C2C27BDF7703FAB7914A",
+      "assemblies": [
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.AdvancedValidationJobGuard.dll",
+          "role": "local_product_dependency",
+          "sha256": "CC30E630C9DDB8363AE455253898EFC331DE8330FC0233FF5725EC7D28DE5EEA",
+          "sizeBytes": 62464,
+          "lastWriteTimeUtc": "2026-10-25T19:22:42.3433445Z",
+          "capturedAtUtc": "2026-10-25T19:38:53.5141602+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.dll",
+          "role": "local_product_dependency",
+          "sha256": "90AF887987448FE9B6ED5D166236D2CA00A051E9FCB7D1D833A90C1AD7E90469",
+          "sizeBytes": 7784448,
+          "lastWriteTimeUtc": "2026-10-25T19:38:40.0206027Z",
+          "capturedAtUtc": "2026-10-25T19:38:53.5214685+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "9B4A17D2F6953EA2D67C52C4B9F494FD839F3D712BC098380A9945FAFE9756AD",
+          "sizeBytes": 4729856,
+          "lastWriteTimeUtc": "2026-10-25T19:38:51.8506276Z",
+          "capturedAtUtc": "2026-10-25T19:38:53.5262048+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "2A5BE4A60132DCC697F690C24432FF8D0E44F08E30F62CB3D393DF8E6AEA5A96",
+          "sizeBytes": 154112,
+          "lastWriteTimeUtc": "2026-10-25T19:38:37.8994752Z",
+          "capturedAtUtc": "2026-10-25T19:38:53.5269396+00:00"
+        }
+      ],
+      "counts": {
+        "failed": 0,
+        "notExecuted": 0,
+        "passed": 26,
+        "total": 26,
+        "executed": 26,
+        "adapterReportedExecuted": 26
+      },
+      "cases": [
+        {
+          "duration": "00:00:00.1511501",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Grid_planner_refinement_preserves_non_evidence_conversation_for_the_actual_writer(initialMode: \"named_item\", initialPolicy: \"structured_layout\", plannerMode: \"content_claims\", refinedMode: \"content_claim\", refinedPolicy: \"structured_layout\")"
+        },
+        {
+          "duration": "00:00:00.0167238",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Legacy_settlements_and_new_starts_are_counted_once_each"
+        },
+        {
+          "duration": "00:00:00.0014728",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Default_options_do_not_authorize_a_paid_campaign_or_assume_historical_prices"
+        },
+        {
+          "duration": "00:00:00.0002625",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Cached_pricing_cannot_exceed_the_rate_used_for_admission"
+        },
+        {
+          "duration": "00:00:00.0140784",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Failed_terminal_append_keeps_reservation_recoverable_instead_of_refunding_it"
+        },
+        {
+          "duration": "00:00:00.0295112",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Two_independent_guards_cannot_both_admit_the_same_last_job_slot"
+        },
+        {
+          "duration": "00:00:00.0113645",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 408, uncertain: True)"
+        },
+        {
+          "duration": "00:00:00.0138738",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.A_failed_response_without_complete_usage_is_explicitly_an_uncertain_reserved_charge(input: 10, output: null)"
+        },
+        {
+          "duration": "00:00:00.0040218",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Grid_planner_refinement_preserves_non_evidence_conversation_for_the_actual_writer(initialMode: \"one_per_cell\", initialPolicy: \"distinct\", plannerMode: \"distinct_named_items\", refinedMode: \"named_item\", refinedPolicy: \"distinct_structured_layout\")"
+        },
+        {
+          "duration": "00:00:00.0062340",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Missing_usage_does_not_treat_four_characters_as_a_token_upper_bound"
+        },
+        {
+          "duration": "00:00:00.0008650",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Invalid_cost_rows_fail_closed(row: \"{}\")"
+        },
+        {
+          "duration": "00:00:00.0106639",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 400, uncertain: False)"
+        },
+        {
+          "duration": "00:00:00.0027880",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Serialized_payload_bound_covers_non_ascii_text_and_tool_definitions"
+        },
+        {
+          "duration": "00:00:00.0120452",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.A_failed_response_without_complete_usage_is_explicitly_an_uncertain_reserved_charge(input: null, output: null)"
+        },
+        {
+          "duration": "00:00:00.0095708",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Invalid_cost_rows_fail_closed(row: \"{\\\"costUsd\\\":\\\"invalid\\\"}\")"
+        },
+        {
+          "duration": "00:00:00.0107874",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 401, uncertain: False)"
+        },
+        {
+          "duration": "00:00:00.0226039",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Follow_up_context_is_separate_non_evidence_data_in_actual_planner_and_writer_payloads"
+        },
+        {
+          "duration": "00:00:00.0131898",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Unsettled_other_job_also_consumes_campaign_capacity_after_restart"
+        },
+        {
+          "duration": "00:00:00.0016311",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Invalid_cost_rows_fail_closed(row: \"{\\\"costUsd\\\":-1}\")"
+        },
+        {
+          "duration": "00:00:00.0307791",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 500, uncertain: True)"
+        },
+        {
+          "duration": "00:00:00.0111860",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 502, uncertain: True)"
+        },
+        {
+          "duration": "00:00:00.0196512",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.A_guard_created_before_another_settlement_observes_the_new_campaign_charge"
+        },
+        {
+          "duration": "00:00:00.0131653",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Corrupt_reservation_journal_fails_closed_before_any_admission"
+        },
+        {
+          "duration": "00:00:00.0066071",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.Unsettled_call_survives_restart_and_keeps_the_job_call_slot"
+        },
+        {
+          "duration": "00:00:00.0112720",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisBudgetPersistenceTests.A_failed_response_without_complete_usage_is_explicitly_an_uncertain_reserved_charge(input: -1, output: 10)"
+        },
+        {
+          "duration": "00:00:00.0179670",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.OpenAiCompatibleAdvancedAnalysisProviderTests.Ambiguous_http_failure_keeps_a_conservative_charge_while_known_rejections_are_zero(status: 429, uncertain: False)"
+        }
+      ]
+    }
+  ],
+  "model": {
+    "state": "not_applicable",
+    "reason": "Unit and PostgreSQL profiles do not invoke a model."
+  },
+  "corpus": {
+    "state": "synthetic_fixtures",
+    "reason": "IntegrationPg fixtures create isolated databases; no production corpus is assumed."
+  },
+  "validationProfilesSha256": "8E4B990BC0A828134E5FE0D8E7B2D82406B56D2A200D8D4D37516208E3D3201D",
+  "selectionPolicy": "TRX covers selected tests; excluded profiles were not executed.",
+  "excludedProfiles": [
+    "IntegrationPg",
+    "LiveLocal",
+    "LivePaid"
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "saaia-owned-real-corpus-preflight.v1",
+  "executed": true,
+  "passed": true,
+  "providerCalls": 0,
+  "paidSecretsRead": 0,
+  "profileSha256": "01509F5DF34A0ECB8D233216040BAEBFB8F941491694066FA1D1AD7854FA0E29",
+  "backendAssemblySha256": "90AF887987448FE9B6ED5D166236D2CA00A051E9FCB7D1D833A90C1AD7E90469",
+  "realPdf": true,
+  "ingestionValidated": false,
+  "vectorIndexIsProtocolSubstitute": true,
+  "expectedPageNumber": 5,
+  "expectedTextPatternCount": 2,
+  "cleanup": {
+    "totalJobsPreserved": 1,
+    "ownedEnvironmentStopped": true,
+    "zeroActiveJobs": true
+  },
+  "state": "passed_local_canonical_tools",
+  "admission": {
+    "canceled": true,
+    "noProviderExecution": true,
+    "statusBeforeCancel": "queued",
+    "jobId": "90b3c4d0-3b61-4275-a7cb-f2cd45e04743",
+    "payloadSha256": "77E854BB4AD080720B333D5E4A3BBB8B8359E1907607C12C4C9537737C17096C",
+    "workerEnabled": false,
+    "providerKeyIsSynthetic": true,
+    "http202": true,
+    "tested": true,
+    "providerHttpAttemptsInLedger": 0,
+    "durableReservationStarts": 0,
+    "noProviderExecutionProofLimit": "Worker disabled in production config; queued job canceled; zero provider ledger starts/terminals. No packet capture.",
+    "logicalTerminalLedgerRows": 0
+  },
+  "catalogDocumentCount": 1,
+  "canonicalSearchHitCount": 2,
+  "canonicalReadFound": true,
+  "canonicalReadExactIdentity": true,
+  "expectedTextPatternsMatched": 2,
+  "readTextSha256": "8DAA4D7EC8F6D4FA452FE912FE29223FEADB3A6B9BDB544EE04EFDDB321D22AB"
+}

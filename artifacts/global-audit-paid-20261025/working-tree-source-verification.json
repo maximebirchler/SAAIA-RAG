@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "saaia-final-source-verification.v1",
+  "capturedAtUtc": "2026-10-25T19:51:16.4322501+00:00",
+  "sourceCommit": "b3b051120f5dc40283bbd4b1fcc61bed55fd7ea2",
+  "sourceInventory": "client-final-v3/source-files-fc89b3ec2f7140328f17ee935a4529c3-after.json",
+  "sourceInventorySha256": "D5BA70AEBE9D0C9011CB659A07C209A4B65DAC619978625A3AAABAE010894352",
+  "filesVerified": 1685,
+  "mismatches": [],
+  "workingTreeStatus": [],
+  "limits": "Working tree byte hashes match tested inventory. Git stores normalized source text; evidence bytes are preserved by .gitattributes."
+}
