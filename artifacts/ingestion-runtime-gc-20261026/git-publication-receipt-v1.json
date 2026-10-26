@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "saaia-git-publication-receipt.v1",
+  "observedAtUtc": "2026-10-26T11:21:24.612106+00:00",
+  "branch": "SAAIA_V3.1",
+  "publishedCommit": "727e47ea56da291c1a9ab441fa28ca80d1b5f819",
+  "remoteBranchHeadObserved": "727e47ea56da291c1a9ab441fa28ca80d1b5f819",
+  "remoteMatchesLocal": true,
+  "pushExitCode": 0,
+  "reportSha256": "130c43c22c2cdde4335ebc00d48d05a4bdc6086cd5e78773d9cc53718810e358",
+  "scope": "Ingestion corrections, exact-runtime qualification, selected public evidence. Later receipt-only commits can follow this published code commit.",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "paidProviderCalls": 0
+}

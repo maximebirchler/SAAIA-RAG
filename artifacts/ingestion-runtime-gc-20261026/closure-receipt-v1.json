@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "saaia-ingestion-task-closure-receipt.v1",
+  "closedAtUtc": "2026-10-26T11:22:48.997872+00:00",
+  "publishedCodeCommit": "727e47ea56da291c1a9ab441fa28ca80d1b5f819",
+  "telegramFinalReportSent": true,
+  "telegramParts": 3,
+  "telegramLastSentAtUtc": "2026-10-26T11:22:01.1967021+00:00",
+  "hourlyIngestionReportAutomationStatus": "PAUSED",
+  "hourlyAutomationId": "saaia-rapport-horaire-ingestion",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "scope": "Ingestion qualified for exercised corpus/exact runtime. Planning not executed. Legacy vectors without trusted manifests retained.",
+  "paidProviderCalls": 0,
+  "productionStackMutations": 0,
+  "references": [
+    {
+      "path": "RAPPORT-CLOTURE-06.txt",
+      "sha256": "6e40c382910dfa36a56f2f8bfc12be11fbab53f3fbde2b3743ec776b6a4153bf"
+    },
+    {
+      "path": "RAPPORT-CLOTURE-06-telegram.json",
+      "sha256": "eb72482ec331c4e2689f6e905629bde9166aec8f2bdf452e6b00ea5fb697b050"
+    },
+    {
+      "path": "git-publication-receipt-v1.json",
+      "sha256": "c0d11b742298d0ddc73bbbe5bc05b3e375241dddde2c80752d91cb8e22d2d6b8"
+    }
+  ]
+}
