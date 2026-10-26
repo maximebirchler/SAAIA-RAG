@@ -295,20 +295,10 @@ Rules:
         var cards = preferred.MatchedContentCards.Count > 0
             ? preferred.MatchedContentCards
             : fallback.MatchedContentCards;
-        var qualitySignals = preferred.QualitySignals
-            .Concat(fallback.QualitySignals)
-            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
-            .Select(static signal => signal.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(8)
-            .ToList();
-        var chunkQualitySignals = preferred.ChunkQualitySignals
-            .Concat(fallback.ChunkQualitySignals)
-            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
-            .Select(static signal => signal.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(8)
-            .ToList();
+        var qualitySignals = ExtractionQualitySignalTransport.Merge(new[] { preferred, fallback }.Select(source =>
+            ExtractionQualitySignalTransport.Bound(source.QualitySignals, source.QualitySignalsMetadata)));
+        var chunkQualitySignals = ExtractionQualitySignalTransport.Merge(new[] { preferred, fallback }.Select(source =>
+            ExtractionQualitySignalTransport.Bound(source.ChunkQualitySignals, source.ChunkQualitySignalsMetadata)));
 
         return new ToolMemory.SourceRef
         {
@@ -352,8 +342,10 @@ Rules:
             OcrApplied = preferred.OcrApplied || fallback.OcrApplied,
             OcrRecommended = preferred.OcrRecommended || fallback.OcrRecommended,
             ExtractionDiagnosticSummary = CloneSourceExtractionDiagnostic(preferred.ExtractionDiagnosticSummary ?? fallback.ExtractionDiagnosticSummary),
-            QualitySignals = qualitySignals,
-            ChunkQualitySignals = chunkQualitySignals,
+            QualitySignals = qualitySignals.Signals.ToList(),
+            ChunkQualitySignals = chunkQualitySignals.Signals.ToList(),
+            QualitySignalsMetadata = qualitySignals.Metadata,
+            ChunkQualitySignalsMetadata = chunkQualitySignals.Metadata,
             ProfileSignals = MergeSourceProfileSignals([preferred, fallback]),
             MatchedContentCards = cards
                 .Select(static card => new ToolMemory.SourceContentCardRef

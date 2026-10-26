@@ -33,6 +33,8 @@ public sealed record EvidenceItem(
 
     public string? ContentCardId { get; init; }
 
+    public SAAIA.Contracts.RagItemExtractionQuality? ExtractionQualityDetails { get; init; }
+
     public string VisibleSourceKey
     {
         get

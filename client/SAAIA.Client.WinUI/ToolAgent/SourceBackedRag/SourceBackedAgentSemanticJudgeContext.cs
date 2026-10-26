@@ -107,6 +107,7 @@ public sealed partial class SourceBackedAgentV2Runner
         int maximumExcerptCharacters,
         bool constrainedContext)
     {
+        AppendEvidenceExtractionQuality(builder, item);
         builder
             .Append("- ")
             .Append(item.EvidenceId)

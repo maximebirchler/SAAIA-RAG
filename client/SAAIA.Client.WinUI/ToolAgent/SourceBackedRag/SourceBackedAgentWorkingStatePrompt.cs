@@ -267,6 +267,7 @@ public sealed partial class SourceBackedAgentV2Runner
         }
         foreach (var item in selectedEvidence)
         {
+            AppendEvidenceExtractionQuality(compactState, item);
             var sourceKey = item.DocPath ?? item.DocName ?? item.DocId ?? "source-inconnue";
             if (compactSingleSelection)
             {

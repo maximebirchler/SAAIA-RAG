@@ -152,7 +152,10 @@ public static partial class EvidenceBundleBuilder
                     toolSequence,
                     hit),
                 RiskFlags: BuildRiskFlags(hit),
-                Lineage: new[] { $"tool:{toolItem.ToolName}", $"toolSequence:{toolSequence}" });
+                Lineage: new[] { $"tool:{toolItem.ToolName}", $"toolSequence:{toolSequence}" })
+            {
+                ExtractionQualityDetails = ExtractionQualitySignalTransport.ReadQuality(hit)
+            };
             parent = EnrichParentWithEmbeddedRagSourceWindow(
                 parent,
                 hit,
@@ -368,6 +371,7 @@ public static partial class EvidenceBundleBuilder
                 RiskFlags: BuildRiskFlags(contextItem, toolItem.ToolName),
                 Lineage: lineage)
             {
+                ExtractionQualityDetails = ExtractionQualitySignalTransport.ReadQuality(contextItem),
                 AnchorId = carriesSourceAnchorIdentity
                     ? sourceAnchorId
                     : null
@@ -453,6 +457,8 @@ public static partial class EvidenceBundleBuilder
             .First();
         return selected with
         {
+            ExtractionQualityDetails = ExtractionQualitySignalTransport.MergeQualities(
+                representations.Select(item => item.ExtractionQualityDetails), selected.ExtractionQualityDetails),
             Lineage = representations.SelectMany(static item => item.Lineage)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray()

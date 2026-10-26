@@ -27,6 +27,12 @@ la lecture de cette même source sur le binaire et le runtime observés.
   n'est appliquée que lorsque les zones la prouvent ; elle ne signifie pas que
   toutes les pages à colonnes ont été comprises.
 
+Les labels observés `code` et `formula` restent distincts dans les avertissements
+des vues de page, unités et fragments publiés (`observed_block_type_code` ou
+`observed_block_type_formula`, avec `structured_transcription_not_verified`).
+Un label `code` ne prouve pas qu'il s'agit de mathématiques. Ces avertissements
+ne changent ni les caractères source ni le statut de lisibilité en échec OCR.
+
 ## Une grille occupée peut rester physiquement incomplète
 
 Un contrôle complémentaire compare les vrais mots natifs du PDF, avec leurs
@@ -98,6 +104,14 @@ mais un faux exige des diagnostics complets chez tous les contributeurs. Une
 liste de signaux vide observée et une liste inconnue ne sont pas équivalentes.
 Ces états ne constituent toujours pas une validation sémantique du contenu.
 
+La recherche API et le transport client conservent jusqu'à 64 codes par famille
+de signaux, avec leur complétude explicite. Une liste observée vide est transmise
+comme `[]` ; `null` reste réservé à une observation indisponible sans code retenu.
+Une liste partielle ou malformée ne devient pas complète en passant par un prompt,
+une carte ou une fusion. Les codes omis en amont ne sont pas additionnés pour
+inventer le compte exact d'une union. Le prompt peut omettre les champs nuls ;
+il conserve les états inconnus et les marqueurs de complétude.
+
 L'absence de diagnostics, une valeur mal formée ou un agrégat mêlant des
 contributeurs connus et inconnus ne prouvent pas une source propre. Les champs
 restent bornés et leurs omissions explicites. Les réserves sur la géométrie,
@@ -161,7 +175,8 @@ ou un délai sans résultat ne fabrique pas cette observation.
 Les deux modes régionaux partagent un seul emplacement de travail et le même
 superviseur de groupes de processus Linux. Le lancement du conteneur exige un
 init (`init: true` dans Compose) pour récolter les descendants orphelins ; ce
-prérequis ne remplace pas la vérification d'absence du groupe. Une clôture non confirmée bloque
+prérequis ne remplace pas la vérification d'absence du groupe. Une clôture
+non confirmée bloque
 les demandes suivantes, y compris celles qui attendaient déjà, et dégrade
 la santé du service. Ce mécanisme n'atteste pas l'annulation du calcul Docling
 amont. Les compteurs inspectés/candidats/tentés/appliqués/non inspectés doivent

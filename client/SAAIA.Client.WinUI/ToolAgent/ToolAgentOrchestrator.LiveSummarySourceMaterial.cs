@@ -120,12 +120,12 @@ public sealed partial class ToolAgentOrchestrator
             ?? item.ExtractionQuality?.DocumentManualReviewRecommended
             ?? fallbackSource?.ManualReviewRecommended
             ?? false;
-        var signals = item.ExtractionQuality?.Signals?
-            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
-            .Select(static signal => signal.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(8)
-            .ToList();
+        var signals = item.ExtractionQuality is not null
+            ? ExtractionQualitySignalTransport.Bound(item.ExtractionQuality.Signals, item.ExtractionQuality.SignalsMetadata)
+            : ExtractionQualitySignalTransport.Bound(fallbackSource?.QualitySignals, fallbackSource?.QualitySignalsMetadata);
+        var chunkSignals = item.ExtractionQuality is not null
+            ? ExtractionQualitySignalTransport.Bound(item.ExtractionQuality.ChunkQualitySignals, item.ExtractionQuality.ChunkQualitySignalsMetadata)
+            : ExtractionQualitySignalTransport.Bound(fallbackSource?.ChunkQualitySignals, fallbackSource?.ChunkQualitySignalsMetadata);
 
         var cards = item.MatchedContentCards?
             .Where(static card => !string.IsNullOrWhiteSpace(card.Title))
@@ -189,10 +189,10 @@ public sealed partial class ToolAgentOrchestrator
             OcrRecommended: item.ExtractionQuality?.OcrRecommended ?? fallbackSource?.OcrRecommended ?? false,
             ExtractionDiagnosticSummary: BuildSourceExtractionDiagnosticRef(item.ExtractionQuality?.DiagnosticSummary)
                 ?? CloneSourceExtractionDiagnostic(fallbackSource?.ExtractionDiagnosticSummary),
-            QualitySignals: signals is { Count: > 0 } ? signals : fallbackSource?.QualitySignals,
-            ChunkQualitySignals: item.ExtractionQuality?.ChunkQualitySignals is { Count: > 0 } chunkSignals
-                ? chunkSignals
-                : fallbackSource?.ChunkQualitySignals,
+            QualitySignals: signals.Signals,
+            ChunkQualitySignals: chunkSignals.Signals,
+            QualitySignalsMetadata: signals.Metadata,
+            ChunkQualitySignalsMetadata: chunkSignals.Metadata,
             MatchedContentCards: cards is { Count: > 0 } ? cards : fallbackSource?.MatchedContentCards,
             ProfileSignals: MergeSourceProfileSignals(
             [
@@ -254,6 +254,8 @@ public sealed partial class ToolAgentOrchestrator
             ExtractionDiagnosticSummary = CloneSourceExtractionDiagnostic(source.ExtractionDiagnosticSummary ?? chunk.ExtractionDiagnosticSummary),
             QualitySignals = source.QualitySignals.Count > 0 ? source.QualitySignals : chunk.QualitySignals,
             ChunkQualitySignals = source.ChunkQualitySignals.Count > 0 ? source.ChunkQualitySignals : chunk.ChunkQualitySignals,
+            QualitySignalsMetadata = source.QualitySignals.Count > 0 ? source.QualitySignalsMetadata : chunk.QualitySignalsMetadata,
+            ChunkQualitySignalsMetadata = source.ChunkQualitySignals.Count > 0 ? source.ChunkQualitySignalsMetadata : chunk.ChunkQualitySignalsMetadata,
             MatchedContentCards = source.MatchedContentCards.Count > 0 ? source.MatchedContentCards : chunk.MatchedContentCards,
             ProfileSignals = MergeSourceProfileSignals(
             [

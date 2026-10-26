@@ -195,7 +195,9 @@ public sealed partial class ToolAgentOrchestrator
             sourceUnitStartOrdinal,
             sourceUnitEndOrdinal,
             sourceUnitCount,
-            chunkComposition);
+            chunkComposition,
+            QualitySignalsMetadata: ExtractionQualitySignalTransport.Read(h).Metadata,
+            ChunkQualitySignalsMetadata: ExtractionQualitySignalTransport.Read(h, chunk: true).Metadata);
     }
 
     private static int ReadRagHitPageStart(JsonElement h, int fallback = 1)
@@ -446,16 +448,7 @@ public sealed partial class ToolAgentOrchestrator
             return null;
         }
 
-        var signals = ExtractCompactSignals(quality, "chunkQualitySignals")
-            .Concat(ExtractCompactSignals(quality, "chunk_quality_signals"))
-            .Concat(ExtractCompactSignals(quality, "ChunkQualitySignals"))
-            .Concat(hasNestedQuality ? ExtractCompactSignals(h, "chunkQualitySignals") : Array.Empty<string>())
-            .Concat(hasNestedQuality ? ExtractCompactSignals(h, "chunk_quality_signals") : Array.Empty<string>())
-            .Concat(hasNestedQuality ? ExtractCompactSignals(h, "ChunkQualitySignals") : Array.Empty<string>())
-            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(8)
-            .ToList();
+        var signals = ExtractionQualitySignalTransport.Read(h, chunk: true).Signals;
 
         return (
             GetQualityString("chunkTextStatus", "chunk_text_status", "ChunkTextStatus"),
@@ -561,20 +554,7 @@ public sealed partial class ToolAgentOrchestrator
         var ocrApplied = GetQualityBool("ocrApplied", "ocr_applied", "OcrApplied") ?? false;
         var ocrAttempted = GetQualityBool("ocrAttempted", "ocr_attempted", "OcrAttempted", "OCRAttempted") ?? false;
         var ocrRecommended = GetQualityBool("ocrRecommended", "ocr_recommended", "OcrRecommended") ?? false;
-        var signals = ExtractCompactSignals(quality, "signals")
-            .Concat(ExtractCompactSignals(quality, "Signals"))
-            .Concat(ExtractCompactSignals(quality, "chunkQualitySignals"))
-            .Concat(ExtractCompactSignals(quality, "chunk_quality_signals"))
-            .Concat(ExtractCompactSignals(quality, "ChunkQualitySignals"))
-            .Concat(hasNestedQuality ? ExtractCompactSignals(h, "signals") : Array.Empty<string>())
-            .Concat(hasNestedQuality ? ExtractCompactSignals(h, "Signals") : Array.Empty<string>())
-            .Concat(hasNestedQuality ? ExtractCompactSignals(h, "chunkQualitySignals") : Array.Empty<string>())
-            .Concat(hasNestedQuality ? ExtractCompactSignals(h, "chunk_quality_signals") : Array.Empty<string>())
-            .Concat(hasNestedQuality ? ExtractCompactSignals(h, "ChunkQualitySignals") : Array.Empty<string>())
-            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(8)
-            .ToList();
+        var signals = ExtractionQualitySignalTransport.Read(h).Signals;
 
         return (
             qualityStatus,

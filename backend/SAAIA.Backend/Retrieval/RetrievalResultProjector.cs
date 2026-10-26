@@ -590,7 +590,7 @@ ORDER BY sd.doc_path, pi.page_number;
                 PageManualReviewRecommended: pageQuality?.ManualReviewRecommended,
                 TextStatus: pageQuality?.TextStatus ?? doc.TextStatus,
                 OcrRecommended: doc.OcrRecommended,
-                Signals: signals.Signals.Count == 0 ? null : signals.Signals,
+                Signals: signals.Signals.Count == 0 && signals.Metadata.Status == "unavailable" ? null : signals.Signals,
                 DiagnosticSummary: diagnosticSummary,
                 SignalsMetadata: signals.Metadata);
 
@@ -1170,11 +1170,11 @@ WHERE d.tenant_id=@tenant
             PageManualReviewRecommended: quality?.PageManualReviewRecommended,
             TextStatus: quality?.TextStatus ?? chunkStatus,
             OcrRecommended: quality?.OcrRecommended ?? ResolveChunkOcrRecommended(chunkStatus, match.ExtractionOcrCandidate),
-            Signals: mergedSignals.Signals.Count == 0 ? null : mergedSignals.Signals,
+            Signals: mergedSignals.Signals.Count == 0 && mergedSignals.Metadata.Status == "unavailable" ? null : mergedSignals.Signals,
             ChunkTextStatus: chunkStatus,
             ChunkTextSparse: match.ExtractionTextSparse,
             ChunkOcrCandidate: match.ExtractionOcrCandidate,
-            ChunkQualitySignals: chunkSignals.Count == 0 ? null : chunkSignals,
+            ChunkQualitySignals: chunkSignals.Count == 0 && chunkObservation.Metadata.Status == "unavailable" ? null : chunkSignals,
             DiagnosticSummary: quality?.DiagnosticSummary,
             SignalsMetadata: mergedSignals.Metadata,
             ChunkQualitySignalsMetadata: chunkObservation.Metadata);

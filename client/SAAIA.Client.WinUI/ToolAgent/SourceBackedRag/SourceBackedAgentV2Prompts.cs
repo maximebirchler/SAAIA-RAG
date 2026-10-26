@@ -338,6 +338,8 @@ public sealed partial class SourceBackedAgentV2Runner
             if (!bundle.ById.TryGetValue(evidenceId, out var item))
                 continue;
 
+            AppendEvidenceExtractionQuality(context, item);
+
             if (!visibleSourceGroups.TryGetValue(
                     item.VisibleSourceKey,
                     out var visibleSourceGroup))

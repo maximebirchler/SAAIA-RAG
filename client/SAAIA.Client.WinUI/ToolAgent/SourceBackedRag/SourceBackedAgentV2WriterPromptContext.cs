@@ -280,6 +280,7 @@ public sealed partial class SourceBackedAgentV2Runner
                 .Append(TrimPromptValue(item.SourceHash, 90));
         }
         context.AppendLine();
+        AppendEvidenceExtractionQuality(context, item);
         context.AppendLine("EXTRAIT:");
         context.AppendLine(TrimPromptValue(item.Excerpt, excerptCharacters));
     }

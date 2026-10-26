@@ -236,6 +236,10 @@ public static class SourceCardParser
             .OrderByDescending(SourceCardRichnessScore)
             .ToArray();
         var primary = sources[0];
+        var signals = ExtractionQualitySignalTransport.Merge(sources.Select(source =>
+            ExtractionQualitySignalTransport.Bound(source.QualitySignals, source.QualitySignalsMetadata)));
+        var chunkSignals = ExtractionQualitySignalTransport.Merge(sources.Select(source =>
+            ExtractionQualitySignalTransport.Bound(source.ChunkQualitySignals, source.ChunkQualitySignalsMetadata)));
 
         return new SourceCard
         {
@@ -288,8 +292,10 @@ public static class SourceCardParser
             OcrApplied = sources.Any(static s => s.OcrApplied),
             OcrRecommended = sources.Any(static s => s.OcrRecommended),
             ExtractionDiagnosticSummary = MergeDiagnosticSummaries(sources),
-            QualitySignals = MergeStringLists(sources.Select(static s => s.QualitySignals), 8),
-            ChunkQualitySignals = MergeStringLists(sources.Select(static s => s.ChunkQualitySignals), 8),
+            QualitySignals = signals.Signals.ToList(),
+            ChunkQualitySignals = chunkSignals.Signals.ToList(),
+            QualitySignalsMetadata = signals.Metadata,
+            ChunkQualitySignalsMetadata = chunkSignals.Metadata,
             MatchedContentCards = MergeContentCards(sources),
             ProfileSignals = MergeProfileSignals(sources),
             SelectionHintEvidenceRole = PickString(sources, static s => s.SelectionHintEvidenceRole),
@@ -801,16 +807,10 @@ public static class SourceCardParser
                 extractionQuality,
                 "ocrRecommended", "ocr_recommended", "OcrRecommended", "OCRRecommended") ?? false,
             ExtractionDiagnosticSummary = diagnosticSummary,
-            QualitySignals = (extractionQuality is null
-                    ? ExtractSignals(el)
-                    : ExtractSignals(extractionQuality.Value).Concat(ExtractSignals(el)))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList(),
-            ChunkQualitySignals = (extractionQuality is null
-                    ? ExtractChunkQualitySignals(el)
-                    : ExtractChunkQualitySignals(extractionQuality.Value).Concat(ExtractChunkQualitySignals(el)))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList(),
+            QualitySignals = ExtractionQualitySignalTransport.Read(el).Signals.ToList(),
+            ChunkQualitySignals = ExtractionQualitySignalTransport.Read(el, chunk: true).Signals.ToList(),
+            QualitySignalsMetadata = ExtractionQualitySignalTransport.Read(el).Metadata,
+            ChunkQualitySignalsMetadata = ExtractionQualitySignalTransport.Read(el, chunk: true).Metadata,
             MatchedContentCards = ExtractMatchedContentCards(el),
             ProfileSignals = ParseProfileSignals(profileSignals),
             SelectionHintEvidenceRole = selectionHints is null

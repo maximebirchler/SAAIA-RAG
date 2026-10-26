@@ -22,6 +22,7 @@ public static class SourceBackedUiPayloadMapper
     {
         var pageStart = item.PageStart ?? 1;
         var pageEnd = item.PageEnd ?? pageStart;
+        var quality = item.ExtractionQualityDetails;
         return new ToolMemory.SourceRef
         {
             EvidenceId = item.EvidenceId,
@@ -40,6 +41,25 @@ public static class SourceBackedUiPayloadMapper
             AnchorId = item.AnchorId,
             ContentCardId = item.ContentCardId,
             ContentRole = item.SourceKind,
+            ExtractionSource = quality?.ExtractionSource,
+            DocumentQualityStatus = quality?.DocumentQualityStatus,
+            PageQualityStatus = quality?.PageQualityStatus,
+            TextStatus = quality?.TextStatus,
+            ChunkTextStatus = quality?.ChunkTextStatus,
+            ChunkTextSparse = quality?.ChunkTextSparse,
+            ChunkOcrCandidate = quality?.ChunkOcrCandidate,
+            OcrAttempted = quality?.OcrAttempted ?? false,
+            OcrApplied = quality?.OcrApplied ?? false,
+            OcrRecommended = quality?.OcrRecommended ?? false,
+            DocumentManualReviewRecommended = quality?.DocumentManualReviewRecommended ?? false,
+            PageManualReviewRecommended = quality?.PageManualReviewRecommended ?? false,
+            ManualReviewRecommended = quality?.DocumentManualReviewRecommended == true || quality?.PageManualReviewRecommended == true,
+            DocumentExtractionConfidence = quality?.DocumentExtractionConfidence,
+            PageExtractionConfidence = quality?.PageExtractionConfidence,
+            QualitySignals = quality?.Signals?.ToList() ?? [],
+            ChunkQualitySignals = quality?.ChunkQualitySignals?.ToList() ?? [],
+            QualitySignalsMetadata = quality?.SignalsMetadata,
+            ChunkQualitySignalsMetadata = quality?.ChunkQualitySignalsMetadata,
             SelectionHintEvidenceRole = TryGetSelectionHint(item, "evidenceRole", "evidence_role"),
             SelectionHintSupportScore = TryGetIntSelectionHint(item, "supportScore", "support_score"),
             SelectionHintActionabilityScore = TryGetIntSelectionHint(item, "actionabilityScore", "actionability_score")

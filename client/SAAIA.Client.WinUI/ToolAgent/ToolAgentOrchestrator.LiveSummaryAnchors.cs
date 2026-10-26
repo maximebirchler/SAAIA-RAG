@@ -140,6 +140,8 @@ public sealed partial class ToolAgentOrchestrator
             ExtractionDiagnosticSummary = CloneSourceExtractionDiagnostic(item?.ExtractionDiagnosticSummary ?? fallbackSource?.ExtractionDiagnosticSummary),
             QualitySignals = (item?.QualitySignals ?? fallbackSource?.QualitySignals ?? []).ToList(),
             ChunkQualitySignals = (item?.ChunkQualitySignals ?? fallbackSource?.ChunkQualitySignals ?? []).ToList(),
+            QualitySignalsMetadata = item is not null ? item.QualitySignalsMetadata : fallbackSource?.QualitySignalsMetadata,
+            ChunkQualitySignalsMetadata = item is not null ? item.ChunkQualitySignalsMetadata : fallbackSource?.ChunkQualitySignalsMetadata,
             MatchedContentCards = (item?.MatchedContentCards ?? fallbackSource?.MatchedContentCards ?? []).ToList(),
             ProfileSignals = CloneSourceProfileSignalsRef(item?.ProfileSignals ?? fallbackSource?.ProfileSignals),
             SelectionHintEvidenceRole = item?.SelectionHintEvidenceRole ?? fallbackSource?.SelectionHintEvidenceRole,

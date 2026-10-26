@@ -531,6 +531,8 @@ public sealed partial class ToolMemory
         public SourceExtractionDiagnosticRef? ExtractionDiagnosticSummary { get; set; }
         public List<string> QualitySignals { get; set; } = new();
         public List<string> ChunkQualitySignals { get; set; } = new();
+        public SAAIA.Contracts.RagQualitySignalsMetadata? QualitySignalsMetadata { get; set; }
+        public SAAIA.Contracts.RagQualitySignalsMetadata? ChunkQualitySignalsMetadata { get; set; }
         public List<SourceContentCardRef> MatchedContentCards { get; set; } = new();
         public SourceProfileSignalsRef? ProfileSignals { get; set; }
         public string? SelectionHintEvidenceRole { get; set; }

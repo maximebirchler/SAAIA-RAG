@@ -17,7 +17,7 @@ internal static class CanonicalExtractionViewProjector
             var words = Count(text);
             var quality = PdfPageExtractionQuality.FromText(text, words, text.Length);
             quality = quality with { Signals = quality.Signals.Concat(page.QualityFlags)
-                .Concat(CanonicalObservationSelector.SelectPage(page).Blocks.SelectMany(block => block.QualityFlags))
+                .Concat(CanonicalObservationSelector.SelectPage(page).Blocks.SelectMany(CanonicalSourceQuality.SignalsForBlock))
                 .Append("canonical_observation_page_view").Distinct(StringComparer.Ordinal).ToArray() };
             var original = sourceByPage.TryGetValue(page.PageNumber, out var existing) ? existing
                 : new ExtractedPdfPage(page.PageNumber, "", 0, 0, SHA256.HashData(Array.Empty<byte>()));
@@ -46,7 +46,7 @@ internal static class CanonicalExtractionViewProjector
         foreach (var page in document.Pages.OrderBy(page => page.PageNumber))
         {
             var blockSignals = page.Blocks.ToDictionary(block => block.BlockId,
-                block => block.QualityFlags, StringComparer.Ordinal);
+                CanonicalSourceQuality.SignalsForBlock, StringComparer.Ordinal);
             foreach (var observation in TextObservations(page, order))
             {
                 int? section = observation.BlockId is not null && sectionByBlock.TryGetValue(observation.BlockId, out var known)

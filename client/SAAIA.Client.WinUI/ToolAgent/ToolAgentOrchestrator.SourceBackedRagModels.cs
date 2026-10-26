@@ -82,7 +82,9 @@ public sealed partial class ToolAgentOrchestrator
         int? SourceUnitStartOrdinal = null,
         int? SourceUnitEndOrdinal = null,
         int? SourceUnitCount = null,
-        string? ChunkComposition = null);
+        string? ChunkComposition = null,
+        RagQualitySignalsMetadata? QualitySignalsMetadata = null,
+        RagQualitySignalsMetadata? ChunkQualitySignalsMetadata = null);
 
     private sealed record RagHitContentCardSummary(
         string Title,

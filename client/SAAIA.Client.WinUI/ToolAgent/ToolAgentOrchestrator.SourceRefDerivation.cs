@@ -88,20 +88,10 @@ public sealed partial class ToolAgentOrchestrator
         var ocrRecommended = qualityElement.HasValue
             ? TryGetBool(qualityElement.Value, "ocrRecommended") ?? TryGetBool(qualityElement.Value, "ocr_recommended") ?? TryGetBool(qualityElement.Value, "OcrRecommended") ?? false
             : TryGetBool(src, "ocrRecommended") ?? TryGetBool(src, "ocr_recommended") ?? TryGetBool(src, "OcrRecommended") ?? false;
-        var signals = (quality.Signals ?? Array.Empty<string>())
-            .Concat(qualityElement.HasValue ? ExtractCompactSignals(qualityElement.Value, "signals") : Array.Empty<string>())
-            .Concat(qualityElement.HasValue ? ExtractCompactSignals(qualityElement.Value, "Signals") : Array.Empty<string>())
-            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
-            .Select(static signal => signal.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(8)
-            .ToList();
-        var chunkSignals = (chunkQuality.Signals ?? Array.Empty<string>())
-            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
-            .Select(static signal => signal.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(8)
-            .ToList();
+        var signalObservation = ExtractionQualitySignalTransport.Read(src);
+        var chunkSignalObservation = ExtractionQualitySignalTransport.Read(src, chunk: true);
+        var signals = signalObservation.Signals.ToList();
+        var chunkSignals = chunkSignalObservation.Signals.ToList();
 
         var cards = ExtractRagHitMatchedContentCards(src)?
             .Where(static card => !string.IsNullOrWhiteSpace(card.Title))
@@ -246,6 +236,8 @@ public sealed partial class ToolAgentOrchestrator
             ExtractionDiagnosticSummary = diagnosticSummary,
             QualitySignals = signals,
             ChunkQualitySignals = chunkSignals,
+            QualitySignalsMetadata = signalObservation.Metadata,
+            ChunkQualitySignalsMetadata = chunkSignalObservation.Metadata,
             MatchedContentCards = cards,
             ProfileSignals = BuildSourceProfileSignalsRef(src),
             SelectionHintEvidenceRole = selectionHints.HasValue

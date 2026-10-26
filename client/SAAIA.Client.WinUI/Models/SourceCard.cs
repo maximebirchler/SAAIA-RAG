@@ -60,6 +60,8 @@ public sealed class SourceCard
     public SourceExtractionDiagnosticSummary? ExtractionDiagnosticSummary { get; set; }
     public List<string> QualitySignals { get; set; } = new();
     public List<string> ChunkQualitySignals { get; set; } = new();
+    public SAAIA.Contracts.RagQualitySignalsMetadata? QualitySignalsMetadata { get; set; }
+    public SAAIA.Contracts.RagQualitySignalsMetadata? ChunkQualitySignalsMetadata { get; set; }
     public List<SourceContentCard> MatchedContentCards { get; set; } = new();
     public SourceProfileSignals? ProfileSignals { get; set; }
     public string? SelectionHintEvidenceRole { get; set; }

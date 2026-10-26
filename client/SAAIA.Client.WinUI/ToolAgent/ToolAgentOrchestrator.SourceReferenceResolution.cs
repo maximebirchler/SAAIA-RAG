@@ -131,6 +131,8 @@ public sealed partial class ToolAgentOrchestrator
             ExtractionDiagnosticSummary = CloneSourceExtractionDiagnostic(used?.ExtractionDiagnosticSummary),
             QualitySignals = used?.QualitySignals.ToList() ?? new List<string>(),
             ChunkQualitySignals = used?.ChunkQualitySignals.ToList() ?? new List<string>(),
+            QualitySignalsMetadata = used?.QualitySignalsMetadata,
+            ChunkQualitySignalsMetadata = used?.ChunkQualitySignalsMetadata,
             MatchedContentCards = used?.MatchedContentCards.ToList() ?? new List<ToolMemory.SourceContentCardRef>(),
             ProfileSignals = CloneSourceProfileSignalsRef(used?.ProfileSignals),
             SelectionHintEvidenceRole = used?.SelectionHintEvidenceRole,

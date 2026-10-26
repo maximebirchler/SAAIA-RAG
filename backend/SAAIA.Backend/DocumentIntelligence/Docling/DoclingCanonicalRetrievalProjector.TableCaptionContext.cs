@@ -24,7 +24,7 @@ internal static partial class DoclingCanonicalRetrievalProjector
                 NormalizeText(PdfTextSanitizer.ForStorage(block.Text.Retrieval)),
                 "table_caption", block.BlockId, navigation, false, 1, null, false,
                 [block.BlockId], block.Spans.Select(span => span.SpanId).ToArray(), [],
-                CanonicalSourceQuality.Combine(page, block.QualityFlags), IsTableCaption: true))
+                CanonicalSourceQuality.Combine(page, block), IsTableCaption: true))
             .ToArray();
     }
 }

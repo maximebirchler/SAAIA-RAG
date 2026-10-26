@@ -267,17 +267,12 @@ public sealed partial class ToolAgentOrchestrator
         if (diagnosticSummary is not null)
             compact["diagnosticSummary"] = diagnosticSummary;
 
-        var signals = ExtractCompactSignals(quality, "signals")
-            .Concat(ExtractCompactSignals(quality, "Signals"))
-            .Concat(ExtractCompactSignals(quality, "chunkQualitySignals"))
-            .Concat(ExtractCompactSignals(quality, "chunk_quality_signals"))
-            .Concat(ExtractCompactSignals(quality, "ChunkQualitySignals"))
-            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
-            .Distinct(StringComparer.Ordinal)
-            .Take(5)
-            .ToArray();
-        if (signals.Length > 0)
-            compact["signals"] = signals;
+        var signals = ExtractionQualitySignalTransport.Read(quality);
+        var chunkSignals = ExtractionQualitySignalTransport.Read(quality, chunk: true);
+        compact["signals"] = signals.Signals;
+        compact["signalsMetadata"] = signals.Metadata;
+        compact["chunkQualitySignals"] = chunkSignals.Signals;
+        compact["chunkQualitySignalsMetadata"] = chunkSignals.Metadata;
 
         var nonEmpty = compact
             .Where(static pair => pair.Value is not null)

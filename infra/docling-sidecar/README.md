@@ -31,7 +31,7 @@ Si l'absence du groupe ne peut pas être confirmée, le créneau partagé est bl
 pour les deux modes et `/health` devient indisponible. Un redémarrage du service
 est requis ; une région suivante ne contourne jamais cette incertitude.
 
-Ce service conserve Docling Serve comme parseur principal et ajoute deux
+Ce service conserve Docling Serve comme parseur principal et ajoute trois
 compléments génériques et traçables :
 
 - la hiérarchie native Docling des titres, calculée à partir des signets, de la
@@ -53,8 +53,11 @@ compléments génériques et traçables :
 6. Une grille clairsemée et non chevauchée déclenche l’OCR de la seule région
    du tableau avec RapidOCR déjà inclus dans l’image épinglée.
 7. La réparation n’est acceptée que si chaque coordonnée manquante possède une
-   observation OCR et si le texte absorbé par une cellule voisine peut être
-   séparé par sa géométrie ou sa composition textuelle exacte.
+   observation OCR admise dans l'enveloppe des centres observés. Une ligne très
+   éloignée n'est pas rattachée automatiquement à la dernière cellule.
+   La scission d'un texte absorbé exige sa composition littérale dans l'ordre
+   des lignes : casse, signes et valeurs sont conservés ; seuls les blancs
+   sont normalisés. La géométrie seule ne permet pas cette réécriture.
 8. En cas d’ambiguïté ou d’erreur, le résultat Docling original est conservé.
 
 Ce composant ne choisit ni la pertinence d’une source, ni une recette, ni la

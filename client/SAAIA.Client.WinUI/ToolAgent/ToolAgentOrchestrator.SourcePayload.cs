@@ -21,6 +21,10 @@ public sealed partial class ToolAgentOrchestrator
             .OrderByDescending(ComputeSourceRefRichness)
             .ToList();
         var primary = preserveVisibleIdentity ? originalSources[0] : sources[0];
+        var signals = ExtractionQualitySignalTransport.Merge(sources.Select(source =>
+            ExtractionQualitySignalTransport.Bound(source.QualitySignals, source.QualitySignalsMetadata)));
+        var chunkSignals = ExtractionQualitySignalTransport.Merge(sources.Select(source =>
+            ExtractionQualitySignalTransport.Bound(source.ChunkQualitySignals, source.ChunkQualitySignalsMetadata)));
 
         return new ToolMemory.SourceRef
         {
@@ -76,20 +80,10 @@ public sealed partial class ToolAgentOrchestrator
             ExtractionDiagnosticSummary = sources
                 .Select(static source => CloneSourceExtractionDiagnostic(source.ExtractionDiagnosticSummary))
                 .FirstOrDefault(static summary => summary is not null),
-            QualitySignals = sources
-                .SelectMany(static source => source.QualitySignals)
-                .Where(static signal => !string.IsNullOrWhiteSpace(signal))
-                .Select(static signal => signal.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Take(8)
-                .ToList(),
-            ChunkQualitySignals = sources
-                .SelectMany(static source => source.ChunkQualitySignals)
-                .Where(static signal => !string.IsNullOrWhiteSpace(signal))
-                .Select(static signal => signal.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Take(8)
-                .ToList(),
+            QualitySignals = signals.Signals.ToList(),
+            ChunkQualitySignals = chunkSignals.Signals.ToList(),
+            QualitySignalsMetadata = signals.Metadata,
+            ChunkQualitySignalsMetadata = chunkSignals.Metadata,
             MatchedContentCards = MergeSourceContentCards(sources, maxCardsPerSource),
             ProfileSignals = MergeSourceProfileSignals(sources),
             SelectionHintEvidenceRole = PickSourceString(sources, static source => source.SelectionHintEvidenceRole),
@@ -601,6 +595,8 @@ public sealed partial class ToolAgentOrchestrator
     private static object? BuildSourceExtractionQualityPayload(ToolMemory.SourceRef source)
     {
         var diagnosticSummary = BuildSourceExtractionDiagnosticPayload(source.ExtractionDiagnosticSummary);
+        var signals = ExtractionQualitySignalTransport.Bound(source.QualitySignals, source.QualitySignalsMetadata);
+        var chunkSignals = ExtractionQualitySignalTransport.Bound(source.ChunkQualitySignals, source.ChunkQualitySignalsMetadata);
         if (string.IsNullOrWhiteSpace(source.QualityStatus)
             && string.IsNullOrWhiteSpace(source.ExtractionSource)
             && string.IsNullOrWhiteSpace(source.DocumentQualityStatus)
@@ -620,6 +616,8 @@ public sealed partial class ToolAgentOrchestrator
             && !source.OcrRecommended
             && source.QualitySignals.Count == 0
             && source.ChunkQualitySignals.Count == 0
+            && source.QualitySignalsMetadata is null
+            && source.ChunkQualitySignalsMetadata is null
             && diagnosticSummary is null)
         {
             return null;
@@ -644,8 +642,10 @@ public sealed partial class ToolAgentOrchestrator
             ocrAttempted = source.OcrAttempted,
             ocrApplied = source.OcrApplied,
             ocrRecommended = source.OcrRecommended,
-            signals = source.QualitySignals.Count == 0 ? null : source.QualitySignals,
-            chunkQualitySignals = source.ChunkQualitySignals.Count == 0 ? null : source.ChunkQualitySignals,
+            signals = signals.Signals,
+            signalsMetadata = signals.Metadata,
+            chunkQualitySignals = chunkSignals.Signals,
+            chunkQualitySignalsMetadata = chunkSignals.Metadata,
             diagnosticSummary
         };
     }

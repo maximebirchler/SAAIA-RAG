@@ -6,6 +6,30 @@ using SAAIA.Contracts.DocumentIntelligence;
 /// </summary>
 internal static class CanonicalSourceQuality
 {
+    internal const string ObservedCodeBlockSignal = "observed_block_type_code";
+    internal const string ObservedFormulaBlockSignal = "observed_block_type_formula";
+    internal const string StructuredTranscriptionNotVerifiedSignal = "structured_transcription_not_verified";
+
+    // Preserve the converter's observed label as qualification metadata. A code
+    // label does not establish mathematics, and neither label verifies symbols
+    // or two-dimensional relationships. Do not inspect or rewrite the text.
+    internal static IReadOnlyList<string> SignalsForBlock(CanonicalBlock block)
+    {
+        ArgumentNullException.ThrowIfNull(block);
+        var observedType = block.BlockType switch
+        {
+            "code" => ObservedCodeBlockSignal,
+            "formula" => ObservedFormulaBlockSignal,
+            _ => null
+        };
+        return observedType is null ? block.QualityFlags.ToArray()
+            : block.QualityFlags.Concat([observedType, StructuredTranscriptionNotVerifiedSignal])
+                .Distinct(StringComparer.Ordinal).ToArray();
+    }
+
+    internal static IReadOnlyList<string> Combine(CanonicalPage page, CanonicalBlock block)
+        => Combine(page, SignalsForBlock(block));
+
     internal static IReadOnlyList<string> Combine(CanonicalPage page, IEnumerable<string> signals)
         => signals.Concat(page.QualityFlags).Distinct(StringComparer.Ordinal).ToArray();
 

@@ -630,6 +630,10 @@ public sealed partial class ToolAgentOrchestrator
         var selectionHintSource = usePreciseFallback ? fallback : source;
         var pageQualitySource = usePreciseFallback ? fallback : source;
         var contentSignalSource = usePreciseFallback ? fallback : source;
+        var signals = ExtractionQualitySignalTransport.Merge(new[] { source, fallback }.Select(item =>
+            ExtractionQualitySignalTransport.Bound(item.QualitySignals, item.QualitySignalsMetadata)));
+        var chunkSignals = ExtractionQualitySignalTransport.Merge(new[] { source, fallback }.Select(item =>
+            ExtractionQualitySignalTransport.Bound(item.ChunkQualitySignals, item.ChunkQualitySignalsMetadata)));
 
         return new ToolMemory.SourceRef
         {
@@ -683,20 +687,10 @@ public sealed partial class ToolAgentOrchestrator
             OcrApplied = source.OcrApplied || fallback.OcrApplied,
             OcrRecommended = source.OcrRecommended || fallback.OcrRecommended,
             ExtractionDiagnosticSummary = CloneSourceExtractionDiagnostic(source.ExtractionDiagnosticSummary ?? fallback.ExtractionDiagnosticSummary),
-            QualitySignals = source.QualitySignals
-                .Concat(fallback.QualitySignals)
-                .Where(static signal => !string.IsNullOrWhiteSpace(signal))
-                .Select(static signal => signal.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Take(8)
-                .ToList(),
-            ChunkQualitySignals = source.ChunkQualitySignals
-                .Concat(fallback.ChunkQualitySignals)
-                .Where(static signal => !string.IsNullOrWhiteSpace(signal))
-                .Select(static signal => signal.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Take(8)
-                .ToList(),
+            QualitySignals = signals.Signals.ToList(),
+            ChunkQualitySignals = chunkSignals.Signals.ToList(),
+            QualitySignalsMetadata = signals.Metadata,
+            ChunkQualitySignalsMetadata = chunkSignals.Metadata,
             MatchedContentCards = MergeSourceContentCards(
                 usePreciseFallback
                     ? new[] { fallback, source }

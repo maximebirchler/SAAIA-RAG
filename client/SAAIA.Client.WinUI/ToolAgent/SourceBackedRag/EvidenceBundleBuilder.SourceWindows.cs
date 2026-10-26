@@ -180,7 +180,10 @@ public static partial class EvidenceBundleBuilder
                     $"toolSequence:{toolSequence}",
                     $"sourceWindowAnchor:{anchorChunkId}",
                     $"sourceWindowChunk:{chunkId}"
-                }));
+                })
+            {
+                ExtractionQualityDetails = ExtractionQualitySignalTransport.ReadQuality(windowItem)
+            });
         }
     }
 }

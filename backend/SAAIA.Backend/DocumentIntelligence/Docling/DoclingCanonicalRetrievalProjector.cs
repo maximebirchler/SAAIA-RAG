@@ -281,7 +281,7 @@ internal static partial class DoclingCanonicalRetrievalProjector
                             .Select(static span => span.SpanId)
                             .ToArray(),
                         [],
-                        CanonicalSourceQuality.Combine(page, block.QualityFlags)));
+                        CanonicalSourceQuality.Combine(page, block)));
                     continue;
                 }
 
@@ -314,7 +314,7 @@ internal static partial class DoclingCanonicalRetrievalProjector
                     [block.BlockId],
                     block.Spans.Select(static span => span.SpanId).ToArray(),
                     [],
-                    CanonicalSourceQuality.Combine(page, block.QualityFlags)));
+                    CanonicalSourceQuality.Combine(page, block)));
             }
 
             foreach (var table in observations.Tables)

@@ -69,7 +69,9 @@ public sealed partial class ToolAgentOrchestrator
         string? ContentRole = null,
         string? NavigationReason = null,
         double? RetrievalNavigationScore = null,
-        double? ContentDensityScore = null);
+        double? ContentDensityScore = null,
+        SAAIA.Contracts.RagQualitySignalsMetadata? QualitySignalsMetadata = null,
+        SAAIA.Contracts.RagQualitySignalsMetadata? ChunkQualitySignalsMetadata = null);
 
     private sealed class ExplicitDocumentResolution
     {

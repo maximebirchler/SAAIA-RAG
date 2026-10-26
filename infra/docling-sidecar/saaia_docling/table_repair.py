@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import Counter, defaultdict
+from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
 from math import isfinite
@@ -148,6 +148,8 @@ def repair_sparse_table(
     for line in usable_lines:
         row = _nearest_index(line.center_y, row_centers)
         column = _nearest_index(line.center_x, column_centers)
+        if row is None or column is None:
+            continue
         assigned[(row, column)].append(line)
 
     if any(not assigned.get(coordinate) for coordinate in missing):
@@ -181,19 +183,16 @@ def repair_sparse_table(
             contains_missing_center = (
                 parsed.top <= row_centers[missing_row] <= parsed.bottom
             )
-            exact_composition = _is_exact_row_composition(
-                parsed.text,
-                own_text,
-                [
-                    rendered[other]
-                    for other in missing
-                    if other[1] == missing_column
-                    and rendered.get(other)
-                ],
+            ordered_parts = sorted(
+                [(coordinate, own_text)]
+                + [(other, rendered[other]) for other in missing
+                   if other[1] == missing_column and rendered.get(other)]
             )
-            if contains_missing_center or exact_composition:
+            exact_composition = _is_exact_row_composition(
+                parsed.text, [text for _, text in ordered_parts])
+            if exact_composition:
                 suspects.add(coordinate)
-            elif _contains_normalized(parsed.text, missing_text):
+            elif contains_missing_center or _contains_normalized(parsed.text, missing_text):
                 return _not_applied(
                     original,
                     "absorbed_text_split_is_ambiguous",
@@ -400,7 +399,16 @@ def _strictly_increasing(values: Sequence[float]) -> bool:
     return all(left < right for left, right in zip(values, values[1:]))
 
 
-def _nearest_index(value: float, centers: Sequence[float]) -> int:
+def _nearest_index(value: float, centers: Sequence[float]) -> int | None:
+    # Nearest alone assigns arbitrarily distant notes to the outermost cell.
+    # Extrapolate only half the observed adjacent spacing at each outer edge;
+    # this is a geometry admission bound, not proof of semantic membership.
+    if len(centers) < 2 or not isfinite(value):
+        return None
+    lower = centers[0] - (centers[1] - centers[0]) / 2
+    upper = centers[-1] + (centers[-1] - centers[-2]) / 2
+    if not lower <= value <= upper:
+        return None
     return min(range(len(centers)), key=lambda index: abs(value - centers[index]))
 
 
@@ -428,13 +436,10 @@ def _render_lines(lines: Sequence[OcrLine]) -> str:
 
 def _is_exact_row_composition(
     existing: str,
-    own: str,
-    missing_values: Iterable[str],
+    ordered_values: Iterable[str],
 ) -> bool:
-    existing_tokens = Counter(_tokens(existing))
-    expected_tokens = Counter(_tokens(own))
-    for value in missing_values:
-        expected_tokens.update(_tokens(value))
+    existing_tokens = _tokens(existing)
+    expected_tokens = [token for value in ordered_values for token in _tokens(value)]
     return bool(existing_tokens) and existing_tokens == expected_tokens
 
 
@@ -444,7 +449,9 @@ def _contains_normalized(container: str, value: str) -> bool:
 
 
 def _tokens(value: str) -> list[str]:
-    return _normalize(value).split()
+    # Case can distinguish units and identifiers. Only whitespace is mechanical
+    # for a composition that authorizes rewriting source cells.
+    return str(value or "").split()
 
 
 def _normalize(value: Any) -> str:

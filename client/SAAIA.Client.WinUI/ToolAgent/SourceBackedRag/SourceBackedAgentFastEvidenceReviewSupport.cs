@@ -358,8 +358,11 @@ public sealed partial class SourceBackedAgentV2Runner
         EvidenceItem item,
         bool includeDocumentPath)
     {
+        var quality = new StringBuilder();
+        AppendEvidenceExtractionQuality(quality, item);
+        var qualitySuffix = quality.Length == 0 ? string.Empty : " | " + quality.ToString().TrimEnd();
         if (includeDocumentPath)
-            return BuildEvidenceDocumentMetadata(item);
+            return BuildEvidenceDocumentMetadata(item) + qualitySuffix;
 
         var values = new List<string>();
         if (!string.IsNullOrWhiteSpace(item.DocName))
@@ -371,9 +374,9 @@ public sealed partial class SourceBackedAgentV2Runner
             values.Add("p=" + item.PageStart.Value);
         }
 
-        return values.Count > 0
+        return (values.Count > 0
             ? string.Join(" | ", values)
-            : "source";
+            : "source") + qualitySuffix;
     }
 
     private static string BuildFastEvidenceWindowMetadata(

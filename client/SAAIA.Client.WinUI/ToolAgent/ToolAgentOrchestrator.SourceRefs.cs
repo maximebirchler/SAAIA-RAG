@@ -219,18 +219,10 @@ public sealed partial class ToolAgentOrchestrator
             OcrApplied = hit.OcrApplied,
             OcrRecommended = hit.OcrRecommended,
             ExtractionDiagnosticSummary = CloneSourceExtractionDiagnostic(hit.ExtractionDiagnosticSummary),
-            QualitySignals = hit.QualitySignals?
-                .Where(static signal => !string.IsNullOrWhiteSpace(signal))
-                .Select(static signal => signal.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Take(8)
-                .ToList() ?? new List<string>(),
-            ChunkQualitySignals = hit.ChunkQualitySignals?
-                .Where(static signal => !string.IsNullOrWhiteSpace(signal))
-                .Select(static signal => signal.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Take(8)
-                .ToList() ?? new List<string>(),
+            QualitySignals = hit.QualitySignals?.ToList() ?? new List<string>(),
+            ChunkQualitySignals = hit.ChunkQualitySignals?.ToList() ?? new List<string>(),
+            QualitySignalsMetadata = hit.QualitySignalsMetadata,
+            ChunkQualitySignalsMetadata = hit.ChunkQualitySignalsMetadata,
             MatchedContentCards = hit.MatchedContentCards?
                 .Where(static card => !string.IsNullOrWhiteSpace(card.Title))
                 .Select(static card => new ToolMemory.SourceContentCardRef

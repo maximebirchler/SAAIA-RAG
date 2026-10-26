@@ -768,6 +768,8 @@ public sealed class RagChatAgent
 
     private static object BuildSearchOnlyFallbackSourcePayload(RagItem item)
     {
+        var signals = ExtractionQualitySignalTransport.Bound(item.ExtractionQuality?.Signals, item.ExtractionQuality?.SignalsMetadata);
+        var chunkSignals = ExtractionQualitySignalTransport.Bound(item.ExtractionQuality?.ChunkQualitySignals, item.ExtractionQuality?.ChunkQualitySignalsMetadata);
         var pageStart = item.PageStart ?? 1;
         var pageEnd = item.PageEnd ?? item.PageStart ?? 1;
         var docPath = (item.DocPath ?? string.Empty).Replace('\u005C', '/');
@@ -824,11 +826,13 @@ public sealed class RagChatAgent
                 item.ExtractionQuality.PageManualReviewRecommended,
                 item.ExtractionQuality.TextStatus,
                 item.ExtractionQuality.OcrRecommended,
-                item.ExtractionQuality.Signals,
+                Signals = signals.Signals,
+                SignalsMetadata = signals.Metadata,
                 item.ExtractionQuality.ChunkTextStatus,
                 item.ExtractionQuality.ChunkTextSparse,
                 item.ExtractionQuality.ChunkOcrCandidate,
-                item.ExtractionQuality.ChunkQualitySignals,
+                ChunkQualitySignals = chunkSignals.Signals,
+                ChunkQualitySignalsMetadata = chunkSignals.Metadata,
                 item.ExtractionQuality.DiagnosticSummary
             },
             matchedContentCards = item.MatchedContentCards?

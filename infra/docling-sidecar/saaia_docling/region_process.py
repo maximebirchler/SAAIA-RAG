@@ -185,4 +185,3 @@ def _owned_group_exists(pid: int) -> bool:
     except ProcessLookupError:
         return False
     return True
-
