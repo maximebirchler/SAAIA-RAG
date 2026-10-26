@@ -10,6 +10,15 @@ static class PdfExtractor
 
     public static PdfExtractionResult Extract(string pdfPath, CancellationToken ct)
     {
+        using var source = new FileStream(pdfPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        return Extract(source, ct);
+    }
+
+    internal static PdfExtractionResult Extract(Stream source, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var sourceSha = PdfNativeWordExtractor.HashOpenedSource(source, ct);
+        source.Position = 0;
         var tokens = new List<WordToken>();
         var pages = new List<ExtractedPdfPage>();
         var rawPages = new List<(int PageNumber, string Text, int ImageCount)>();
@@ -18,8 +27,10 @@ static class PdfExtractor
         var pageSizeByPage = new Dictionary<int, (double WidthPoints, double HeightPoints)>();
         var nativeLayoutByPage = new Dictionary<int, PdfNativeLayoutExtraction>();
         var nativeImagesByPage = new Dictionary<int, IReadOnlyList<ExtractedPdfImageRegion>>();
+        var nativeWordsByPage = new Dictionary<int, PdfNativeWordObservation>();
+        var remainingNativeWords = PdfNativeWordExtractor.MaximumWordsPerDocument;
 
-        using var doc = PdfPig.PdfDocument.Open(pdfPath);
+        using var doc = PdfPig.PdfDocument.Open(source);
         foreach (var page in doc.GetPages())
         {
             ct.ThrowIfCancellationRequested();
@@ -29,6 +40,10 @@ static class PdfExtractor
             var text = OcrNoiseFilter.RemoveSpacedLetterRunNoise(PdfTextSanitizer.ForStorage(rawText));
             var nativeLayout = ExtractNativeLayout(page);
             var nativeImages = ExtractPageImages(page);
+            var nativeWords = PdfNativeWordExtractor.Extract(page, sourceSha, remainingNativeWords, ct,
+                sourceStructure: doc.Structure);
+            remainingNativeWords -= Math.Min(remainingNativeWords, nativeWords.InspectedWordCount);
+            nativeWordsByPage[page.Number] = nativeWords;
             rawPages.Add((page.Number, text, nativeImages.Count));
             sourceTextByPage[page.Number] = sourceText;
             pageSizeByPage[page.Number] = (page.Width, page.Height);
@@ -83,9 +98,12 @@ static class PdfExtractor
                     rawPage.PageNumber,
                     out var nativeImages)
                     ? nativeImages
-                    : Array.Empty<ExtractedPdfImageRegion>()));
+                    : Array.Empty<ExtractedPdfImageRegion>(),
+                NativeWordObservation: nativeWordsByPage[rawPage.PageNumber]));
         }
 
+        if (!string.Equals(sourceSha, PdfNativeWordExtractor.HashOpenedSource(source, ct), StringComparison.Ordinal))
+            throw new InvalidDataException("native_pdf_source_changed_on_open_handle");
         return new PdfExtractionResult(tokens, pages, PdfExtractionQualitySummary.FromPages(pages));
     }
 

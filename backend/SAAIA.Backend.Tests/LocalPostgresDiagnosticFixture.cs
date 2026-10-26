@@ -37,7 +37,7 @@ internal sealed class LocalPostgresDiagnosticFixture : IAsyncDisposable
         {
             if (migrateProduct)
                 await DbMigrator.ApplyMigrationsAsync(fixture.ConnectionString,
-                    Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "SAAIA.Backend", "Db", "Migrations")), CancellationToken.None);
+                    TestRepositoryPaths.MigrationsDirectory, CancellationToken.None);
             return fixture;
         }
         catch { await fixture.DisposeAsync(); throw; }

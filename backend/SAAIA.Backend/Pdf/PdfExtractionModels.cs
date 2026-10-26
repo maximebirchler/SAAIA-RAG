@@ -13,7 +13,8 @@ sealed record ExtractedPdfPage(
     IReadOnlyList<ExtractedPdfLayoutBlock>? NativeLayoutBlocks = null,
     string? NativeLayoutAlgorithm = null,
     IReadOnlyList<ExtractedPdfImageRegion>? NativeImageRegions = null,
-    IReadOnlyList<PdfOcrPageObservation>? OcrObservations = null);
+    IReadOnlyList<PdfOcrPageObservation>? OcrObservations = null,
+    PdfNativeWordObservation? NativeWordObservation = null);
 
 sealed record PdfPageExtractionQuality(
     string TextStatus,

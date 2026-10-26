@@ -7,6 +7,7 @@ from importlib import metadata
 def conversion_execution_metadata(
     fields: Iterable[tuple[str, str]], *, repair_enabled: bool,
     render_scale: float, padding_points: float, minimum_score: float,
+    text_repair_settings: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Attest the received request and this sidecar's effective settings, not OCR page success."""
     received = dict(fields)
@@ -15,7 +16,7 @@ def conversion_execution_metadata(
         if value is None:
             return None
         return value.strip().casefold() in {"true", "1", "yes", "on"}
-    return {
+    result = {
         "status": "observed_configuration",
         "package_versions": observed_package_versions(),
         "do_ocr": flag("do_ocr"),
@@ -25,6 +26,9 @@ def conversion_execution_metadata(
         "table_repair_padding_points": padding_points,
         "table_repair_minimum_score": minimum_score,
     }
+    if text_repair_settings is not None:
+        result["text_repair_settings"] = dict(text_repair_settings)
+    return result
 
 
 def observed_package_versions() -> dict[str, str | None]:

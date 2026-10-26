@@ -20,6 +20,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         content is the current window; retained prefix/history windows preserve
         context. They are not contiguous text. Unread gaps and omitted windows
         establish no fact; do not reconstruct words or requirements across gaps.
+        Current structuredTables rows are a source-bound auxiliary view of the
+        contributing evidenceIds, not a new citation. Cite all fragments needed
+        for a cross-row relationship. complete means observed canonical grid
+        coverage, never full PDF fidelity or validated visual interpretation.
+        Respect missing rows, qualitySignals and explicit row pagination.
+        sourceQuality carries observed extraction diagnostics, separate from
+        documentary facts. semanticAccuracy=not_verified always means that
+        extraction status ok is not proof of accurate recognition, complete
+        figures, or a correct interpretation. Preserve concrete warnings when
+        reasoning about the affected evidence; absent diagnostics are unknown,
+        not a clean bill of health. metadataMalformed or metadataTruncated
+        indicates limited diagnostics, never permission to infer missing facts.
+        These diagnostics do not require human approval of every excerpt. Use
+        readable, grounded facts when the concrete warnings do not undermine
+        the claim; limit uncertainty to the affected value or relationship.
         When sourceStructure.contextScope is physical_page or
         physical_page_window and sectionAssociation is not_asserted, only
         physical co-location is established. Do not infer that a marginal value
@@ -81,7 +96,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         sourceOverview gives the actual indexed physical page range and chunk
         count for this observed revision, not the length of an original unabridged
         book. A contents entry may refer to a printed page absent from this indexed
-        file. Do not copy those numbers as physical coordinates. If a readDiagnostic
+        file. sourceOverview.visualAssets reports retained pixels only.
+        interpretationStatus=not_performed and imageToolAvailable=false mean no
+        image pixels were supplied to this model. Do not infer diagram arrows,
+        spatial relationships or unreadable labels from availability metadata.
+        Do not copy printed page numbers as physical coordinates. If a readDiagnostic
         reports outside_indexed_page_range or no_canonical_chunks_in_window, use
         the available physical range or search_corpus for the exact observed title
         in another eligible source. That result does not prove corpus absence.
@@ -94,6 +113,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         title, scope and substantive body evidence together when appropriate.
         All tool, time, evidence and model-call limits still apply. An empty
         window establishes no text in that window, not absence from the corpus.
+        structuredTables is an auxiliary join of observed canonical rows, not
+        a new single-chunk citation. Its evidenceIds name the actual contributing
+        fragments; cite all needed contributors for a relation across fragments.
+        complete and completenessBasis describe canonical grid row coverage only,
+        never faithful PDF segmentation, all source pixels, or visual semantics.
+        Preserve qualitySignals and gaps. Read another row window using the same
+        sourceKey/page window and optional tableOrdinal, tableRowOffset and
+        tableRowLimit (1 to 200); copy nextRowOffset, never invent absent rows.
         You can find a literal text in an observed document revision with
         {"operation":"find_source_text","sourceKey":"exact observed sourceKey",
         "query":"literal text to locate","topK":20,"offset":0}. This is a
@@ -132,7 +159,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         {
             name = "read_source", operation = "read_source",
             sourceKey = "required exact observed sourceKey", pageStart = "positive integer physical page",
-            pageEnd = "inclusive physical page, at most three pages after pageStart", topK = 60
+            pageEnd = "inclusive physical page, at most three pages after pageStart", topK = 60,
+            tableOrdinal = "optional observed table ordinal; null reads available tables",
+            tableRowOffset = "optional original zero-based row offset; copy structuredTables.nextRowOffset",
+            tableRowLimit = "optional integer 1 to 200; source header groups are retained"
         },
             BuildCanonicalFindToolForPrompt()
         };
@@ -373,6 +403,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 documentaryBudget
             },
             availableCategories,
+            structuredTables = BuildStructuredTablesForPrompt(evidence),
             observations = evidence
         }, JsonOptions);
 
@@ -755,6 +786,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 .Where(static id => !string.IsNullOrWhiteSpace(id))
                 .ToArray(),
             originalWriterJson,
+            structuredTables = BuildStructuredTablesForPrompt(evidence),
             evidence
         }, JsonOptions);
 
@@ -776,9 +808,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         AdvancedAnalysisSourceOverview? SourceOverview,
         [property: JsonIgnore] AdvancedAnalysisResultEvidence SourceReference)
     {
+        [JsonIgnore] public AdvancedAnalysisTableFragment? SourceTableFragment { get; init; }
+        [JsonIgnore] public AdvancedAnalysisSearchRequest? TableReadWindow { get; init; }
+        [JsonIgnore] public IReadOnlyList<string> VisibleStructuredTableRows { get; set; } = [];
         public int ContentOffset { get; init; }
         public int? NextContentOffset { get; init; }
         public PromptEvidenceStructure? SourceStructure { get; init; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public AdvancedAnalysisSourceQuality? SourceQuality { get; init; }
         public IReadOnlyList<PromptEvidenceWindow> SupportingContentWindows { get; init; } = [];
         public int SupportingContentWindowsOmittedCount { get; init; }
     }
@@ -791,6 +828,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     // before matching could manufacture a title across an unread interval.
     private static IReadOnlyList<string> GetVisibleEvidenceContents(PromptEvidenceItem evidence)
         => new[] { evidence.Content }.Concat(evidence.SupportingContentWindows.Select(item => item.Content))
+            .Concat(evidence.VisibleStructuredTableRows)
             .Where(content => !string.IsNullOrEmpty(content)).ToArray();
 
     private static IReadOnlyList<string> GetVisibleEvidenceContents(JsonElement evidence)
@@ -900,6 +938,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             load = BuildPromptLoad(request.Handoff.Load),
             claimCoordinates = BuildStructuredClaimCoordinates(
                 request.Handoff.Load),
+            structuredTables = BuildStructuredTablesForPrompt(evidence),
             evidence
         }, JsonOptions);
 
@@ -948,6 +987,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     candidateDossier.EligibleCandidateKeys,
                     candidateDossier.Instruction
                 },
+            structuredTables = BuildStructuredTablesForPrompt(evidence),
             evidence
         }, JsonOptions);
 
@@ -976,6 +1016,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     evidenceIds = claim.EvidenceIds
                 }).ToArray()
             },
+            structuredTables = BuildStructuredTablesForPrompt(evidence),
             evidence
         }, JsonOptions);
 
@@ -1006,6 +1047,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 }).ToArray()
             },
             invalidCriticJson,
+            structuredTables = BuildStructuredTablesForPrompt(evidence),
             evidence
         }, JsonOptions);
 
@@ -1132,6 +1174,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var remaining = preserveDocumentaryContext
             ? configuredMaximum
             : (int)Math.Max(configuredMaximum, structuredMinimum);
+        // A joined source table shares this same serialized evidence budget.
+        // Keep canonical fragment identities visible and reserve a bounded part
+        // for its row view rather than duplicating two full textual surfaces.
+        if (evidence.Any(item => item.TableFragment is not null))
+            remaining = Math.Min(remaining, configuredMaximum / 2);
         remaining -= 2; // The serialized evidence array brackets consume the same budget.
         var promptEvidence = new List<PromptEvidenceItem>();
         var sourceKeys = persistentSourceKeys
@@ -1216,6 +1263,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 item.SourceOverview,
                 item.Reference)
             {
+                SourceTableFragment = item.TableFragment,
+                SourceQuality = item.SourceQuality?.Bound(),
+                TableReadWindow = item.TableReadWindow,
                 ContentOffset = contentOffset,
                 SourceStructure = item.SourceStructure is { } structure
                     ? BuildPromptEvidenceStructure(structure, item.Reference.PageStart, item.Reference.PageEnd) : null,

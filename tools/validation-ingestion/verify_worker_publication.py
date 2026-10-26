@@ -20,6 +20,8 @@ from canonical_search_checks import check_search_capture
 from tools.ingestion_gold.canonical_evaluator import evaluate_canonical_snapshot
 from tools.ingestion_gold.contracts import select_cases, validate_manifest
 from tools.ingestion_gold.critical_facts import critical_fact_issues
+from tools.ingestion_gold.structured_fact_surfaces import (
+    has_structured_chunks, document_source_windows, build_retrieval_windows)
 
 
 def _sha(data: bytes) -> str:
@@ -87,6 +89,19 @@ def verify(manifest: dict, selected_ids: list[str], observation: dict, api: dict
             chunks.append({**chunk.get("metadata", {}), **chunk})
         if checksum_failures or not chunks:
             issues.append("stored_chunk_checksum_or_count")
+        fact_row = row
+        structured_windows, structured_errors = None, []
+        if has_structured_chunks(chunks):
+            scope = dict(document_id=row.get('docId'), revision_id=row.get('revisionId'), source_sha256=case['sourceSha256'])
+            try:
+                structured_windows, structured_errors = build_retrieval_windows(document, chunks, **scope)
+                fact_row = {**row, '_verifiedRetrievalWindows': structured_windows}
+            except (ValueError, KeyError, TypeError):
+                structured_windows = {}
+                structured_errors = [{'code': 'fact_surface_scope_invalid'}]
+            if structured_errors:
+                issues.extend(sorted({'structured_fact_surface_unavailable' if error.get('state') == 'UNAVAILABLE'
+                                      else 'structured_fact_surface' for error in structured_errors}))
         # The worker is the projector here. Its actual loaded DLL is recorded by
         # bootstrap. Chunking cannot be overridden through this campaign overlay;
         # the helper-only self-attestation guard is not fabricated for SQL data.
@@ -99,7 +114,9 @@ def verify(manifest: dict, selected_ids: list[str], observation: dict, api: dict
         if not bundle.get("sourceAnchors") or row.get("sourceAnchorCount") != len(bundle["sourceAnchors"]):
             issues.append("source_anchor_count")
         context_pages: dict[int, list[str]] = {}
+        api_windows = {} if structured_windows is not None else None
         api_identity = True
+        chunks_by_id = {c['retrievalChunkId']: c for c in row.get('chunks', [])}
         for captured in api.get(path, []):
             page, context = captured["physicalPage"], captured["response"]
             context_identity = context.get("document", {})
@@ -107,7 +124,18 @@ def verify(manifest: dict, selected_ids: list[str], observation: dict, api: dict
                     or context_identity.get("revisionId") != row["revisionId"] or context_identity.get("sourceHash") != case["sourceSha256"]):
                 api_identity = False
             context_pages[page] = [item.get("text", item.get("textContent", "")) for item in context.get("items", [])]
-        api_fact_issues = critical_fact_issues(case["expectations"]["criticalFacts"], context_pages)
+            if api_windows is not None:
+                api_windows.setdefault(page, [])
+                for item in context.get('items', []):
+                    chunk_id = item.get('chunkId')
+                    stored = chunks_by_id.get(chunk_id)
+                    if stored is None or item.get('text') != stored['text'] \
+                            or not stored['pageStart'] <= page <= stored['pageEnd']:
+                        api_identity = False
+                    else:
+                        api_windows[page].extend(structured_windows.get(str(chunk_id), []))
+        legacy_api_fact_issues = critical_fact_issues(case['expectations']['criticalFacts'], context_pages)
+        api_fact_issues = critical_fact_issues(case["expectations"]["criticalFacts"], context_pages, physical_windows=api_windows)
         if not api_identity or api_fact_issues:
             issues.append("read_api_identity_or_facts")
         ids = [chunk["retrievalChunkId"] for chunk in chunks]
@@ -124,7 +152,7 @@ def verify(manifest: dict, selected_ids: list[str], observation: dict, api: dict
             issues.append("qdrant_points_identity_or_plan")
         search = None
         if require_search:
-            search = check_search_capture(case, row, (searches or {}).get(path))
+            search = check_search_capture(case, fact_row, (searches or {}).get(path))
             absent_documents = [item.get("request", {}).get("docId") for item in
                 (searches or {}).get(path, {}).get("negative", []) if item.get("kind") == "absent_document"]
             if any(value in {doc.get("docId") for doc in documents} for value in absent_documents):
@@ -136,6 +164,10 @@ def verify(manifest: dict, selected_ids: list[str], observation: dict, api: dict
             "canonicalBundleChecksumExact": artifact_exact, "chunkCount": len(chunks), "chunkChecksumFailures": checksum_failures,
             "sourceAnchorCount": row.get("sourceAnchorCount"), "criticalPhysicalFactCount": len(case["expectations"]["criticalFacts"]),
             "canonicalChecksPassed": canonical["ok"], "readApiFactsPassed": api_identity and not api_fact_issues,
+            "readApiFactsLegacyRawPassed": api_identity and not legacy_api_fact_issues,
+            "criticalFactsLegacyRawPassed": canonical['metrics'].get('criticalFactsLegacyRawPassed'),
+            "criticalFactsSourceBoundPassed": canonical['metrics'].get('criticalFactsSourceBoundPassed'),
+            "structuredFactSurfaceErrors": structured_errors,
             "qdrantPointCount": len(points), "qdrantPointIdsAndPlanExact": vector_exact,
             "canonicalSearch": search})
     return {"schemaVersion": "saaia-owned-worker-publication-verification.v1",

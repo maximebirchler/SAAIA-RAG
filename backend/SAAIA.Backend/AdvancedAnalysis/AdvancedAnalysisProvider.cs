@@ -13,7 +13,12 @@ internal sealed record AdvancedAnalysisResolvedEvidence(
     string Content,
     string? ExactTitle = null,
     AdvancedAnalysisSourceOverview? SourceOverview = null,
-    AdvancedAnalysisEvidenceStructure? SourceStructure = null);
+    AdvancedAnalysisEvidenceStructure? SourceStructure = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] AdvancedAnalysisTableFragment? TableFragment = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] AdvancedAnalysisSearchRequest? TableReadWindow = null)
+{
+    public AdvancedAnalysisSourceQuality? SourceQuality { get; init; }
+}
 
 internal sealed record AdvancedAnalysisEvidenceStructure(
     string? SectionTitle,
@@ -32,7 +37,13 @@ internal sealed record AdvancedAnalysisEvidenceStructure(
 internal sealed record AdvancedAnalysisSourceOverview(
     int FirstIndexedPhysicalPage,
     int LastIndexedPhysicalPage,
-    int CanonicalChunkCount);
+    int CanonicalChunkCount)
+{
+    public AdvancedAnalysisVisualAvailability? VisualAssets { get; init; }
+}
+
+internal sealed record AdvancedAnalysisVisualAvailability(string Status, long AvailableAssetCount,
+    IReadOnlyList<int> PhysicalPages, bool AssetsOmitted, string InterpretationStatus, bool ImageToolAvailable);
 
 internal sealed record AdvancedAnalysisProviderRequest(
     Guid JobId,

@@ -17,6 +17,7 @@ internal static class CanonicalExtractionViewProjector
             var words = Count(text);
             var quality = PdfPageExtractionQuality.FromText(text, words, text.Length);
             quality = quality with { Signals = quality.Signals.Concat(page.QualityFlags)
+                .Concat(CanonicalObservationSelector.SelectPage(page).Blocks.SelectMany(block => block.QualityFlags))
                 .Append("canonical_observation_page_view").Distinct(StringComparer.Ordinal).ToArray() };
             var original = sourceByPage.TryGetValue(page.PageNumber, out var existing) ? existing
                 : new ExtractedPdfPage(page.PageNumber, "", 0, 0, SHA256.HashData(Array.Empty<byte>()));
@@ -44,6 +45,8 @@ internal static class CanonicalExtractionViewProjector
         var units = new List<ExtractedDocumentUnit>();
         foreach (var page in document.Pages.OrderBy(page => page.PageNumber))
         {
+            var blockSignals = page.Blocks.ToDictionary(block => block.BlockId,
+                block => block.QualityFlags, StringComparer.Ordinal);
             foreach (var observation in TextObservations(page, order))
             {
                 int? section = observation.BlockId is not null && sectionByBlock.TryGetValue(observation.BlockId, out var known)
@@ -55,6 +58,8 @@ internal static class CanonicalExtractionViewProjector
                     SHA256.HashData(Encoding.UTF8.GetBytes(text)), ExtractionTextStatus: quality.TextStatus,
                     ExtractionTextSparse: quality.TextSparse, ExtractionOcrCandidate: quality.OcrCandidate,
                     ExtractionQualitySignals: quality.Signals.Concat(page.QualityFlags)
+                        .Concat(observation.BlockId is not null && blockSignals.TryGetValue(observation.BlockId, out var signals)
+                            ? signals : [])
                         .Append(section.HasValue ? "canonical_section_link" : "section_association_not_asserted")
                         .Distinct(StringComparer.Ordinal).ToArray()));
             }
@@ -66,15 +71,16 @@ internal static class CanonicalExtractionViewProjector
         IReadOnlyDictionary<string, int> order)
     {
         var observations = new List<(int Order, int SubOrder, string Text, string Raw, string? BlockId)>();
-        foreach (var block in page.Blocks)
+        var selection = CanonicalObservationSelector.SelectPage(page);
+        foreach (var block in selection.Blocks)
             if (!string.IsNullOrWhiteSpace(block.Text.Canonical))
-                observations.Add((Order(block.Provenance, block.ReadingOrder), block.Ordinal,
+                observations.Add((selection.ResolveOrder(block.BlockId, Order(block.Provenance, block.ReadingOrder)), block.Ordinal,
                     block.Text.Canonical, block.Text.Raw, block.BlockId));
-        foreach (var table in page.Tables)
+        foreach (var table in selection.Tables)
             foreach (var row in table.Cells.GroupBy(cell => cell.RowIndex).OrderBy(row => row.Key))
             {
                 var cells = row.OrderBy(cell => cell.ColumnIndex).ThenBy(cell => cell.CellId, StringComparer.Ordinal).ToArray();
-                observations.Add((Order(table.Provenance, table.Ordinal), row.Key,
+                observations.Add((selection.ResolveOrder(table.TableId, Order(table.Provenance, table.Ordinal)), row.Key,
                     string.Join("\t", cells.Select(cell => cell.Text.Canonical)),
                     string.Join("\t", cells.Select(cell => cell.Text.Raw)), null));
             }

@@ -1,6 +1,11 @@
 """Pure source-bound canonical search checks; never executes HTTP or SQL."""
 from __future__ import annotations
 
+import base64
+import gzip
+import hashlib
+import io
+import json
 import re
 import uuid
 
@@ -44,6 +49,76 @@ def _current_items(items: list, case: dict, row: dict, page: int) -> bool:
                 or item.get("pageEnd") != chunk["pageEnd"] or not chunk["pageStart"] <= page <= chunk["pageEnd"]):
             return False
     return True
+
+
+def fact_in_current_item(item: dict, row: dict, fact: dict) -> bool:
+    """Match an unchanged API item through preverified SQL row windows only."""
+    windows = row.get('_verifiedRetrievalWindows')
+    if windows is not None:
+        from tools.ingestion_gold.structured_fact_surfaces import fact_in_windows
+        return fact_in_windows(fact['text'], windows.get(str(item.get('chunkId')), []))
+    pattern = re.compile(r'(?<!\w)' + re.escape(exact_text(fact['text'])) + r'(?!\w)')
+    return bool(pattern.search(exact_text(item.get('text', ''))))
+
+
+def choose_current_fact_hit(case: dict, row: dict, response: dict):
+    """Select unchanged current evidence; the caller must still execute its GET.
+
+    This does not fabricate a source read or approve the physical PDF. A regular
+    grid needs its real canonical bindings before row literals can select a hit.
+    """
+    from tools.ingestion_gold.structured_fact_surfaces import has_structured_chunks, build_retrieval_windows
+    from tools.ingestion_gold.structured_table_bindings import require
+    fact = search_fact(case)
+    chunks, items = row.get('chunks'), response.get('items')
+    require(isinstance(chunks, list) and chunks and len(chunks) <= 100_000
+            and len({c.get('retrievalChunkId') for c in chunks}) == len(chunks), 'search_row_chunk_identity_invalid')
+    require(row.get('sourceSha256') == case['sourceSha256'], 'search_row_source_mismatch')
+    for chunk in chunks:
+        require(isinstance(chunk.get('text'), str)
+                and hashlib.sha256(chunk['text'].encode('utf-8')).hexdigest() == chunk.get('checksumSha256'),
+                'search_row_chunk_checksum_mismatch')
+    verified_row = row
+    if has_structured_chunks(chunks):
+        document = _decode_search_document(case, row)
+        windows, errors = build_retrieval_windows(document, chunks, document_id=row['docId'],
+            revision_id=row['revisionId'], source_sha256=case['sourceSha256'])
+        # Explicit overlap ledgers are preserved but cannot supply row evidence.
+        # A missing regular-grid map or invalid binding must never fall back.
+        require(all(e.get('code') == 'fact_surface_explicit_overlap_ledger_not_a_regular_grid'
+                    and e.get('state') == 'UNAVAILABLE' for e in errors), 'search_structured_binding_refused')
+        verified_row = {**row, '_verifiedRetrievalWindows': windows}
+    require(isinstance(items, list) and all(isinstance(item, dict) for item in items), 'search_items_array_required')
+    if response.get('query') != fact['text'] or not _current_items(items, case, row, fact['page']):
+        return None
+    return next((item for item in items if fact_in_current_item(item, verified_row, fact)), None)
+
+
+def _decode_search_document(case: dict, row: dict) -> dict:
+    """One bounded, checksummed source decoder for the pure hit selector."""
+    from tools.ingestion_gold.structured_table_bindings import require
+    artifacts = row.get('binaryArtifacts', [])
+    require(isinstance(artifacts, list) and len(artifacts) == 1, 'search_one_canonical_bundle_required')
+    artifact = artifacts[0]
+    require(artifact.get('artifactType') == 'canonical_ingestion_bundle' and artifact.get('compression') == 'gzip'
+            and type(artifact.get('byteSize')) is int and 0 < artifact['byteSize'] <= 64 * 1024**2
+            and type(artifact.get('storedSize')) is int and 0 < artifact['storedSize'] <= 64 * 1024**2
+            and isinstance(artifact.get('payloadBase64'), str) and len(artifact['payloadBase64']) <= 90 * 1024**2,
+            'search_canonical_bundle_format_or_size')
+    # PostgreSQL encode(bytea,'base64') inserts line breaks. Only that wire
+    # wrapping is removed; arbitrary ignored characters remain a hard refusal.
+    payload = artifact['payloadBase64'].replace('\r', '').replace('\n', '')
+    compressed = base64.b64decode(payload, validate=True)
+    with gzip.GzipFile(fileobj=io.BytesIO(compressed)) as reader:
+        raw = reader.read(64 * 1024**2 + 1)
+    require(len(raw) == artifact['byteSize'] and len(compressed) == artifact['storedSize']
+            and hashlib.sha256(raw).hexdigest() == artifact.get('contentHash'), 'search_canonical_bundle_checksum')
+    bundle = json.loads(raw.decode('utf-8'))
+    document = bundle.get('document', {})
+    require(bundle.get('schemaVersion') == 'canonical_ingestion_bundle_v1'
+            and document.get('documentId') == row['docId'] and document.get('revisionId') == row['revisionId']
+            and document.get('source', {}).get('sha256') == case['sourceSha256'], 'search_canonical_bundle_scope')
+    return document
 
 
 def _nonce_control(response: dict, case: dict, row: dict, page: int) -> tuple[bool, bool]:
@@ -114,10 +189,12 @@ def check_search_capture(case: dict, row: dict, capture: dict | None) -> dict:
         chunk = chunks.get(item.get("chunkId"))
         if chunk is None:
             continue
-        if chunk["pageStart"] <= fact["page"] <= chunk["pageEnd"] and pattern.search(exact_text(item.get("text"))):
+        if chunk["pageStart"] <= fact["page"] <= chunk["pageEnd"] and fact_in_current_item(item, row, fact):
             found.append(item["chunkId"])
     result["searchIdentityExact"] = bool(identity_ok)
     result["positiveFactFound"] = bool(found)
+    result['positiveFactFoundLegacyRawText'] = any(pattern.search(exact_text(item.get('text', ''))) for item in items)
+    result['factSurfaceBasis'] = 'verified_source_bound_windows' if '_verifiedRetrievalWindows' in row else 'legacy_raw_text'
     lexical_zero, dense_current = _nonce_control(controls.get("absent_query", {}).get("response", {}), case, row, fact["page"])
     absent_document = controls.get("absent_document", {}).get("response", {})
     document_empty = isinstance(absent_document.get("items"), list) and not absent_document["items"]

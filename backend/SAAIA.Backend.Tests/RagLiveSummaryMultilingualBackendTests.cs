@@ -441,15 +441,7 @@ WHERE tenant_id=@tenant AND doc_id=@docId;
             };
 
             var db = new PostgresIntegrationDb(adminConnectionString, databaseName, dbBuilder.ConnectionString);
-            var migrationsDir = Path.GetFullPath(Path.Combine(
-                AppContext.BaseDirectory,
-                "..",
-                "..",
-                "..",
-                "..",
-                "SAAIA.Backend",
-                "Db",
-                "Migrations"));
+            var migrationsDir = TestRepositoryPaths.MigrationsDirectory;
             await DbMigrator.ApplyMigrationsAsync(db.ConnectionString, migrationsDir, CancellationToken.None);
             return db;
         }

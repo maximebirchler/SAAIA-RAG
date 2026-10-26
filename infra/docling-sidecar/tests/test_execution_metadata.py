@@ -32,3 +32,11 @@ class ExecutionMetadataTests(unittest.TestCase):
                 render_scale=2.5, padding_points=12.0, minimum_score=0.5)
         self.assertEqual("observed-docling-serve", result["package_versions"]["docling-serve"])
         self.assertEqual("observed-rapidocr", result["package_versions"]["rapidocr"])
+
+    def test_regional_text_settings_attest_configuration_not_successful_ocr(self) -> None:
+        settings = {"enabled": True, "max_regions": 4, "secondary_engine": "tesseract"}
+        result = conversion_execution_metadata([], repair_enabled=True, render_scale=2.5,
+            padding_points=12, minimum_score=0.5, text_repair_settings=settings)
+        self.assertEqual(settings, result["text_repair_settings"])
+        self.assertNotIn("successful_pages", result)
+        self.assertNotIn("engine_version", result["text_repair_settings"])

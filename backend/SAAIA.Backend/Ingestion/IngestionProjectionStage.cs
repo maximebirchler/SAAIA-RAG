@@ -13,6 +13,7 @@ internal sealed record IngestionStructureResult(CanonicalDocument? CanonicalDocu
     long CanonicalMilliseconds, long SectionMilliseconds, long UnitMilliseconds)
 {
     internal PdfExtractionResult? CanonicalExtraction { get; init; }
+    internal NativeTableCoverageSummary? NativeTableCoverage { get; init; }
 }
 
 internal sealed record IngestionIndexProjection(IReadOnlyList<ExtractedExactMatchEntry> ExactEntries,
@@ -21,7 +22,8 @@ internal sealed record IngestionIndexProjection(IReadOnlyList<ExtractedExactMatc
 /// <summary>Owns structure and index projections; independent from leases, transport and worker lifecycle.</summary>
 internal static class IngestionProjectionStage
 {
-    internal static IngestionStructureResult ProjectStructure(IngestionStructureRequest request, ILogger logger)
+    internal static IngestionStructureResult ProjectStructure(IngestionStructureRequest request, ILogger logger,
+        CancellationToken ct = default)
     {
         using var probe = BackendDiagnostics.Start("ingestion.project_structure", logger);
         try
@@ -29,6 +31,7 @@ internal static class IngestionProjectionStage
             CanonicalDocument? canonical = null;
             NativeTextCoverageReconciliationSummary? reconciliation = null;
             NativePdfImageInventorySummary? images = null;
+            NativeTableCoverageSummary? tableCoverage = null;
             long canonicalMilliseconds = 0;
             if (request.Conversion?.Document.JsonContent is { } document)
             {
@@ -38,10 +41,12 @@ internal static class IngestionProjectionStage
                     request.SourceHash, request.SourceBytes, request.FileName, request.SourceHash, "canonical_projection",
                     DoclingExecutionMetadataPolicy.DescribeEngine(request.Options, request.Conversion),
                     request.Options.DeploymentRevision, request.Conversion.Confidence?.MeanScore), document);
+                tableCoverage = CanonicalNativeTableCoverageAuditor.Apply(canonical, request.NativeTextLayer, ct);
                 reconciliation = CanonicalNativeTextCoverageReconciler.Apply(canonical, request.NativeTextLayer,
                     request.Options.NativeTextCoverageReconciliationEnabled, request.Options.NativeTextCoverageMinimumLineCoverage);
                 images = CanonicalNativePdfImageInventoryReconciler.Apply(canonical, request.NativeTextLayer,
                     request.Options.NativePdfImageInventoryEnabled);
+                DoclingCanonicalVisualAssetProjector.LinkPageAssets(canonical);
                 canonicalMilliseconds = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds;
                 probe.Set("native_recovered_lines", reconciliation.RecoveredLineCount);
                 probe.Set("native_recovered_blocks", reconciliation.RecoveredBlockCount);
@@ -49,6 +54,19 @@ internal static class IngestionProjectionStage
                 probe.Set("native_audited_pages", reconciliation.AuditedPageCount);
                 probe.Set("native_skipped_low_quality_pages", reconciliation.SkippedLowQualityPageCount);
                 probe.Set("native_added_figures", images.AddedFigureCount);
+                probe.Set("retained_visual_assets", canonical.Assets.Count);
+                probe.Set("retained_visual_bytes", canonical.Assets.Sum(asset => asset.SizeBytes));
+                probe.Set("figures_with_pixels", canonical.Pages.SelectMany(page => page.Figures).Count(figure => figure.AssetIds.Count > 0));
+                probe.Set("figures_without_pixels", canonical.Pages.SelectMany(page => page.Figures).Count(figure => figure.AssetIds.Count == 0));
+                probe.Set("native_table_audited_tables", tableCoverage.AuditedTableCount);
+                probe.Set("native_table_unresolved_tables", tableCoverage.UnresolvedTableCount);
+                probe.Set("native_table_unavailable_tables", tableCoverage.UnavailableTableCount);
+                probe.Set("native_table_refused_tables", tableCoverage.RefusedTableCount);
+                probe.Set("native_table_known_unrepresented_words", tableCoverage.ObservedUnrepresentedWordCount);
+                probe.Set("native_table_unrepresented_words_available", tableCoverage.UnrepresentedWordCount.HasValue);
+                if (tableCoverage.UnrepresentedWordCount is { } knownWords)
+                    probe.Set("native_table_unrepresented_words", knownWords);
+                probe.Set("native_table_coverage_ms", tableCoverage.DurationMs);
             }
             var sectionStarted = Stopwatch.GetTimestamp();
             var sections = canonical is null ? DocumentSectionExtractor.Extract(request.Extraction.Pages)
@@ -73,7 +91,8 @@ internal static class IngestionProjectionStage
             probe.Set("unit_ms", unitMilliseconds);
             probe.Complete();
             return new(canonical, reconciliation, images, sections, units,
-                canonicalMilliseconds, sectionMilliseconds, unitMilliseconds) { CanonicalExtraction = canonicalExtraction };
+                canonicalMilliseconds, sectionMilliseconds, unitMilliseconds)
+                { CanonicalExtraction = canonicalExtraction, NativeTableCoverage = tableCoverage };
         }
         catch (Exception exception) { probe.Fail(exception); throw; }
     }

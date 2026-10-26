@@ -56,6 +56,7 @@ internal sealed class DoclingClient(
                     var result = await ConvertAttemptAsync(source, Path.GetFileName(pdfPath),
                         deadline.Token, forceOcrOverride);
                     deadline.Token.ThrowIfCancellationRequested();
+                    DoclingRegionalTextRepairPolicy.RecordDiagnostics(operation, result);
                     attemptProbe.Complete();
                     operation.Set("retry_count", attempt - 1);
                     operation.Complete();
@@ -124,6 +125,8 @@ internal sealed class DoclingClient(
         Add(form, "do_table_structure", options.DoTableStructure);
         Add(form, "include_images", options.IncludeImages);
         Add(form, "include_page_images", options.IncludePageImages);
+        Add(form, "image_export_mode", options.IncludeImages || options.IncludePageImages
+            ? "embedded" : "placeholder");
         Add(
             form,
             "saaia_heading_hierarchy_enabled",

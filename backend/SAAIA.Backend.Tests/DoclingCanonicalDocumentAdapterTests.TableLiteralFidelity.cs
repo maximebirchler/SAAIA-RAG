@@ -22,9 +22,12 @@ public sealed partial class DoclingCanonicalDocumentAdapterTests
         var table = Assert.Single(chunks, chunk => chunk.ChunkType == DoclingCanonicalRetrievalProjector.TableChunkType);
         var fact = string.Join(" ", new[] { module, limit, observation }.Where(value => value.Length > 0));
 
-        Assert.Contains(fact, Regex.Replace(table.Text, @"\s+", " "), StringComparison.Ordinal);
+        var row = ReadStructuredTable(table.Text).Elements("tr").Single(element =>
+            element.Elements().Any(cell => cell.Value == module));
+        Assert.Equal(new[] { module, limit, observation }, row.Elements().Select(cell => cell.Value));
+        Assert.Contains(fact, Regex.Replace(DoclingCanonicalRetrievalProjector.ResolveLiteralSearchText(table), @"\s+", " "), StringComparison.Ordinal);
         Assert.DoesNotContain(" | ", table.Text, StringComparison.Ordinal);
-        Assert.Contains(module + "\t" + limit, table.Text, StringComparison.Ordinal);
+        Assert.Contains(module + "\t" + limit, DoclingCanonicalRetrievalProjector.ResolveLiteralSearchText(table), StringComparison.Ordinal);
         Assert.Equal(canonical.Pages[0].Tables[0].Cells.Count, table.CanonicalTableCellIds!.Count);
         Assert.Empty(CanonicalContractValidator.Validate(canonical));
     }

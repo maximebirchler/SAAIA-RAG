@@ -27,6 +27,15 @@ sealed class DocumentIntelligenceOptions
     public double RegionalTableRepairScale { get; set; } = 2.5;
     public double RegionalTableRepairPaddingPoints { get; set; } = 12;
     public double RegionalTableRepairMinimumScore { get; set; } = 0.5;
+    public bool RegionalTextRepairEnabled { get; set; }
+    public int RegionalTextRepairMaxRegions { get; set; } = 4;
+    public double RegionalTextRepairTotalTimeoutSeconds { get; set; } = 60;
+    public double RegionalTextRepairRegionTimeoutSeconds { get; set; } = 15;
+    public double RegionalTextRepairRenderScale { get; set; } = 4;
+    public double RegionalTextRepairPaddingPoints { get; set; } = 2;
+    public double RegionalTextRepairMinimumRapidScore { get; set; } = 0.98;
+    public double RegionalTextRepairMinimumSecondaryScore { get; set; } = 0.95;
+    public int RegionalTextRepairMaxRenderedPixels { get; set; } = 20_000_000;
     public bool NativeTextCoverageReconciliationEnabled { get; set; } = true;
     public double NativeTextCoverageMinimumLineCoverage { get; set; } = 0.90;
     public bool NativePdfImageInventoryEnabled { get; set; } = true;

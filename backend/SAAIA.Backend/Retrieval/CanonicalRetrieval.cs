@@ -509,7 +509,7 @@ WHERE d.tenant_id=@tenant AND d.status='indexed' AND d.indexed_version>0
         JOIN lookup_terms t ON md5(e.normalized_text)=md5(t.term) AND e.normalized_text=t.term
         WHERE e.tenant_id=rc.tenant_id AND e.revision_id=rc.revision_id
             AND (e.unit_id=rc.unit_id OR rc.metadata->'sourceUnitOrdinals' @> jsonb_build_array(u.ordinal))
-            AND e.text_content<>'' AND position(e.text_content in rc.text_content)>0
+            AND e.text_content<>'' AND position(e.text_content in COALESCE(rc.metadata->>'literalSearchText',rc.text_content))>0
     )
 ORDER BY d.doc_id, rc.chunk_index
 LIMIT @topK;

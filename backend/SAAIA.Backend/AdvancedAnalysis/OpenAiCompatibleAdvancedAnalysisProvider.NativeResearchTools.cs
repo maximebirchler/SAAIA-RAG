@@ -30,8 +30,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         read_evidence with that evidenceId and character offset to inspect another
         exact window of its already revalidated canonical text. This does not
         retrieve another document or establish the missing text without reading it.
-        The current evidence.content window and explicitly offset
-        supportingContentWindows are the only visible text for that evidence ID.
+        The current evidence.content window, explicitly offset
+        supportingContentWindows and current structuredTables rows bound to that
+        evidenceId are the visible documentary text for that evidence ID.
         They can be cited together, but separate windows do not establish text
         in the gaps between them. An earlier window absent from the current
         evidence projection is not documentary proof retained by tool history.
@@ -60,6 +61,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         object Text(string description) => new { type = "string", description };
         object Choice(string[] values) => new { type = "string", @enum = values };
         object Count(int minimum, int maximum) => new { type = "integer", minimum, maximum };
+        object OptionalCount(int minimum,int maximum) => new { type=new[] {"integer","null"},minimum,maximum };
         object Function(string name, string description, Dictionary<string, object> properties)
             => new { type = "function", function = new { name, description, strict = true,
                 parameters = new { type = "object", properties, required = properties.Keys.ToArray(), additionalProperties = false } } };
@@ -88,7 +90,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             functions.Add(Function("read_source", "Read a physical page window of an observed revision. Page bounds are inclusive; at most four pages per request. topK bounds every chunk intersecting the window: if the bounded result reports canonical_read_window_result_limit_exceeded, retry with a smaller window or a larger permitted topK instead of treating the source as absent. Useful for reading bodies located by contents or headings.", new()
             {
                 ["sourceKey"] = Choice(sources), ["pageStart"] = Count(1, int.MaxValue),
-                ["pageEnd"] = Count(1, int.MaxValue), ["topK"] = Count(1, 60)
+                ["pageEnd"] = Count(1, int.MaxValue), ["topK"] = Count(1, 60),
+                ["tableOrdinal"] = OptionalCount(0,int.MaxValue),
+                ["tableRowOffset"] = OptionalCount(0,AdvancedAnalysisTableFragment.MaximumRows-1),
+                ["tableRowLimit"] = OptionalCount(1,AdvancedAnalysisStructuredTableAssembler.MaximumRowLimit)
             }));
             functions.Add(Function("find_source_text", "Locate literal words or an observed title inside one observed revision. Case and whitespace normalized; punctuation remains literal. Returns canonical excerpts and pagination diagnostics; no semantic search fallback.", new()
             {
@@ -207,8 +212,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (arguments.RootElement.ValueKind != JsonValueKind.Object)
                 throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid");
             var names = arguments.RootElement.EnumerateObject().Select(p => p.Name).ToArray();
+            var optionalProperties=name=="read_source" ? new[] { "tableOrdinal","tableRowOffset","tableRowLimit" } : [];
             if (names.Distinct(StringComparer.Ordinal).Count() != names.Length
-                || names.Any(n => !properties.Contains(n, StringComparer.Ordinal))
+                || names.Any(n => !properties.Contains(n, StringComparer.Ordinal) && !optionalProperties.Contains(n,StringComparer.Ordinal))
                 || properties.Any(n => !names.Contains(n, StringComparer.Ordinal)))
                 throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid");
             var query = JsonNode.Parse(arguments.RootElement.GetRawText())!.AsObject();
@@ -328,7 +334,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                  documentResolution = BuildDocumentResolutionForPrompt(observation?.DocumentResolution),
                  degradedRetrievers = BuildDegradedRetrieversForPrompt(observation?.DegradedRetrievers),
                 resourceLimit = observation?.ResourceLimit,
-                instruction = "Bounded operational result. Only current user.evidence excerpts are documentary proof. Historical source handles belong to their original turn; use current user.evidence handles, reidentifying sources through evidence IDs and resolved identity. Unlisted or omitted evidence is not proof of corpus absence."
+                structuredTableCount=observation?.StructuredTables?.Count,
+                instruction = "Bounded operational result. Documentary proof is only the current user.evidence excerpts and current user.structuredTables rows with their contributing evidenceIds. Historical source handles belong to their original turn; use current user.evidence handles. Unlisted rows or omitted evidence do not prove corpus absence. Complete table coverage means observed canonical rows, not PDF or visual fidelity."
             };
             var outputNode = JsonSerializer.SerializeToNode(result, JsonOptions)!.AsObject();
             foreach (var property in outputNode.Where(property => property.Value is null).ToArray())

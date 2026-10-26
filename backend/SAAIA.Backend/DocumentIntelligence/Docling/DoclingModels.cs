@@ -25,6 +25,11 @@ internal sealed class DoclingConvertResponse
     [JsonPropertyName("saaia_table_repairs")]
     public List<DoclingTableRepairSummary> TableRepairs { get; set; } = [];
 
+    [JsonPropertyName("saaia_text_repairs")]
+    public List<JsonElement> TextRepairs { get; set; } = [];
+    [JsonPropertyName("saaia_text_repair_summary")]
+    public JsonElement? TextRepairSummary { get; set; }
+
     [JsonPropertyName("saaia_execution")]
     public DoclingExecutionMetadata? Execution { get; set; }
 
@@ -156,6 +161,10 @@ internal class DoclingContentItem
 
 internal sealed class DoclingTextItem : DoclingContentItem
 {
+    [JsonPropertyName("saaia_text_repair")]
+    public JsonElement? RegionalTextRepair { get; set; }
+    [JsonPropertyName("saaia_text_repair_attempt")]
+    public JsonElement? RegionalTextRepairAttempt { get; set; }
     [JsonPropertyName("orig")]
     public string OriginalText { get; set; } = "";
 
@@ -168,6 +177,28 @@ internal sealed class DoclingTextItem : DoclingContentItem
 
 internal sealed class DoclingPictureItem : DoclingContentItem
 {
+    [JsonPropertyName("image")]
+    public DoclingImageReference? Image { get; set; }
+}
+
+internal sealed class DoclingImageReference
+{
+    [JsonPropertyName("mimetype")]
+    public string MediaType { get; set; } = "";
+    [JsonPropertyName("uri")]
+    public string Uri { get; set; } = "";
+    [JsonPropertyName("dpi")]
+    public double? Dpi { get; set; }
+    [JsonPropertyName("size")]
+    public DoclingImageSize Size { get; set; } = new();
+}
+
+internal sealed class DoclingImageSize
+{
+    [JsonPropertyName("width")]
+    public double Width { get; set; }
+    [JsonPropertyName("height")]
+    public double Height { get; set; }
 }
 
 internal sealed class DoclingTableItem : DoclingContentItem
@@ -220,6 +251,8 @@ internal sealed class DoclingBoundingBox
 
 internal sealed class DoclingPage
 {
+    [JsonPropertyName("image")]
+    public DoclingImageReference? Image { get; set; }
     [JsonPropertyName("size")]
     public DoclingPageSize Size { get; set; } = new();
 
@@ -361,6 +394,8 @@ internal sealed class DoclingTableRepairSummary
 
 internal sealed class DoclingExecutionMetadata
 {
+    [JsonPropertyName("text_repair_settings")]
+    public JsonElement? TextRepairSettings { get; set; }
     [JsonPropertyName("package_versions")]
     public Dictionary<string, string?> PackageVersions { get; set; } = new(StringComparer.Ordinal);
     [JsonPropertyName("force_ocr")]

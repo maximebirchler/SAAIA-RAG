@@ -130,11 +130,6 @@ internal static partial class CanonicalNativeTextCoverageReconciler
                 .ToArray();
             if (recoverable.Length > 0)
             {
-                recoverable = ExpandWithPartialContext(
-                    lines,
-                    recoverable,
-                    minimumLineCoverage);
-
                 foreach (var group in GroupAdjacentLines(recoverable))
                 {
                     var text = string.Join(
@@ -173,7 +168,8 @@ internal static partial class CanonicalNativeTextCoverageReconciler
                         QualityFlags =
                         [
                             RecoveryQualityFlag,
-                            PageOnlyAnchorQualityFlag
+                            PageOnlyAnchorQualityFlag,
+                            CanonicalObservationSelector.LiteralCoverageUnresolvedSignal
                         ],
                         Provenance = new()
                         {
@@ -190,8 +186,11 @@ internal static partial class CanonicalNativeTextCoverageReconciler
                                     CultureInfo.InvariantCulture),
                                 ["sourceLineEnd"] = lastLine.ToString(
                                     CultureInfo.InvariantCulture),
-                                ["coverageAlgorithm"] = "literal_presence_with_similarity_diagnostics_v2",
-                                ["retentionPolicy"] = "retain_unrepresented_literal_content",
+                                ["coverageAlgorithm"] = "whole_observation_occurrence_inventory_v6",
+                                ["selectionRole"] = CanonicalObservationSelector.LiteralCoverageUnresolvedRole,
+                                ["semanticNovelty"] = "not_asserted",
+                                ["sourceOrder"] = "not_asserted",
+                                ["retentionPolicy"] = "retain_unrepresented_source_occurrences",
                                 ["sectionAssociation"] = "not_asserted",
                                 ["contextScope"] = "physical_page",
                                 ["maximumCanonicalCoverage"] = group
@@ -220,6 +219,8 @@ internal static partial class CanonicalNativeTextCoverageReconciler
                     AddDistinct(
                         canonicalPage.QualityFlags,
                         RecoveryQualityFlag);
+                    AddDistinct(canonicalPage.QualityFlags,
+                        CanonicalObservationSelector.LiteralCoverageUnresolvedSignal);
                     recoveredLines += group.Count;
                     recoveredBlocks++;
                     recoveredCharacters += text.Length;
@@ -376,7 +377,8 @@ internal static partial class CanonicalNativeTextCoverageReconciler
             .Replace("\r\n", "\n", StringComparison.Ordinal)
             .Replace('\r', '\n');
         var lines = normalized.Split('\n');
-        var representedLines = CanonicalLiteralTextCoverage.FindRepresentedLineIndices(lines, canonicalPage);
+        var representedLines = CanonicalObservationCoverage.RepresentedSourceLines(text, canonicalPage)
+            .Concat(CanonicalLiteralTextCoverage.FindRepresentedLineIndices(lines, canonicalPage)).ToHashSet();
         var projected = new List<NativeLine>();
         for (var index = 0; index < lines.Length; index++)
         {
@@ -603,44 +605,6 @@ internal static partial class CanonicalNativeTextCoverageReconciler
         if (current.Count > 0)
             groups.Add(current.ToArray());
         return groups;
-    }
-
-    private static NativeLine[] ExpandWithPartialContext(
-        IReadOnlyList<NativeLine> allLines,
-        IReadOnlyList<NativeLine> recoverable,
-        double minimumLineCoverage)
-    {
-        var bySourceLine = allLines.ToDictionary(
-            static line => line.SourceLineIndex);
-        var selected = recoverable.ToDictionary(
-            static line => line.SourceLineIndex);
-        foreach (var line in recoverable)
-        {
-            if (!bySourceLine.TryGetValue(
-                    line.SourceLineIndex - 1,
-                    out var previous))
-            {
-                continue;
-            }
-
-            if (previous.OrderedCanonicalCoverage
-                    >= minimumLineCoverage
-                || previous.OrderedCanonicalCoverage
-                    < Math.Min(0.70, minimumLineCoverage)
-                || previous.CanonicalCoverage
-                    < minimumLineCoverage)
-            {
-                continue;
-            }
-
-            selected.TryAdd(
-                previous.SourceLineIndex,
-                previous);
-        }
-
-        return selected.Values
-            .OrderBy(static line => line.SourceLineIndex)
-            .ToArray();
     }
 
     private static bool PageContainsNavigationStructure(

@@ -30,7 +30,10 @@ internal sealed record AdvancedAnalysisSearchRequest(
     AdvancedAnalysisFindDiagnostic? FindDiagnostic = null,
     RagRetrievalDiagnosticsDto? RetrievalDiagnostic = null,
     AdvancedAnalysisDocumentResolutionDiagnostic? DocumentResolution = null,
-    IReadOnlyList<string>? DegradedRetrievers = null);
+    IReadOnlyList<string>? DegradedRetrievers = null,
+    int? TableOrdinal = null,
+    int? TableRowOffset = null,
+    int? TableRowLimit = null);
 
 // A resolved path describes a search filter, never an evidence or read capability.
 internal sealed record AdvancedAnalysisDocumentResolutionDiagnostic(
@@ -56,7 +59,8 @@ internal sealed record AdvancedAnalysisSearchObservation(
     AdvancedAnalysisResearchResourceLimit? ResourceLimit = null,
     bool NotExecutedAfterResourceLimit = false,
     RagRetrievalDiagnosticsDto? RetrievalDiagnostic = null,
-    AdvancedAnalysisDocumentResolutionDiagnostic? DocumentResolution = null);
+    AdvancedAnalysisDocumentResolutionDiagnostic? DocumentResolution = null,
+    IReadOnlyList<AdvancedAnalysisStructuredTableView>? StructuredTables = null);
 
 internal sealed record AdvancedAnalysisResearchResourceLimit(string ReasonCode,
     int? MaximumEvidenceItems, int? ConsumedEvidenceItems, int? RequestedNewEvidenceItems,
@@ -229,6 +233,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
     private readonly int _maximumToolCalls;
     private readonly int _maximumSearchTopK;
     private readonly int _maximumEvidenceItems;
+    private readonly int _maximumStructuredTableCharacters;
     private readonly long _maximumElapsedMilliseconds;
     private readonly SemaphoreSlim _serialGate = new(1, 1);
     private readonly List<AdvancedAnalysisResolvedEvidence> _evidence;
@@ -266,6 +271,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
         _attemptCount = attemptCount;
         _maximumToolCalls = Math.Clamp(options.MaximumToolCalls, 1, 256);
         _maximumSearchTopK = Math.Clamp(options.MaximumSearchTopK, 1, 500);
+        _maximumStructuredTableCharacters=Math.Clamp(options.MaximumEvidencePromptCharacters,1_000,200_000);
         _maximumEvidenceItems = Math.Clamp(
             options.MaximumAccumulatedEvidenceItems,
             1,
@@ -589,16 +595,28 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                         break;
                     }
                 }
+                if (request.Operation=="read_source" && canonical.TableFragment is not null)
+                {
+                    canonical=canonical with { TableReadWindow=request };
+                    _evidenceByCanonicalKey[key]=canonical;
+                    var storedIndex=_evidence.FindIndex(item=>CanonicalKey(item.Reference)==key);
+                    if (storedIndex>=0) _evidence[storedIndex]=canonical;
+                }
                 observationEvidence.Add(canonical);
             }
 
             // Freeze the admitted work duration once for memory, the returned
             // observation and durable replay. Trace persistence is measured by
             // its own operation and is not recursively charged into that row.
+            var structuredTables=request.Operation=="read_source"
+                ? AdvancedAnalysisStructuredTableAssembler.Build(observationEvidence,request,
+                    _maximumStructuredTableCharacters) : [];
             var workElapsedMilliseconds = ChargeElapsedOnce();
             probe.Set("document_resolution", requestForTrace.DocumentResolution?.Status);
             probe.Set("document_candidates", requestForTrace.DocumentResolution?.CandidateCount);
             probe.Set("evidence_count", observationEvidence.Count);
+            probe.Set("structured_table_count", structuredTables.Count);
+            probe.Set("structured_table_partial_count", structuredTables.Count(table=>!table.Complete));
             probe.Set("degraded_retriever_count", degraded.Count);
             probe.Set("tool_call_number", callNumber);
             await PersistEventAsync(
@@ -619,7 +637,8 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                 requestForTrace.ReadDiagnostic,
                 requestForTrace.FindDiagnostic,
                 RetrievalDiagnostic: requestForTrace.RetrievalDiagnostic,
-                DocumentResolution: requestForTrace.DocumentResolution);
+                DocumentResolution: requestForTrace.DocumentResolution,
+                StructuredTables: structuredTables);
         }
         catch (Exception ex)
         {
@@ -948,6 +967,11 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             throw new AdvancedAnalysisToolException("search_top_k_invalid");
         if (request.Operation is not "search_corpus" and not "read_source" and not "find_source_text")
             throw new AdvancedAnalysisToolException("research_operation_invalid");
+        if ((request.TableOrdinal is not null || request.TableRowOffset is not null || request.TableRowLimit is not null)
+            && (request.Operation!="read_source" || request.TableOrdinal is null || request.TableOrdinal<0
+                || request.TableRowOffset is <0 or >=AdvancedAnalysisTableFragment.MaximumRows
+                || request.TableRowLimit is <1 or >AdvancedAnalysisStructuredTableAssembler.MaximumRowLimit))
+            throw new AdvancedAnalysisToolException("canonical_table_read_window_invalid");
         if (request.Operation == "search_corpus" && !string.IsNullOrWhiteSpace(request.RevisionId)
             && (!Guid.TryParse(request.RevisionId, out _) || !Guid.TryParse(request.DocId, out _)
                 || string.IsNullOrWhiteSpace(request.DocPath)))

@@ -516,11 +516,23 @@ public sealed partial class DoclingCanonicalDocumentAdapterTests
             chunks,
             chunk => chunk.ChunkType
                      == DoclingCanonicalRetrievalProjector.TableChunkType);
-        Assert.Contains("A\tB", table.Text);
-        Assert.Contains("C\tD", table.Text);
+        var gridRows = ReadStructuredTable(table.Text).Elements("tr").ToArray();
+        Assert.Equal(new[] { "A", "B" }, gridRows[0].Elements().Select(cell => cell.Value));
+        Assert.Equal(new[] { "C", "D" }, gridRows[1].Elements().Select(cell => cell.Value));
+        Assert.Contains("A\tB", DoclingCanonicalRetrievalProjector.ResolveLiteralSearchText(table));
+        Assert.Contains("C\tD", DoclingCanonicalRetrievalProjector.ResolveLiteralSearchText(table));
         Assert.Equal(4, table.CanonicalTableCellIds!.Count);
         Assert.DoesNotContain(headingBlockId, table.CanonicalBlockIds!);
-        Assert.Contains(headingBlockId, table.CanonicalContextBlockIds!);
+        // A source-backed caption provides table context. A preceding heading
+        // alone cannot assign the table to that section (caption-context RED).
+        var tableCaption = canonical.Pages.SelectMany(page => page.Blocks)
+            .Single(block => block.Text.Retrieval == "Table caption");
+        Assert.Contains(tableCaption.BlockId, table.CanonicalContextBlockIds!);
+        Assert.DoesNotContain(headingBlockId, table.CanonicalContextBlockIds!);
+        Assert.Contains("Table caption", table.Text, StringComparison.Ordinal);
+        Assert.Null(table.SectionTitle);
+        Assert.Null(table.SectionOrdinal);
+        Assert.Null(table.HeadingPath);
         Assert.DoesNotContain(
             chunks,
             chunk => chunk.ContentRole
@@ -896,7 +908,7 @@ APPENDIX B: REFERENCES................................17
     }
 
     [Fact]
-    public void NativeTextCoverageReconciliation_IncludesPartiallyCoveredPreviousLineAsContext()
+    public void NativeTextCoverageReconciliation_OnlyMissingContinuationRecoveredWithoutRepublishingRepresentedPrefix()
     {
         var response = BuildResponse();
         var source = response.Document.JsonContent!;
@@ -935,18 +947,26 @@ Levels................................23
                 canonical,
                 nativeExtraction);
 
-        Assert.Equal(2, summary.RecoveredLineCount);
+        Assert.Equal(1, summary.RecoveredLineCount);
         var recovery = Assert.Single(
             canonical.Pages[0].Blocks,
             static block =>
                 block.BlockType
                 == CanonicalNativeTextCoverageReconciler
                     .RecoveryBlockType);
-        Assert.Equal(
-            "Review provisional impact levels and finalize information type impact"
-            + Environment.NewLine
-            + "Levels................................23",
-            recovery.Text.Retrieval);
+        Assert.Equal("Levels................................23", recovery.Text.Retrieval);
+        var primary = Assert.Single(canonical.Pages[0].Blocks,
+            block => block.Text.Canonical == "Review provisional impact levels and finalize information");
+        var cell = Assert.Single(canonical.Pages[0].Tables[0].Cells,
+            candidate => candidate.Text.Canonical == "type impact");
+        var published = DoclingCanonicalRetrievalProjector.Project(canonical, source, 220, 1)
+            .Where(IngestionWorker.ShouldPublishRetrievalChunk).ToArray();
+        Assert.Single(published, chunk => chunk.CanonicalBlockIds!.Contains(primary.BlockId)
+            && DoclingCanonicalRetrievalProjector.ResolveLiteralSearchText(chunk).Contains(primary.Text.Canonical, StringComparison.Ordinal));
+        Assert.Single(published, chunk => chunk.CanonicalTableCellIds!.Contains(cell.CellId)
+            && DoclingCanonicalRetrievalProjector.ResolveLiteralSearchText(chunk).Contains("type impact", StringComparison.Ordinal));
+        Assert.Single(published, chunk => chunk.CanonicalBlockIds!.Contains(recovery.BlockId)
+            && chunk.Text.Contains("Levels................................23", StringComparison.Ordinal));
     }
 
     [Fact]

@@ -129,4 +129,18 @@ public sealed class CanonicalAsset
 
     [JsonPropertyName("sizeBytes")]
     public long SizeBytes { get; set; }
+
+    [JsonPropertyName("pageNumber")]
+    public int? PageNumber { get; set; }
+    [JsonPropertyName("figureId")]
+    public string? FigureId { get; set; }
+    [JsonPropertyName("pixelWidth")]
+    public int? PixelWidth { get; set; }
+    [JsonPropertyName("pixelHeight")]
+    public int? PixelHeight { get; set; }
+
+    // Publication transport only. Canonical JSON contains identities, never
+    // base64 copies of pixels. SQL publication stores the validated bytes.
+    [JsonIgnore]
+    public byte[]? PublicationBytes { get; set; }
 }

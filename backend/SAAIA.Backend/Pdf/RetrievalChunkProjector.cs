@@ -1856,7 +1856,9 @@ internal sealed record ProjectedRetrievalChunk(
     IReadOnlyList<string>? CanonicalContextBlockIds = null,
     string? SectionTitle = null,
     string? HeadingPath = null,
-    int? HeadingLevel = null);
+    int? HeadingLevel = null,
+    EmbeddingInputProvenance? EmbeddingAdmission = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] CanonicalTableChunkProjection? StructuredTableProjection = null);
 
 internal sealed record RetrievalChunkExtractionQuality(
     string? TextStatus,

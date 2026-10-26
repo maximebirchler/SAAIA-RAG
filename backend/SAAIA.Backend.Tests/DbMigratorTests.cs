@@ -140,13 +140,5 @@ public sealed class DbMigratorTests
     }
 
     private static string ResolveMigrationsDir()
-        => Path.GetFullPath(Path.Combine(
-            AppContext.BaseDirectory,
-            "..",
-            "..",
-            "..",
-            "..",
-            "SAAIA.Backend",
-            "Db",
-            "Migrations"));
+        => TestRepositoryPaths.MigrationsDirectory;
 }

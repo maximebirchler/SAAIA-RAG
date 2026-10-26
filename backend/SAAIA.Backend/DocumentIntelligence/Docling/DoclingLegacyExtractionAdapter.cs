@@ -13,6 +13,7 @@ internal static class DoclingLegacyExtractionAdapter
         ArgumentNullException.ThrowIfNull(response);
         var source = response.Document.JsonContent
             ?? throw new InvalidDataException("Docling JSON content is required.");
+        DoclingSourceCoverageValidator.Validate(source);
         var itemMap = DoclingDocumentTraversal.BuildItemMap(source);
         var orderByRef = DoclingDocumentTraversal.BuildReadingOrder(source, itemMap);
         var entriesByPage = source.Pages.Values

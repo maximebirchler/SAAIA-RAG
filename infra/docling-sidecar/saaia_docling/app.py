@@ -17,6 +17,9 @@ from .execution_metadata import conversion_execution_metadata
 from .heading_hierarchy import HeadingHierarchyConfiguration
 from .ocr_engine import RapidOcrRegionEngine
 from .response_repair import repair_response_tables
+from .response_text_repair import repair_response_texts
+from .text_region_process import BoundedTextRegionEngine
+from .text_repair_options import TextRepairOptions
 from .transport_diagnostics import ConversionTransportDiagnostics
 
 
@@ -50,6 +53,7 @@ MINIMUM_SCORE = float(
     os.getenv("SAAIA_DOCLING_TABLE_REPAIR_MINIMUM_SCORE", "0.5")
 )
 HEADING_HIERARCHY = HeadingHierarchyConfiguration.from_environment()
+TEXT_REPAIR = TextRepairOptions.from_environment()
 CONTROL_FIELD_NAMES = {
     "saaia_heading_hierarchy_enabled",
     "saaia_heading_hierarchy_use_bookmarks",
@@ -66,6 +70,7 @@ app = FastAPI(
     openapi_url=None,
 )
 ocr_engine = RapidOcrRegionEngine()
+text_region_engine = BoundedTextRegionEngine()
 conversion_transport = ConversionTransportDiagnostics()
 
 
@@ -83,6 +88,8 @@ async def health() -> JSONResponse:
             "status": "ok" if upstream_ready else "upstream_unavailable",
             "upstream": upstream_ready,
             "regionalTableRepair": REPAIR_ENABLED,
+            "regionalTextRepair": TEXT_REPAIR.attestation(),
+            "regionalTextRepairRuntime": text_region_engine.snapshot(),
             "conversionTransport": conversion_transport.snapshot(),
             "headingHierarchy": {
                 "enabled": HEADING_HIERARCHY.enabled,
@@ -178,9 +185,20 @@ async def convert_file(request: Request) -> Response:
                         len(summaries),
                         applied,
                     )
+            if TEXT_REPAIR.enabled and payload.get("status") == "success":
+                text_summaries = await repair_response_texts(
+                    pdf_path, payload, text_region_engine, options=TEXT_REPAIR,
+                )
+                LOGGER.info(
+                    "Regional text repair candidates=%s attempted=%s applied=%s",
+                    payload.get("saaia_text_repair_summary", {}).get("candidate_count", 0),
+                    sum(item.get("attempted", False) for item in text_summaries),
+                    sum(item.get("status") == "applied" for item in text_summaries),
+                )
             payload["saaia_execution"] = conversion_execution_metadata(
                 fields, repair_enabled=REPAIR_ENABLED, render_scale=RENDER_SCALE,
                 padding_points=PADDING_POINTS, minimum_score=MINIMUM_SCORE,
+                text_repair_settings=TEXT_REPAIR.attestation(),
             )
             return JSONResponse(payload)
 

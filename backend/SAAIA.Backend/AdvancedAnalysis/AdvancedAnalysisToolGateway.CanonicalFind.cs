@@ -47,7 +47,7 @@ internal sealed partial class AdvancedAnalysisToolGateway
             JOIN documents d ON d.tenant_id=dr.tenant_id AND d.doc_id=dr.doc_id
             WHERE rc.tenant_id=@tenant AND d.doc_id=@doc_id AND dr.revision_id=@revision_id
               AND d.status='indexed' AND d.indexed_version>0
-              AND strpos(lower(regexp_replace(rc.text_content, '[[:space:]]+', ' ', 'g')),
+              AND strpos(lower(regexp_replace(COALESCE(rc.metadata->>'literalSearchText', rc.text_content), '[[:space:]]+', ' ', 'g')),
                          lower(regexp_replace(@literal, '[[:space:]]+', ' ', 'g'))) > 0
             ORDER BY rc.page_start, rc.page_end, rc.chunk_index, rc.retrieval_chunk_id
             LIMIT @row_limit OFFSET @row_offset;

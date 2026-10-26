@@ -24,7 +24,14 @@ internal static partial class DoclingCanonicalRetrievalProjector
         IReadOnlyList<string> BlockIds,
         IReadOnlyList<string> SpanIds,
         IReadOnlyList<string> TableCellIds,
-        IReadOnlyList<string> QualitySignals);
+        IReadOnlyList<string> QualitySignals,
+        int TableColumnCount = 0,
+        int TableRowCount = 0,
+        bool TableHasOverlaps = false,
+        CanonicalTableRowGroup? TableGroup = null,
+        int TableOrdinal = 0,
+        IReadOnlyList<SourceAtom>? TableCaptions = null,
+        bool IsTableCaption = false);
 
     private sealed class ChunkBuffer(
         bool isNavigation,
@@ -186,7 +193,6 @@ internal static partial class DoclingCanonicalRetrievalProjector
 
                 EmitTableChunks(
                     tableRows,
-                    activeHeadings,
                     maxWords,
                     projected);
                 continue;
@@ -249,7 +255,8 @@ internal static partial class DoclingCanonicalRetrievalProjector
                 StringComparer.Ordinal);
         foreach (var page in document.Pages)
         {
-            foreach (var block in page.Blocks)
+            var observations = CanonicalObservationSelector.SelectPage(page);
+            foreach (var block in observations.Blocks)
             {
                 if (IsProvenPageCounter(block, page.PageNumber)
                     || string.IsNullOrWhiteSpace(block.Text.Retrieval))
@@ -257,7 +264,7 @@ internal static partial class DoclingCanonicalRetrievalProjector
                 if (IsNativeSupplementalBlock(block))
                 {
                     atoms.Add(new(
-                        int.MaxValue / 2 + block.ReadingOrder,
+                        observations.ResolveOrder(block.BlockId, int.MaxValue / 2 + block.ReadingOrder),
                         block.Ordinal,
                         page.PageNumber,
                         NormalizeText(block.Text.Retrieval),
@@ -274,7 +281,7 @@ internal static partial class DoclingCanonicalRetrievalProjector
                             .Select(static span => span.SpanId)
                             .ToArray(),
                         [],
-                        block.QualityFlags.ToArray()));
+                        CanonicalSourceQuality.Combine(page, block.QualityFlags)));
                     continue;
                 }
 
@@ -285,10 +292,10 @@ internal static partial class DoclingCanonicalRetrievalProjector
                 var navigation = !unassigned && IsNavigationItem(item, itemMap);
                 var heading = !unassigned && IsHeadingBlock(block.BlockType);
                 atoms.Add(new(
-                    DoclingDocumentTraversal.ResolveOrder(
+                    observations.ResolveOrder(block.BlockId, DoclingDocumentTraversal.ResolveOrder(
                         orderByRef,
                         sourceRef,
-                        provenanceIndex),
+                        provenanceIndex)),
                     block.ReadingOrder,
                     page.PageNumber,
                     NormalizeText(block.Text.Retrieval),
@@ -307,62 +314,18 @@ internal static partial class DoclingCanonicalRetrievalProjector
                     [block.BlockId],
                     block.Spans.Select(static span => span.SpanId).ToArray(),
                     [],
-                    []));
+                    CanonicalSourceQuality.Combine(page, block.QualityFlags)));
             }
 
-            foreach (var table in page.Tables)
+            foreach (var table in observations.Tables)
             {
                 var sourceRef = RequireSourceRef(table.Provenance);
                 var provenanceIndex = ResolveProvenanceIndex(table.Provenance);
                 var item = RequireItem(itemMap, sourceRef);
                 var navigation = IsNavigationItem(item, itemMap);
-                for (var rowIndex = 0; rowIndex < table.RowCount; rowIndex++)
-                {
-                    var cells = table.Cells
-                        .Where(cell => cell.RowIndex == rowIndex)
-                        .OrderBy(static cell => cell.ColumnIndex)
-                        .ThenBy(static cell => cell.CellId, StringComparer.Ordinal)
-                        .ToArray();
-                    var text = string.Join(
-                        "\t",
-                        cells.Select(static cell => cell.Text.Retrieval)
-                            .Where(static value =>
-                                !string.IsNullOrWhiteSpace(value)));
-                    if (string.IsNullOrWhiteSpace(text))
-                        continue;
-
-                    atoms.Add(new(
-                        DoclingDocumentTraversal.ResolveOrder(
-                            orderByRef,
-                            sourceRef,
-                            provenanceIndex),
-                        rowIndex,
-                        page.PageNumber,
-                        NormalizeText(text),
-                        "table_row",
-                        table.TableId,
-                        navigation,
-                        false,
-                        1,
-                        null,
-                        cells.Any(static cell =>
-                            string.Equals(
-                                cell.CellRole,
-                                "column_header",
-                                StringComparison.Ordinal)
-                            || string.Equals(
-                                cell.CellRole,
-                                "row_and_column_header",
-                                StringComparison.Ordinal)),
-                        [],
-                        [],
-                        cells.Select(static cell => cell.CellId).ToArray(),
-                        page.QualityFlags
-                            .Where(static flag => flag.StartsWith(
-                                "canonical_table_",
-                                StringComparison.Ordinal))
-                            .ToArray()));
-                }
+                atoms.AddRange(BuildTableAtoms(table, page, navigation,
+                    observations.ResolveOrder(table.TableId,
+                        DoclingDocumentTraversal.ResolveOrder(orderByRef, sourceRef, provenanceIndex))));
             }
         }
 
@@ -462,65 +425,6 @@ internal static partial class DoclingCanonicalRetrievalProjector
            && string.Equals(block.Text.Retrieval.Trim(), physicalPage.ToString(
                System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
 
-    private static void EmitTableChunks(
-        IReadOnlyList<SourceAtom> rows,
-        IReadOnlyList<SourceAtom> activeHeadings,
-        int maxWords,
-        ICollection<ProjectedRetrievalChunk> projected)
-    {
-        if (rows.Count == 0)
-            return;
-        var headerRows = rows
-            .Where(static row => row.IsTableHeader)
-            .ToArray();
-        var dataRows = rows
-            .Where(static row => !row.IsTableHeader)
-            .ToArray();
-        if (dataRows.Length == 0)
-            dataRows = rows.ToArray();
-
-        ChunkBuffer Start(SourceAtom row)
-        {
-            var next = new ChunkBuffer(row.IsNavigation, ResolveChunkType(row));
-            foreach (var heading in SelectContextHeadings(
-                         activeHeadings,
-                         row.IsNavigation,
-                         maxWords,
-                         CountTokens(row.Text)))
-            {
-                next.Add(heading, isContextHeading: true);
-            }
-
-            if (!headerRows.Contains(row))
-            {
-                foreach (var header in headerRows)
-                {
-                    if (next.TokenCount + CountTokens(header.Text) <= maxWords)
-                        next.Add(header, isContextHeading: true);
-                }
-            }
-
-            return next;
-        }
-
-        ChunkBuffer? buffer = null;
-        foreach (var row in dataRows.SelectMany(row =>
-                     SplitOversizedAtom(row, maxWords)))
-        {
-            buffer ??= Start(row);
-            if (!buffer.CanAdd(row, maxWords))
-            {
-                if (buffer.HasContent)
-                    projected.Add(CreateChunk(projected.Count, buffer));
-                buffer = Start(row);
-            }
-            buffer.Add(row);
-        }
-
-        if (buffer is { HasContent: true })
-            projected.Add(CreateChunk(projected.Count, buffer));
-    }
-
     private static IEnumerable<SourceAtom> SplitOversizedAtom(
         SourceAtom atom,
         int maxWords)
@@ -579,9 +483,13 @@ internal static partial class DoclingCanonicalRetrievalProjector
             Environment.NewLine + Environment.NewLine,
             atoms.Select(static atom => atom.Text)
                 .Where(static value => !string.IsNullOrWhiteSpace(value)));
-        text = NormalizeText(text);
+        var tableProjection = string.Equals(buffer.ChunkType, TableChunkType, StringComparison.Ordinal)
+            ? CreateTableProjection(atoms) : null;
+        text = tableProjection is not null
+            ? RenderTableChunkText(tableProjection)
+            : NormalizeText(text);
         var evidenceAtoms = atoms
-            .Where(static atom => !atom.IsHeading)
+            .Where(static atom => !atom.IsHeading && !atom.IsTableCaption)
             .ToArray();
         IReadOnlyList<SourceAtom> sourceAtoms = evidenceAtoms.Length == 0
             ? atoms
@@ -610,6 +518,12 @@ internal static partial class DoclingCanonicalRetrievalProjector
                 .Where(static value =>
                     !string.IsNullOrWhiteSpace(value)));
 
+        var quality = CanonicalSourceQuality.ForRetrievalText(text, CountTokens(text),
+            new[] { "document_intelligence_docling", "canonical_source_links" }
+                .Concat(atoms.SelectMany(static atom => atom.QualitySignals))
+                .Concat(atoms.SelectMany(static atom => atom.TableCaptions ?? [])
+                    .SelectMany(static caption => caption.QualitySignals)));
+
         return new(
             ChunkIndex: chunkIndex,
             SectionOrdinal: sectionHeading?.SectionOrdinal,
@@ -629,16 +543,10 @@ internal static partial class DoclingCanonicalRetrievalProjector
                 : null,
             NavigationScore: buffer.IsNavigation ? 1.0 : 0.0,
             ContentDensityScore: buffer.IsNavigation ? 0.0 : 1.0,
-            ExtractionTextStatus: "ok",
-            ExtractionTextSparse: false,
-            ExtractionOcrCandidate: false,
-            ExtractionQualitySignals: Distinct(
-                new[]
-                {
-                    "document_intelligence_docling",
-                    "canonical_source_links"
-                }.Concat(sourceAtoms.SelectMany(
-                    static atom => atom.QualitySignals))),
+            ExtractionTextStatus: quality.TextStatus,
+            ExtractionTextSparse: quality.TextSparse,
+            ExtractionOcrCandidate: quality.OcrCandidate,
+            ExtractionQualitySignals: quality.Signals,
             SourceUnitOrdinals: [],
             SourceUnitCount: 0,
             ChunkComposition: string.Equals(buffer.ChunkType, RetrievalChunkProjector.PhysicalPageContextChunkType, StringComparison.Ordinal)
@@ -647,7 +555,9 @@ internal static partial class DoclingCanonicalRetrievalProjector
                 buffer.ChunkType,
                 TableChunkType,
                 StringComparison.Ordinal)
-                ? "canonical_table_rows"
+                ? tableProjection?.HasOverlappingCells == true
+                    ? "canonical_table_overlap_observations_v1"
+                    : "canonical_table_grid_html_v1"
                 : string.Equals(
                     buffer.ChunkType,
                     NativeLayoutAlternativeChunkType,
@@ -662,13 +572,14 @@ internal static partial class DoclingCanonicalRetrievalProjector
                 sourceAtoms.SelectMany(static atom => atom.TableCellIds)),
             CanonicalContextBlockIds: Distinct(
                 atoms
-                    .Where(static atom => atom.IsHeading)
+                    .Where(static atom => atom.IsHeading || atom.IsTableCaption)
                     .SelectMany(static atom => atom.BlockIds)),
             SectionTitle: sectionHeading?.Text,
             HeadingPath: string.IsNullOrWhiteSpace(headingPath)
                 ? null
                 : headingPath,
-            HeadingLevel: sectionHeading?.HeadingLevel);
+            HeadingLevel: sectionHeading?.HeadingLevel,
+            StructuredTableProjection: tableProjection);
     }
 
     private static void MergeSmallAdjacentChunks(
@@ -680,7 +591,8 @@ internal static partial class DoclingCanonicalRetrievalProjector
         {
             var current = chunks[index];
             var previous = chunks[index - 1];
-            if (current.TokenCount >= minWords
+            if (IsStructuredChunk(current) || IsStructuredChunk(previous)
+                || current.TokenCount >= minWords
                 || current.ContentRole != previous.ContentRole
                 || current.ChunkType != previous.ChunkType
                 || current.SectionOrdinal != previous.SectionOrdinal
@@ -688,7 +600,7 @@ internal static partial class DoclingCanonicalRetrievalProjector
                     current.HeadingPath,
                     previous.HeadingPath,
                     StringComparison.Ordinal)
-                || current.PageStart > previous.PageEnd + 1
+                || current.PageStart != previous.PageEnd
                 || current.TokenCount + previous.TokenCount > maxWords)
             {
                 continue;
@@ -726,7 +638,8 @@ internal static partial class DoclingCanonicalRetrievalProjector
         {
             var current = chunks[index];
             var next = chunks[index + 1];
-            if (current.TokenCount >= minWords
+            if (IsStructuredChunk(current) || IsStructuredChunk(next)
+                || current.TokenCount >= minWords
                 || current.ContentRole != next.ContentRole
                 || current.ChunkType != next.ChunkType
                 || current.SectionOrdinal != next.SectionOrdinal
@@ -734,7 +647,7 @@ internal static partial class DoclingCanonicalRetrievalProjector
                     current.HeadingPath,
                     next.HeadingPath,
                     StringComparison.Ordinal)
-                || next.PageStart > current.PageEnd + 1
+                || next.PageStart != current.PageEnd
                 || current.TokenCount + next.TokenCount > maxWords)
             {
                 index++;

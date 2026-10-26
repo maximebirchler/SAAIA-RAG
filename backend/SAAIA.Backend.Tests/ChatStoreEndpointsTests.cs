@@ -682,7 +682,7 @@ ON CONFLICT (tenant_id) DO NOTHING;
             };
 
             var db = new PostgresIntegrationDb(adminConnectionString, databaseName, dbBuilder.ConnectionString, databaseOid);
-            var migrationsDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "SAAIA.Backend", "Db", "Migrations"));
+            var migrationsDir = TestRepositoryPaths.MigrationsDirectory;
             try
             {
                 await DbMigrator.ApplyMigrationsAsync(db.ConnectionString, migrationsDir, CancellationToken.None);

@@ -578,15 +578,7 @@ public sealed partial class AdvancedAnalysisEndpointsTests
     [Fact]
     public void Durable_job_migrations_preserve_order_and_contain_the_isolation_constraints()
     {
-        var migrationsDirectory = Path.GetFullPath(Path.Combine(
-            AppContext.BaseDirectory,
-            "..",
-            "..",
-            "..",
-            "..",
-            "SAAIA.Backend",
-            "Db",
-            "Migrations"));
+        var migrationsDirectory = TestRepositoryPaths.MigrationsDirectory;
         var versions = DbMigrator.GetOrderedMigrationVersions(
             migrationsDirectory);
         Assert.Equal(versions.OrderBy(static version => version, StringComparer.OrdinalIgnoreCase), versions);
@@ -795,15 +787,7 @@ public sealed partial class AdvancedAnalysisEndpointsTests
                 adminBuilder.ConnectionString,
                 databaseName,
                 databaseBuilder.ConnectionString);
-            var migrationsDirectory = Path.GetFullPath(Path.Combine(
-                AppContext.BaseDirectory,
-                "..",
-                "..",
-                "..",
-                "..",
-                "SAAIA.Backend",
-                "Db",
-                "Migrations"));
+            var migrationsDirectory = TestRepositoryPaths.MigrationsDirectory;
             await DbMigrator.ApplyMigrationsAsync(
                 database.ConnectionString,
                 migrationsDirectory,

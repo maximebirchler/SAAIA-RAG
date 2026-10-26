@@ -803,10 +803,7 @@ public sealed partial class AdvancedAnalysisWorkerTests
     [Fact]
     public void Durable_tool_trace_migration_is_bounded_and_tenant_scoped()
     {
-        var migrationsDirectory = Path.GetFullPath(Path.Combine(
-            AppContext.BaseDirectory,
-            "..", "..", "..", "..",
-            "SAAIA.Backend", "Db", "Migrations"));
+        var migrationsDirectory = TestRepositoryPaths.MigrationsDirectory;
         var sql = File.ReadAllText(Path.Combine(
             migrationsDirectory,
             "066_advanced_analysis_tool_events.sql"));
@@ -1247,10 +1244,7 @@ public sealed partial class AdvancedAnalysisWorkerTests
                 Database = databaseName
             };
             var dataSource = NpgsqlDataSource.Create(databaseBuilder.ConnectionString);
-            var migrationsDirectory = Path.GetFullPath(Path.Combine(
-                AppContext.BaseDirectory,
-                "..", "..", "..", "..",
-                "SAAIA.Backend", "Db", "Migrations"));
+            var migrationsDirectory = TestRepositoryPaths.MigrationsDirectory;
             await DbMigrator.ApplyMigrationsAsync(
                 databaseBuilder.ConnectionString,
                 migrationsDirectory,

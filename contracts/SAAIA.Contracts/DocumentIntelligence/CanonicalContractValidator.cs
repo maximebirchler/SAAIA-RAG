@@ -98,6 +98,13 @@ public static class CanonicalContractValidator
             AddId(asset.AssetId, "$.assets", "assetId", ids, null, allReferenceIds, issues);
             RequireSha256(asset.Sha256, $"$.assets[{asset.AssetId}].sha256", issues);
             Require(asset.SizeBytes >= 0, $"$.assets[{asset.AssetId}].sizeBytes", "range", "Asset size cannot be negative.", issues);
+            if (asset.PageNumber.HasValue)
+            {
+                Require(document.Pages.Any(page => page.PageNumber == asset.PageNumber), $"$.assets[{asset.AssetId}].pageNumber", "reference", "Visual asset page must exist.", issues);
+                Require(asset.PixelWidth is > 0 && asset.PixelHeight is > 0, $"$.assets[{asset.AssetId}]", "range", "Visual asset dimensions must be positive.", issues);
+                Require(asset.FigureId is null || document.Pages.Any(page => page.PageNumber == asset.PageNumber
+                    && page.Figures.Any(figure => figure.FigureId == asset.FigureId)), $"$.assets[{asset.AssetId}].figureId", "reference", "Visual asset figure must belong to its page.", issues);
+            }
         }
 
         foreach (var relation in document.Relations)
@@ -188,7 +195,7 @@ public static class CanonicalContractValidator
             foreach (var figure in page.Figures)
             {
                 ValidateReferences(figure.CaptionBlockIds, blockIds, $"$.figures[{figure.FigureId}].captionBlockIds", issues);
-                ValidateReferences(figure.AssetIds, allIds, $"$.figures[{figure.FigureId}].assetIds", issues);
+                ValidateReferences(figure.AssetIds, document.Assets.Select(asset => asset.AssetId).ToHashSet(StringComparer.Ordinal), $"$.figures[{figure.FigureId}].assetIds", issues);
             }
         }
 

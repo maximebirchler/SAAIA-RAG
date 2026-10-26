@@ -7,7 +7,7 @@ using System.Net;
 /// Client TEI (Text Embeddings Inference) compatible OpenAI embeddings (/v1/embeddings).
 /// IMPORTANT: dispose toujours les HttpResponseMessage pour éviter l'épuisement du pool de connexions.
 /// </summary>
-static class TeiClient
+static partial class TeiClient
 {
     internal enum EmbeddingInputKind
     {
@@ -102,7 +102,7 @@ static class TeiClient
                         continue;
                     }
 
-                    throw new HttpRequestException($"TEI embeddings failed: HTTP {(int)resp.StatusCode}", null, resp.StatusCode);
+                    throw await TeiRequestException.FromResponseAsync(resp, "embeddings", ct);
                 }
 
                 await using var stream = await resp.Content.ReadAsStreamAsync(ct);

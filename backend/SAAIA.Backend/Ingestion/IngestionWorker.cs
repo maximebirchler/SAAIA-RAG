@@ -370,6 +370,25 @@ sealed partial class IngestionWorker : BackgroundService
 
     internal static string? ResolveRetrievalChunkEmbeddingRejectionReason(ProjectedRetrievalChunk chunk)
     {
+        // These fragments were admitted from a publishable parent before token splitting.
+        // A short tail must not disappear merely because it is no longer a whole sentence.
+        if (chunk.EmbeddingAdmission is { SourcePartitioned: true } && !string.IsNullOrWhiteSpace(chunk.Text))
+            return null;
+
+        // A source-backed table of contents is useful evidence for page navigation.
+        // Preserve its navigation role while making its actual cell relationships readable.
+        if ((string.Equals(chunk.ChunkType, DoclingCanonicalRetrievalProjector.TableChunkType, StringComparison.Ordinal)
+             || string.Equals(chunk.OriginalChunkType, DoclingCanonicalRetrievalProjector.TableChunkType, StringComparison.Ordinal))
+            && chunk.CanonicalTableCellIds is { Count: > 0 }
+            && !string.IsNullOrWhiteSpace(chunk.Text))
+            return null;
+
+        if (string.Equals(chunk.NavigationReason, "docling_structural_navigation", StringComparison.Ordinal)
+            && string.Equals(chunk.OriginalChunkType, DoclingCanonicalRetrievalProjector.ContentChunkType, StringComparison.Ordinal)
+            && chunk.CanonicalBlockIds is { Count: > 0 }
+            && !string.IsNullOrWhiteSpace(chunk.Text))
+            return null;
+
         if (RetrievalContentClassifier.IsPredominantlyNavigationContent(
                 chunk.ContentRole,
                 chunk.ChunkType,
@@ -1231,7 +1250,7 @@ sealed partial class IngestionWorker : BackgroundService
             await TouchJobLockAsync(ds, job.JobId, workerId, ct);
             var structure = IngestionProjectionStage.ProjectStructure(new(tenantId, docId, job.Version,
                 hashHex, size, Path.GetFileName(relDocPath.Replace('\\', '/')), documentIntelligence,
-                doclingConversion, nativeTextLayerExtraction, extraction), _log);
+                doclingConversion, nativeTextLayerExtraction, extraction), _log, ct);
             extraction = structure.CanonicalExtraction ?? extraction;
             tokens = extraction.Tokens;
             pages = extraction.Pages;
@@ -1319,42 +1338,11 @@ sealed partial class IngestionWorker : BackgroundService
                     ingest.ChunkOverlapWords,
                     ingest.ChunkMinWords);
             }
-            IReadOnlyList<ExtractedDocumentUnit>? structuredProfileUnits =
-                doclingConversion?.Document.JsonContent is not null
-                && canonicalRetrievalDocument is not null
-                    ? CanonicalProfileInputProjector.Project(
-                        retrievalChunks
-                            .Where(ShouldPublishRetrievalChunk)
-                            .ToArray())
-                    : null;
-            var retrievalChunkQuality = BuildRetrievalChunkQualitySummary(retrievalChunks);
-            diagnostics.Set("retrieval_chunks", retrievalChunks.Count);
-            diagnostics.Set("searchable_chunks", retrievalChunkQuality.SearchableChunkCount);
-            diagnostics.Set("rejected_chunks", retrievalChunkQuality.RejectedChunkCount);
-            var chunks = retrievalChunks
-                .Where(ShouldEmbedRetrievalChunk)
-                .Select(chunk => new Chunk(chunk.ChunkIndex, chunk.PageStart, chunk.PageEnd, chunk.Text))
-                .ToList();
             swChunking.Stop();
             chunkingMs = swChunking.ElapsedMilliseconds;
-            _log.LogInformation(
-                "Ingestion chunking summary job={JobId} doc={DocPath} retrieval_chunks={RetrievalChunks} searchable_chunks={SearchableChunks} embedding_chunks={EmbeddingChunks} rejected_chunks={RejectedChunks} navigation_chunks={NavigationChunks} sparse_rejected={SparseRejected} replacement_rejected={ReplacementRejected} empty_rejected={EmptyRejected} ocr_noise_rejected={OcrNoiseRejected} other_rejected={OtherRejected} manual_review={ManualReview} canonical_projection_ms={CanonicalProjectionMs} chunking_ms={ChunkingMs}",
-                job.JobId,
-                relDocPath,
-                retrievalChunks.Count,
-                retrievalChunkQuality.SearchableChunkCount,
-                chunks.Count,
-                retrievalChunkQuality.RejectedChunkCount,
-                retrievalChunkQuality.NavigationChunkCount,
-                retrievalChunkQuality.SparseRejectedChunkCount,
-                retrievalChunkQuality.ReplacementCharRejectedChunkCount,
-                retrievalChunkQuality.EmptyTextRejectedChunkCount,
-                retrievalChunkQuality.OcrNoiseRejectedChunkCount,
-                retrievalChunkQuality.OtherRejectedChunkCount,
-                retrievalChunkQuality.ManualReviewRecommended,
-                canonicalProjectionMs,
-                chunkingMs);
-            if (retrievalChunkQuality.SearchableChunkCount == 0)
+            diagnostics.Set("raw_projected_chunks", retrievalChunks.Count);
+            var preliminaryChunkQuality = BuildRetrievalChunkQualitySummary(retrievalChunks);
+            if (preliminaryChunkQuality.SearchableChunkCount == 0)
             {
                 await sourceSnapshot.AssertSourceUnchangedAsync(absPath, ct);
                 const string failureReason = "manual_review_no_searchable_chunks";
@@ -1371,7 +1359,7 @@ sealed partial class IngestionWorker : BackgroundService
                     pages,
                     units,
                     retrievalChunks,
-                    retrievalChunkQuality,
+                    preliminaryChunkQuality,
                     extraction.Source,
                     ocrAttempted,
                     ocrApplied,
@@ -1389,6 +1377,51 @@ sealed partial class IngestionWorker : BackgroundService
                 return false;
             }
 
+            diagnostics.Begin("embedding_input_admission");
+            var tei = httpFactory.CreateClient("tei");
+            tei.BaseAddress = new Uri(rag.EmbeddingsBaseUrl);
+            var embeddingAdmission = await PrepareEmbeddingInputsAsync(ds, job, workerId, tei,
+                ingest, rag, relDocPath, sections, units, retrievalChunks, ct);
+            var preparedEmbeddings = embeddingAdmission.Projection;
+            retrievalChunks = preparedEmbeddings.Chunks;
+            diagnostics.Set("embedding_split_source_chunks", preparedEmbeddings.SplitChunks);
+            diagnostics.Set("embedding_context_reduced_inputs", preparedEmbeddings.ContextReducedInputs);
+            diagnostics.Set("embedding_input_limit", embeddingAdmission.Budget.MaximumInputTokens);
+            IReadOnlyList<ExtractedDocumentUnit>? structuredProfileUnits =
+                doclingConversion?.Document.JsonContent is not null
+                && canonicalRetrievalDocument is not null
+                    ? CanonicalProfileInputProjector.Project(
+                        retrievalChunks
+                            .Where(ShouldPublishRetrievalChunk)
+                            .ToArray())
+                    : null;
+            var retrievalChunkQuality = BuildRetrievalChunkQualitySummary(retrievalChunks);
+            diagnostics.Set("retrieval_chunks", retrievalChunks.Count);
+            diagnostics.Set("searchable_chunks", retrievalChunkQuality.SearchableChunkCount);
+            diagnostics.Set("rejected_chunks", retrievalChunkQuality.RejectedChunkCount);
+            var chunks = retrievalChunks
+                .Where(chunk => preparedEmbeddings.InputsByChunkIndex.ContainsKey(chunk.ChunkIndex))
+                .Select(chunk => new Chunk(chunk.ChunkIndex, chunk.PageStart, chunk.PageEnd, chunk.Text))
+                .ToList();
+            _log.LogInformation(
+                "Ingestion chunking summary job={JobId} doc={DocPath} retrieval_chunks={RetrievalChunks} searchable_chunks={SearchableChunks} embedding_chunks={EmbeddingChunks} rejected_chunks={RejectedChunks} navigation_chunks={NavigationChunks} sparse_rejected={SparseRejected} replacement_rejected={ReplacementRejected} empty_rejected={EmptyRejected} ocr_noise_rejected={OcrNoiseRejected} other_rejected={OtherRejected} manual_review={ManualReview} canonical_projection_ms={CanonicalProjectionMs} chunking_ms={ChunkingMs}",
+                job.JobId,
+                relDocPath,
+                retrievalChunks.Count,
+                retrievalChunkQuality.SearchableChunkCount,
+                chunks.Count,
+                retrievalChunkQuality.RejectedChunkCount,
+                retrievalChunkQuality.NavigationChunkCount,
+                retrievalChunkQuality.SparseRejectedChunkCount,
+                retrievalChunkQuality.ReplacementCharRejectedChunkCount,
+                retrievalChunkQuality.EmptyTextRejectedChunkCount,
+                retrievalChunkQuality.OcrNoiseRejectedChunkCount,
+                retrievalChunkQuality.OtherRejectedChunkCount,
+                retrievalChunkQuality.ManualReviewRecommended,
+                canonicalProjectionMs,
+                chunkingMs);
+
+
             await JobRepo.UpdateProgressAsync(ds, job.JobId, "projecting", null, null, ct, leaseOwner: workerId);
             diagnostics.Begin("index_projection");
             await TouchJobLockAsync(ds, job.JobId, workerId, ct);
@@ -1401,7 +1434,6 @@ sealed partial class IngestionWorker : BackgroundService
             diagnostics.Set("exact_entries", exactMatchEntries.Count);
             diagnostics.Set("contextual_entries", contextualTextEntries.Count);
             var retrievalChunksByIndex = retrievalChunks.ToDictionary(chunk => chunk.ChunkIndex);
-            var contextualTextByChunkIndex = BuildContextualTextMap(contextualTextEntries);
             var sectionTitleByOrdinal = sections.ToDictionary(section => section.Ordinal, section => section.Title);
             var headingPathBySectionOrdinal = ContextualTextProjector.BuildHeadingPathMap(sections);
             var chunkLinkMap = BuildChunkLinkMap(docId, job.Version, retrievalChunks);
@@ -1409,8 +1441,6 @@ sealed partial class IngestionWorker : BackgroundService
             var embeddingInputFormat = ResolveEmbeddingInputFormat(rag.EmbeddingsModel);
             // TEI
             diagnostics.Begin("dependency_warmup");
-            var tei = httpFactory.CreateClient("tei");
-            tei.BaseAddress = new Uri(rag.EmbeddingsBaseUrl);
 
             int dim;
             var swTeiWarmup = Stopwatch.StartNew();
@@ -1470,9 +1500,7 @@ sealed partial class IngestionWorker : BackgroundService
                 return (object)new
                 {
                     projected,
-                    input = TeiClient.FormatEmbeddingInput(rag.EmbeddingsModel,
-                        CleanTextForIndexing(ResolveEmbeddingText(projected.ChunkIndex, projected.Text, contextualTextByChunkIndex)),
-                        TeiClient.EmbeddingInputKind.Passage),
+                    input = preparedEmbeddings.InputsByChunkIndex[projected.ChunkIndex],
                     sectionTitle = projected.SectionTitle ?? ResolveSectionTitle(projected.SectionOrdinal, sectionTitleByOrdinal),
                     headingPath = projected.HeadingPath ?? ContextualTextProjector.ResolveHeadingPath(projected.SectionOrdinal, headingPathBySectionOrdinal),
                     links = chunkLinkMap.GetValueOrDefault(projected.ChunkIndex)
@@ -1509,7 +1537,9 @@ sealed partial class IngestionWorker : BackgroundService
                     job.JobId, checkpointCompatible, resumeFromChunk, chunks.Count);
 
             // Plan-specific point IDs make full restarts idempotent; stale plans remain inactive.
-            var batchSize = IngestionOptions.ResolveEmbeddingsBatchSize(ingest.EmbeddingsBatchSize);
+            diagnostics.Begin("embedding_vectors");
+            var batchSize = Math.Min(IngestionOptions.ResolveEmbeddingsBatchSize(ingest.EmbeddingsBatchSize),
+                embeddingAdmission.Budget.MaximumClientBatchSize);
 
             var nowIso = DateTimeOffset.UtcNow.ToString("O");
 
@@ -1523,7 +1553,7 @@ sealed partial class IngestionWorker : BackgroundService
                     .Select(chunk =>
                     {
                         var projectedChunk = ResolveProjectedRetrievalChunk(chunk, retrievalChunksByIndex);
-                        var embeddingText = CleanTextForIndexing(ResolveEmbeddingText(projectedChunk.ChunkIndex, projectedChunk.Text, contextualTextByChunkIndex));
+                        var embeddingText = preparedEmbeddings.BasisTextsByChunkIndex[projectedChunk.ChunkIndex];
                         var sectionTitle = CleanOptionalTextForIndexing(
                             projectedChunk.SectionTitle
                             ?? ResolveSectionTitle(
@@ -1539,10 +1569,7 @@ sealed partial class IngestionWorker : BackgroundService
                     })
                     .ToList();
                 var inputs = workItems
-                    .Select(item => TeiClient.FormatEmbeddingInput(
-                        rag.EmbeddingsModel,
-                        item.EmbeddingText,
-                        TeiClient.EmbeddingInputKind.Passage))
+                    .Select(item => preparedEmbeddings.InputsByChunkIndex[item.ProjectedChunk.ChunkIndex])
                     .ToArray();
 
                 var swTei = Stopwatch.StartNew();
@@ -1926,6 +1953,7 @@ sealed partial class IngestionWorker : BackgroundService
             ["embedding_model_revision"] = embeddingModelRevision,
             ["ingestion_plan_fingerprint"] = vectorPlanFingerprint,
             ["embedding_input_format"] = embeddingInputFormat,
+            ["embedding_admission"] = projectedChunk.EmbeddingAdmission,
             ["section_ordinal"] = projectedChunk.SectionOrdinal,
             ["unit_ordinal"] = projectedChunk.UnitOrdinal,
             ["source_unit_ordinals"] = sourceUnitOrdinals,

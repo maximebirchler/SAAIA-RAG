@@ -44,6 +44,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 if (operation is not "search_corpus" and not "read_source" and not "find_source_text") throw new JsonException();
                 var isRead = operation == "read_source";
                 var isFind = operation == "find_source_text";
+                int? TableOption(string name,int minimum,int maximum)
+                {
+                    if (!item.TryGetProperty(name,out var value) || value.ValueKind==JsonValueKind.Null) return null;
+                    if (!isRead || value.ValueKind!=JsonValueKind.Number || !value.TryGetInt32(out var number)
+                        || number<minimum || number>maximum) throw new JsonException();
+                    return number;
+                }
+                var tableOrdinal=TableOption("tableOrdinal",0,int.MaxValue);
+                var tableRowOffset=TableOption("tableRowOffset",0,AdvancedAnalysisTableFragment.MaximumRows-1);
+                var tableRowLimit=TableOption("tableRowLimit",1,AdvancedAnalysisStructuredTableAssembler.MaximumRowLimit);
+                if ((tableRowOffset is not null || tableRowLimit is not null) && tableOrdinal is null) throw new JsonException();
                 var query = isFind ? ReadString(item, "query").Trim()
                     : NormalizeCorpusSearchQuery(ReadString(item, "query"));
                 if (!isRead && (string.IsNullOrWhiteSpace(query) || query.Length > 8_000))
@@ -118,7 +129,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     PageStart: pageStart, PageEnd: pageEnd,
                     DocumentHint: documentHint.Length == 0 ? null : documentHint,
                     Operation: operation, RevisionId: observedSource?.SourceReference.RevisionId,
-                    Offset: offset);
+                    Offset: offset,TableOrdinal:tableOrdinal,TableRowOffset:tableRowOffset,TableRowLimit:tableRowLimit);
                 if (dedupe.Add(BuildSearchIdentity(search)))
                     result.Add(search);
             }
@@ -718,6 +729,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             documentHint = search.DocumentHint?.Trim() ?? string.Empty,
             search.Operation, search.RevisionId, search.Offset,
             search.PageStart, search.PageEnd, search.TopK,
+            search.TableOrdinal,search.TableRowOffset,search.TableRowLimit,
             search.MaxPerDocument, search.MaxPerPage
         });
 

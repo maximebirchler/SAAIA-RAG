@@ -26,6 +26,7 @@ from linux_owned_runtime import OwnedDocker, assert_owned_path
 from linux_lifecycle_checks import require, validate_configuration_continuity
 from linux_retrieval_fact_checks import baseline, deadline, fact_check, negative_check, observation_identity, validate_inputs
 from tools.ingestion_gold.critical_facts import exact_text
+from canonical_search_checks import fact_in_current_item
 import linux_runtime_queries as queries
 
 _spec = importlib.util.spec_from_file_location("retrieval_prior_corpus", Path(__file__).with_name("invoke-linux-ingestion.py"))
@@ -86,7 +87,7 @@ class FactProbe:
                 require(response.get("query") == fact["text"], "Search query echo differs from the frozen annotation.")
                 pattern = re.compile(r"(?<!\w)" + re.escape(exact_text(fact["text"])) + r"(?!\w)")
                 chosen = next((item for item in response.get("items", []) if item.get("chunkId") in chunks
-                               and pattern.search(exact_text(item.get("text", "")))), None)
+                               and fact_in_current_item(item, row, fact)), None)
                 read, reused = {}, False
                 if chosen:
                     key = (row["docId"], row["revisionId"], chosen["chunkId"], row["sourceSha256"])

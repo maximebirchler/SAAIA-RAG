@@ -3895,7 +3895,7 @@ VALUES
             };
 
             var db = new PostgresIntegrationDb(adminConnectionString, databaseName, dbBuilder.ConnectionString);
-            var migrationsDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "SAAIA.Backend", "Db", "Migrations"));
+            var migrationsDir = TestRepositoryPaths.MigrationsDirectory;
             await DbMigrator.ApplyMigrationsAsync(db.ConnectionString, migrationsDir, CancellationToken.None);
             // Match the default tenant used by BuildAdminContext and these scenario fixtures.
             await using (var conn = new NpgsqlConnection(db.ConnectionString))

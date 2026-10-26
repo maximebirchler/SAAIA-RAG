@@ -177,7 +177,10 @@ SET doc_path = EXCLUDED.doc_path,
             publishableRetrievalChunkIndexes,
             ct);
         if (canonicalBundle is not null)
+        {
+            await CanonicalVisualAssetRepo.StoreAsync(conn, tx, tenantId, canonicalBundle.Document, ct);
             await CanonicalArtifactRepo.UpsertBundleAsync(conn, tx, tenantId, revisionId, canonicalBundle, ct);
+        }
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "page_index", pages, p => $"page:{p.PageNumber}:{p.CharCount}:{Convert.ToHexString(p.Checksum)}", p => p.CharCount, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "sections", sections, s => $"section:{s.Ordinal}:{s.Level}:{s.PageStart}:{s.PageEnd}:{s.Title}", _ => 0, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "units", units, u => $"unit:{u.Ordinal}:{u.PageStart}:{u.PageEnd}:{u.TokenCount}:{u.Text}", u => u.CharCount, ct);
@@ -2215,6 +2218,8 @@ SET retrieval_chunk_id = EXCLUDED.retrieval_chunk_id,
                                   headingPathBySectionOrdinal);
             chunkLinkMap.TryGetValue(chunk.ChunkIndex, out var chunkLinks);
             var text = NormalizePostgresTextForStorage(chunk.Text);
+            var literalSearchText = NormalizePostgresTextForStorage(
+                DoclingCanonicalRetrievalProjector.ResolveLiteralSearchText(chunk));
             var storedSectionTitle = NormalizeOptionalPostgresTextForStorage(sectionTitle);
             var storedHeadingPath = NormalizeOptionalPostgresTextForStorage(headingPath);
 
@@ -2240,12 +2245,15 @@ SET retrieval_chunk_id = EXCLUDED.retrieval_chunk_id,
                 sourceUnitEndOrdinal = chunk.SourceUnitEndOrdinal,
                 sourceUnitCount = chunk.SourceUnitCount ?? (chunk.SourceUnitOrdinals?.Count ?? 0),
                 chunkComposition = NormalizeOptionalPostgresTextForStorage(chunk.ChunkComposition),
+                embeddingAdmission = chunk.EmbeddingAdmission,
+                literalSearchText = string.Equals(literalSearchText, text, StringComparison.Ordinal) ? null : literalSearchText,
                 canonicalBlockIds = NormalizePostgresTextArrayForStorage(
                     chunk.CanonicalBlockIds ?? Array.Empty<string>()),
                 canonicalSpanIds = NormalizePostgresTextArrayForStorage(
                     chunk.CanonicalSpanIds ?? Array.Empty<string>()),
                 canonicalTableCellIds = NormalizePostgresTextArrayForStorage(
                     chunk.CanonicalTableCellIds ?? Array.Empty<string>()),
+                canonicalTableCellMap = CanonicalTableCellMap.Build(chunk, NormalizePostgresTextForStorage),
                 canonicalContextBlockIds = NormalizePostgresTextArrayForStorage(
                     chunk.CanonicalContextBlockIds ?? Array.Empty<string>()),
                 prevChunkId = chunkLinks?.PreviousChunkId?.ToString(),
@@ -2469,7 +2477,13 @@ SET section_id = EXCLUDED.section_id,
                 chunkComposition = NormalizeOptionalPostgresTextForStorage(entry.ChunkComposition),
                 includesCurrentUnitContext = entry.IncludesCurrentUnitContext,
                 includesPreviousContext = entry.IncludesPreviousContext,
-                includesNextContext = entry.IncludesNextContext
+                includesNextContext = entry.IncludesNextContext,
+                extractionTextStatus = NormalizeOptionalPostgresTextForStorage(entry.ExtractionTextStatus),
+                extractionTextSparse = entry.ExtractionTextSparse,
+                extractionOcrCandidate = entry.ExtractionOcrCandidate,
+                extractionQualitySignals = entry.ExtractionQualitySignals,
+                extractionQualityAvailability = entry.ExtractionQualityAvailability,
+                contributorUnitOrdinals = entry.ContributorUnitOrdinals
             });
 
             await conn.ExecuteAsync(new CommandDefinition(sql, new

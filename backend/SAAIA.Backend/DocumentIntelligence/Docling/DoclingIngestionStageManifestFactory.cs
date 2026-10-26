@@ -431,6 +431,9 @@ internal static class DoclingIngestionStageManifestFactory
             });
         }
 
+        if (DoclingRegionalTextRepairStage.Create(documentIntelligence, response) is { } regionalTextStage)
+            stages.Insert(stages.FindIndex(stage => stage.StageId == "canonical_projection"), regionalTextStage);
+
         return stages;
     }
 

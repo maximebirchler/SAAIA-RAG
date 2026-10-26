@@ -50,6 +50,13 @@ internal static class ContextualTextProjector
                 includePreviousUnit,
                 nextUnit,
                 includeNextUnit);
+            var contributorUnits = new[]
+            {
+                includeCurrentUnit ? unit : null,
+                includePreviousUnit ? previousUnit : null,
+                includeNextUnit ? nextUnit : null
+            }.OfType<ExtractedDocumentUnit>().ToArray();
+            var quality = ContextualTextQuality.Aggregate(chunk, contributorUnits);
             entries.Add(new ProjectedContextualTextEntry(
                 EntryIndex: chunk.ChunkIndex,
                 SectionOrdinal: chunk.SectionOrdinal,
@@ -76,7 +83,13 @@ internal static class ContextualTextProjector
                 ChunkComposition: chunk.ChunkComposition,
                 IncludesCurrentUnitContext: includeCurrentUnit,
                 IncludesPreviousContext: includePreviousUnit,
-                IncludesNextContext: includeNextUnit));
+                IncludesNextContext: includeNextUnit,
+                ExtractionTextStatus: quality.TextStatus,
+                ExtractionTextSparse: quality.TextSparse,
+                ExtractionOcrCandidate: quality.OcrCandidate,
+                ExtractionQualitySignals: quality.Signals,
+                ExtractionQualityAvailability: quality.Availability,
+                ContributorUnitOrdinals: contributorUnits.Select(item => item.Ordinal).Distinct().Order().ToArray()));
         }
 
         return entries;
@@ -272,4 +285,10 @@ internal sealed record ProjectedContextualTextEntry(
     string? ChunkComposition = null,
     bool IncludesCurrentUnitContext = false,
     bool IncludesPreviousContext = false,
-    bool IncludesNextContext = false);
+    bool IncludesNextContext = false,
+    string? ExtractionTextStatus = null,
+    bool? ExtractionTextSparse = null,
+    bool? ExtractionOcrCandidate = null,
+    IReadOnlyList<string>? ExtractionQualitySignals = null,
+    string ExtractionQualityAvailability = "unavailable",
+    IReadOnlyList<int>? ContributorUnitOrdinals = null);

@@ -13,10 +13,11 @@ import uuid
 
 from linux_owned_runtime import validate_owner
 from linux_lifecycle_checks import digest, require
-from canonical_search_checks import check_search_capture, _current_items, retrieval_metrics_healthy
+from canonical_search_checks import check_search_capture, _current_items, retrieval_metrics_healthy, fact_in_current_item
 from tools.ingestion_gold.contracts import validate_manifest
 from tools.ingestion_gold.critical_facts import critical_fact_issues, exact_text
 from tools.ingestion_gold.canonical_evaluator import _text_variant, _table_text
+from tools.ingestion_gold.structured_fact_surfaces import has_structured_chunks, document_source_windows, build_retrieval_windows
 
 
 def validate_inputs(owner, prior, manifest, *, owner_sha, manifest_sha):
@@ -91,9 +92,21 @@ def baseline(cases, observation):
             number = page.get("pageNumber")
             require(type(number) is int and number > 0 and number not in pages, "Canonical physical pages must be distinct positive integers.")
             pages[number] = [_text_variant(b) for b in page.get("blocks", [])] + [_table_text(t) for t in page.get("tables", [])]
-        require(not critical_fact_issues(case["expectations"]["criticalFacts"], pages, chunks),
+        legacy = critical_fact_issues(case['expectations']['criticalFacts'], pages, chunks)
+        physical_windows = retrieval_windows = None
+        surface_errors = []
+        if has_structured_chunks(chunks):
+            scope = dict(document_id=row['docId'], revision_id=row['revisionId'], source_sha256=case['sourceSha256'])
+            physical_windows, source_errors = document_source_windows(document, **scope)
+            retrieval_windows, retrieval_errors = build_retrieval_windows(document, chunks, **scope)
+            surface_errors = source_errors + retrieval_errors
+        require(not surface_errors and not critical_fact_issues(case["expectations"]["criticalFacts"], pages, chunks,
+                physical_windows=physical_windows, retrieval_windows=retrieval_windows),
                 "Independent physical-page facts are absent from the current canonical bundle or its retrieval chunks.")
         verified = copy.deepcopy(row)
+        if retrieval_windows is not None:
+            verified['_verifiedRetrievalWindows'] = retrieval_windows
+            verified['_legacyRawFactIssues'] = legacy
         verified["_verifiedPhysicalFacts"] = {f["id"]: {"page": f["page"],
             "annotationSha256": hashlib.sha256(f["text"].encode("utf-8")).hexdigest()}
             for f in case["expectations"]["criticalFacts"]}
@@ -121,7 +134,7 @@ def fact_check(case, row, fact, response, read):
     require(isinstance(items, list), "Search returned no explicit result array.")
     pattern = re.compile(r"(?<!\w)" + re.escape(exact_text(fact["text"])) + r"(?!\w)")
     identity = _current_items(items, case, row, fact["page"])
-    found = [(i + 1, item) for i, item in enumerate(items) if pattern.search(exact_text(item.get("text", "")))]
+    found = [(i + 1, item) for i, item in enumerate(items) if fact_in_current_item(item, row, fact)]
     request, value = read.get("request", {}), read.get("response", {})
     chunks = {c["retrievalChunkId"]: c for c in row["chunks"]}
     chunk_id, doc = request.get("chunkId"), value.get("document", {})
@@ -139,6 +152,8 @@ def fact_check(case, row, fact, response, read):
         "indexedVersion": row["indexedVersion"], "planFingerprint": row["activeVectorPlanFingerprint"],
         "hitCount": len(items), "rank": found[0][0] if found else None, "chunkId": chunk_id,
         "currentIdentitiesExact": bool(identity), "exactFactFound": bool(found), "searchToReadExact": bool(read_ok),
+        "exactFactFoundLegacyRawText": any(pattern.search(exact_text(item.get('text', ''))) for item in items),
+        "factSurfaceBasis": 'verified_source_bound_windows' if '_verifiedRetrievalWindows' in row else 'legacy_raw_text',
         "noDegradedRetrievers": no_degraded, "physicalFactVerifiedInCurrentCanonicalBundle": physical,
         "passed": bool(identity and found and read_ok and no_degraded and physical)}
 

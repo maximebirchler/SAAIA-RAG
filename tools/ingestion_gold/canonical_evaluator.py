@@ -643,7 +643,26 @@ def evaluate_canonical_snapshot(
         critical_pages.setdefault(int(block.get("_goldPageNumber", 0)), []).append(_text_variant(block))
     for table in tables:
         critical_pages.setdefault(int(table.get("_goldPageNumber", 0)), []).append(_table_text(table))
-    critical_issues = critical_fact_issues(expectations.get("criticalFacts", []), critical_pages, chunks)
+    legacy_critical_issues = critical_fact_issues(expectations.get("criticalFacts", []), critical_pages, chunks)
+    critical_issues = legacy_critical_issues
+    structured_fact_errors = []
+    from .structured_fact_surfaces import has_structured_chunks, document_source_windows, build_retrieval_windows
+    if has_structured_chunks(chunks):
+        scope = dict(document_id=document.get('documentId'), revision_id=document.get('revisionId'),
+                     source_sha256=snapshot.get('sourceSha256'))
+        try:
+            physical_windows, physical_errors = document_source_windows(document, **scope)
+            retrieval_windows, retrieval_errors = build_retrieval_windows(document, chunks, **scope)
+            structured_fact_errors = physical_errors + retrieval_errors
+            critical_issues = critical_fact_issues(expectations.get('criticalFacts', []), critical_pages, chunks,
+                physical_windows=physical_windows, retrieval_windows=retrieval_windows)
+        except (ValueError, KeyError, TypeError) as error:
+            structured_fact_errors = [{'code': str(error) if isinstance(error, ValueError) else 'fact_surface_invalid_shape'}]
+            critical_issues = critical_fact_issues(expectations.get('criticalFacts', []), {}, chunks,
+                                                   physical_windows={}, retrieval_windows={})
+        issues.extend(CanonicalEvaluationIssue(
+            'structured_fact_surface_unavailable' if error.get('state') == 'UNAVAILABLE' else 'structured_fact_surface',
+            error['code']) for error in structured_fact_errors)
     issues.extend(CanonicalEvaluationIssue(issue["check"], issue["message"]) for issue in critical_issues)
     return {
         "ok": not issues,
@@ -652,6 +671,11 @@ def evaluate_canonical_snapshot(
             for issue in issues
         ],
         "metrics": {
+            "criticalFactsLegacyRawPassed": not legacy_critical_issues,
+            # These facts and complete structural measurability are separate gates.
+            "criticalFactsSourceBoundPassed": not critical_issues,
+            "structuredFactSurfaceCoverageComplete": not structured_fact_errors,
+            "structuredFactSurfaceErrors": structured_fact_errors,
             "pageCount": len(pages),
             "primaryBlockCount": len(primary_blocks),
             "alternativeBlockCount": len(alternative_blocks),

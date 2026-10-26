@@ -34,6 +34,7 @@ internal static class DoclingCanonicalDocumentAdapter
         ValidateContext(context);
         if (source.KeyValueItems.Count > 0 || source.FormItems.Count > 0)
             throw new InvalidDataException("docling_unprojected_structured_items");
+        DoclingSourceCoverageValidator.Validate(source);
 
         var sourceItems = DoclingDocumentTraversal.BuildItemMap(source);
         var orderByRef = DoclingDocumentTraversal.BuildReadingOrder(source, sourceItems);
@@ -86,6 +87,7 @@ internal static class DoclingCanonicalDocumentAdapter
             ManifestSha256 = context.ManifestSha256
         };
 
+        DoclingCanonicalVisualAssetProjector.Apply(document, source);
         CanonicalContractValidator.ValidateOrThrow(document);
         return document;
     }
@@ -141,10 +143,12 @@ internal static class DoclingCanonicalDocumentAdapter
             {
                 var sourceProvenance = item.Provenance[provenanceIndex];
                 var page = RequirePage(pages, sourceProvenance.PageNumber);
-                var (rawText, canonicalText) = DoclingTextRegionProjector.Project(
+                var textProjection = DoclingRegionalTextRepairProvenance.Project(
                     item,
                     sourceProvenance,
-                    provenanceIndex);
+                    provenanceIndex,
+                    page.Geometry);
+                var (rawText, canonicalText) = (textProjection.Raw, textProjection.Canonical);
                 var blockId = CanonicalStableId.Create(
                     "block",
                     context.SourceSha256,
@@ -177,6 +181,7 @@ internal static class DoclingCanonicalDocumentAdapter
                         provenanceIndex,
                         sourceProvenance.CharacterSpan)
                 };
+                textProjection.Attach(block);
                 projections.Add(new(
                     item.SelfRef,
                     item.Label,

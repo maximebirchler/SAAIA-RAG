@@ -5,6 +5,7 @@ internal static class DoclingExecutionMetadataPolicy
 {
     internal static void Validate(DocumentIntelligenceOptions options, DoclingConvertResponse response, bool requestedForceOcr)
     {
+        DoclingRegionalTextRepairPolicy.Validate(options, response);
         var observed = response.Execution;
         if (observed is null) return; // Legacy service: explicitly unattested in its manifest.
         if (observed.ForceOcr.HasValue && observed.ForceOcr != requestedForceOcr

@@ -29,7 +29,7 @@ from linux_owned_runtime import OwnedDocker, assert_owned_path, mounted_source, 
 import linux_runtime_queries as queries
 from vector_point_identity import vector_point_id
 from verify_worker_publication import verify
-from canonical_search_checks import search_fact
+from canonical_search_checks import search_fact, choose_current_fact_hit
 from tools.ingestion_gold.contracts import select_cases, validate_manifest
 from tools.ingestion_gold.critical_facts import exact_text
 
@@ -389,8 +389,7 @@ def run(args: argparse.Namespace) -> dict:
                 control = copy.deepcopy(request)
                 control["query" if kind == "absent_query" else "docId"] = "saaianomatch" + uuid.uuid4().hex if kind == "absent_query" else str(uuid.uuid4())
                 negative.append({"kind": kind, "request": control, "response": api("backend", "/rag/search", "POST", control)})
-            chosen = next((hit for hit in response.get("items", []) if hit.get("chunkId") in {c["retrievalChunkId"] for c in row["chunks"]}
-                and re.search(r"(?<!\w)" + re.escape(exact_text(fact["text"])) + r"(?!\w)", exact_text(hit.get("text", "")))), None)
+            chosen = choose_current_fact_hit(case, row, response)
             read = {}
             if chosen:
                 read_request = {"docId": doc_id, "chunkId": chosen["chunkId"]}

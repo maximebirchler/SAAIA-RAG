@@ -11,7 +11,9 @@ def exact_text(value: Any) -> str:
 
 
 def critical_fact_issues(specs: list[dict[str, Any]], pages: dict[int, list[str]],
-                         retrieval: list[dict[str, Any]] | None = None) -> list[dict[str, str]]:
+                         retrieval: list[dict[str, Any]] | None = None, *,
+                         physical_windows: dict | None = None,
+                         retrieval_windows: dict | None = None) -> list[dict[str, str]]:
     issues: list[dict[str, str]] = []
     ids: set[str] = set()
     for spec in specs:
@@ -27,11 +29,18 @@ def critical_fact_issues(specs: list[dict[str, Any]], pages: dict[int, list[str]
         # Word boundaries avoid accepting a small quantity inside a longer one.
         pattern = re.compile(r"(?<!\w)" + re.escape(text) + r"(?!\w)")
         source = exact_text(" ".join(pages.get(page, [])))
-        if not pattern.search(source):
+        physical_found = bool(pattern.search(source)) if physical_windows is None else any(
+            pattern.search(exact_text(window['text'])) for window in physical_windows.get(page, []))
+        if not physical_found:
             issues.append({"check": "critical_fact", "message": f"Critical fact {fact_id} is absent or changed on physical page {page}."})
-        if retrieval is not None and not any(
-            int(chunk.get("pageStart", 0)) <= page <= int(chunk.get("pageEnd", 0))
-            and pattern.search(exact_text(chunk.get("text"))) for chunk in retrieval
-        ):
+        def found_in_chunk(chunk):
+            if not int(chunk.get('pageStart', 0)) <= page <= int(chunk.get('pageEnd', 0)):
+                return False
+            if retrieval_windows is None:
+                return bool(pattern.search(exact_text(chunk.get('text'))))
+            from .structured_fact_surfaces import chunk_key
+            return any(pattern.search(exact_text(window['text']))
+                       for window in retrieval_windows.get(chunk_key(chunk), []))
+        if retrieval is not None and not any(found_in_chunk(chunk) for chunk in retrieval):
             issues.append({"check": "critical_retrieval_fact", "message": f"Critical fact {fact_id} is absent or changed in retrieval for physical page {page}."})
     return issues

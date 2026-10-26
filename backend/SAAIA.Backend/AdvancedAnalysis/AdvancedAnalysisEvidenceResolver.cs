@@ -108,7 +108,15 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                     {
                         ChunkType = row.ChunkType, ChunkComposition = row.ChunkComposition,
                         ContainsUnassignedPhysicalContext = row.ContainsUnassignedPhysicalContext
-                    } : null));
+                    } : null,
+                TableFragment: !string.IsNullOrWhiteSpace(row.ChunkId) && row.PageStart==row.PageEnd
+                    && (row.ChunkType==DoclingCanonicalRetrievalProjector.TableChunkType
+                        || row.ChunkComposition=="canonical_table_grid_html_v1")
+                    ? AdvancedAnalysisTableFragment.Parse(content,row.TableCellIdsJson,row.QualitySignalsJson,row.TableCellMapJson) : null)
+            {
+                SourceQuality = row.SourceQuality ?? AdvancedAnalysisSourceQuality.FromMetadata(
+                    row.ExtractionTextStatus, row.ExtractionOcrCandidate, row.QualitySignalsJson)
+            });
         }
 
         if (resolved.Count > 0)
@@ -125,6 +133,27 @@ internal sealed class AdvancedAnalysisEvidenceResolver
             resolved = resolved.Select(item => ranges.TryGetValue(Guid.Parse(item.Reference.RevisionId), out var range)
                 ? item with { SourceOverview=new AdvancedAnalysisSourceOverview(range.FirstIndexedPhysicalPage,range.LastIndexedPhysicalPage,range.CanonicalChunkCount) }
                 : item).ToList();
+
+            var visualScopes = new Dictionary<(Guid Document, Guid Revision, int First, int Last), CanonicalVisualAssetInventory>();
+            for (var index = 0; index < resolved.Count; index++)
+            {
+                var item = resolved[index];
+                var key = (Guid.Parse(item.Reference.DocId), Guid.Parse(item.Reference.RevisionId),
+                    item.Reference.PageStart, item.Reference.PageEnd);
+                if (!visualScopes.TryGetValue(key, out var inventory))
+                {
+                    inventory = await CanonicalVisualAssetRepo.ListAsync(connection, tenantId, key.Item1,
+                        key.Item2, key.PageStart, key.PageEnd, cancellationToken);
+                    visualScopes.Add(key, inventory);
+                }
+                var overview = item.SourceOverview ?? new(item.Reference.PageStart, item.Reference.PageEnd, 1);
+                resolved[index] = item with { SourceOverview = overview with
+                {
+                    VisualAssets = new(inventory.Status, inventory.AvailableAssetCount,
+                        inventory.Assets.Select(asset => asset.PageNumber).Distinct().ToArray(), inventory.AssetsOmitted,
+                        inventory.InterpretationStatus, inventory.ImageToolAvailable)
+                }};
+            }
         }
         return AdvancedAnalysisEvidenceResolution.Valid(resolved);
     }
@@ -251,7 +280,12 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                   rc.metadata->>'prevChunkId' AS "PreviousChunkId",
                   rc.metadata->>'nextChunkId' AS "NextChunkId",
                   rc.metadata->>'chunkType' AS "ChunkType",
-                  rc.metadata->>'chunkComposition' AS "ChunkComposition"
+                  rc.metadata->>'chunkComposition' AS "ChunkComposition",
+                  (rc.metadata->'canonicalTableCellIds')::text AS "TableCellIdsJson",
+                  (rc.metadata->'canonicalTableCellMap')::text AS "TableCellMapJson",
+                  (rc.metadata->'extractionQualitySignals')::text AS "QualitySignalsJson",
+                  rc.metadata->>'extractionTextStatus' AS "ExtractionTextStatus",
+                  rc.metadata->>'extractionOcrCandidate' AS "ExtractionOcrCandidate"
                 FROM retrieval_chunks rc
                 JOIN document_revisions dr
                   ON dr.tenant_id=rc.tenant_id
@@ -296,7 +330,10 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                   (cc.metadata->'evidence')::text AS "EvidenceJson",
                   card_source.text_content AS "CardCanonicalContent",
                   card_source.metadata->>'chunkType' AS "ChunkType",
-                  card_source.metadata->>'chunkComposition' AS "ChunkComposition"
+                  card_source.metadata->>'chunkComposition' AS "ChunkComposition",
+                  (card_source.metadata->'extractionQualitySignals')::text AS "QualitySignalsJson",
+                  card_source.metadata->>'extractionTextStatus' AS "ExtractionTextStatus",
+                  card_source.metadata->>'extractionOcrCandidate' AS "ExtractionOcrCandidate"
                 FROM document_profile_content_cards cc
                 JOIN document_revisions dr
                   ON dr.tenant_id=cc.tenant_id
@@ -338,7 +375,10 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                   (cc.metadata->'evidence')::text AS "EvidenceJson",
                   card_source.text_content AS "CardCanonicalContent",
                   COALESCE(rc.metadata->>'chunkType',card_source.metadata->>'chunkType') AS "ChunkType",
-                  COALESCE(rc.metadata->>'chunkComposition',card_source.metadata->>'chunkComposition') AS "ChunkComposition"
+                  COALESCE(rc.metadata->>'chunkComposition',card_source.metadata->>'chunkComposition') AS "ChunkComposition",
+                  COALESCE(rc.metadata->'extractionQualitySignals',card_source.metadata->'extractionQualitySignals')::text AS "QualitySignalsJson",
+                  COALESCE(rc.metadata->>'extractionTextStatus',card_source.metadata->>'extractionTextStatus') AS "ExtractionTextStatus",
+                  COALESCE(rc.metadata->>'extractionOcrCandidate',card_source.metadata->>'extractionOcrCandidate') AS "ExtractionOcrCandidate"
                 FROM document_source_anchors sa
                 JOIN document_revisions dr
                   ON dr.tenant_id=sa.tenant_id
@@ -392,7 +432,10 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                   NULL::text AS "ExactTitle",
                   rc.text_content AS "Content",
                   rc.metadata->>'chunkType' AS "ChunkType",
-                  rc.metadata->>'chunkComposition' AS "ChunkComposition"
+                  rc.metadata->>'chunkComposition' AS "ChunkComposition",
+                  (rc.metadata->'extractionQualitySignals')::text AS "QualitySignalsJson",
+                  rc.metadata->>'extractionTextStatus' AS "ExtractionTextStatus",
+                  rc.metadata->>'extractionOcrCandidate' AS "ExtractionOcrCandidate"
                 FROM document_revisions dr
                 JOIN documents d
                   ON d.tenant_id=dr.tenant_id
@@ -437,6 +480,9 @@ internal sealed class AdvancedAnalysisEvidenceResolver
             ChunkComposition = rows.Count == 1 ? first.ChunkComposition : null,
             ContainsUnassignedPhysicalContext = rows.Any(row =>
                 string.Equals(row.ChunkType, RetrievalChunkProjector.PhysicalPageContextChunkType, StringComparison.Ordinal)),
+            SourceQuality = AdvancedAnalysisSourceQuality.Merge(rows.Select(row =>
+                AdvancedAnalysisSourceQuality.FromMetadata(row.ExtractionTextStatus,
+                    row.ExtractionOcrCandidate, row.QualitySignalsJson))),
             Content = string.Join(
                 "\n\n",
                 rows.Select(static row => row.Content)
@@ -532,6 +578,12 @@ internal sealed class AdvancedAnalysisEvidenceResolver
         public string? NextChunkId { get; init; }
         public string? ChunkType { get; init; }
         public string? ChunkComposition { get; init; }
+        public string? TableCellIdsJson { get; init; }
+        public string? TableCellMapJson { get; init; }
+        public string? QualitySignalsJson { get; init; }
+        public string? ExtractionTextStatus { get; init; }
+        public string? ExtractionOcrCandidate { get; init; }
+        public AdvancedAnalysisSourceQuality? SourceQuality { get; init; }
         public bool ContainsUnassignedPhysicalContext { get; init; }
     }
 }
