@@ -1,5 +1,36 @@
 # Sidecar Docling SAAIA
 
+Le conteneur doit être lancé avec un init (`init: true` dans Compose, `--init`
+avec Docker). Il récolte les descendants orphelins après l'arrêt d'un groupe OCR.
+Le superviseur continue de refuser une clôture tant qu'un membre du groupe,
+y compris un zombie, reste observable. Une qualification qui remplace l'entrée
+normale par Python PID 1 sans init ne respecte pas cette exigence de lancement.
+Cette configuration ne prouve pas l'annulation du moteur Docling amont.
+
+La réparation régionale des tableaux partage maintenant le superviseur de
+processus de la réparation de texte. Un seul créneau OCR est partagé entre les
+deux opérations. Les tableaux utilisent RapidOCR seul, avec les poids locaux et
+les sessions CPU effectivement contrôlés ; aucun Tesseract supplémentaire n'est
+exécuté pour cette opération. Le trajet historique dans un thread non interruptible
+a été supprimé après vérification de ses références.
+
+Par document, les limites de réparation de tableaux sont : huit régions au plus,
+60 secondes au total, 15 secondes par région et 20 millions de pixels pour la
+page rendue. Les dimensions physiques sont contrôlées avant allocation. Les
+variables `SAAIA_DOCLING_TABLE_REPAIR_MAX_REGIONS`, `TOTAL_TIMEOUT_SECONDS`,
+`REGION_TIMEOUT_SECONDS` et `MAX_RENDERED_PIXELS` utilisent toutes ce même préfixe.
+Les réglages existants `SCALE`, `PADDING_POINTS` et `MINIMUM_SCORE` sont conservés.
+Les valeurs hors limites sont refusées au démarrage.
+
+Une annulation tue et récolte le seul groupe de processus créé. Un résultat arrivé
+après le budget n'est pas appliqué ; les cellules originales restent disponibles
+avec une raison d'indisponibilité, d'échec ou de limite. `/health` expose séparément
+les réglages et compteurs réels de réparation de tableaux. Ces sondes ne prouvent
+pas l'annulation du processus Docling amont, ni la fidélité sémantique du résultat.
+Si l'absence du groupe ne peut pas être confirmée, le créneau partagé est bloqué
+pour les deux modes et `/health` devient indisponible. Un redémarrage du service
+est requis ; une région suivante ne contourne jamais cette incertitude.
+
 Ce service conserve Docling Serve comme parseur principal et ajoute deux
 compléments génériques et traçables :
 
@@ -141,9 +172,11 @@ encore dans son contrat HTTP. Le lanceur SAAIA active donc explicitement
 l’option native au moment où Docling Serve construit ses options de pipeline.
 Il ne réécrit aucun titre et ne contient aucun vocabulaire métier.
 
-Le profil de production initial reste CPU. La seconde lecture du tableau de
-référence prend environ 1,05 seconde sur le serveur, dont 0,68 à 0,73 seconde
-pour RapidOCR, sans décharger Qwen3 de la T2000.
+Le profil de production initial reste CPU. L'ancienne mesure d'environ
+1,05 seconde pour une seconde lecture du tableau de référence concernait le
+chemin historique exécuté dans un thread. Elle ne mesure pas le nouveau
+superviseur par région, qui recharge les moteurs dans un processus jetable.
+Ses délais et performances doivent être qualifiés dans l'image Linux exacte.
 
 ## Validation locale
 

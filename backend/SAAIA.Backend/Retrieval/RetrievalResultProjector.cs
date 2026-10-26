@@ -571,10 +571,12 @@ ORDER BY sd.doc_path, pi.page_number;
 
             var pages = ResolveExtractionPageRows(match, pagesById, pagesByPath);
             var pageQuality = BuildPageExtractionQuality(match, pages);
+            var documentObservation = ObserveExtractionQualitySignalsJson(doc.SignalsJson);
             var documentSignals = doc.PageReviewRecommendedCount > 0
-                ? ParseJsonStringArray(doc.SignalsJson).Append("page_review_recommended").ToArray()
-                : ParseJsonStringArray(doc.SignalsJson);
-            var signals = MergeExtractionSignals(documentSignals, pageQuality?.Signals);
+                ? BoundQualitySignals(documentObservation.Signals.Append("page_review_recommended").ToArray(), documentObservation.Metadata)
+                : documentObservation;
+            var signals = pageQuality is null ? MergeQualitySignals(documentSignals)
+                : MergeQualitySignals(documentSignals, BoundQualitySignals(pageQuality.Signals, pageQuality.SignalsMetadata));
             var diagnosticSummary = BuildRagExtractionDiagnosticSummary(doc);
             var item = new RagItemExtractionQualityDto(
                 ExtractionSource: doc.ExtractionSource,
@@ -588,8 +590,9 @@ ORDER BY sd.doc_path, pi.page_number;
                 PageManualReviewRecommended: pageQuality?.ManualReviewRecommended,
                 TextStatus: pageQuality?.TextStatus ?? doc.TextStatus,
                 OcrRecommended: doc.OcrRecommended,
-                Signals: signals.Length == 0 ? null : signals,
-                DiagnosticSummary: diagnosticSummary);
+                Signals: signals.Signals.Count == 0 ? null : signals.Signals,
+                DiagnosticSummary: diagnosticSummary,
+                SignalsMetadata: signals.Metadata);
 
             byMatch[BuildExtractionQualityMatchKey(match)] = item;
         }
@@ -1099,16 +1102,19 @@ WHERE d.tenant_id=@tenant
 
         var start = Math.Max(1, match.PageStart.Value);
         var end = Math.Max(start, match.PageEnd ?? start);
-        var reviews = pages
+        var pageSources = pages
             .Where(page => page.PageNumber >= start && page.PageNumber <= end)
-            .Select(page => ExtractionQualityDiagnostics.AssessPage(
-                page.WordCount,
-                page.CharCount,
-                page.ImageCount,
-                page.UnitCount,
-                CountSuspiciousExtractionUnits(page.UnitTextsJson),
-                page.ChunkCount,
-                ParseJsonStringArray(page.SignalsJson)))
+            .Select(page => (Page: page, Observation: ObserveExtractionQualitySignalsJson(page.SignalsJson)))
+            .ToArray();
+        var reviews = pageSources
+            .Select(source => ExtractionQualityDiagnostics.AssessPage(
+                source.Page.WordCount,
+                source.Page.CharCount,
+                source.Page.ImageCount,
+                source.Page.UnitCount,
+                CountSuspiciousExtractionUnits(source.Page.UnitTextsJson),
+                source.Page.ChunkCount,
+                source.Observation.Signals))
             .ToArray();
         if (reviews.Length == 0)
             return null;
@@ -1117,20 +1123,15 @@ WHERE d.tenant_id=@tenant
             .OrderBy(static review => review.ExtractionConfidence)
             .ThenByDescending(static review => review.ManualReviewRecommended)
             .First();
-        var signals = reviews
-            .SelectMany(static review => review.Signals)
-            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
-            .Select(static signal => signal.Trim())
-            .Distinct(StringComparer.Ordinal)
-            .Take(8)
-            .ToArray();
+        var signals = MergeQualitySignals(reviews.Select((review, index) =>
+            BoundQualitySignals(review.Signals, pageSources[index].Observation.Metadata)).ToArray());
 
         return new RagExtractionPageQuality(
             selected.Status,
             selected.ExtractionConfidence,
             selected.ManualReviewRecommended,
             selected.TextStatus,
-            signals);
+            signals.Signals.ToArray(), signals.Metadata);
     }
 
 
@@ -1138,35 +1139,24 @@ WHERE d.tenant_id=@tenant
         => ParseJsonStringArray(unitTextsJson).Count(OcrNoiseFilter.LooksLikeProbableNoiseText);
 
 
-    private static string[] MergeExtractionSignals(params IReadOnlyList<string>?[] signalGroups)
-        => signalGroups
-            .Where(static group => group is not null)
-            .SelectMany(static group => group!)
-            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
-            .Select(static signal => signal.Trim())
-            .Distinct(StringComparer.Ordinal)
-            .Take(8)
-            .ToArray();
-
-
     private static RagItemExtractionQualityDto? BuildEffectiveExtractionQuality(
         RagMatch match,
         RagItemExtractionQualityDto? quality)
     {
         var chunkStatus = NormalizeExtractionQualityToken(match.ExtractionTextStatus);
-        var chunkSignals = NormalizeExtractionQualitySignals(match.ExtractionQualitySignals);
+        var chunkObservation = MatchQualitySignals(match);
+        var chunkSignals = chunkObservation.Signals;
         var hasChunkQuality =
             !string.IsNullOrWhiteSpace(chunkStatus)
             || match.ExtractionTextSparse.HasValue
             || match.ExtractionOcrCandidate.HasValue
-            || chunkSignals.Length > 0;
+            || chunkSignals.Count > 0 || chunkObservation.Metadata.Status != "unavailable";
 
         if (quality is null && !hasChunkQuality)
             return null;
 
-        var mergedSignals = MergeExtractionSignals(
-            quality?.Signals,
-            chunkSignals.Length == 0 ? null : chunkSignals);
+        var mergedSignals = quality is null ? MergeQualitySignals(chunkObservation)
+            : MergeQualitySignals(BoundQualitySignals(quality.Signals, quality.SignalsMetadata), chunkObservation);
 
         return new RagItemExtractionQualityDto(
             ExtractionSource: quality?.ExtractionSource,
@@ -1180,12 +1170,14 @@ WHERE d.tenant_id=@tenant
             PageManualReviewRecommended: quality?.PageManualReviewRecommended,
             TextStatus: quality?.TextStatus ?? chunkStatus,
             OcrRecommended: quality?.OcrRecommended ?? ResolveChunkOcrRecommended(chunkStatus, match.ExtractionOcrCandidate),
-            Signals: mergedSignals.Length == 0 ? null : mergedSignals,
+            Signals: mergedSignals.Signals.Count == 0 ? null : mergedSignals.Signals,
             ChunkTextStatus: chunkStatus,
             ChunkTextSparse: match.ExtractionTextSparse,
             ChunkOcrCandidate: match.ExtractionOcrCandidate,
-            ChunkQualitySignals: chunkSignals.Length == 0 ? null : chunkSignals,
-            DiagnosticSummary: quality?.DiagnosticSummary);
+            ChunkQualitySignals: chunkSignals.Count == 0 ? null : chunkSignals,
+            DiagnosticSummary: quality?.DiagnosticSummary,
+            SignalsMetadata: mergedSignals.Metadata,
+            ChunkQualitySignalsMetadata: chunkObservation.Metadata);
     }
 
 

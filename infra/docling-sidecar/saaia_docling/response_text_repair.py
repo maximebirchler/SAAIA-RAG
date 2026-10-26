@@ -25,6 +25,10 @@ class TextRegionEngine(Protocol):
 
 
 def validate_text_region(document: dict, item: dict, options: TextRepairOptions) -> float:
+    return validate_source_region(document, item, options, reference_kind="texts")
+
+
+def validate_source_region(document: dict, item: dict, options, *, reference_kind: str) -> float:
     provenance = item.get("prov")
     if not isinstance(provenance, list) or len(provenance) != 1 or not isinstance(provenance[0], dict):
         raise ValueError("source_geometry_invalid")
@@ -50,7 +54,7 @@ def validate_text_region(document: dict, item: dict, options: TextRepairOptions)
         raise ValueError("source_page_size_invalid")
     if ceil(width * options.render_scale) * ceil(height * options.render_scale) > options.max_rendered_pixels:
         raise ValueError("rendered_page_pixel_budget_exceeded")
-    bounds = source_bounds(item, page_height=height)
+    bounds = source_bounds(item, page_height=height, reference_kind=reference_kind)
     if bounds is None or bounds[2] > width or bounds[3] > height:
         raise ValueError("source_geometry_invalid")
     return height

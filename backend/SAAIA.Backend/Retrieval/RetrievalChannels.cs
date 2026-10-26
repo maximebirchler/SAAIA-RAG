@@ -258,7 +258,8 @@ LIMIT @top_k;
             ExtractionTextStatus: row.ExtractionTextStatus,
             ExtractionTextSparse: row.ExtractionTextSparse,
             ExtractionOcrCandidate: row.ExtractionOcrCandidate,
-            ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson))).ToList();
+            ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson),
+            ExtractionQualityObservation: ObserveExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson))).ToList();
 
         if (matches.Count < topK)
         {
@@ -778,7 +779,8 @@ LIMIT @candidate_limit;
                     ExtractionTextStatus: row.ExtractionTextStatus,
                     ExtractionTextSparse: row.ExtractionTextSparse,
                     ExtractionOcrCandidate: row.ExtractionOcrCandidate,
-                    ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson));
+                    ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson),
+                    ExtractionQualityObservation: ObserveExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson));
             })
             .ToList();
     }
@@ -1742,7 +1744,8 @@ LIMIT @candidate_limit;
                     ExtractionTextStatus: row.ExtractionTextStatus,
                     ExtractionTextSparse: row.ExtractionTextSparse,
                     ExtractionOcrCandidate: row.ExtractionOcrCandidate,
-                    ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson)))
+                    ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson),
+                    ExtractionQualityObservation: ObserveExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson)))
                 .ToList();
         }
         catch (PostgresException ex)
@@ -1831,7 +1834,8 @@ LIMIT @candidate_limit;
                     ExtractionTextStatus: row.ExtractionTextStatus,
                     ExtractionTextSparse: row.ExtractionTextSparse,
                     ExtractionOcrCandidate: row.ExtractionOcrCandidate,
-                    ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson));
+                    ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson),
+                    ExtractionQualityObservation: ObserveExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson));
             })
             .ToList();
     }
@@ -2697,7 +2701,8 @@ LIMIT @candidate_limit;
                     ExtractionTextStatus: row.ExtractionTextStatus,
                     ExtractionTextSparse: row.ExtractionTextSparse,
                     ExtractionOcrCandidate: row.ExtractionOcrCandidate,
-                    ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson)))
+                    ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson),
+                    ExtractionQualityObservation: ObserveExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson)))
                 .Where(static match => !IsNavigationRouteMatch(match) || NavigationRouteHasTargetTitleEvidence(match))
                 .Where(static match => !IsTitleAnchorRouteMatch(match) || TitleAnchorRouteHasTargetTitleEvidence(match))
                 .ToList();
@@ -3004,7 +3009,8 @@ LIMIT @candidate_limit;
                     ExtractionTextStatus: row.ExtractionTextStatus,
                     ExtractionTextSparse: row.ExtractionTextSparse,
                     ExtractionOcrCandidate: row.ExtractionOcrCandidate,
-                    ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson)))
+                    ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson),
+                    ExtractionQualityObservation: ObserveExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson)))
                 .ToList();
 
             return await AttachDocumentProfileContentCardsAsync(ds, tenantId, matches, query, ct);
@@ -4102,13 +4108,14 @@ LIMIT @top_k;
             ExtractionTextStatus: row.ExtractionTextStatus,
             ExtractionTextSparse: row.ExtractionTextSparse,
             ExtractionOcrCandidate: row.ExtractionOcrCandidate,
-            ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson))).ToList();
+            ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson),
+            ExtractionQualityObservation: ObserveExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson))).ToList();
 
 
     internal static IReadOnlyList<string>? ParseExtractionQualitySignalsJson(string? value)
     {
-        var signals = NormalizeExtractionQualitySignals(ParseJsonStringArray(value));
-        return signals.Length == 0 ? null : signals;
+        var observed = ObserveExtractionQualitySignalsJson(value);
+        return observed.Signals.Count == 0 ? null : observed.Signals;
     }
 
 

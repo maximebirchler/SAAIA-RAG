@@ -66,10 +66,10 @@ class TextRegionProcessTests(unittest.IsolatedAsyncioTestCase):
 
         engine = BoundedTextRegionEngine()
         unconfirmed = (kill_error is not None and not isinstance(kill_error, ProcessLookupError)) or mode == "lingering"
-        with patch("saaia_docling.text_region_process._POSIX_PROCESS_GROUPS", True), \
-             patch("saaia_docling.text_region_process.asyncio.create_subprocess_exec", side_effect=create), \
-             patch("saaia_docling.text_region_process._kill_owned_group", side_effect=kill), \
-             patch("saaia_docling.text_region_process._owned_group_exists", return_value=mode == "lingering"):
+        with patch("saaia_docling.region_process._POSIX_PROCESS_GROUPS", True), \
+             patch("saaia_docling.region_process.asyncio.create_subprocess_exec", side_effect=create), \
+             patch("saaia_docling.region_process._kill_owned_group", side_effect=kill), \
+             patch("saaia_docling.region_process._owned_group_exists", return_value=mode == "lingering"):
             if kill_error is not None and not isinstance(kill_error, ProcessLookupError):
                 with self.assertRaises(type(kill_error)):
                     await engine.recognize(Path("unopened.pdf"), DOCUMENT, item(), TextRepairOptions(), 2)
@@ -86,6 +86,7 @@ class TextRegionProcessTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(1, engine._slot._value)
         self.assertEqual(1 if unconfirmed else 0, engine.snapshot()["active_or_unconfirmed_processes"])
         self.assertEqual(1 if unconfirmed else 0, engine.snapshot()["cleanup_unconfirmed"])
+        self.assertEqual(unconfirmed, engine.snapshot()["shared_ocr_gate_poisoned"])
         self.assertEqual(0 if unconfirmed else 1, engine.snapshot()["groups_confirmed_absent"])
         self.assertEqual(1, engine.snapshot()["processes_started"])
         self.assertEqual(1, engine.snapshot()["processes_reaped"])
@@ -95,6 +96,12 @@ class TextRegionProcessTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(args_seen[0][1]["start_new_session"])
         self.assertEqual("1", args_seen[0][1]["env"]["HF_HUB_OFFLINE"])
         self.assertFalse(args_seen[0][1].get("shell", False))
+        if unconfirmed:
+            other = BoundedTextRegionEngine(engine._slot)
+            with patch("saaia_docling.region_process.asyncio.create_subprocess_exec") as launch:
+                with self.assertRaises(RuntimeError):
+                    await other.recognize(Path("unopened.pdf"), DOCUMENT, item(), TextRepairOptions(), 2)
+                launch.assert_not_called()
         return process
 
     async def test_signal_permission_or_os_error_cannot_claim_group_cleaned_even_if_leader_exited(self):
@@ -121,8 +128,8 @@ class TextRegionProcessTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_missing_isolation_is_refused_without_launching_any_process(self):
         engine = BoundedTextRegionEngine()
-        with patch("saaia_docling.text_region_process._POSIX_PROCESS_GROUPS", False), \
-             patch("saaia_docling.text_region_process.asyncio.create_subprocess_exec") as launch:
+        with patch("saaia_docling.region_process._POSIX_PROCESS_GROUPS", False), \
+             patch("saaia_docling.region_process.asyncio.create_subprocess_exec") as launch:
             with self.assertRaises(RuntimeError):
                 await engine.recognize(Path("unopened.pdf"), {}, item(), TextRepairOptions(), 2)
             launch.assert_not_called()

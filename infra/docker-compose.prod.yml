@@ -78,6 +78,7 @@ services:
       - "${SAAIA_INSTALL_ROOT:-..}/cache/tei:/data"
 
   docling:
+    init: true
     build:
       context: ..
       dockerfile: infra/docling-sidecar/Dockerfile

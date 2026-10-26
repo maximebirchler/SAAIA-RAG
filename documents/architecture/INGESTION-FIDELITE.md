@@ -41,6 +41,15 @@ partielle, refusée ou sans mots natifs ne devient jamais un compte zéro réuss
 Il conserve les cellules et leurs textes. Son signal ne prétend ni ajouter les
 lignes manquantes ni valider la segmentation ou les relations du tableau.
 
+La provenance des métriques des glyphes est observée séparément. Une police
+non embarquée peut être résolue par le système, substituée ou indisponible.
+Un repli de PdfPig sur la boîte globale du descripteur de police ne fournit
+pas une boîte fiable de chaque caractère. Une branche non vérifiée, un
+dictionnaire incomplet ou une identité ambiguë reste inconnue : l'auditeur
+refuse alors les comptes de couverture et leur digest au lieu de publier
+une mesure zéro. Une police externe utilisable reste explicitement signalée ;
+elle n'est pas assimilée au programme original embarqué dans le PDF.
+
 ## La relecture d'une table reste reliée à ses fragments
 
 `read_source` peut fournir une vue auxiliaire des lignes d'une même table.
@@ -124,7 +133,7 @@ l'exactitude d'une flèche, d'une relation graphique ou d'une future interpréta
 
 ## La réparation OCR régionale conserve son désaccord et ses preuves
 
-Le moteur principal n'est pas remplacé globalement. L'option régionale est
+Le moteur principal n'est pas remplacé globalement. L'option régionale de texte est
 désactivée par défaut et ne cible qu'un préfixe manifestement fragmenté avec des
 trous typographiques. RapidOCR et Tesseract anglais en PSM6 doivent produire la
 même lecture après NFC et espaces uniquement, à forte confiance. Le suffixe
@@ -139,6 +148,25 @@ CPU sont vérifiées et l'annulation vise le seul groupe de processus créé.
 La configuration observée est distincte du nombre de réparations réellement
 effectuées. Les tests de processus simulés et un succès régional doivent être
 complétés par les contrôles Linux réels et le parcours complet de publication.
+
+La réparation régionale des tableaux est distincte et activée par défaut.
+Elle utilise seulement RapidOCR, sans inventer un consensus de deux moteurs.
+Ses plafonds sont huit régions, quinze secondes par région, soixante secondes
+par document et vingt millions de pixels rendus. Un résultat tardif n'est pas
+appliqué. Une lecture achevée mais inconclusive reste dans la provenance privée
+de la tentative, avec ses poids et paramètres réellement observés ; les bilans
+et journaux compacts n'exposent pas le texte reconnu. Un échec, une annulation
+ou un délai sans résultat ne fabrique pas cette observation.
+
+Les deux modes régionaux partagent un seul emplacement de travail et le même
+superviseur de groupes de processus Linux. Le lancement du conteneur exige un
+init (`init: true` dans Compose) pour récolter les descendants orphelins ; ce
+prérequis ne remplace pas la vérification d'absence du groupe. Une clôture non confirmée bloque
+les demandes suivantes, y compris celles qui attendaient déjà, et dégrade
+la santé du service. Ce mécanisme n'atteste pas l'annulation du calcul Docling
+amont. Les compteurs inspectés/candidats/tentés/appliqués/non inspectés doivent
+être cohérents avec l'inventaire réel et les références de tableaux ; une
+ancienne réponse sans ces preuves reste non attestée, jamais implicitement saine.
 
 Quatre limites restent explicites :
 

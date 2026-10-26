@@ -23,7 +23,16 @@ internal sealed class DoclingConvertResponse
     public DoclingConfidence? Confidence { get; set; }
 
     [JsonPropertyName("saaia_table_repairs")]
-    public List<DoclingTableRepairSummary> TableRepairs { get; set; } = [];
+    public List<DoclingTableRepairSummary> TableRepairs
+    {
+        get => tableRepairs;
+        set { tableRepairs = value ?? []; TableRepairSummariesObserved = value is not null; }
+    }
+    private List<DoclingTableRepairSummary> tableRepairs = [];
+    [JsonIgnore]
+    public bool TableRepairSummariesObserved { get; private set; }
+    [JsonPropertyName("saaia_table_repair_summary")]
+    public JsonElement? TableRepairSummaryJson { get; set; }
 
     [JsonPropertyName("saaia_text_repairs")]
     public List<JsonElement> TextRepairs { get; set; } = [];
@@ -319,6 +328,9 @@ internal sealed class DoclingTableCell
 
 internal sealed class DoclingTableRepair
 {
+    [JsonPropertyName("ocr_observation")]
+    public JsonElement? OcrObservationJson { get; set; }
+
     [JsonPropertyName("schema_version")]
     public string SchemaVersion { get; set; } = "";
 
@@ -379,6 +391,21 @@ internal sealed class DoclingCellTextRepair
 
 internal sealed class DoclingTableRepairSummary
 {
+    // Present only on the table-local completed, inconclusive attempt.
+    // The sidecar response summary deliberately excludes recognized content.
+    [JsonPropertyName("ocr_observation")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonElement? OcrObservationJson { get; set; }
+
+    [JsonPropertyName("schema_version")]
+    public string SchemaVersion { get; set; } = "";
+
+    [JsonPropertyName("attempted")]
+    public bool? Attempted { get; set; }
+
+    [JsonPropertyName("uninspected_table_count")]
+    public int? UninspectedTableCount { get; set; }
+
     [JsonPropertyName("table_ref")]
     public string TableRef { get; set; } = "";
 
@@ -394,6 +421,9 @@ internal sealed class DoclingTableRepairSummary
 
 internal sealed class DoclingExecutionMetadata
 {
+    [JsonPropertyName("table_repair_settings")]
+    public JsonElement? TableRepairSettingsJson { get; set; }
+
     [JsonPropertyName("text_repair_settings")]
     public JsonElement? TextRepairSettings { get; set; }
     [JsonPropertyName("package_versions")]

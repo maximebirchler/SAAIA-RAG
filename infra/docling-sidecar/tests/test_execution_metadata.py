@@ -40,3 +40,12 @@ class ExecutionMetadataTests(unittest.TestCase):
         self.assertEqual(settings, result["text_repair_settings"])
         self.assertNotIn("successful_pages", result)
         self.assertNotIn("engine_version", result["text_repair_settings"])
+
+    def test_table_process_budgets_are_configuration_and_never_success_proof(self) -> None:
+        from saaia_docling.table_repair_options import TableRepairOptions
+        settings = TableRepairOptions().attestation()
+        result = conversion_execution_metadata([], repair_enabled=True, render_scale=2.5,
+            padding_points=12, minimum_score=0.5, table_repair_settings=settings)
+        self.assertEqual(settings, result["table_repair_settings"])
+        self.assertNotIn("successful_pages", result)
+        self.assertEqual("per_region_linux_process_group", result["table_repair_settings"]["process_isolation"])

@@ -17,6 +17,7 @@ internal static partial class CanonicalNativeTableCoverageAuditor
     internal const string UnresolvedFlag = "canonical_table_native_region_coverage_unresolved";
     internal const string UnavailableFlag = "canonical_table_native_region_coverage_unavailable";
     internal const string RefusedFlag = "canonical_table_native_region_coverage_refused";
+    internal const string ExternalGlyphFlag = "canonical_table_native_glyph_metrics_external";
     private const long MaximumComparisonsPerTable = 5_000_000;
     private const long MaximumComparisonsPerDocument = 20_000_000;
 
@@ -34,11 +35,13 @@ internal static partial class CanonicalNativeTableCoverageAuditor
         foreach (var page in document.Pages.OrderBy(page => page.PageNumber))
         {
             ct.ThrowIfCancellationRequested();
-            page.QualityFlags.RemoveAll(flag => flag is UnresolvedFlag or UnavailableFlag or RefusedFlag);
+            page.QualityFlags.RemoveAll(flag => flag is UnresolvedFlag or UnavailableFlag or RefusedFlag or ExternalGlyphFlag);
             ExtractedPdfPage? native = null;
             if (nativePages is not null && nativePages.TryGetValue(page.PageNumber, out var candidates) && candidates.Length == 1)
                 native = candidates[0];
             var pageReason = PageRefusal(document, page, native, maximumWordsPerPage, ref remainingWords, ct);
+            if (native?.NativeWordObservation is { GlyphGeometryAvailability: "available", GlyphGeometryExternalFontCount: > 0 })
+                AddFlag(page, ExternalGlyphFlag);
             foreach (var table in page.Tables)
             {
                 ct.ThrowIfCancellationRequested();
@@ -49,6 +52,11 @@ internal static partial class CanonicalNativeTableCoverageAuditor
                 attributes["nativeTableCoverageFidelity"] = "not_asserted";
                 attributes["nativeTableCoverageRelations"] = "not_asserted";
                 attributes["nativeTableCoverageTextLoss"] = "not_asserted";
+                attributes["nativeTableCoverageGlyphGeometryAvailability"] = native?.NativeWordObservation?.GlyphGeometryAvailability ?? "unknown";
+                attributes["nativeTableCoverageGlyphGeometryEngineVersion"] = native?.NativeWordObservation?.GlyphGeometryEngineVersion ?? "unknown";
+                attributes["nativeTableCoverageGlyphGeometryMethod"] = native?.NativeWordObservation?.GlyphGeometryExternalFontCount > 0
+                    ? "external_or_substitute_program" : native?.NativeWordObservation?.GlyphGeometryStandard14FontCount > 0
+                        ? "standard14_afm" : "unverified";
                 if (pageReason is not null)
                 {
                     var frameUnavailable = pageReason == "native_coordinate_frame_unavailable"

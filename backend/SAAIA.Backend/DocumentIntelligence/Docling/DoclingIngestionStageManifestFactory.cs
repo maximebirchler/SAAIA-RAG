@@ -385,51 +385,8 @@ internal static class DoclingIngestionStageManifestFactory
             });
         }
 
-        var appliedTableRepairs = response.TableRepairs.Count(static repair =>
-            string.Equals(repair.Status, "applied", StringComparison.Ordinal));
-        if (response.TableRepairs.Count > 0 || response.Execution?.TableRepairEnabled.HasValue == true)
-        {
-            var canonicalStageIndex = stages.FindIndex(static stage =>
-                string.Equals(
-                    stage.StageId,
-                    "canonical_projection",
-                    StringComparison.Ordinal));
-            stages.Insert(canonicalStageIndex, new()
-            {
-                StageId = "regional_table_ocr_repair",
-                StageType = "table_text_repair",
-                Engine = "RapidOCR",
-                EngineVersion = DoclingExecutionMetadataPolicy.Package(response, "rapidocr") ?? documentIntelligence.OcrEngineVersion,
-                ModelId = "PP-OCRv6_det_small+PP-OCRv6_rec_small",
-                ModelRevision = modelRevision,
-                OptionsSha256 = HashOptions(new
-                {
-                    enabled = response.Execution?.TableRepairEnabled,
-                    scale = response.Execution?.TableRepairScale,
-                    paddingPoints = response.Execution?.TableRepairPaddingPoints,
-                    minimumScore = response.Execution?.TableRepairMinimumScore,
-                    configurationSource = response.Execution is null ? "unattested" : "sidecar_response",
-                    trigger = "sparse_non_overlapping_table_grid"
-                }),
-                DeviceId = "cpu:0",
-                Concurrency = 1,
-                DurationMs = ResolveTimingMs(response, "saaia_table_repair"),
-                Attributes = new(StringComparer.Ordinal)
-                {
-                    ["deploymentRevision"] = documentIntelligence.DeploymentRevision,
-                    ["repairSchema"] = "saaia_table_text_repair_v1",
-                    ["appliedTableCount"] = appliedTableRepairs.ToString(CultureInfo.InvariantCulture),
-                    ["observedAttemptCount"] = response.TableRepairs.Count.ToString(CultureInfo.InvariantCulture),
-                    ["failedTableCount"] = response.TableRepairs.Count(repair => repair.Status == "error").ToString(CultureInfo.InvariantCulture),
-                    ["notAppliedTableCount"] = response.TableRepairs.Count(repair => repair.Status == "not_applied").ToString(CultureInfo.InvariantCulture),
-                    ["outcome"] = response.TableRepairs.Any(repair => repair.Status == "error") ? "degraded"
-                        : response.Execution?.TableRepairEnabled == false ? "disabled"
-                        : response.TableRepairs.Count == 0 ? "no_candidates_observed" : "completed",
-                    ["configurationSource"] = response.Execution is null ? "unattested" : "sidecar_response",
-                    ["semanticDecisionOwner"] = "llm_client"
-                }
-            });
-        }
+        if (DoclingRegionalTableRepairStage.Create(documentIntelligence, response) is { } regionalTableStage)
+            stages.Insert(stages.FindIndex(stage => stage.StageId == "canonical_projection"), regionalTableStage);
 
         if (DoclingRegionalTextRepairStage.Create(documentIntelligence, response) is { } regionalTextStage)
             stages.Insert(stages.FindIndex(stage => stage.StageId == "canonical_projection"), regionalTextStage);

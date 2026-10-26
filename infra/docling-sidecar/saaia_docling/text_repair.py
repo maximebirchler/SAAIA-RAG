@@ -157,11 +157,12 @@ def repair_text_item(
 
 
 def source_bounds(
-    item: dict[str, Any], *, page_height: float | None = None,
+    item: dict[str, Any], *, page_height: float | None = None, reference_kind: str = "texts",
 ) -> tuple[float, float, float, float] | None:
     """Return a TOPLEFT source box; BOTTOMLEFT requires the actual page height."""
     provenance = item.get("prov")
-    if not isinstance(item.get("self_ref"), str) or re.fullmatch(r"#/texts/\d+", item["self_ref"]) is None:
+    if reference_kind not in {"texts", "tables"} or not isinstance(item.get("self_ref"), str) or re.fullmatch(
+            r"#/" + re.escape(reference_kind) + r"/\d+", item["self_ref"]) is None:
         return None
     if not isinstance(provenance, list) or len(provenance) != 1 or not isinstance(provenance[0], dict):
         return None

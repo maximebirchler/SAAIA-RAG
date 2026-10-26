@@ -1809,7 +1809,8 @@ LIMIT @top_k;
                 ExtractionTextStatus: row.ExtractionTextStatus,
                 ExtractionTextSparse: row.ExtractionTextSparse,
                 ExtractionOcrCandidate: row.ExtractionOcrCandidate,
-                ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson));
+                ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson),
+                ExtractionQualityObservation: ObserveExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson));
         }).ToList();
 
         var cardQuery = string.Join(

@@ -16,6 +16,15 @@ internal sealed record PdfNativeWordObservation(string SourceSha256, string Avai
     public double? CropBoxBottom { get; init; }
     public double? MediaBoxLeft { get; init; }
     public double? MediaBoxBottom { get; init; }
+    public string GlyphGeometryAlgorithm => PdfNativeGlyphGeometryObserver.Algorithm;
+    public string GlyphGeometryEngineVersion => typeof(Page).Assembly.GetName().Version?.ToString() ?? "unknown";
+    public string GlyphGeometryAvailability { get; init; } = "unknown";
+    public string? GlyphGeometryReason { get; init; } = "native_glyph_geometry_unavailable";
+    public int GlyphGeometryStandard14FontCount { get; init; }
+    public int GlyphGeometryDescriptorFallbackFontCount { get; init; }
+    public int GlyphGeometryExternalFontCount { get; init; }
+    public int GlyphGeometryUnknownFontCount { get; init; }
+    public IReadOnlyList<PdfNativeGlyphFontObservation> GlyphGeometryFonts { get; init; } = [];
 }
 
 internal static class PdfNativeWordExtractor
@@ -29,8 +38,10 @@ internal static class PdfNativeWordExtractor
     {
         ct.ThrowIfCancellationRequested();
         var frame = PdfNativeCoordinateFrame.Observe(page, sourceStructure, ct);
+        var glyph = PdfNativeGlyphGeometryObservation.Unknown("native_glyph_geometry_not_inspected");
         if (remainingDocumentWords <= 0 || maximumWordsPerPage <= 0)
             return Observation("refused", [], null, "document_word_limit");
+        glyph = PdfNativeGlyphGeometryObserver.Observe(page, sourceStructure, ct);
         var limit = Math.Min(remainingDocumentWords, maximumWordsPerPage);
         var words = new List<PdfNativeObservedWord>();
         var inspected = 0;
@@ -78,7 +89,14 @@ internal static class PdfNativeWordExtractor
                 CropBoxLeft = frame.CropBoxLeft,
                 CropBoxBottom = frame.CropBoxBottom,
                 MediaBoxLeft = frame.MediaBoxLeft,
-                MediaBoxBottom = frame.MediaBoxBottom
+                MediaBoxBottom = frame.MediaBoxBottom,
+                GlyphGeometryAvailability = glyph.Availability,
+                GlyphGeometryReason = glyph.Reason,
+                GlyphGeometryStandard14FontCount = glyph.Standard14FontCount,
+                GlyphGeometryDescriptorFallbackFontCount = glyph.DescriptorFallbackFontCount,
+                GlyphGeometryExternalFontCount = glyph.ExternalFontCount,
+                GlyphGeometryUnknownFontCount = glyph.UnknownFontCount,
+                GlyphGeometryFonts = glyph.Fonts
             };
     }
 

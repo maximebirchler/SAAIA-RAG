@@ -15,11 +15,13 @@ from starlette.datastructures import UploadFile
 
 from .execution_metadata import conversion_execution_metadata
 from .heading_hierarchy import HeadingHierarchyConfiguration
-from .ocr_engine import RapidOcrRegionEngine
+from .table_region_process import BoundedTableRegionEngine
+from .table_repair_options import TableRepairOptions
 from .response_repair import repair_response_tables
 from .response_text_repair import repair_response_texts
 from .text_region_process import BoundedTextRegionEngine
 from .text_repair_options import TextRepairOptions
+from .region_process import RegionProcessGate
 from .transport_diagnostics import ConversionTransportDiagnostics
 
 
@@ -45,13 +47,10 @@ REPAIR_ENABLED = os.getenv(
     "SAAIA_DOCLING_TABLE_REPAIR_ENABLED",
     "true",
 ).casefold() in {"1", "true", "yes", "on"}
-RENDER_SCALE = float(os.getenv("SAAIA_DOCLING_TABLE_REPAIR_SCALE", "2.5"))
-PADDING_POINTS = float(
-    os.getenv("SAAIA_DOCLING_TABLE_REPAIR_PADDING_POINTS", "12")
-)
-MINIMUM_SCORE = float(
-    os.getenv("SAAIA_DOCLING_TABLE_REPAIR_MINIMUM_SCORE", "0.5")
-)
+TABLE_REPAIR = TableRepairOptions.from_environment()
+RENDER_SCALE = TABLE_REPAIR.render_scale
+PADDING_POINTS = TABLE_REPAIR.padding_points
+MINIMUM_SCORE = TABLE_REPAIR.minimum_score
 HEADING_HIERARCHY = HeadingHierarchyConfiguration.from_environment()
 TEXT_REPAIR = TextRepairOptions.from_environment()
 CONTROL_FIELD_NAMES = {
@@ -69,8 +68,9 @@ app = FastAPI(
     redoc_url=None,
     openapi_url=None,
 )
-ocr_engine = RapidOcrRegionEngine()
-text_region_engine = BoundedTextRegionEngine()
+regional_ocr_slot = RegionProcessGate()
+table_region_engine = BoundedTableRegionEngine(regional_ocr_slot)
+text_region_engine = BoundedTextRegionEngine(regional_ocr_slot)
 conversion_transport = ConversionTransportDiagnostics()
 
 
@@ -82,12 +82,16 @@ async def health() -> JSONResponse:
         upstream_ready = response.is_success
     except httpx.HTTPError:
         upstream_ready = False
-    status = 200 if upstream_ready else 503
+    regional_ready = not regional_ocr_slot.poisoned
+    status = 200 if upstream_ready and regional_ready else 503
     return JSONResponse(
         {
-            "status": "ok" if upstream_ready else "upstream_unavailable",
+            "status": "upstream_unavailable" if not upstream_ready else
+                      "regional_ocr_cleanup_unconfirmed" if not regional_ready else "ok",
             "upstream": upstream_ready,
             "regionalTableRepair": REPAIR_ENABLED,
+            "regionalTableRepairSettings": TABLE_REPAIR.attestation(),
+            "regionalTableRepairRuntime": table_region_engine.snapshot(),
             "regionalTextRepair": TEXT_REPAIR.attestation(),
             "regionalTextRepairRuntime": text_region_engine.snapshot(),
             "conversionTransport": conversion_transport.snapshot(),
@@ -171,10 +175,8 @@ async def convert_file(request: Request) -> Response:
                 summaries = await repair_response_tables(
                     pdf_path,
                     payload,
-                    ocr_engine,
-                    render_scale=RENDER_SCALE,
-                    padding_points=PADDING_POINTS,
-                    minimum_score=MINIMUM_SCORE,
+                    table_region_engine,
+                    options=TABLE_REPAIR,
                 )
                 applied = sum(
                     item.get("status") == "applied" for item in summaries
@@ -199,6 +201,7 @@ async def convert_file(request: Request) -> Response:
                 fields, repair_enabled=REPAIR_ENABLED, render_scale=RENDER_SCALE,
                 padding_points=PADDING_POINTS, minimum_score=MINIMUM_SCORE,
                 text_repair_settings=TEXT_REPAIR.attestation(),
+                table_repair_settings=TABLE_REPAIR.attestation(),
             )
             return JSONResponse(payload)
 

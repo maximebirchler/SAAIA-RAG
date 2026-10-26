@@ -57,6 +57,7 @@ internal sealed class DoclingClient(
                         deadline.Token, forceOcrOverride);
                     deadline.Token.ThrowIfCancellationRequested();
                     DoclingRegionalTextRepairPolicy.RecordDiagnostics(operation, result);
+                    DoclingRegionalTableRepairPolicy.RecordDiagnostics(operation, options, result);
                     attemptProbe.Complete();
                     operation.Set("retry_count", attempt - 1);
                     operation.Complete();

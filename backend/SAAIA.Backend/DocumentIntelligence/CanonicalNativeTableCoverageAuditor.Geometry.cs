@@ -72,6 +72,8 @@ internal static partial class CanonicalNativeTableCoverageAuditor
             if (word is null || word.Ordinal < 0 || !ordinals.Add(word.Ordinal) || !TryWordBounds(word, width, height, out _))
                 return "invalid_word_geometry";
         }
+        if (observation.GlyphGeometryAvailability != "available")
+            return observation.GlyphGeometryReason ?? "native_glyph_geometry_unavailable";
         return null;
     }
 }

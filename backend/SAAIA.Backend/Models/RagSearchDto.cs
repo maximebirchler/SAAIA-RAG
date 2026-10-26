@@ -131,8 +131,22 @@ public sealed record RagItemExtractionQualityDto(
     bool? ChunkTextSparse = null,
     bool? ChunkOcrCandidate = null,
     IReadOnlyList<string>? ChunkQualitySignals = null,
-    RagItemExtractionDiagnosticSummaryDto? DiagnosticSummary = null
+    RagItemExtractionDiagnosticSummaryDto? DiagnosticSummary = null,
+    RagQualitySignalsMetadataDto? SignalsMetadata = null,
+    RagQualitySignalsMetadataDto? ChunkQualitySignalsMetadata = null
 );
+
+/// <summary>Completeness of observed diagnostic codes, independent of source accuracy.</summary>
+public sealed record RagQualitySignalsMetadataDto(
+    string Status,
+    int? OmittedCount = null,
+    bool? Truncated = null,
+    bool? Malformed = null);
+
+/// <summary>Explicit source observation carried with a retrieval match, including empty arrays.</summary>
+public sealed record RagQualitySignalsObservation(
+    IReadOnlyList<string> Signals,
+    RagQualitySignalsMetadataDto Metadata);
 
 /// <summary>
 /// Structured profile content card evidence selected for a document_profile hit.

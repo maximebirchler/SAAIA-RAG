@@ -69,14 +69,18 @@ def _run(request: dict, directory: Path) -> dict:
     import rapidocr
     from rapidocr import RapidOCR
     from .pdf_regions import render_table_region
-    from .response_text_repair import validate_text_region, validate_physical_page_size
-    from .secondary_ocr import parse_tesseract_tsv, resolve_tesseract_model, validate_tesseract_languages
+    from .response_text_repair import validate_source_region, validate_physical_page_size
     from .text_repair import TextOcrObservation, _observation_proof
     from .text_repair_options import TextRepairOptions
+    from .table_repair_options import TableRepairOptions
 
-    options = TextRepairOptions(**request["options"])
+    operation = request.get("operation", "text_consensus")
+    if operation not in {"text_consensus", "table_rapid_only"}:
+        raise ValueError("Regional OCR operation invalid.")
+    options = (TableRepairOptions if operation == "table_rapid_only" else TextRepairOptions)(**request["options"])
     document, item = request["document"], request["item"]
-    page_height = validate_text_region(document, item, options)
+    page_height = validate_source_region(document, item, options,
+        reference_kind="tables" if operation == "table_rapid_only" else "texts")
     page_no = item["prov"][0]["page_no"]
     # Check physical PDF dimensions before the existing full-page renderer allocates.
     pdf = pdfium.PdfDocument(request["pdf_path"])
@@ -117,6 +121,9 @@ def _run(request: dict, directory: Path) -> dict:
             round((time.monotonic() - rapid_started) * 1_000), model_artifacts=artifacts,
             runtime_settings=runtime_settings)
         remaining()
+        if operation == "table_rapid_only":
+            return {"status": "success", "rapid": _observation_proof(rapid_observation)}
+        from .secondary_ocr import parse_tesseract_tsv, resolve_tesseract_model, validate_tesseract_languages
         image_path = directory / "region.png"
         region.image.save(image_path, format="PNG")
         environment = {**os.environ, "LC_ALL": "C", "OMP_THREAD_LIMIT": "1"}

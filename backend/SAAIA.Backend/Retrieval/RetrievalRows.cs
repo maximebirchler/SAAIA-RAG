@@ -104,7 +104,8 @@ internal static partial class RetrievalRows
         double ExtractionConfidence,
         bool ManualReviewRecommended,
         string TextStatus,
-        string[] Signals);
+        string[] Signals,
+        SAAIA.Backend.Models.RagQualitySignalsMetadataDto? SignalsMetadata = null);
 
 
     internal sealed record RagOcrDiagnosticsSummary(

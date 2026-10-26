@@ -8,6 +8,7 @@ def conversion_execution_metadata(
     fields: Iterable[tuple[str, str]], *, repair_enabled: bool,
     render_scale: float, padding_points: float, minimum_score: float,
     text_repair_settings: dict[str, object] | None = None,
+    table_repair_settings: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Attest the received request and this sidecar's effective settings, not OCR page success."""
     received = dict(fields)
@@ -28,6 +29,8 @@ def conversion_execution_metadata(
     }
     if text_repair_settings is not None:
         result["text_repair_settings"] = dict(text_repair_settings)
+    if table_repair_settings is not None:
+        result["table_repair_settings"] = dict(table_repair_settings)
     return result
 
 
