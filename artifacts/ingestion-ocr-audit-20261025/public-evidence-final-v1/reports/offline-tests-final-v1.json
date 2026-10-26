@@ -1,0 +1,198 @@
+{
+  "schemaVersion": "saaia-ingestion-offline-tests.v1",
+  "capturedAtUtc": "2026-10-26T00:54:13.0096546+00:00",
+  "claims": [
+    {
+      "log": "ingestion-gold-all-final-v1.log",
+      "suite": "ingestion_gold",
+      "executed": 61,
+      "scope": "pure Python acceptance harness, no live worker claim",
+      "skipped": 0,
+      "failed": 0,
+      "passed": 61
+    },
+    {
+      "log": "sidecar-tests-final-v1.log",
+      "suite": "docling_sidecar",
+      "executed": 13,
+      "scope": "unit diagnostics and repairs, no live engine claim",
+      "skipped": 0,
+      "failed": 0,
+      "passed": 13
+    }
+  ],
+  "files": [
+    {
+      "sha256": "1e8263852b1ed1dea8db82245f558e983b3068d66137f1ec1413eb663c8fc2cb",
+      "path": "artifacts/ingestion-ocr-audit-20261025/ingestion-gold-all-final-v1.log"
+    },
+    {
+      "sha256": "e58a26834c2017d55962d5437f9f287f809979b81cfcc51fa4cda99206259e91",
+      "path": "artifacts/ingestion-ocr-audit-20261025/sidecar-tests-final-v1.log"
+    },
+    {
+      "sha256": "9c2399137235e601d8640bd8632d53ccd0bf81024e24aa150a2a522ec573391f",
+      "path": "infra/docling-sidecar/saaia_docling/__init__.py"
+    },
+    {
+      "sha256": "c65354d6bfed82d869942b52d91e9659acd859591564cb59de1445841cb83c8e",
+      "path": "infra/docling-sidecar/saaia_docling/app.py"
+    },
+    {
+      "sha256": "63e7cb153508c630baf0c22e45a73ef6769ab23282c129ceab23aeadb7e44782",
+      "path": "infra/docling-sidecar/saaia_docling/execution_metadata.py"
+    },
+    {
+      "sha256": "50fbe383a96ad24c0a3eea9c5e08dac4f8c949479f30c029e0fe4e41c7e1cbce",
+      "path": "infra/docling-sidecar/saaia_docling/heading_hierarchy.py"
+    },
+    {
+      "sha256": "a35b496e542423d953a629f823a15178cf1fbed3d5a86f7ad392875b120ef54f",
+      "path": "infra/docling-sidecar/saaia_docling/ocr_engine.py"
+    },
+    {
+      "sha256": "6536107d961f9b111e05122090c42749d8852f496a2654a978f0f85090a59dbc",
+      "path": "infra/docling-sidecar/saaia_docling/pdf_regions.py"
+    },
+    {
+      "sha256": "4dcf09d52c4a7f16a6fafe48da3276ec4cc09edffaa304816db46724260a2f63",
+      "path": "infra/docling-sidecar/saaia_docling/response_repair.py"
+    },
+    {
+      "sha256": "a45b27e85741889f8d0367f9a2f797c6801f3cb0628d20023ffc8bea43a895f8",
+      "path": "infra/docling-sidecar/saaia_docling/table_repair.py"
+    },
+    {
+      "sha256": "4e573d0a5deb8279a9585c9478eeb0d2f8309e815f9e8545dac76497a3893a0a",
+      "path": "infra/docling-sidecar/saaia_docling/transport_diagnostics.py"
+    },
+    {
+      "sha256": "1327d39cd444cd2d354b6074b9690a92656bac584d61e0b7c2e5fcc17139cb93",
+      "path": "infra/docling-sidecar/saaia_docling/upstream.py"
+    },
+    {
+      "sha256": "eb5c9f77852894f1108d14e0be64a1c1e716155f62270ce9b50c152b59f6b15a",
+      "path": "infra/docling-sidecar/tests/test_execution_metadata.py"
+    },
+    {
+      "sha256": "681b6d952e149e5a6b720b5dc696fc00e3195cbed3f70b05431c922f6f9fca9d",
+      "path": "infra/docling-sidecar/tests/test_heading_hierarchy.py"
+    },
+    {
+      "sha256": "ac12b6224e5c74405bbd6e3d5af8361cb3043624b3c3ff8125ae36fa88cfed02",
+      "path": "infra/docling-sidecar/tests/test_table_repair.py"
+    },
+    {
+      "sha256": "cec57376a3e68be2ded4a5ee756ee2dce661379606ecbfc0d6aa1a68db14b9c8",
+      "path": "infra/docling-sidecar/tests/test_transport_diagnostics.py"
+    },
+    {
+      "sha256": "dca985906acbeed2244642a8c51b013a44db7a2010c7167a6f7ca6cd76808a1e",
+      "path": "tools/ingestion_gold/__init__.py"
+    },
+    {
+      "sha256": "8a2af0806a8327fd703a6d05918066882f6d539a2ded9eb302534fee272c38f0",
+      "path": "tools/ingestion_gold/canonical_evaluator.py"
+    },
+    {
+      "sha256": "2e4de685b377d063adf32b3842e7af94717e46f65473a0c31e4573ce887ef6ca",
+      "path": "tools/ingestion_gold/contracts.py"
+    },
+    {
+      "sha256": "2a106e8ee4a6ee80edd5039dda1158117506bc9a84a2b4361ce35d254f308823",
+      "path": "tools/ingestion_gold/critical_facts.py"
+    },
+    {
+      "sha256": "d761137deef8deb189e63d241bcb9a41e712f0db3f182c58780ab0259c10a333",
+      "path": "tools/ingestion_gold/evaluate_responses.py"
+    },
+    {
+      "sha256": "1d605ea6aa07b7865cea237a498f44eeb7a027ed8ea5e9890e4572201f82f04b",
+      "path": "tools/ingestion_gold/evaluator.py"
+    },
+    {
+      "sha256": "03a403aa9af86b3cf2b58770cb265da29e069c118b08ce0e19c2935f933ad37c",
+      "path": "tools/ingestion_gold/fixtures_fr.py"
+    },
+    {
+      "sha256": "830b398bd98101f688bc72d951dc797376f3a03ef6f76970b610f18465b11d1b",
+      "path": "tools/ingestion_gold/fixtures.py"
+    },
+    {
+      "sha256": "9ebca08edea69f7f69789612d73009cd6cc477e1e64f0e5455336e86d88cb981",
+      "path": "tools/ingestion_gold/generate.py"
+    },
+    {
+      "sha256": "757bd8f1da4c5a2afd459734d753ee73242c19b01ca59b155171d7b29cd52ce0",
+      "path": "tools/ingestion_gold/layout_model_probe.py"
+    },
+    {
+      "sha256": "8a643bec7b533ca3d770f98b48a70b150296e391e7756d2627ce2e901d4f5e9e",
+      "path": "tools/ingestion_gold/renderer.py"
+    },
+    {
+      "sha256": "a4f4ee188b24e605c36308b809156d1daa1fbf6f281dcad18f9a86abd7d85e3a",
+      "path": "tools/ingestion_gold/runner.py"
+    },
+    {
+      "sha256": "ee69e11f5b1aec83e57cb408b5f37dd1f2f984d39fb211680fe6917d9f766e38",
+      "path": "tools/ingestion_gold/structural_metrics.py"
+    },
+    {
+      "sha256": "37c1926c1f0680356327abe1bb658f092af7c9ad60cc55488ebbeb86bd796bad",
+      "path": "tools/ingestion_gold/tests/__init__.py"
+    },
+    {
+      "sha256": "2a0e88efc410142d62baecb6b961be083a5b49c3acbf8096405d30aadea7f690",
+      "path": "tools/ingestion_gold/tests/test_acceptance_contracts.py"
+    },
+    {
+      "sha256": "e8ce4f91d74f697c0ccb79ba3b270863cdc50d238f6fdec9bb6f7e47386dc400",
+      "path": "tools/ingestion_gold/tests/test_canonical_geometry_selection.py"
+    },
+    {
+      "sha256": "7e43536d15f5a0d4725a4eab8bbcb525dbe1be65b98295bd4431ab6311ec6211",
+      "path": "tools/ingestion_gold/tests/test_evaluator.py"
+    },
+    {
+      "sha256": "754d191147b2eae94183c00257d076759ae69e6d285d56b4d7c13e31eb1355a9",
+      "path": "tools/ingestion_gold/tests/test_layout_source_contracts.py"
+    },
+    {
+      "sha256": "73d26db5cf10fb4d74120053c37bbb4eadb1948fb1bfb5b9ce38342e29048377",
+      "path": "tools/ingestion_gold/tests/test_local_vector_probe.py"
+    },
+    {
+      "sha256": "ffdbe17d257159c3d9d50607ffa3d81414c292efd9d4ecdb8c8a4c7f166aa352",
+      "path": "tools/ingestion_gold/tests/test_real_source_contract.py"
+    },
+    {
+      "sha256": "bfe68c6172d9de65db84bf4f09ef68432bd239bb1366da3cb529fbc4e9f061a9",
+      "path": "tools/ingestion_gold/tests/test_vector_point_identity.py"
+    },
+    {
+      "sha256": "968583551cc1e1f716c443b54a346b535f2b8b50678d8c4d01767c85d7ccb6d8",
+      "path": "tools/ingestion_gold/tests/test_worker_verifier.py"
+    },
+    {
+      "sha256": "00be4bb0ead9f0ab56276a95b869ea2a479169bdec21819a0303fdf5c4a769c6",
+      "path": "tools/validation-ingestion/canonical_search_checks.py"
+    },
+    {
+      "sha256": "1455e2be54dd944e7123a67c7c3050ab52efaaafff2de3a2ae8bef4dba5baaf8",
+      "path": "tools/validation-ingestion/local_embeddings.py"
+    },
+    {
+      "sha256": "6277e9a0216adaef679037cb85c4c75ac26393b9de716d49e8c7216f6c963e9c",
+      "path": "tools/validation-ingestion/probe-local-vectors.py"
+    },
+    {
+      "sha256": "f744100e57ba0788a9829c0be93d982168ba46a14ba8db6c1ae83402519be9c3",
+      "path": "tools/validation-ingestion/vector_point_identity.py"
+    },
+    {
+      "sha256": "14ef16ef8629b063d151033883ab84338faf7792f0b1b929df8480fc60907349",
+      "path": "tools/validation-ingestion/verify_worker_publication.py"
+    }
+  ]
+}

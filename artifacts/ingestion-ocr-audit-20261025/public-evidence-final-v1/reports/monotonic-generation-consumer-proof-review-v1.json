@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "saaia-monotonic-consumer-proof-review.v1",
+  "readOnlyVerification": true,
+  "runs": [
+    {
+      "label": "RED v2",
+      "runId": "fbb1fada79f84a2396af166cef978b64",
+      "state": "failed",
+      "manifestPath": "artifacts/ingestion-ocr-audit-20261025/tests/monotonic-consumers-red-v2/tests/manifest.json",
+      "manifestSha256": "964A41754B4813CABE8CCAC9614EA42E23C81DA10F37C5655D93D8D66845B8E7",
+      "trxSha256": "F49E79ADE1C6FF2215555033AD94EDF610F9A41E59209EBC0671A851FFACBEEA",
+      "trxMatchesManifest": true,
+      "total": 5,
+      "passed": 3,
+      "failed": 2,
+      "skipped": 0,
+      "countsMatchManifest": true,
+      "sourceChangedDuringRun": false,
+      "sourceBeforeSha256": "0C66C0E80828123C789E420BDD214044BBE1EF60F135675DCAC2612DE5EE73AA",
+      "sourceAfterSha256": "0C66C0E80828123C789E420BDD214044BBE1EF60F135675DCAC2612DE5EE73AA",
+      "inventories": [
+        {
+          "phase": "sourceBefore",
+          "fileCount": 1772,
+          "expectedCount": 1772,
+          "digestMatches": true,
+          "fileSha256": "FA69C7C896D1E76E328C3F2EC9DF79A9EE04F0F965814F17E36EA1B32AF93E11"
+        },
+        {
+          "phase": "sourceAfter",
+          "fileCount": 1772,
+          "expectedCount": 1772,
+          "digestMatches": true,
+          "fileSha256": "FA69C7C896D1E76E328C3F2EC9DF79A9EE04F0F965814F17E36EA1B32AF93E11"
+        }
+      ]
+    },
+    {
+      "label": "GREEN v1",
+      "runId": "a0b1142a7a854625b76ac18ed5ab8ff8",
+      "state": "passed",
+      "manifestPath": "artifacts/ingestion-ocr-audit-20261025/tests/monotonic-consumers-green-v1/tests/manifest.json",
+      "manifestSha256": "34358AF47BE3CDF4E501481DA39060E7FA33933CAECA43DD770454A4E4E67AC7",
+      "trxSha256": "BC2901F591560C5BEF67663E95CB626A3F3579964E6DB05067B4AD3C74E2DDC8",
+      "trxMatchesManifest": true,
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "countsMatchManifest": true,
+      "sourceChangedDuringRun": false,
+      "sourceBeforeSha256": "289DB4DD421A2F293AFAC838D9899F797615F6ADFC944A7EDBC01276011F8B8A",
+      "sourceAfterSha256": "289DB4DD421A2F293AFAC838D9899F797615F6ADFC944A7EDBC01276011F8B8A",
+      "inventories": [
+        {
+          "phase": "sourceBefore",
+          "fileCount": 1772,
+          "expectedCount": 1772,
+          "digestMatches": true,
+          "fileSha256": "B43DAB12BCB378FF061D0A10A80A558EBEB7F556F58B980DA23DE6C15B596B53"
+        },
+        {
+          "phase": "sourceAfter",
+          "fileCount": 1772,
+          "expectedCount": 1772,
+          "digestMatches": true,
+          "fileSha256": "B43DAB12BCB378FF061D0A10A80A558EBEB7F556F58B980DA23DE6C15B596B53"
+        }
+      ]
+    }
+  ],
+  "qualityScriptParserErrors": 0,
+  "qualityScriptHashMatches": true,
+  "sourceMutations": 0,
+  "servicesStarted": 0,
+  "httpCalls": 0,
+  "sqlOperations": 0,
+  "buildsRun": 0,
+  "gitOperations": 0,
+  "limits": [
+    "Checks validate historical run bytes and source stability; no new test execution occurred.",
+    "Source freshness is based on stored observations only, with no current disk verification."
+  ]
+}

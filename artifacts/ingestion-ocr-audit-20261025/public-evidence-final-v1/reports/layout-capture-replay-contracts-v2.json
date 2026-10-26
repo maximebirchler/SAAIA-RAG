@@ -1,0 +1,336 @@
+{
+  "schemaVersion": "saaia-layout-captured-projection-replay.v1",
+  "execution": "pure_python_against_captured_canonical_bundle_only",
+  "workerReexecuted": false,
+  "nativeExtractionReexecuted": false,
+  "productionDefaultIdentityRechecked": false,
+  "assemblyIdentityValidatedInOriginalWorkerEvidenceOnly": true,
+  "captureSha256": "ce6b10b174b320ecb945f4c98a2c538eac3597a8497668af5d00aa80215cf6fc",
+  "evaluatorSha256": "8a2af0806a8327fd703a6d05918066882f6d539a2ded9eb302534fee272c38f0",
+  "manifestSha256": "2aafffedd4c2d736d0ee02d06482a0f76c9eb11c3160cffae062911f50aea505",
+  "results": [
+    {
+      "caseId": "native-two-column-v1",
+      "ok": true,
+      "issues": [],
+      "metrics": {
+        "pageCount": 1,
+        "primaryBlockCount": 14,
+        "alternativeBlockCount": 12,
+        "tableCount": 0,
+        "figureCount": 0,
+        "nativeImageCandidateCount": 0,
+        "nativeImageAddedFigureCount": 0,
+        "retrievalChunkCount": 3,
+        "alternativeChunkCount": 1,
+        "unanchoredChunkCount": 0,
+        "labelCounts": {
+          "section_header": 3,
+          "text": 7,
+          "native_text_recovery": 4
+        },
+        "markerSimilarities": {
+          "LAYOUT GOLD TWO COLUMN ORDER": 0.9655,
+          "LEFT ALPHA 101": 1.0,
+          "LEFT BRAVO 102": 1.0,
+          "LEFT CHARLIE 103": 1.0,
+          "LEFT DELTA 104": 1.0,
+          "RIGHT ECHO 201": 1.0,
+          "RIGHT FOXTROT 202": 1.0,
+          "RIGHT GOLF 203": 1.0,
+          "RIGHT HOTEL 204": 1.0
+        },
+        "geometryAnchors": {
+          "LEFT ALPHA 101": {
+            "blockId": "block_543ecc62999068da2b3f2e14a666ffc5",
+            "cellId": null,
+            "pageNumber": 1,
+            "selectionPolicy": "most_specific_matching_anchored_observation"
+          },
+          "RIGHT ECHO 201": {
+            "blockId": "block_b8abb9c3eae73b76d4ba51787c100ce0",
+            "cellId": null,
+            "pageNumber": 1,
+            "selectionPolicy": "most_specific_matching_anchored_observation"
+          }
+        },
+        "selectedReadingOrderSurfaces": {
+          "primary": null,
+          "alternative": "native_layout_page_1_1",
+          "any": null
+        },
+        "recoveredLayoutPageCount": 0,
+        "skippedUndersegmentedLayoutPageCount": 0
+      },
+      "sourceSha256": "0630e326a1c116fdd946f87c5ae951448b10786d7fdca35949b08e89fa36316c"
+    },
+    {
+      "caseId": "native-three-column-v1",
+      "ok": false,
+      "issues": [
+        {
+          "check": "canonical_alternative_reading_order",
+          "message": "No canonical surface preserves the expected sequence. "
+        },
+        {
+          "check": "canonical_alternative_count",
+          "message": "Expected at least 1 native layout alternative block(s), got 0."
+        }
+      ],
+      "metrics": {
+        "pageCount": 1,
+        "primaryBlockCount": 16,
+        "alternativeBlockCount": 0,
+        "tableCount": 1,
+        "figureCount": 0,
+        "nativeImageCandidateCount": 0,
+        "nativeImageAddedFigureCount": 0,
+        "retrievalChunkCount": 2,
+        "alternativeChunkCount": 0,
+        "unanchoredChunkCount": 0,
+        "labelCounts": {
+          "section_header": 1,
+          "native_text_recovery": 15,
+          "table": 1
+        },
+        "markerSimilarities": {
+          "ONE ALPHA 301": 1.0,
+          "ONE BRAVO 302": 1.0,
+          "ONE CHARLIE 303": 1.0,
+          "ONE DELTA 304": 1.0,
+          "TWO ECHO 311": 1.0,
+          "TWO FOXTROT 312": 1.0,
+          "TWO GOLF 313": 1.0,
+          "TWO HOTEL 314": 1.0,
+          "THREE INDIA 321": 1.0,
+          "THREE JULIET 322": 1.0,
+          "THREE KILO 323": 1.0,
+          "THREE LIMA 324": 1.0
+        },
+        "geometryAnchors": {
+          "ONE ALPHA 301": {
+            "blockId": null,
+            "cellId": "cell_6422f0d80ee755bc5cc90f3696de5c0c",
+            "pageNumber": 1,
+            "selectionPolicy": "most_specific_matching_anchored_observation"
+          },
+          "TWO ECHO 311": {
+            "blockId": null,
+            "cellId": "cell_752fee4c668d409dbfe2f426fe41a471",
+            "pageNumber": 1,
+            "selectionPolicy": "most_specific_matching_anchored_observation"
+          },
+          "THREE INDIA 321": {
+            "blockId": null,
+            "cellId": "cell_f9665c646ffd7d69d39f7ade953933fc",
+            "pageNumber": 1,
+            "selectionPolicy": "most_specific_matching_anchored_observation"
+          }
+        },
+        "selectedReadingOrderSurfaces": {
+          "primary": null,
+          "alternative": null,
+          "any": null
+        },
+        "recoveredLayoutPageCount": 0,
+        "skippedUndersegmentedLayoutPageCount": 0
+      },
+      "sourceSha256": "912ef2c91233681f38515b45e18c3cdeb847b373bcc3d2fc1cfb41a5e086ebdc"
+    },
+    {
+      "caseId": "native-unequal-columns-v1",
+      "ok": true,
+      "issues": [],
+      "metrics": {
+        "pageCount": 1,
+        "primaryBlockCount": 11,
+        "alternativeBlockCount": 14,
+        "tableCount": 0,
+        "figureCount": 0,
+        "nativeImageCandidateCount": 0,
+        "nativeImageAddedFigureCount": 0,
+        "retrievalChunkCount": 3,
+        "alternativeChunkCount": 1,
+        "unanchoredChunkCount": 0,
+        "labelCounts": {
+          "section_header": 3,
+          "text": 1,
+          "native_text_recovery": 7
+        },
+        "markerSimilarities": {
+          "LONG LEFT ALPHA 401": 1.0,
+          "LONG LEFT BRAVO 402": 1.0,
+          "LONG LEFT CHARLIE 403": 1.0,
+          "LONG LEFT DELTA 404": 1.0,
+          "LONG LEFT ECHO 405": 1.0,
+          "LONG LEFT FOXTROT 406": 1.0,
+          "SHORT RIGHT GOLF 411": 1.0,
+          "SHORT RIGHT HOTEL 412": 1.0,
+          "SHORT RIGHT INDIA 413": 1.0,
+          "FULL WIDTH NOTE 420": 1.0
+        },
+        "geometryAnchors": {
+          "LONG LEFT ALPHA 401": {
+            "blockId": "block_69151e40551731252f0a68da3904cc0c",
+            "cellId": null,
+            "pageNumber": 1,
+            "selectionPolicy": "most_specific_matching_anchored_observation"
+          },
+          "SHORT RIGHT GOLF 411": {
+            "blockId": "block_46f6f15c9f813c8b0f368d882c9d5fe1",
+            "cellId": null,
+            "pageNumber": 1,
+            "selectionPolicy": "most_specific_matching_anchored_observation"
+          }
+        },
+        "selectedReadingOrderSurfaces": {
+          "primary": null,
+          "alternative": "native_layout_page_1_1",
+          "any": null
+        },
+        "recoveredLayoutPageCount": 0,
+        "skippedUndersegmentedLayoutPageCount": 0
+      },
+      "sourceSha256": "84604de71139c5e5bea1a9da361909b1383438a335863f84a8fcad97120e9b09"
+    },
+    {
+      "caseId": "native-late-page-title-v1",
+      "ok": true,
+      "issues": [],
+      "metrics": {
+        "pageCount": 1,
+        "primaryBlockCount": 14,
+        "alternativeBlockCount": 12,
+        "tableCount": 0,
+        "figureCount": 0,
+        "nativeImageCandidateCount": 0,
+        "nativeImageAddedFigureCount": 0,
+        "retrievalChunkCount": 4,
+        "alternativeChunkCount": 1,
+        "unanchoredChunkCount": 0,
+        "labelCounts": {
+          "section_header": 3,
+          "text": 7,
+          "native_text_recovery": 4
+        },
+        "markerSimilarities": {
+          "LATE PAGE TITLE 1000": 1.0,
+          "LEFT SECTION 1001": 1.0,
+          "LEFT ALPHA 1002": 1.0,
+          "LEFT BRAVO 1003": 1.0,
+          "LEFT CHARLIE 1004": 1.0,
+          "LEFT DELTA 1005": 1.0,
+          "RIGHT SECTION 1011": 1.0,
+          "RIGHT ECHO 1012": 1.0,
+          "RIGHT FOXTROT 1013": 1.0,
+          "RIGHT GOLF 1014": 1.0,
+          "RIGHT HOTEL 1015": 1.0
+        },
+        "geometryAnchors": {
+          "LATE PAGE TITLE 1000": {
+            "blockId": "block_9231b4f6252a248f0743453d9f6924ca",
+            "cellId": null,
+            "pageNumber": 1,
+            "selectionPolicy": "most_specific_matching_anchored_observation"
+          }
+        },
+        "selectedReadingOrderSurfaces": {
+          "primary": null,
+          "alternative": null,
+          "any": "native_layout_page_1_1"
+        },
+        "recoveredLayoutPageCount": 0,
+        "skippedUndersegmentedLayoutPageCount": 0
+      },
+      "sourceSha256": "f2e98a62ea501e6470771c9c62e3077b53b01457481ccff716845918cea94058"
+    },
+    {
+      "caseId": "native-columns-and-table-v1",
+      "ok": false,
+      "issues": [
+        {
+          "check": "canonical_alternative_reading_order",
+          "message": "No canonical surface preserves the expected sequence. "
+        },
+        {
+          "check": "canonical_alternative_count",
+          "message": "Expected at least 1 native layout alternative block(s), got 0."
+        }
+      ],
+      "metrics": {
+        "pageCount": 1,
+        "primaryBlockCount": 27,
+        "alternativeBlockCount": 0,
+        "tableCount": 1,
+        "figureCount": 0,
+        "nativeImageCandidateCount": 0,
+        "nativeImageAddedFigureCount": 0,
+        "retrievalChunkCount": 4,
+        "alternativeChunkCount": 0,
+        "unanchoredChunkCount": 0,
+        "labelCounts": {
+          "section_header": 2,
+          "text": 5,
+          "native_text_recovery": 20,
+          "table": 1
+        },
+        "markerSimilarities": {
+          "LEFT NOVEMBER 501": 1.0,
+          "LEFT OSCAR 502": 1.0,
+          "LEFT PAPA 503": 1.0,
+          "RIGHT QUEBEC 511": 1.0,
+          "RIGHT ROMEO 512": 1.0,
+          "RIGHT SIERRA 513": 1.0,
+          "TABLE CAPTION 520": 1.0,
+          "POST GRID NOTE 522": 1.0
+        },
+        "geometryAnchors": {},
+        "selectedReadingOrderSurfaces": {
+          "primary": null,
+          "alternative": null,
+          "any": null
+        },
+        "recoveredLayoutPageCount": 0,
+        "skippedUndersegmentedLayoutPageCount": 0
+      },
+      "sourceSha256": "60de8a516ec9925c0c2d0dfc714233187f91ada1c0dc0607ca2bcb09fe3e4469"
+    },
+    {
+      "caseId": "structured-table-v1",
+      "ok": true,
+      "issues": [],
+      "metrics": {
+        "pageCount": 1,
+        "primaryBlockCount": 14,
+        "alternativeBlockCount": 0,
+        "tableCount": 1,
+        "figureCount": 0,
+        "nativeImageCandidateCount": 0,
+        "nativeImageAddedFigureCount": 0,
+        "retrievalChunkCount": 4,
+        "alternativeChunkCount": 0,
+        "unanchoredChunkCount": 0,
+        "labelCounts": {
+          "section_header": 1,
+          "text": 2,
+          "native_text_recovery": 11,
+          "table": 1
+        },
+        "markerSimilarities": {
+          "LAYOUT GOLD - STRUCTURED TABLE": 1.0,
+          "TABLE CAPTION MATERIAL LIMITS": 1.0,
+          "POST TABLE NOTE 732": 1.0
+        },
+        "geometryAnchors": {},
+        "selectedReadingOrderSurfaces": {
+          "primary": "primary_retrieval",
+          "alternative": null,
+          "any": null
+        },
+        "recoveredLayoutPageCount": 0,
+        "skippedUndersegmentedLayoutPageCount": 0
+      },
+      "sourceSha256": "7e890e7721eb440b6269c94066adcbb57cbbb17371e510e7f15f390f26aac7bf"
+    }
+  ]
+}

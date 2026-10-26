@@ -1,0 +1,135 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "eed9cd0952b84bfe922ab1ca56384d76",
+  "startedAtUtc": "2026-10-25T23:46:55.6939118+00:00",
+  "finishedAtUtc": "2026-10-25T23:47:05.2469431+00:00",
+  "profile": "IntegrationPg",
+  "filter": "(Profile=IntegrationPg)&(FullyQualifiedName~Ingestion_lease_reassigned|FullyQualifiedName~Ingestion_heartbeat_zero_rows)",
+  "configuration": "Release",
+  "gitCommit": "24b21ab2efb819e961dfeabb33e850dc45fb1203",
+  "gitDirty": true,
+  "requestedProjects": [
+    "Backend"
+  ],
+  "buildRequested": true,
+  "restoreRequested": false,
+  "state": "failed",
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-25T23:46:56.6351824+00:00",
+    "sha256": "65A7CBC3A060CC44F898D7CB3E04AAF5FA52EAB54E8C2F66D9EBB1EAABB88AFB",
+    "fileCount": 1747,
+    "inventory": "source-files-eed9cd0952b84bfe922ab1ca56384d76-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-25T23:47:05.8259283+00:00",
+    "sha256": "65A7CBC3A060CC44F898D7CB3E04AAF5FA52EAB54E8C2F66D9EBB1EAABB88AFB",
+    "fileCount": 1747,
+    "inventory": "source-files-eed9cd0952b84bfe922ab1ca56384d76-after.json"
+  },
+  "sourceChangedDuringRun": false,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "publicProjection": {
+    "originalSha256": "cd70f563044c87e9b944bddb3b7141f00088f39fb1da026a01d6e42625abbd7e",
+    "rawOutputIncluded": false,
+    "environmentAndPrerequisiteDetailsOmitted": true,
+    "testArgumentsIncluded": false,
+    "originalTestNamesHashed": true,
+    "approvalGranted": false
+  },
+  "results": [
+    {
+      "project": "Backend",
+      "path": "backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj",
+      "status": "failed",
+      "exitCode": 1,
+      "counts": {
+        "failed": 5,
+        "adapterReportedExecuted": 5,
+        "notExecuted": 0,
+        "executed": 5,
+        "total": 5,
+        "passed": 0
+      },
+      "assemblies": [
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.AdvancedValidationJobGuard.dll",
+          "role": "local_product_dependency",
+          "sha256": "7B200D1CE421A2E4FF77F2336CF7B73BB7214A15255F6433D91E66C3D9E9E650",
+          "sizeBytes": 62464,
+          "lastWriteTimeUtc": "2026-10-25T23:00:50.3845168Z",
+          "capturedAtUtc": "2026-10-25T23:47:05.2242528+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.dll",
+          "role": "local_product_dependency",
+          "sha256": "7C6CF4298796E51AA2E279D4AF7102BED7FF8B36983647EE5344DACE6B867C34",
+          "sizeBytes": 7845888,
+          "lastWriteTimeUtc": "2026-10-25T23:45:49.2181630Z",
+          "capturedAtUtc": "2026-10-25T23:47:05.2318565+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "F3DC4D5AF00C52394273BE8E3409690303B653FD02F79551D6F2243ABCA3457B",
+          "sizeBytes": 4933120,
+          "lastWriteTimeUtc": "2026-10-25T23:46:59.1358146Z",
+          "capturedAtUtc": "2026-10-25T23:47:05.2369218+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "BEABC1BAFC97D303BE7FEFC31D039B180AEA6B25D9B1C9685A64A0BF3404D352",
+          "sizeBytes": 154112,
+          "lastWriteTimeUtc": "2026-10-25T23:00:50.4793709Z",
+          "capturedAtUtc": "2026-10-25T23:47:05.2377035+00:00"
+        }
+      ],
+      "cases": [
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_lease_reassigned_to_another_worker_rejects_old_publication_without_mutating_new_owner",
+          "originalTestNameSha256": "30603aa6cf84d5d909e1808694c370102660f90ad58904274f3364ca7affcadc",
+          "outcome": "Failed",
+          "duration": "00:00:01.0213026"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_heartbeat_zero_rows_cancels_and_observes_inflight_operation",
+          "originalTestNameSha256": "3a64f5fa29af3b9511eb39e735a5ebee95b4f83a4074ba99bcc8965a8ef01db1",
+          "outcome": "Failed",
+          "duration": "00:00:01.1323797"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_lease_reassigned_to_another_worker_rejects_old_publication_without_mutating_new_owner",
+          "originalTestNameSha256": "9fbc5c3956e46f5cd9e31896141bcfecc67ec0a6b2e1b9b467ded7005fde8a0d",
+          "outcome": "Failed",
+          "duration": "00:00:01.0875817"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_lease_reassigned_to_another_worker_rejects_old_publication_without_mutating_new_owner",
+          "originalTestNameSha256": "76c8df782657b0f5717c84b0051415d24df0a08b9a6f06d672abd1d3aaf9e16d",
+          "outcome": "Failed",
+          "duration": "00:00:00.8946806"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_lease_reassigned_to_another_worker_rejects_old_publication_without_mutating_new_owner",
+          "originalTestNameSha256": "fad1a326ba505c54630ad342a61dc40aa6fcd90b71cb25a0740ef9d98555795c",
+          "outcome": "Failed",
+          "duration": "00:00:00.9639264"
+        }
+      ],
+      "trx": "Backend.public.trx",
+      "trxSha256": "975e31e2bf396413f50334fa745b9203de6037cf458bf002a76facafe198c5e6",
+      "originalTrxSha256": "ab807b1ab4ffabcbde9c0c7eb492dfa8e0786c1ab0af5332c388b2fa5a294d4c",
+      "trxProjection": {
+        "outcomeCounts": {
+          "Failed": 5
+        },
+        "removedSubtreeCount": 8,
+        "rawErrorsAndStdoutIncluded": false,
+        "projectionIsOriginalTrx": false,
+        "testArgumentsIncluded": false,
+        "originalTestNamesHashed": true,
+        "fieldsPolicy": "explicit_result_and_identity_allowlist"
+      }
+    }
+  ]
+}

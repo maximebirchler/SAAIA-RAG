@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "saaia-owned-ingestion-execution.v1",
+  "startedAtUtc": "2026-10-25T23:36:53.8055442+00:00",
+  "passed": true,
+  "executed": true,
+  "plan": {
+    "schemaVersion": "saaia-owned-ingestion-plan.v1",
+    "executeRequested": true,
+    "caseIds": [
+      "fr-mixed-critical-v2",
+      "fr-scan-critical-v2"
+    ],
+    "sourceCount": 2,
+    "corpusManifestSha256": "24CC69860EEEC3804E903A1E190EE4292CBDA389EC271AAA293BF12EFF74AE35",
+    "backendAssemblySha256": "90D8D23B581712D6296BA8757CCAC4E6C9A209C3B8EA9E25F6C82AE1839C60E0",
+    "dependencyManifestSha256": "5B82EE53658C0CA16750BF5857B2553527BB1283F8D213F30232674F274C028D",
+    "profileSha256": "3C5DC137E770427177FC8551E75D193D9A6044CF538162444A9477C304A33329",
+    "backendPort": 5129,
+    "fixturePort": 18091,
+    "qdrantCollection": "ingestion_4275dd4f697a48799f880fcf61092d46",
+    "maximumWaitSeconds": 180,
+    "workerEnabled": true,
+    "canonicalRowsSeeded": false,
+    "paidProviderEnabled": false,
+    "embeddingAdapter": "deterministic_loopback_3d",
+    "embeddingsReal": false,
+    "vectorValidated": false,
+    "productStatus": "TESTE_NON_APPROUVE"
+  },
+  "canonicalRowsSeeded": false,
+  "paidProviderCalls": 0,
+  "ingestionWorkerExecuted": true,
+  "sqlPublicationValidated": true,
+  "vectorStorePublicationValidated": true,
+  "vectorValidated": false,
+  "cleanup": {
+    "zeroActiveJobs": true,
+    "externalDependenciesStopped": false,
+    "ownedEnvironmentStopped": true,
+    "activeJobCountBeforeStop": 0
+  },
+  "state": "verified",
+  "emptyBaselineVerified": true,
+  "apiEnqueuedJobCount": 2,
+  "jobPollCount": 6,
+  "finishedAtUtc": "2026-10-25T23:37:19.4686246+00:00"
+}

@@ -1,0 +1,103 @@
+{
+  "schemaVersion": "saaia-owned-ingestion-lifecycle.v1",
+  "executed": true,
+  "passed": true,
+  "caseId": "fr-scan-critical-v2",
+  "docId": "b2f9aee2-f0fb-1431-9647-a6cd9b7b73b1",
+  "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2",
+  "startedAtUtc": "2026-10-26T01:00:39.4676919+00:00",
+  "canonicalRowsSeeded": false,
+  "paidProviderCalls": 0,
+  "steps": [
+    {
+      "phase": "initial",
+      "docId": "b2f9aee2-f0fb-1431-9647-a6cd9b7b73b1",
+      "revisionId": "71516efc-ec5b-33cc-c2c3-1c6b03f43769",
+      "indexedVersion": 1,
+      "ingestionVersion": 1,
+      "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2",
+      "plan": "282133b02f8740a53726e8d7e6d70c935760dfad6247d563f39b3f5271846e56",
+      "chunkCount": 1,
+      "pointIds": [
+        "584a2947-4b9e-3699-b768-98524ad71d06"
+      ],
+      "currentRagItems": 1,
+      "obsoleteRagIdentities": 0,
+      "activeJobs": 0
+    },
+    {
+      "phase": "unchanged-upsert",
+      "docId": "b2f9aee2-f0fb-1431-9647-a6cd9b7b73b1",
+      "revisionId": "4afb2d2b-1791-51af-616e-a8aff2fc11e1",
+      "indexedVersion": 2,
+      "ingestionVersion": 2,
+      "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2",
+      "plan": "997035c965a5df9057b440396ea4f3da77299eb5b5ca156c184d127603f30fe8",
+      "chunkCount": 1,
+      "pointIds": [
+        "70a534ae-0e33-be38-1e4c-7744cb55f5c1"
+      ],
+      "currentRagItems": 1,
+      "obsoleteRagIdentities": 0,
+      "activeJobs": 0
+    },
+    {
+      "phase": "delete",
+      "ingestionVersion": 3,
+      "indexedVersion": 0,
+      "activeJobs": 0,
+      "currentRagItems": 0
+    },
+    {
+      "phase": "recreate-upsert",
+      "docId": "b2f9aee2-f0fb-1431-9647-a6cd9b7b73b1",
+      "revisionId": "3dc7075d-a27d-263e-a322-0bba516a0ad8",
+      "indexedVersion": 4,
+      "ingestionVersion": 4,
+      "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2",
+      "plan": "6fff81a609cf4547b84ccf43357d883619f59e2f69f6f0fbc6661a5ec260898f",
+      "chunkCount": 1,
+      "pointIds": [
+        "26b121e1-2781-6fad-65cb-8d4e2c266df0"
+      ],
+      "currentRagItems": 1,
+      "obsoleteRagIdentities": 0,
+      "activeJobs": 0
+    },
+    {
+      "phase": "cancel-running",
+      "docId": "b2f9aee2-f0fb-1431-9647-a6cd9b7b73b1",
+      "revisionId": "3dc7075d-a27d-263e-a322-0bba516a0ad8",
+      "indexedVersion": 4,
+      "ingestionVersion": 5,
+      "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2",
+      "plan": "6fff81a609cf4547b84ccf43357d883619f59e2f69f6f0fbc6661a5ec260898f",
+      "chunkCount": 1,
+      "pointIds": [
+        "26b121e1-2781-6fad-65cb-8d4e2c266df0"
+      ],
+      "currentRagItems": 1,
+      "obsoleteRagIdentities": 0,
+      "activeJobs": 0
+    }
+  ],
+  "cancel": {
+    "status": "PASS",
+    "jobId": "763d61ce-4961-4188-80d2-404eced45feb",
+    "abandonedVersion": 5,
+    "observedRunning": true,
+    "observedPhase": "document_intelligence",
+    "extractionPhaseObserved": true,
+    "previousPublicationPreserved": true,
+    "activeJobs": 0,
+    "apiAcknowledged": true,
+    "upstreamEngineCancellationVerified": false
+  },
+  "limits": {
+    "sqlReadOnly": true,
+    "singleOwnedDocument": true,
+    "maximumWaitSecondsPerJob": 300,
+    "cancelObservationSeconds": 30
+  },
+  "finishedAtUtc": "2026-10-26T01:01:15.2038924+00:00"
+}

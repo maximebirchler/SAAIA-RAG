@@ -1,0 +1,193 @@
+{
+  "schemaVersion": "saaia-owned-dependency-offline-guards.v1",
+  "passed": true,
+  "caseCount": 36,
+  "results": [
+    {
+      "expectedRejection": false,
+      "passed": true,
+      "name": "distinct dependency ports accepted"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "invalid ports 1"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "invalid ports 2"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "invalid ports 3"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "invalid ports 4"
+    },
+    {
+      "expectedRejection": false,
+      "passed": true,
+      "name": "pinned bytes accepted before startup"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "changed bytes rejected before startup"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "missing pinned file rejected before startup"
+    },
+    {
+      "expectedRejection": false,
+      "passed": true,
+      "name": "partial failed startup can be cleaned with its registered role only"
+    },
+    {
+      "expectedRejection": false,
+      "passed": true,
+      "name": "partial starting startup accepted"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "ready cannot omit roles"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "duplicate process identity rejected"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "unknown role rejected"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "foreign specification rejected"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "manifest listener declarations validated before mutation"
+    },
+    {
+      "expectedRejection": false,
+      "passed": true,
+      "name": "legacy four-field process specification accepted"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "foreign log destination rejected"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "foreign process argument rejected"
+    },
+    {
+      "expectedRejection": false,
+      "passed": true,
+      "name": "quoted exact command line accepted"
+    },
+    {
+      "expectedRejection": false,
+      "passed": true,
+      "name": "specification suffix cannot impersonate owned command"
+    },
+    {
+      "expectedRejection": false,
+      "passed": true,
+      "name": "extra command argument rejected"
+    },
+    {
+      "expectedRejection": false,
+      "passed": true,
+      "name": "exact process and CIM identity accepted"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "changed process time"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "changed process parent"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "changed process exe"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "changed process command"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "changed process cim"
+    },
+    {
+      "expectedRejection": false,
+      "passed": true,
+      "name": "owned loopback listener accepted"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "unrelated listener blocks mutation"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "nonloopback listener blocks mutation"
+    },
+    {
+      "expectedRejection": false,
+      "passed": true,
+      "name": "deepest work first then wrapper drain then console then final verification"
+    },
+    {
+      "expectedRejection": false,
+      "passed": true,
+      "name": "wrapper wait timeout cannot report stopped"
+    },
+    {
+      "expectedRejection": true,
+      "passed": true,
+      "name": "remaining process or port cannot report stopped"
+    },
+    {
+      "expectedRejection": false,
+      "passed": true,
+      "name": "AST OwnedDependencies.ps1"
+    },
+    {
+      "expectedRejection": false,
+      "passed": true,
+      "name": "AST start-local-dependencies.ps1"
+    },
+    {
+      "expectedRejection": false,
+      "passed": true,
+      "name": "AST stop-local-dependencies.ps1"
+    }
+  ],
+  "servicesStarted": 0,
+  "processesStopped": 0,
+  "httpCalls": 0,
+  "modelCalls": 0,
+  "credentialsRead": 0,
+  "testsUseSyntheticProcessIdentities": true
+}

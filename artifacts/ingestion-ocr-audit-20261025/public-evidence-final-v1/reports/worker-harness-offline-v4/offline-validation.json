@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "saaia-owned-worker-harness-offline-validation.v2",
+  "passed": true,
+  "pythonTests": 32,
+  "powerShellGuards": 35,
+  "bootstrapAstPassed": true,
+  "realWorkerExecuted": false,
+  "serviceCalls": 0,
+  "credentialsRead": 0,
+  "databaseOperations": 0,
+  "serviceProcessesStarted": 0,
+  "dotnetBuilds": 0,
+  "modelCalls": 0,
+  "corrections": [
+    "canonical provenance is sha256 of the loaded DLL only for the controlled overlay",
+    "checksummed SQL columns override untrusted metadata fields",
+    "worker execution is observed from running/done/attempts, never enqueue alone",
+    "cleanup polls active jobs for a bounded ten seconds"
+  ],
+  "sources": [
+    {
+      "path": "tools/validation-winui/start-environment.ps1",
+      "sha256": "CCE120C7B23B06CD5F7397E2974FEF4B2A30032E9AF9796A3CE2F9E440D4DA0F"
+    },
+    {
+      "path": "tools/validation-ingestion/OwnedIngestionConfig.ps1",
+      "sha256": "9399CCCF95AE9F3FB935D7438EDCDD025B163D4926C1A2450C78E164CF0D24B2"
+    },
+    {
+      "path": "tools/validation-ingestion/invoke-owned-ingestion.ps1",
+      "sha256": "C923FF926E49DF33453FC9EC7FF7FC614B3A96FAF9F3316E73E8E8E08C6D95D4"
+    },
+    {
+      "path": "tools/validation-ingestion/verify_worker_publication.py",
+      "sha256": "9B0DBEAB614A211B332A0C3CA23521C46A0D57664C7E8CBC6BD9D822AC7D70CA"
+    },
+    {
+      "path": "tools/validation-ingestion/Test-OwnedIngestionGuards.ps1",
+      "sha256": "541DBF3C8315250430BFD04275C48F47DDA65BD10647AF8CB06E4F5959E0D3E0"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_worker_verifier.py",
+      "sha256": "BC7BC0B3326E600A7934673E86E63D950278610938F353E1CC211C66E2C830F2"
+    }
+  ]
+}

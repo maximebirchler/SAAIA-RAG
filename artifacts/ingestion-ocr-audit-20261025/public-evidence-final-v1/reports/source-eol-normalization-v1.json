@@ -1,0 +1,2419 @@
+{
+  "schemaVersion": "saaia-source-eol-normalization.v1",
+  "sourceFilesChanged": 402,
+  "scope": "Source code only, before final build and tests. No artifacts, models, PDF or JSON input normalized.",
+  "files": [
+    {
+      "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.CanonicalHttp.cs",
+      "beforeSha256": "f56e8eb35ec548b61c91c79b7a9a4c46dc2a2dba3eaaf043eb83b29fbf09b779",
+      "afterSha256": "adfb28c55a0d630545d816902f0cf69951ec2c7e3378389878921be033d2af62",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/DocumentLanguageResolverTests.cs",
+      "beforeSha256": "b1f63f3cbce4ba345632591a8aca31b75fb8314f02753c551be486871ab9e525",
+      "afterSha256": "bccdfcec68e30c7e56341fed55a2f0a758689415a79f11b04d9008d6a5a4481f",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/GlobalUsings.Retrieval.cs",
+      "beforeSha256": "dec724fb74cbe777d5ed1d1630928698a07f93fae459f6b596a7fb6655d24a35",
+      "afterSha256": "134f0982ba780610991eb701f6b73ae35951439a2fdb41320928852398939369",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/LiveStructuralAnchorSelectionBenchmarkTests.cs",
+      "beforeSha256": "a4293ef4903e9e305020b8d2eebe0f797d67f37f696726f2c80e092c47fb16c1",
+      "afterSha256": "968b820d53d1834db1736325f9d5d3ac204e2a28ccb86383f32cb4c62fde0e12",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.MultiEvidenceBinding.cs",
+      "beforeSha256": "0a199319736dff3ceeca8a525fed80f0a592c3679b220cf2c4e95c0402d59215",
+      "afterSha256": "3786a39fef31cfe10ddafa86a80ed7386a3327b07816e6fe57845e38618b86a2",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/RetrievalCdcV3AlignmentTests.cs",
+      "beforeSha256": "a6a6c6a7216ba31d6d18e5210284df878353758501c1985261ddb57312153f8f",
+      "afterSha256": "2fd1f6ab6e011da35df4b1e9033369e05750818997a75220220396f54cb2d4fe",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.AnswerGuidance.cs",
+      "beforeSha256": "e47b292069a6e191c68e70b42f92fdcab92cd13c0e2b26d32bb4c7bd993db526",
+      "afterSha256": "952718e3a093980bb5185b34dfa4bd6d96f6320be198db3367b81e61ff87302a",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.DocumentProfiles.cs",
+      "beforeSha256": "a54d72f95f0523998e54fb7f66be9e6c33d796697b980fe22ec993944480cb4d",
+      "afterSha256": "dc7ec3b3664c530322f6190322384bc066a6a29bd60472f26abec49694d06351",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.EvidenceSelection.cs",
+      "beforeSha256": "ff2a5c97bc547c05e0427b94d90fbc490b2c25b0555d9b17896b0b87a5814d34",
+      "afterSha256": "26751b0dbe6a50138d0f293f27be787bd961f62bf753ce11b2d9adf7161436d6",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.EvidenceSelection2.cs",
+      "beforeSha256": "040e5723787f9960882d884476bae9c87444c4f993c85066145f29c4304c7c02",
+      "afterSha256": "0d3dfc051b3cf01f92e8a9ac9e352ef00a8712b3bdcb98120a156c3ae54cab37",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.ExactLookup.cs",
+      "beforeSha256": "3708d3b732245d566425a779e8fc3e38e06e4047accd3fdf8e31181ed318e4d4",
+      "afterSha256": "791c8a0617644acd9b94e05625fc020570bc7e84a8883c44030a982c3b322e88",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.Fixtures.cs",
+      "beforeSha256": "d91519dd01ea222a158d3362d2faff257a3d8946fef1dc726917c517feeea9e7",
+      "afterSha256": "05784421d69f9fab5800697b2edad3924faaec728058473ffa76ff31ba6ff5cd",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.PageWindows.cs",
+      "beforeSha256": "1d25fc298c2591d64f5aba2c1adeb57366a702ee0763c90cbaf4904a77463a67",
+      "afterSha256": "d77638c6f2f545cd14d65ac142ac6f82b81192812bb32a8daaf275c3b0e2b42d",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.QueryPolicy.cs",
+      "beforeSha256": "109af238809bac76462c9f0099c4239e25b9c4f8a3dfa2ae0bf618848f3adf11",
+      "afterSha256": "8294a2bc3259b827dbb111480d79c4998afefc3864a1f4f81ae1966794223762",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.Ranking.cs",
+      "beforeSha256": "15c6552c60fc2745d6293780b4ce9a991d94dadca111e6a2398766d22e6a64dd",
+      "afterSha256": "a55e74b59b17fc87c03f050bb3ebd6cb94cf40006d39d63fbcfd5ead0fa8c877",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.RuntimeSelection.cs",
+      "beforeSha256": "2fa99b34e0640da2a7e54055319eba504fbf76b767a8ab40f9a44fd8cd6f440d",
+      "afterSha256": "83c0cbfabb6a24f1a15cf589a91ec1da7b85ccf63e59e6418500548897fee419",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.SourceRouting.cs",
+      "beforeSha256": "094b746a8fc0c743982f1ce2093ee745392bd63a9c0c8b3b617aabdd876e7a3f",
+      "afterSha256": "b6d05bdd7510544ffa4897074c1f189e7bbe7622a9b5fef90b66ac133ec1a8a7",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/SourceBackedCanonicalRetrievalTests.cs",
+      "beforeSha256": "1e57df991d1ff80c4640122a46cafa1253fdb77b5f997e89d086a70441d5de30",
+      "afterSha256": "c5bd9fd3573110405959838669586e29772424d1d6b28debedfa1e4965c1b9c3",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/SummaryBackofficeGovernanceTests.cs",
+      "beforeSha256": "b6829d35df71e6e18844b5c5e6e477c497cc5b40fe60f28b0e8316509582275f",
+      "afterSha256": "ff92561b65c70d5d45639c75e561dfbe29de1285722f95ad99152e747cde3536",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.CandidateJudge.cs",
+      "beforeSha256": "993b893db14501856cea1b04306419e9c11a13a0a8e9d43a81454dbdfe45fba5",
+      "afterSha256": "17983e95e7eb62d8de0f3fdf2109c7161f6df64b7fb8e315299ef09fc4a581f3",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.CandidateNavigator.cs",
+      "beforeSha256": "a36ceed4e95406201ac82d1259955df43aa13104c09518de6433ac0c8f48738d",
+      "afterSha256": "502d4c3be3f0c176ce04dd6c7e9187c29c88e6f7ed9559ed6515f086d6d23a4e",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.StagedCandidateExplorer.cs",
+      "beforeSha256": "1355d71029481a44432676e67bace1615f765f61cefbbeaea99cb9c94c099abe",
+      "afterSha256": "3d182eb520af29272083762521bf2dcb6b1aa090f8b3ba9186608600924fb423",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Audit/AuditWriter.cs",
+      "beforeSha256": "3d63d9a0c2844b2518be683f77441b7c30d07e56ba232abc76ef1299a4ab1942",
+      "afterSha256": "23d71605176fd4fe3a1b4754af9cd8e9d48a8b1a29e68a56f94029b8407996d4",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Auth/AdminAuth.cs",
+      "beforeSha256": "52ac2c6479ff57e8a16d2e580be4b84d6ac1f690809db233af01bd46a4fa1be8",
+      "afterSha256": "48e8b8c1059c0cde41deb8023c9ffcbb7f47fe031d89e46b503f6e32fa01cf4d",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Auth/ApiKeyAuth.cs",
+      "beforeSha256": "9040cb3936e9da10d201f2f9d3b23564ed936e02bf8837fdeb4306a3c1895241",
+      "afterSha256": "af36c7a192ee50d9d9e66820ef2f1be9558a7f189962810ee0892861e5f55a44",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Bootstrap/Bootstrapper.cs",
+      "beforeSha256": "e4ba11914c2cdba8fa23bb87b8a761b66fdfc5cf8babebfd7d5adfed1539f907",
+      "afterSha256": "d5422d8c3be81172a276bdc6b22bd0a1e02dccf139c1698cc398f96808c3615a",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/002_documents_file_mtime.sql",
+      "beforeSha256": "9852d3d78058ac20032deb0497e9327d38486159e629027731324f3c5abb7db5",
+      "afterSha256": "3c8d9c700a7e240670b019ef86a87daab1563e5763d01431839777d8775dbaca",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/003_documents_missing_version_jobs_index.sql",
+      "beforeSha256": "f9143a089b6c23826ca1dfa14211ea779ebb876a75a36e4c2e2d7d0d14d2c847",
+      "afterSha256": "d11f92f7feb7f38cb48d61fa8c9c9e9664390bd389a213fed851ac032ee31fb6",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/004_phase1_security.sql",
+      "beforeSha256": "f3ec3b758e38f5ced2542fc3fbf16eedea7969e55f9875ad2bc70ebf4138923d",
+      "afterSha256": "64f3a285a246631ac781262e59d740ee8f7ebf15de8c64dfb3da98d53dc31c31",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/005_chat_store.sql",
+      "beforeSha256": "9a84e298aeb0cac826dae9ddc6f30bc6a163a713394cd3cfc11173ec95421e59",
+      "afterSha256": "f779a6da6d0909f64c35f21a783c63cd7165bea792304310c1df896505970175",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/006_add_user_id_to_chat_sessions.sql",
+      "beforeSha256": "64cc8642f14d2a39067490c9457db346cdce0c2da2cc7ab7368b68a2f7a20bf3",
+      "afterSha256": "ff8eeb2fbfa498d8feda166121c2f83c5bfd79bf346f184c8a3c72fc400e4db7",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/AdminKeysEndpoints.cs",
+      "beforeSha256": "7309faa8493d604ab5415a51186983dfe7cf28d8ec9f546eee8eb42d9bf5e2d8",
+      "afterSha256": "9a01967718e9216767319b8d7cf10a25f582d3bc509a1beacf62d4133b9ac104",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/AdvancedAnalysisEndpoints.cs",
+      "beforeSha256": "329be00904e56cf80689ba0405430f7e490e8cedef3b3ca997e7a0432181a4f5",
+      "afterSha256": "239f452ac50ad8443b1b088a3da4c1bd19819d1d4529f3b1047f891ce12e195a",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.cs",
+      "beforeSha256": "64feaf7334998522db45716fad48eb76c8dd8fcc486fe07e5e3512457d3f0a6b",
+      "afterSha256": "228746e431c964ff7917ad72d6ad1db28e03e3c8fee40d150b7298f8c23ec2db",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/HealthEndpoints.cs",
+      "beforeSha256": "7b512b33975876e110600a964b6ff297015b651f6ad300879f34a17c581df96c",
+      "afterSha256": "bc7a718e6f5588e5be65ccce31d07a187150a93c9d03dc68b7088c3f437d243b",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/ReadyEndpoints.cs",
+      "beforeSha256": "71aa58e3d42af38a4bc401777d6f4a36c8dbf58c65dfde7bd04bc6e297f8f70a",
+      "afterSha256": "da122fd4f5f21180dd5ce7afef21e39cc48f33bd4e79bf6619fa45446acda1fd",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Extensions/OpenTelemetryServiceCollectionExtensions.cs",
+      "beforeSha256": "e2acff13505b4004782dbe010a8f8401dec327a10e60d4b865b70cffa52126a9",
+      "afterSha256": "2743a3ae092999c9edabc9cfbcf48391004809073b86b8260b49915375216527",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/GlobalUsings.Retrieval.cs",
+      "beforeSha256": "dec724fb74cbe777d5ed1d1630928698a07f93fae459f6b596a7fb6655d24a35",
+      "afterSha256": "134f0982ba780610991eb701f6b73ae35951439a2fdb41320928852398939369",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/FileWatcherService.cs",
+      "beforeSha256": "05a8770c76ddee64ab7e2aa2ff3d2985d2f931a7711ff013dfb545e7ebfec319",
+      "afterSha256": "74cd42ce9e6f95b0bea933d3b56b031a7f28d3ec31d37dd19c04fefc54b67a32",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionPathFilter.cs",
+      "beforeSha256": "9b0213a6ba9a1d6a2eb05f83c0fa316134427dfde11f0ab4f8c0d364aac5eff1",
+      "afterSha256": "6acc4aa8fdbd7587a1fb40e3d8ac54fd0177795db644573b44370f565e941fa5",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Middleware/ErrorHandlingMiddleware.cs",
+      "beforeSha256": "94589434e587126f1f8319d7daf3ad9095fc5e7d58f930cbeaf97325a5374ce1",
+      "afterSha256": "fceb7683c1e1c18940a768847e95f6effd408fe14cd577781c1c24a4be8d2ce4",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Models/ErrorResponse.cs",
+      "beforeSha256": "38ee4f953477f81e7f7d5d4728af277c0aab7c4c29af8618db006af9c803ba8b",
+      "afterSha256": "342849af9d5722b691df0fc2342776d42048e52a92365e854ca3695ed7575c35",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Models/RagSearchDto.cs",
+      "beforeSha256": "d94f238d4ea06893f98c25e11e7194ca827aadab6ee1e31005a118b2fcff8bcc",
+      "afterSha256": "9673ffd1743a0c43e9c1e94b9271de83cadc09bd40e7a342352fedb034ff746f",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Models/RetrievalModels.cs",
+      "beforeSha256": "f7970e4b93f2330ab950d1d254f636e159be927c7e7cffaa717122103b5584b0",
+      "afterSha256": "280bd434de5727d8e9ce35a6518d1c83247cd690f1e68ff8b242e3910bf4dd97",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Options/DatabaseOptions.cs",
+      "beforeSha256": "189a05df98c9fc1430269a44e63d4e9da4c820c190b927118bfdea1112853d7f",
+      "afterSha256": "1a62ce42c764bd468e0b4ede42b96e75d421fa0a665ba6f2c49b840c45ffe802",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Options/RateLimitOptions.cs",
+      "beforeSha256": "13f1bca917039ed8e2c4943274eb281951c32a33324bcd956f418b07c2fecfed",
+      "afterSha256": "bf9fd277efa74d572941554d5f15f47679cd4661cc1260fd45c099586590184b",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/Chunker.cs",
+      "beforeSha256": "e63b1e926a79cdfd415bd4dd6dfd9cbc36f39f64dc20c60ad7231ca0c644f36b",
+      "afterSha256": "deb337b7c26e4094d4606cc3ba930529a7886ee43b1bc9ca9b27850448afd52c",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/DocumentLanguageResolver.cs",
+      "beforeSha256": "f99af7a42b58bbf6d272e32d708befd9adef4a2c2f599b28cc432449c14061cf",
+      "afterSha256": "59e4beee57d8f6b553ea0868bdc58c1e0d5f937cb781672353cdaab2bf4451b9",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Program.cs",
+      "beforeSha256": "c01b4aa797e443110c09c6117341ad4109c9fcd7e7ef6b9a0de8830a0e33942c",
+      "afterSha256": "e4798ca41569877893a1994883d0b5289726dfd170e704f8f79b7e9b36cdd330",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/CanonicalIndexProbe.cs",
+      "beforeSha256": "03fedf7d996ce1b769350c6dd86820f948935932470037054384a42e405380d0",
+      "afterSha256": "226e54ba72e3c7c1dc0418d8bd5276d1c0103a50e9575da62a569eb82fe5e125",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/CanonicalRetrieval.cs",
+      "beforeSha256": "b6c0d5a99ca5735ea4488f2e8e5684dde06b3733fdb7948a3130debc7ff40843",
+      "afterSha256": "7fbe5616916e55bbe88252da2730516a04e81ae8f3c13308c0739054c33405ab",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveAmbiguousSourceSuppression.cs",
+      "beforeSha256": "87fab95ab06310c1abe28973f9519ca0b083a71102df08527fb00bd59236855b",
+      "afterSha256": "b54897237e416d9024617dd2a31a5545c28f6c670b8ccde99b540624216f233e",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveComparativeDiversityBackfill.cs",
+      "beforeSha256": "8ba62e9cdd0428a9f5c0208804da90f6ea6981df45d855c467d76297dfed5b98",
+      "afterSha256": "3dc1ec3dacf742aace4743bd093e1b36bed30567361b5b6501b9e1f7285e0a36",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveComparativeOperandProfiles.cs",
+      "beforeSha256": "a4ab6395080d2d7a0470e9fc3a59488e2c2b8a1338975a2dec97c9ba1d411006",
+      "afterSha256": "4a67d9928d01882158673cb5f9e67f0065336e88304349dcbf002562908c947e",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveComparativeSubjects.cs",
+      "beforeSha256": "89972b32327f28d207ab4efea7c65c05a6e7038cb57d2fb78aaab72bbc4e3cba",
+      "afterSha256": "e94c00264ab37c5c1109cc03cae79538cc73acf8c1b8309afdc87b8eaeedf45c",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveComparativeTitles.cs",
+      "beforeSha256": "5f02a75aa75d2e5f62d987ab66bb0da54dc5782d29ad19a971a4a7ca17a46d7f",
+      "afterSha256": "fc575440c78d9f1494c8770de89ca26b841978fdc20302e0ec79e72c3f74a0e8",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveDeferredProfileSearch.cs",
+      "beforeSha256": "dac4292271d7f5817e26fff0a670e513d14f70c2cdc20024ade8f6580d7d5e65",
+      "afterSha256": "60063f1db1b533e62fd06db97cb23620c5b4b172ae58dedb99a1648859ee71e4",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveDirectTechnicalLinkedEvidence.cs",
+      "beforeSha256": "01ce77afe954079bdc5deb722e94f709b754433f83623247373c74ad57de885f",
+      "afterSha256": "82e4782cf70d658342e75d6b503eadbd3db54f43178c802d47776271e81b5ff9",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveDirectTechnicalPhrase.cs",
+      "beforeSha256": "ff541031dd2fb8d713abc0baf132626ac5a872894166f1f25ce682a220d772f8",
+      "afterSha256": "8180ea05ca8c14fc5a98d103eaa3cc6e43b2befa7fe9ef56bae6c32bcc3bbc32",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveDiversityCoverageAndContinuation.cs",
+      "beforeSha256": "c6985599651f33377dbc103b40956699b789df4b88b9e571d686787a30aac81c",
+      "afterSha256": "b59d8d76ad19fcf3294524bc90467325615e1df0f030c3011b770fd5235cb53d",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveDocumentHintBackfill.cs",
+      "beforeSha256": "e3a40d81e5c851cc3d30964c1f43571d40a0515f8c954fb30ce9c4c2a44c3bad",
+      "afterSha256": "9570841e91889bf464ad599e333b2e5441cc49873c922096a26f4dab0769ef9e",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveDocumentStatusOperands.cs",
+      "beforeSha256": "b26825aa6589a068a86ae77a459f226a4c91b741d12e62ea51cb2b83283f15dd",
+      "afterSha256": "86b2f3f81abcbccfcb48cc7ae363981c2bb06841e0c66f45bfecb338a78183d3",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveEarlyCompactCodeRecovery.cs",
+      "beforeSha256": "87cf5ea71f00e4971923d96bf565b81e98aff1066089299d4767403a43a517e0",
+      "afterSha256": "5df2540148029e91ce155fd4bc69a5c487a869c67590363e1544e787583ab39f",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveEarlyDateTitleBackfill.cs",
+      "beforeSha256": "e6d6fdea485115cbd559f7cb14cfcc6a34e8a00b4ee1b83d37b27adbe19ef4a1",
+      "afterSha256": "769c6ba58dfa382c155bc0e2ae76492ad2befbadb617b8e7973dff9c34187b8e",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveEarlyReferenceVersionBackfill.cs",
+      "beforeSha256": "a4c472e8a029a7cff9698c9c062573c22a1b5af2cba068d668aed6a1dc271084",
+      "afterSha256": "776b12cc496ac2b0953a0e2e03a00ff549fe234508ae7ad35a791fe982b9357d",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveEmptyCatalogAndLexicalFallback.cs",
+      "beforeSha256": "9426d0636de13e48d2a001cf90c90de21fa9f009bf5fcd26b00b11e4e549c5f4",
+      "afterSha256": "d1f67fce7f1e3f0f5fb7fa2875cb86133e65e3eff36e901a3086fe13ec885648",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveEmptyTitleAndProfileRecovery.cs",
+      "beforeSha256": "3fd8b0d304dcfbc3d71bbcefeaf275fb16025b6bc17dfe2abd6b337750cd3390",
+      "afterSha256": "8968ec5e3126edb9c6f023ee931fc83dfe4223355ecd9c0e2ba44d1591468d82",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveEnumerativeLookup.cs",
+      "beforeSha256": "e0f414407bd3709e843c35af83a1ff3b07bda43d7947bff8614b4c0edd4db9df",
+      "afterSha256": "55e37d4e2ebcb26ea509d604fa61dd4eaee718db84213ab743b05034c102e894",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFileAndCompanionRecovery.cs",
+      "beforeSha256": "7d96f9a4b965139204bb3c3ac6402fc6e6061f2366f37ee04dd529cf6ea60507",
+      "afterSha256": "99b95f657137288c911acac166c43a8224887394af98a7745913f18a26a03622",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFinalCompactCodeProfiles.cs",
+      "beforeSha256": "4de1abab3d4bc16dc6be837f1fd18bac35a8ec2ff479ec06734205efbce328a9",
+      "afterSha256": "9be5596a6cfc233a69f48e31af0805f63f27d61bbc902e42c90724f9313742bb",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFinalCompactCodeRecovery.cs",
+      "beforeSha256": "cd383492fb40484a287dc9d1673bff113cb8a8bd33777f0011407a56145ed25c",
+      "afterSha256": "bdc3d075f7a1180dd4b86178973044da5d5e7f65e9243e1ed5f4002f069c0bf7",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFinalDocumentHintEvidence.cs",
+      "beforeSha256": "7bd024fc5e403979cf38931735ac2ec4d32c255f3e2a1cf6f2e23717086de07f",
+      "afterSha256": "0279651099b752fea27834f43ac963a7cada3e4e49e12f41c65717592e49a4b7",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFinalLexicalProfiles.cs",
+      "beforeSha256": "a1caef864209d5313c465a2a5fefbb4aca1469b13e670334ee6c207db9328fb6",
+      "afterSha256": "3a2f35226b06552037c8f04a725e660f9c06705260fb082f5fad656060e4c224",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFinalPreciseTitleBackfill.cs",
+      "beforeSha256": "86adb9667cd8e461e6b3580e587c0dd5dd5fbce5d9fc9c6d11b90fc3d3f4b76a",
+      "afterSha256": "c2ba95eb54caf55477556286802447d61c3ecfbddc06b7709edd4020d602b034",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFinalStandardReferenceProfiles.cs",
+      "beforeSha256": "db3130b030c2dd465090f1d39e5f5d7f5df6d2fec419cc26bd980a151fb6eddc",
+      "afterSha256": "d04f26735b3244ed737fa78f2163680edcf9865a950841b626a11212dc7d4ce3",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFocusedEmptyRecovery.cs",
+      "beforeSha256": "81395f77d40de7353cb28e3f16bf392d401c029550ed17ad39df9e632f0a65d2",
+      "afterSha256": "c3a01378598ac0b4c74be0eca2355fdeae91b1b4889513f11fdd27a7a6e78ee0",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFocusedOrdering.cs",
+      "beforeSha256": "5b635927d73424dfe9b17717e29f0a00cb41be758746b3365076dc34bb833f43",
+      "afterSha256": "f591e1636c7d3126a5ba82f03ef2e9369622cdd20689968552457f3bfcec315a",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFuzzyTitleLead.cs",
+      "beforeSha256": "3c18d3b9235df3fb261a85b145686ce2af685181658b885b594ebde0a31930d0",
+      "afterSha256": "f6235ae6ba717be92f7af8074409d92166a3085eb3958c884a615ae07bead251",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveInitialLinkedContext.cs",
+      "beforeSha256": "b3b943a17069bbb49f7e979588cf92af43b396e3ee1ec0d8ac0889f703f0e9bf",
+      "afterSha256": "f8e333aff5f59e4b8857a9ea6cc7e162fa1640549faf5c57de227c41b66c24d1",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveInitialSelectionCleanup.cs",
+      "beforeSha256": "e4f1b7beb9023bbf26d449dec40ff4deaea9a41ce0f7ee53f48afa763b11cdcf",
+      "afterSha256": "4c2b9329b7215c5f4b33685a58b579636a4645b1b9adbac3bab51f1ace849583",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveLateDateTitleRecovery.cs",
+      "beforeSha256": "84a593b6e128c19f9c882a3c71080d5848d2fea4190c984dfeb076b04bb6ce1c",
+      "afterSha256": "e1c207761efac5a6083757123aad5eeae75bccbeb53a3c25dcfa4c0a9c4755be",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveLateOrdering.cs",
+      "beforeSha256": "ac5a7930fba0977d9e24de0a39c78c3f5e67596fdf6cc4f396c82fe8baf4e4cf",
+      "afterSha256": "4120cfc11b8ba768dcb68d581cc2dd865f29ee4486b41b3adc02add376b1fbd2",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveLateReferenceVersionRecovery.cs",
+      "beforeSha256": "89c798d23ecc64b9430273f34889a51344d3ed3792d07b22eb4cd6ec45252559",
+      "afterSha256": "1b278ae3465bbabef20f17c853d392a2fd3c973ea7afe4fa0430cadfdc95e3bc",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveLateStandardReferenceBackfill.cs",
+      "beforeSha256": "e6ec088bccb33f24c1e935a5cf6b85a84d2ae8114fcd406768c7fbe109ecfc9b",
+      "afterSha256": "4aade2eae385c28a933dce30c1740a37c470b06f6b989adcd06542a6af978277",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveLookupRoutes.cs",
+      "beforeSha256": "cb3243147d6880d17d2c7d65c67c8af3d143d40e50d0aa14584455ed89e8b9d5",
+      "afterSha256": "186de49cfc834c573fca90e4dc3e24e41248cb5c83c2bcd04cd9276653bd5986",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractivePreciseTitleContent.cs",
+      "beforeSha256": "fa77a848ce9213984cb0d4d45055655f198fd91f83536eade9f32713e0ec2dfa",
+      "afterSha256": "d6f0253ce5dac226e3e45ce4d3580276290590095b18bec261f1e3242db6920c",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractivePrimaryFusion.cs",
+      "beforeSha256": "5a5708b2842707d02a7494d4bbb2bcb0e4341224a07eb33cbeb3a95bc96df6d5",
+      "afterSha256": "89e581a3893cf9c65f44b426a8787b688744d5e3925c3606759f197856de6d1e",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractivePrimaryLookup.cs",
+      "beforeSha256": "fe306834b3b97376311bd0b265a450923b6f4ff90cc5b76217dc1ea76462d1d4",
+      "afterSha256": "a7acf132b4a797321f4bc1ad993b3a121e9ad23ce538292e6a81a4959b15e785",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveRequestedPageWindow.cs",
+      "beforeSha256": "0a3d8440f3a49cb780a6651b23509ca590697449fbcfa7d6d78bdeab5016749e",
+      "afterSha256": "5533a6b1f3c0b8f508cddcd229b4d1a364767df8e9c76985cb3b63b4a81e4d3f",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveResponseProjection.cs",
+      "beforeSha256": "ac9d6c93550d7acddcd7adc011f5f367780cd64c5a6b99803382445a9b340425",
+      "afterSha256": "8a3255a1c37af22bbd5c5f1f45cb9140bc2ea46085f9ece96c80918001c05869",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveRetrievalModels.cs",
+      "beforeSha256": "ab9cce3bca615807ad72b037a13bb9cfdec3c40939d9f8f9f470c223c4594d24",
+      "afterSha256": "32a20187a77784a5ed1afeaa14ad6f898640408d7083b1178fd338e6d0b96b4e",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveRetrievalPlanner.cs",
+      "beforeSha256": "b038a5d10257b00ef6dec9d4e751bbabc261342033519203d949aa8256bd0c8f",
+      "afterSha256": "6d199003bceab6bc9d693a579bad98895c1feb69b16f442f33a3579c17ff04b1",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveScopedProfileFallback.cs",
+      "beforeSha256": "4f139f70da67098e1b188d7a46ff86f42cea8bd91ac56bb6036a55f44a0e1b32",
+      "afterSha256": "2012b76178a009090d0a4e102e2811ab54c091d5e8d9270dea82fc1fc69caea1",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveSeedLookup.cs",
+      "beforeSha256": "e42e559de850123a4ccc95498aeb6a6b3394c0bb65e1e00c23326edf744cd5ff",
+      "afterSha256": "0e66ae4abacd2bb32583c23ef2dc31d1872d6ab7136200d0c9c903371e74f582",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/RetrievalDiagnosticsBuilder.cs",
+      "beforeSha256": "eeab35f3a0d2cb0f176f79b9f71d196d3731d1939c009b83c2224411c28bd8d6",
+      "afterSha256": "e12d96c39e65fcdf5e42b832c72046a7b367a08846528fe1e4052bf7ec157676",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Security/ConfigSignatureOptions.cs",
+      "beforeSha256": "f231845072f1a963dab24b678728bd14610ef7cd9d70aaad4e9613aff1ecd625",
+      "afterSha256": "3ca6c5f1bd91686160e19a5d7bf8cd49f0e2bb57b68213bb31ab1f94259bcab8",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Shared/DocPathNormalizer.cs",
+      "beforeSha256": "b8ed6166e8256f9ec9c7f548235e9ed47798c92226c0c533b909122cbb4a55e2",
+      "afterSha256": "db128ef66c3d60e89305f671b15acfc8a0a635cd869218d0e41fa3b07ebde19d",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Shared/IdUtil.cs",
+      "beforeSha256": "24c78c235a11763a8f01551c07c613daac7ccbcc8f855c15130755d1fea0acf3",
+      "afterSha256": "b16a9e4d33d32cefaeca22b663a99ce08fc7de283e218bd7e8bd9f67d418c4db",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Shared/PathUtil.cs",
+      "beforeSha256": "3159c3c135e6eb9e3bfba7646c9898178f79e07eee5f69f48dff7dfc95db565d",
+      "afterSha256": "3733f752f4bca43edba99bc554e9b7f9e26cf02393cf8698a9ca96e5bb566722",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Tenancy/TenantResolver.cs",
+      "beforeSha256": "a7edb276522fbe02f3277aac3b5b702f7f1a3c6c85440d43f56239bf8ce9fb79",
+      "afterSha256": "830808bad96cd5a972a85a6e1785c6f30b1c66bd7b6ecaa5309e35ddb5af0f19",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/Bug135NamedReferenceContractTests.cs",
+      "beforeSha256": "b5e28b09c612223b5def1ce2ac34f3293411fa59642236d37013cf98cbb02a99",
+      "afterSha256": "ce76284448d4de8f06cb01f66fbbac09913db2a400a6a0160aec8c10d0c03976",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/Bug138TerminalTransitionAndRouterCostContractTests.cs",
+      "beforeSha256": "b22b2fdcbbc699a1f779fe92b68eb125a9d9ab744d731a3049f41f30c7f8ac6d",
+      "afterSha256": "7b17b12d03ada83c5d183731e609a14f4589f2598b554feb680682a2c06afdce",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/CanonicalToolExecutionContractTests.cs",
+      "beforeSha256": "46fcf07120857252b455e0357fec3f7fcd19e3ad580e3475d130d4f13c6de43d",
+      "afterSha256": "e326dc6e55fb20a22bc8c4f03d470c24b8caa9e23434c6390e5d027d378815ee",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/ClassifiedSourceWorkContractTests.cs",
+      "beforeSha256": "e59ecdba2ba93f00c651a68f655a71145eb8d83064cfa1be69894b6580a985a4",
+      "afterSha256": "72549a102e7599c7dc27c58385bf705ef55a7efce2c2e86dc6759bbf208785f8",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/ClassifierMissingUserInputRoutingTests.cs",
+      "beforeSha256": "1ba8f35eb7d5e4d70668d6069f1b40f4f1bf3a195bd34856075b2b12777a2c08",
+      "afterSha256": "7e4f2024af379df9037d29e0eecd1a21c41d037f92f9a87d0e97dcb906af2da6",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/CumulativeBudgetResearchCompactionTests.cs",
+      "beforeSha256": "03d21f7ab0c71d7628141d15da9affcbeabd5421a14c492f3bb183f629d6c0d6",
+      "afterSha256": "f59198e201d251e0f285ed760347d3676ce7eab636c0ec6a850efaba15c0e87f",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/DedicatedWriterTerminalBudgetTests.cs",
+      "beforeSha256": "7becbb41ceb7acede8685665d2bcc18ab2014eea4fc5063101d32b94f262dd5c",
+      "afterSha256": "3f527fba573b4eeed4dc237dec4c9ffba46ca902a92aacd8a11766b6401f9d17",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/EvidenceOverviewFinalReviewTests.cs",
+      "beforeSha256": "d3b1b0cf712d72ec1f20b1ac68a2319db5bd61a6a77f0a40c8c2e8d40e1b7c36",
+      "afterSha256": "e04102c1198e6066f1da3a042bd6ca2689039e876a2842b8a502e46c6b11d3d2",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/FastReviewActionBudgetTests.cs",
+      "beforeSha256": "daa5dc44b0daf559640aca1fbcfa84133c21a5084c2d3e66bb5390b7dcfaf3ae",
+      "afterSha256": "7ea04dad228b3f7e3712e69dc8b2444ff3cf4daf2979262429029398d352e977",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/GlobalClientAuditRegressionTests.cs",
+      "beforeSha256": "134557554cdac139023ffab84bb273bf075801a1607ed0dfe63485a7af59dc8c",
+      "afterSha256": "89010beb88f03c8445752b286bdc001ff99b90173aa5752728ee7b6583f4e8e2",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/GroundedAnswerUnitContractTests.cs",
+      "beforeSha256": "dfb3ad6b7b648ee8a3ad052172c32529a1f2880a1b36112dbada815afcf15119",
+      "afterSha256": "05779c91250e034dd8115a44de377ee41d50b7512c21af182efcebb5175ea08b",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/GroundedGridShapeContractTests.cs",
+      "beforeSha256": "e8c71b949ff2b8f2f348b64ec2014ac588e048025efaee8ce5852615dc847b14",
+      "afterSha256": "b213ec7dee858b9d52b15edc254a9680e50409442e73acdaa6483ad8c0e4209f",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/LiveCanonicalVerticalClientProbeTests.cs",
+      "beforeSha256": "27fb9cda6e5f70547c642ca9ed9b76c87a0dfc03d7e36f3297a30bf1c89f1062",
+      "afterSha256": "1ad8dff07812931f4507e3b6690f23faddbc1de6edce98e3e6c69520386ffd18",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/LiveDocumentPageStratifiedOverviewProbeTests.cs",
+      "beforeSha256": "0420ca562e7b556765e7bea63ee647c2db535a8a0e9f903018b87a29af6928d1",
+      "afterSha256": "54de88f9d2a8c13886b3aba0f33eb5c5ff61c2a3a00f1e220d7590ae62945182",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/NativeMissingUserInputContractTests.cs",
+      "beforeSha256": "a1c39fd2e8ea1a91d760127c5c0268cbc248e942c5428d2a8f652c20705e826e",
+      "afterSha256": "937ad29ac699a6c8710044ddd8488432cee3142f56dfe3559526f612b0cc9bf9",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/NativeRouterPromptBudgetTests.cs",
+      "beforeSha256": "6e378e89f9314c3ca264f380e5f3044eee9a82ed5f52899db99f3ec3f019918e",
+      "afterSha256": "cf7d5e5c45220a463486cef6457c73c1439745f80ba82a7913a2efc4c7715c66",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/ResolvedDocumentResearchReadingTests.cs",
+      "beforeSha256": "293d2f238b269ecec9f8b9b6270daf75f4a69ed5124666db2faabae7452346a0",
+      "afterSha256": "ed4c6349e5d5d27aba9eb74b4b8f8742e93417cc5a4be4a987aebb840d52ac0d",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/ScopeReviewActionBudgetTests.cs",
+      "beforeSha256": "27c74f4f6c4df49f6173fcfbf4f45b69c9bfb5c8c5e8654ffc023582fb916684",
+      "afterSha256": "6eb7561f703a102305ac55d49001c2ce3fa90555697aaae29dc5940c52ec3a76",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SemanticReviewCompleteInputContractTests.cs",
+      "beforeSha256": "7a084a55116eabaa46f18c15d81c631266888209da33f84c0e48b8512b313eb5",
+      "afterSha256": "5428b6e25540d4c8a32ec56aecaae234416a01d6c39caf85264f9f2b2499581e",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SingleUnitCitationContractTests.cs",
+      "beforeSha256": "6d890c137dff9f78ae43b64941b80d308c5502d89894b5ec3994a286cafa247f",
+      "afterSha256": "a8d2f7cf5fd63d56ab2a3ce8480d1ce1396c9e5ded4791bc1c9583429c1b3150",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SourceBackedAgentV2Tests.Fixtures.cs",
+      "beforeSha256": "e91a03e41b54e92f632101302ee8e7d8d1b01d5c6ef538bdf533b762d5a10e35",
+      "afterSha256": "ce1e334c183aa1a5a238babf1aa35bf7969950cdbe205e473bdc5cbc4deb34bd",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SourceBackedAgentV2Tests.Navigation.cs",
+      "beforeSha256": "81d3551f25a66067bac9f0264d8e7f73bebfba88c9e7cd3a2a8775b0db72893e",
+      "afterSha256": "2ee8411730275835d29cb15d155af9144cb2e522aa02fd7743d65fcc20a03af9",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SourceBackedAgentV2Tests.Planning.cs",
+      "beforeSha256": "2baff8eac93736530cdec6b5ea97ae61c05bf5d7890a5e88f050ee092a06bcce",
+      "afterSha256": "474e08fb9d0ed80f48de03533dc3792247115b82d996b5db2ff96504cdee34eb",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SourceBackedEvidencePlannerObservabilityTests.cs",
+      "beforeSha256": "642025f1cd84d340b5a88359a4a1518ac28d5aa35525320044d1c8e30aefc67e",
+      "afterSha256": "0a8190d429fd8059ced03234d41ddddc95db9ed3e00f67f1e86b300b3fe2b91c",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SourceBackedNamedDocumentTransitionPortfolioTests.cs",
+      "beforeSha256": "5d51b77aabd106fc0f35e1fe5ad9cf029c4252e66b0017cc274e66c76bbaf127",
+      "afterSha256": "d5d356b7572c379c74305e1fe34d8acdbbef41ffc662070636edb0e31b9df75e",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/StructuredFamilyClassifierTests.cs",
+      "beforeSha256": "a5ff61e45c4952b6b24db75e072ad96419f1c4ec4592da4b5f1448a4d8a9836a",
+      "afterSha256": "adf35686424f6fc650884996c3923697161cbc667e6e285bb81678ccb2fcb105",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/ThreeFormatQwenContractHarness.Campaign.cs",
+      "beforeSha256": "432d8f6558cce01d46b3e27bf2d5f88a82bb9440b17145bf48e1ca0d20d87ccd",
+      "afterSha256": "fa4f1a0da18021a251e1ad4e25a7f8b7a4c450f70f407e70fcdb21100a7f9a9f",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/ThreeFormatQwenContractHarness.Executor.cs",
+      "beforeSha256": "c0fb41a4dc0b44eba562a153214ae4cd3e9bdc2dcddf4877c4f40be35f47fd5b",
+      "afterSha256": "4e5ec70a56c384a83fd7519bacf512ca14a29d4af5b1c8f08136033395a3b4a5",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/ThreeFormatQwenContractHarness.Validation.cs",
+      "beforeSha256": "d00a76afee5b66d0fb0cfbd261c0630e95e908dee25d03da78b68b24950083ee",
+      "afterSha256": "b3d70b59462ff573d9b8efb3acb97df94040d30327e450142e907ee20c0b9f21",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/ThreeFormatQwenContractHarness.cs",
+      "beforeSha256": "11ccc406b1f15e265b1986c518d5bf67c68c9860fe82410b508b9736e563c29c",
+      "afterSha256": "d8d5e4b75b667c182077d50bf68ef383d111426d7ce79c267a1ad01ed46002dd",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/ThreeFormatQwenContractHarnessTests.cs",
+      "beforeSha256": "d6e9e5df6f78206c65b745b5cef931b856b572248aee22fce8b5353cbd19c740",
+      "afterSha256": "44221979482c090fad01e71c9bd77be9fd5fed912d38320b3da8e02a2f7277a4",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/ThreeFormatQwenNativeTokenInputsTests.cs",
+      "beforeSha256": "b64c6ffbd5fd3fb75b19229423e4889b0719fdcea1c16953079df740caf59144",
+      "afterSha256": "04a7bc7564e0861e334274ecb096dcc81c71e12017fd0fcca5c5944237a833b5",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/UiLocalizationSafetyNetTests.cs",
+      "beforeSha256": "c776ffbee3702b9fd4381d74835e828993698549f351a44b1cd916f7f151fcd1",
+      "afterSha256": "7a2fadd19d1121e2841504cc9264972af395b057f67c0af3c83a3c2ef83132c2",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Controls/ChatMessageTemplateSelector.cs",
+      "beforeSha256": "a71e33ec6e6a10f803abd953ef450271ea2f666123b95f2670a0b484880d4530",
+      "afterSha256": "07e0e9d479f99afeb4f49e77fbc52720492a2791d68d78668fe3be7f367fffc8",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Controls/LinkifiedTextBlock.Documents.cs",
+      "beforeSha256": "0a05187c88bc4b6c8feadd960ef964d7411145225e67ad56501ef93dc0f90a83",
+      "afterSha256": "b9ccfa2656d0d8f3d6499a6d375b27679e1506ff1d564c48b895d9418557c358",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Controls/SourcesCardsControl.xaml.cs",
+      "beforeSha256": "89e8f7e1d42ff03bc613eaafb12cba1d28e25891819bc1f26269b41087cf960a",
+      "afterSha256": "3a9c66c5ed76f412aea5744e37a1900a1b6690fb8ab10134b886944aea23df88",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Converters/DateTimeToLocalShortConverter.cs",
+      "beforeSha256": "dfd1367cf70eccce5a8e0b0d38ea42d05328e9ff4285f5e5a588bdcdfb4a8aaa",
+      "afterSha256": "473a50fcf10cfae6982edeed18329203123adcf9ef81bc65bf0bf3313643d864",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Converters/NonEmptyStringToVisibilityConverter.cs",
+      "beforeSha256": "6de1afd77e660a2414161e9d6d12c7fd0063a9bed3ab9179f4c7d022475cdc02",
+      "afterSha256": "34383605dbff939d23c6cb78a49761d2a0fec3d04c446de3417747d61c4c87ec",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/AdminAndSettings.cs",
+      "beforeSha256": "96c822265f7ea7f53c69a8ee86a869cecebbbbe1d2cf2e5462e1c388ad8fc27e",
+      "afterSha256": "fa5212fd601a0d93905e6793cfce1364285daf809e5ae05160a7fc2cde015469",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/AdminJobsPanel.Content.cs",
+      "beforeSha256": "cadf41928ccbccce7092aa1172ef79118fe612c8a29f9048450e56d63ec33720",
+      "afterSha256": "db8864b902027c3b5f91707838a63e2137d379a3687f0c208246367ee331226b",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/AdvancedAnalysisTracking.cs",
+      "beforeSha256": "fdbf3869d1e8fa543a6a2b7cd452e6b7e38d3c313b492b9a30d9735cdfdfcf8a",
+      "afterSha256": "a3e7b55167b9d7a73df99c4f48fcd5a63b6fe9875a3198ab9bd1cb4d77d7a70f",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/DialogUi.cs",
+      "beforeSha256": "218339fd4da52f178f04dd20a152ecacb9dcc2bdeb4537d9da5088491b4c07b4",
+      "afterSha256": "944d021a54023b89d8e0b31b00168dc825ad120e4dd9330976850a74d1613802",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/HelpAndLocalization.JsonHelpers.cs",
+      "beforeSha256": "0cff6ed55377c872f1c09274ef3ea9b4dd2205eb194ed3666463a5094bc1ec9c",
+      "afterSha256": "87491800e4c6f941133fa4ff092b185ea7aca41be68525894ae223fd7c4b012d",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/HelpAndLocalization.TrackedJobs.cs",
+      "beforeSha256": "aa9c673329b4aa1b80c5e09018ddcb4ef887432a04df35a60caebc593f93e08a",
+      "afterSha256": "9ce3cb2e78dfbc403e9067033d1bd308a6b3e399f5401f2614c6bcea08089573",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/HelpAndLocalization.cs",
+      "beforeSha256": "a8b5a16c10593dee0785562eff6e9ec58ef55ebddf09bb30ff3b7e8538ad8b1f",
+      "afterSha256": "a16fce963171f0ddbccbbab990b498fabfc7be7e33342416fd475f9fc45a669d",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/LocalLlm.cs",
+      "beforeSha256": "71737663328489cb2185aaa8d30e304a6371f15f85cf971742126a73702d9999",
+      "afterSha256": "78d0c988d26f74629cb19b6e6abbf184640bb8fa4e7d27ae2fbc23cb68d6ccbf",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+      "beforeSha256": "ec99b74c45ef35ad8bf097fc3707c90f619820ffcbf85204421632a768dcb6e5",
+      "afterSha256": "9dd61cbd67c724011678c53f6d863d8f7adc4a88413bc0b21fee8cb59c4f5f1b",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/Sessions.cs",
+      "beforeSha256": "48ce19fdff93199391059908250922e0b7cbcc1fae92ee27ad6d66e0b82f4679",
+      "afterSha256": "7854019bb4d60412fb90a7b678c7d6ddd61cfd64c41195b1eaa6ba313d97dfe3",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/SetupLifecycle.cs",
+      "beforeSha256": "7cd5f98bae0149ecc3d65a1c09fc91737a32f45eb76915b7f97fd8069f9a0411",
+      "afterSha256": "2a9fbdab2278ec143ebc65c8c52b211a646d52f5f35a04bab23105a989668a96",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/AdvancedAnalysisClientService.cs",
+      "beforeSha256": "69d2b5be8603a1fc15a35633dc42020648cb75cf51d8a516bcdf26a6e899187d",
+      "afterSha256": "fcaaf740a2a10c33f4e868eb306331c3c335197f121de8a9030c359a96c14845",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/ApiClient.CatalogTools.cs",
+      "beforeSha256": "b13c139546837d2f29c51598f8df962dcf36cbde0c3afceb6745d18002b3ef21",
+      "afterSha256": "044941a6ba1371a5a72b54d00723efebfbe35d125ba086779ec09f34f761d058",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/ApiClient.Documents.cs",
+      "beforeSha256": "e81186ee9984f097baeb6db497ddbfb44172da16fe4c560d9851b454910e2175",
+      "afterSha256": "9896d2bfc106ee7a195a6b56697f53597d966f23bc69ce6bd34dfe2753fe94e3",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/ApiClient.SummaryTools.cs",
+      "beforeSha256": "cbda81d6276fea41edb64b3b551619b3747be8aee2fac6c05f94cc72d8e07340",
+      "afterSha256": "4e37d5703f267da2b8b89831f6983420baf185de4673d29a9d6ffb6bccd8266a",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/ApiClient.Tools.cs",
+      "beforeSha256": "aa99c28ce93efafe3ec2b0048ebb340b8851c47000f8440ec77e96a2d1a61448",
+      "afterSha256": "6a8a9618a2d5c14d19b721f2313afb2388082c435d97e73aedfeedf5011477ff",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/AppSettings.cs",
+      "beforeSha256": "6cdae7d1bcc3f39b00bf2fc26775be43793c5aeb6cbd50ceb461477a1e11a007",
+      "afterSha256": "4aa2737bfdb2cce29b5df5b9d258c953505abf836703d42fab59b52c4583ac48",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/ClientDiagnostics.cs",
+      "beforeSha256": "8c7385ff658142fc50d5a42661d009e23fec36eab0871600b17750eac4dfbb79",
+      "afterSha256": "b4534d3575b8d70cf8a18055ed6129b626f89e613654e15ff6cd16dfd3842635",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/ClientLog.cs",
+      "beforeSha256": "0dd850eab5ab4a964b664429cade1d87548d66c57792927675c5e1bb0869edef",
+      "afterSha256": "062bfc39730098c176dc38bf1f454f0d05dde7437d91d685d42353e357e7ba15",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/DocumentLauncher.cs",
+      "beforeSha256": "a6edf3f53e3d22fc4df7017f63d591d8d65fce6f39ee3ef8d1798b00144910f2",
+      "afterSha256": "01cfd6d1cfea9c30f2327900e48f1d1b751fbb7d79bca7f6620fd334ec5bc3d9",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/DocumentTreeHelper.cs",
+      "beforeSha256": "2750a8c647dceab049132d520fede0e9c36f8e29bdf2033f388185aad0037898",
+      "afterSha256": "8d715f41253e0d47d8bb180b93a3cc30bfe725e765d6b456d42ea053647a6728",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/DownloadManager.cs",
+      "beforeSha256": "be2149e06ed083652734dd2fd2209fb969eed5040e688377aadfbbfdcde7e5aa",
+      "afterSha256": "3275591969c5a190141ceaf9a0ddb43d67f79e700bfba9afb76cb259699c6003",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/ExportService.cs",
+      "beforeSha256": "e4c35f0cfebc304e7ebbc564ad6cfe9e007d63ac3433964dde893bdb2fa6c8e9",
+      "afterSha256": "11e0ce7b6a9dc3178e97f1a7b7f599129daa1cad6f8dcc650e86af15b25bfe8a",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/GovernanceArtifactStore.cs",
+      "beforeSha256": "50e88d6013decd2c3abb50b5539abf3492dd0094ec97b6b222ecfd7787d1543d",
+      "afterSha256": "2bcfa8abec50fa3c72c40e3dbeeccae3b2fbb357d61820df3d240a75573631cf",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/GpuDetector.cs",
+      "beforeSha256": "8b1b0953f33b68670955bb5876990f45ce12d2be390fa5ff75a63741d72d9c84",
+      "afterSha256": "6d794c7c97a79efa810edc7773ca0c016633204f975208a93f60f23a3c8f0f19",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/LlamaCppProcessManager.cs",
+      "beforeSha256": "51d5d913f03bf133566f6bed8b1cd5a83b7bc7d22ea132e6b7920e4729e96d65",
+      "afterSha256": "95ba3896d9b00fefd3c1e43e93f92b34d52328e0ee827e12d23cfdf54a912aa0",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/LlamaCppReleaseDownloader.cs",
+      "beforeSha256": "6eb675535c447b380b4a5f7f6c7918f1a225a4269f964c4a05bf13ecb3455bd5",
+      "afterSha256": "f5addcafdb2f00356d017641f2428143a7473908e1b79b06f265aae1825bc6b1",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/LlmRepairScriptRunner.cs",
+      "beforeSha256": "d99160665e2f321de7889d1060f5098c44fe4ff98bf3cd17cf6581dfa4c592f6",
+      "afterSha256": "6c8d4faf021e178a9928ce180bc6230725656b8b731654b7487642cbee8be388",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/LocalLlmBootstrapper.cs",
+      "beforeSha256": "95c3b4c9b35a28a9e64ca2afc55a3aa3d00414fdbd2fa1c946e3bf96cc95ef6a",
+      "afterSha256": "41c654a7c66e29bb95ee9c8f16f51c6f7c10c722e0191beae06ed0adbd104267",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/LocalLlmQualificationCandidateFactory.cs",
+      "beforeSha256": "5159747c1b8009d172eae60ac50331fe0ec9193ec0664615889672b9eca39ae2",
+      "afterSha256": "8855b7ec7f048c65c175bfe67c5464b953298adc49a005d50e6c6b4678721252",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/LocalLlmQualificationPromotion.cs",
+      "beforeSha256": "45670fd8b6cc06e0f7da97c77058426136aa62a7fba3c59743b3c997bc7a2c25",
+      "afterSha256": "37fe945c4cc59f61d86932e31c83b39f307c1b404d517e545d9b0945446f4e51",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/ModelIntegrityService.cs",
+      "beforeSha256": "e28cfcf18a8fa1fee7a745bea0fb914d4a7efe592c9852b736a88ea3777c3d58",
+      "afterSha256": "9bc2111347092f23ce1047a9e1a28c362d005406f35cb100fb6a815541a43778",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/ModelLibrary.cs",
+      "beforeSha256": "7be7aac4825ac7d550e6e7bb57172f83513fe52ee57027215005d93404b29065",
+      "afterSha256": "8c34886a98124919558d9972aca14ca8cd5c9ec4ee93545f3386154e96b14eab",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/Provisioning.cs",
+      "beforeSha256": "05189e40727e46d8e13bc06dcb4254bd0a01297e746ec1e0eef60c09bf44b2bb",
+      "afterSha256": "ca4d0e73e2bd79b85e7297030a646e137ea225ff2b6f68243333f7f626b3a80d",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/RagChatAgent.cs",
+      "beforeSha256": "743ef1d6413e028f8f8c88444e41149bca3e9ef40e5ba304b192ab7278d0b703",
+      "afterSha256": "f95c305dde818157981ff12cbe083cc5ec2ec979e5c97da371a9e078baf18c25",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/SecureLocalStore.cs",
+      "beforeSha256": "58bf3a0172b41774dbdf67ea4571d0984aaec25c144d1223d101ca8957c304ca",
+      "afterSha256": "15bdce81c4e1ba47110aef56e8e5846d809beb21472fcbadaebea7c37051feb6",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/SourceCardParser.cs",
+      "beforeSha256": "3427d4ad46735b67d906b501132b5787fda42c57e5a8c8377b26fcb3f95b43cc",
+      "afterSha256": "0c11e7afcc21700a48ef5f2bffd2b4d16e71fbe595bcfad2068a8632f4b21200",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/SupportBundleBuilder.cs",
+      "beforeSha256": "27cfabd477eb560f1b50f17a7f79d1a76a8861925836b5a7b2d686fbad543424",
+      "afterSha256": "f093df381f97f7c06de5f6639242870c16be59b7ca0fd3bd991957af3c52f54c",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Services/UserPrefsStore.cs",
+      "beforeSha256": "c5e8ab0ecedb4a2e1b6a924e117d77b33582fc946d03e83001e7ab26d9bcf513",
+      "afterSha256": "7ea5afd07e40eab7e73c497a3f0e6952661fc4a3fc1c6bd19c2a958d8aade7d8",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/LlmProviderConfiguration.cs",
+      "beforeSha256": "828fda134625432dac8e05c34e0141642d541febf53b19b601d0ddd1a723f36e",
+      "afterSha256": "2c02fc4b5059bf5c99f15ba0142e497271c57c40224edde1eea89ded1cb30940",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/NativeRouting/NativeRouterToolCatalog.cs",
+      "beforeSha256": "0036d30aab31b45268a709819e517545a701ecef8139c01da2ca41d72f483770",
+      "afterSha256": "0e053ff230cf424fe0249ce7a76abeddf9ed9080830fd27a7e2a1285c6976457",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedIntakeFactory.cs",
+      "beforeSha256": "a10e632db219aaeabaf5a087bedf15547176e519bf8a14de8fdc262600e315a2",
+      "afterSha256": "91733e110280e5edc004b9ff242efe15636d940ffba586a523268d5ab748f976",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/EvidenceBundleBuilder.Navigation.cs",
+      "beforeSha256": "101f20a8be3c016046a2284b54213fdc72f42a0e92e7de9c449df3c98af75eb4",
+      "afterSha256": "89581906257623b6160eac906886dc9f1f18285844f5eafa87455ff4ca9f35be",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentCandidateAuditReview.cs",
+      "beforeSha256": "1feb4a725872a95368f77ace600306f23ebe94ffe8cd29ea0a92511bb9f8841e",
+      "afterSha256": "65a9593150cd15fbc66179b1e5b720c0e0e64dfe346903426a803a495311a4d7",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentCandidateCollectionApplication.cs",
+      "beforeSha256": "809d68343a6a1d015645672baee91e7b2cf18885f74dfd382ecabc53b5c67bfe",
+      "afterSha256": "7c4d7fad8a10c0a1c98333ebf5c0b4eba63878fa6136e6bdc4178db472b9b0ba",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentCandidateLabelResolution.cs",
+      "beforeSha256": "ae67cb36a42e004ed870143ee1a9d2d5df8bb3e16afbb044a4f265812213414d",
+      "afterSha256": "bdf512ae4d5a6a891c8c03249c9bf0559c5580f39c659514c125a50e359e039a",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentCompactFollowUp.cs",
+      "beforeSha256": "a4e3b960e89a1eede491cdbbf5c3ec95c725be42c19c34cfefe73029469d95fd",
+      "afterSha256": "55c7fbd64dbe32aa4f324c7e72d14bbc29386db4a15cb228d6949062b370ca18",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentDirectInitialResearchPrompt.cs",
+      "beforeSha256": "07db7463725587649e82b8acffb94e7c21d5be0274b3db4d5150ec44065333eb",
+      "afterSha256": "6e03568bf90f58ed7e992c8b709483df98d57fdc4320c1a0c9569fa6f2de1158",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentDocumentaryToolBatch.cs",
+      "beforeSha256": "2bf283f0bb4a18469536ea489186a05d4cc55340ea725708f3cfb15b6c3a01e1",
+      "afterSha256": "ecfc08c446b729322a0bdda627d3bb9439ac11f0de077ceb4e28d990178bd8c6",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentFastEvidenceReviewPrompt.cs",
+      "beforeSha256": "15292e32041c49ca17737124f35aa454bf71c219c583f137877460d142bc2b0e",
+      "afterSha256": "d7592830554a06ea5f26f7b2e4bbd27e6eaddeb081a5b238c94d119a467cbb2a",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentFlatEvidenceAdequacyContext.cs",
+      "beforeSha256": "d2f17f419af323b4726a153d0cc00ea277979cd16c98339127451286065f593a",
+      "afterSha256": "8c795e3e45155d20c4bff7ee7764068382edb29ffecbe142c0163d4bf73a518a",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentInitialResearchAction.cs",
+      "beforeSha256": "860a63d5820e76c26c3ce05a7daa6226f605bc07ec9b615dd4181aa44af614a7",
+      "afterSha256": "047fdbcd67320494a841e6eabddbd086ddef4f143ab7ef64cf04624bca7ef600",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentNavigationContextBatch.cs",
+      "beforeSha256": "db45369d4f76e4ab68c8c4f75f079b2f0d39cc29c1dae501412b6b2be4aebf6f",
+      "afterSha256": "7a6b26c748dd800e7d3234eb4a335d16e9f0aab365683201f8ecf471d36ecde5",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentResearchTransition.cs",
+      "beforeSha256": "694af26bf474715f7f0869881bb5c4d1b4fb041731941bb281f7e08cb8fe72c0",
+      "afterSha256": "d04c5ee00d845639049340c60d62901f04ec50cc64f300e275a0eff88d198325",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentResearchTransitionContextRecovery.cs",
+      "beforeSha256": "8f122c76e419c3e330fe83559a79b8e5e49002e3cd6411674bf8e3a8096ef08c",
+      "afterSha256": "7d88f67c3c416ccb38d9b95bf24737d0ec3bdef13efebbb828b2c9582acf21ba",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentResolvedCandidateAudit.cs",
+      "beforeSha256": "e89383ae2397c37c22ea1f47839c57cf76f9cd35ee80c38f225a3a5bbe7de2c0",
+      "afterSha256": "2086d0e62f3f2f5d28f8854cd22f426417aeaf7616d37e09732786eddcc8b0af",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentResolvedDocumentReading.cs",
+      "beforeSha256": "82ba82d90346bd82a55ec041d9228f5576c7e02491962eeee1760ab6ebb9d7cb",
+      "afterSha256": "ddb0390381876737d033b63dbd1043d33b388a19d92727235ecf1607f8cbf1b3",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentSemanticAnswerTransaction.cs",
+      "beforeSha256": "b119c6780e3755cfd9e3eedbc868e400bc0f2381be6e7b84cf909a32137f97fd",
+      "afterSha256": "0de65733cbd76b296427efc283366440e7e6bf784f53bd9e287bca61751e8e0b",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentSemanticCandidateDefinition.cs",
+      "beforeSha256": "e2f80c57067962d2f5d772e316a4f167db0209fd9e6bf26f44b22400f06a1a03",
+      "afterSha256": "c809072720b3a96fb5588331f7d1c33ead102668d99ba59d6ed0abfb6494924c",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentSemanticCandidateStrategyPrompt.cs",
+      "beforeSha256": "59235caf7efdcf6f789048d53cec496f0f01113d53df1ddcba7295c190dd5d85",
+      "afterSha256": "b5996a0ec21b8456fd652b522bff8753496c944f42e28f213baf2519d74c0725",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentSemanticColumnRoles.cs",
+      "beforeSha256": "a924443f7f4217aeb6a82f6754b31a5c5f7ac1964829669ed94b6fdfff3685e9",
+      "afterSha256": "30bba2ccbde52d0f71674629c0f6e9f3aa2eaa90a36a359c4279d4d3361a351a",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentSemanticPlan.cs",
+      "beforeSha256": "c9e990c7ada1ad608952c133b6a1fd7e0b0d524b863cbb02030751f9d6b2605f",
+      "afterSha256": "111d40bb0d1ed54ca8ea5cb5eb10eb04ee924580c9384331beb4314bc2001420",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentSemanticResolutionWriterReview.cs",
+      "beforeSha256": "a4fe1a8acb14763689ab4999fc0cb7d8f29a1fd035083b1e579221999cc0b9ad",
+      "afterSha256": "7111b7e51c0f35cac1355a5f83a20e8f3867c4094092d3c89696e4bc47087088",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentSingleSelectionScopeReview.cs",
+      "beforeSha256": "31d2d8b391ffd08ca45785a31a243dff6cf7b9dcaf77fb64a64ef5b858042c94",
+      "afterSha256": "724674c20f6bca010cf107273e60663411aaf8a38142e56b086aff3a77c8e166",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentStructuredAssignmentBatchReview.cs",
+      "beforeSha256": "b531204651032db6049c964bc11cb75c6054862c4264214931b9a44d75e6fcc9",
+      "afterSha256": "f7f2a99afe9f63c84a5191c7d4ba34151d5bc2a5c334cf5e4f2dabe7ff6ec1c5",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentStructuredAssignmentContinuation.cs",
+      "beforeSha256": "faabf36aad3008654dad0e447e0570fe7e3cac041ba078d21afca47a257e8f8b",
+      "afterSha256": "791e319ab383c252ba0b74cbf0df251f6edddc6992df60c7918bb916f6455261",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentStructuredAssignmentReview.cs",
+      "beforeSha256": "534eeba6c55cd4dd6b7cd3fdedd7669817eff68c0151ed7804d47cd9aa10a170",
+      "afterSha256": "d931e7effb593d42732d581f37ce9524e0ca3dcc9cb98ca9cb555477bcabb8d6",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentStructuredAssignmentRevisionParsing.cs",
+      "beforeSha256": "614156eec81d6c4fc329a633f92532c3401220566ecd6a97ca0c8cff1471efb9",
+      "afterSha256": "0aae6782145793111ffc535ee281e98e90564c2ebb49e6cc0b02951f70f7103f",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentStructuredCandidateRepair.cs",
+      "beforeSha256": "2e08a121d6f3e2b37b4bf3fe1e270a0ad627dedb299da0e8b11ede237628d0b5",
+      "afterSha256": "57a80caad6df8ca45e65dc3fcfe5a488ed5124d5b73879484c8236664cdd5d33",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentStructuredCandidateWriter.cs",
+      "beforeSha256": "08927f0b55ad37036bb2c9da9866dad73b5d3ec3430aca82df8743f0cc399ba6",
+      "afterSha256": "57a600d5f058728adcdf8020efdf569add7d36e51f277d5ef745546758f7913b",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Prompts.cs",
+      "beforeSha256": "da06062597e06c10b3f2860ca2ec4d2f30d8bfef533e3b317af0c6a4df172f2d",
+      "afterSha256": "e7dc6ca9b7ac3270c6ec177906c8a1c832f452e65b7d162c6e7d523d09aab786",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2SystemPrompt.cs",
+      "beforeSha256": "1c863dd137f214c35e56bae64ff0db04d919be40c727ecc6c3f4ecd30da64d32",
+      "afterSha256": "79d690d143fbe20ebfc804e5193c8b84aed25b89efb1b8274321f693d3b16f8d",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2WriterPromptContext.cs",
+      "beforeSha256": "52b37379b5d08a87766cbb11608b9bfb94fecf0936945a5caa4d804468c3323c",
+      "afterSha256": "8c11fcce9e7c6db485bcc755e07644c2e8f3d91a31329e401fd66df5952b6084",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedEvidenceExecutionState.cs",
+      "beforeSha256": "3061a5fe7b580c45d38c706bce8f8145f3a1cde71273974df82acbb2d335b160",
+      "afterSha256": "d90c2960a846f8735736ec22b3fa9c7e3610728d745b695e02b32fceaf27b88e",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedStructuredValueTypeDecisionBatchPrompt.cs",
+      "beforeSha256": "35b8450903ab1a646cb2473f9b17cb3e5d2725ffa679dc632f4b95f80caaba82",
+      "afterSha256": "ade787e49a0e2ef347cd97cc5fe64bb23504189d04541f66e0f216582b125a0d",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.AdminOperations.cs",
+      "beforeSha256": "083bcac06322740192ea37589126f2a5cf2132e5c388549653d57cf3ef6991dc",
+      "afterSha256": "e807fb912ac7a341f84ee12e8f0a457f20bab98f15c0e50498ecac8bc64be116",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.AdvancedAnalysisExecution.cs",
+      "beforeSha256": "8244a1df5a58e73df91a14c8078ed7e9946be34d5f4ba0ad104657899049842b",
+      "afterSha256": "5b4c24e9006cb2b9499be968e5a2a886d208725b6d9dd9e16ff02037ac268bd3",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.AdvancedAnalysisHandoff.cs",
+      "beforeSha256": "b5a8c711f1a466057371f1628ebc4728404a5e647ef4908fc882b2abd325950a",
+      "afterSha256": "23e48debb3578f1640454547b1c04b7aacaaf06ea794e8c5f88f68fc8f1c37db",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.AnswerCriticPass.cs",
+      "beforeSha256": "ed9b5614f0d898e75f295c0a30dec3143214277b6ba74c5e141f7834a58be23e",
+      "afterSha256": "3aa9a73988fe873730d66a6e2ffa179c974e772d26bf9880b8ca07f212a984b8",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.AnswerPipeline.cs",
+      "beforeSha256": "14057d656b8c8b378feb435dd28273b427ac66792ec6d67a0940fb9b0f684b70",
+      "afterSha256": "f73d2ecad4dfa460d1c1d2817b8a5b54033cf5b3ed991da02a997f940032306b",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.AnswerPostCriticSourceAlignment.cs",
+      "beforeSha256": "127c37d0b26bc3e579a473a6769749900549087a5923de33c7b384360fabb413",
+      "afterSha256": "f21263315856a96ab7426ca6c2af3ab4befe891d2fda982e5eb64aa0a97d4773",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.AnswerPostWriterRag.cs",
+      "beforeSha256": "d714b2a22d9725a13c86d1ec99d6640f762f6909db618e9cb1d276bb5abd2850",
+      "afterSha256": "47edf4347f057d5722cdc03da81d4f54e9444fbde8e3b9111d37d52350924536",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.AnswerPostWriterStructuredGate.cs",
+      "beforeSha256": "7555fdd78ac2bdf485ae1b72b8cc898be569b877a4b2fab7eec087a998284395",
+      "afterSha256": "9958e6f688b5a2afc068c4619b9f291dc927af14de50f857321982dfaf6b091b",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.AnswerUnitContract.cs",
+      "beforeSha256": "c90035c579121d69ed1c027a2aa69ad9d644111fb2eabb67f9f4965b67a0824b",
+      "afterSha256": "e62cf03cef048b4af1b2e2f66488175c313c6ff6eb8913607683fb8d40871de4",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ClarificationState.cs",
+      "beforeSha256": "4ec02d13e58b1aaab4ac2b5f7d988b2d09adad9bf7426c9634044ccf68a40d27",
+      "afterSha256": "a4a6969944f221427a7790d8e8ed80cbfb85b0d6bb76077ab1dbcf4491d7706b",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ClassifiedWorkContract.cs",
+      "beforeSha256": "69294b17f1122f8f458aec8c9ac31d8ab7cdafc1ce13f9710a35162f9bdc543c",
+      "afterSha256": "702749eb042cd3c59f333ba93162cb5041f2f7fa8501df0c55445281f885c443",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DeterministicToolAnswers.cs",
+      "beforeSha256": "9d0d387e6f025010a0e1aaca2b5de953d6f37fa578ba118973675a7d0c8ce1dc",
+      "afterSha256": "fe88ee4bc42f2b834b1381f2d3c96f9e9a4148fee260031ad20f73e57ddd507f",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DirectCommands.cs",
+      "beforeSha256": "60bd628237f5ebd05749734acec97c4173b3898f29b135407064868db68fd3a5",
+      "afterSha256": "0591d98e0d6b18e7b47909d17e2a426fb6299837c6b6313250aa60071fb83c91",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DocumentContentSearchShortcut.cs",
+      "beforeSha256": "2112f0fb67c32f7b3561d9e39f1c35ac0c3bb954c8a189c52749fea2fe791d40",
+      "afterSha256": "9403c257a5ebac816ce856582110a834bd0e77bc6a50f7ba17ccc50dd0ce97dd",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DocumentReferenceResolution.cs",
+      "beforeSha256": "ab1034aab8fbc8797b25f275ae9de280a82dd15a3b4e94131af12683d5d5601d",
+      "afterSha256": "c5d7359063f8f9801c663906eb85040931d419ea6ba2c4ebcf8e9a3929c57570",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DocumentSummaryFlow.cs",
+      "beforeSha256": "9e136a1e5185b814a8831a4b6e9aac4d5e812018ce689f4b69326b7fe3f6f4af",
+      "afterSha256": "39467c81a2295993bd4de8c68312a2be50ea3805d387ee9f9ca655724e9129d6",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DocumentToolExecution.cs",
+      "beforeSha256": "80d30b36b5f4d442194311f422aa7cb6134c4a2385b86b8f6beeb2d7b83d757e",
+      "afterSha256": "6738c2beef37828056e5a88f16af1d77bc23ab91c040d89a08193ec661765564",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DocumentaryProbe.cs",
+      "beforeSha256": "db23cc8b144b9408584c0e3724b30b405f513da2d64b69fbc0d4ba550375207c",
+      "afterSha256": "b55967e1f04517151c52099a8b1e6d52563e2d5f2086bd8ddf8d5e292962a00c",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ExportSupportAndDebugTools.cs",
+      "beforeSha256": "7f0847da1b02a2a1e5db2ff3c018ad9a193a26d22c5f313d11546617a84b5d5a",
+      "afterSha256": "a4f7988c756860e7c47373f94ed14971fe11fffdf458efc64412dc7d14f16f3b",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.GroundedGridShapeContract.cs",
+      "beforeSha256": "7a2d8792994cf74cea4d64b1902894e7b9dea32c37148d38a5007941a3e671c2",
+      "afterSha256": "05db2a4cf8eac347f93a76ffab66f90bd061af3238994c79d2da41d7855ca636",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.InlineSourceInjection.cs",
+      "beforeSha256": "9df90b1ca0384554d549502d971434dde376f7c4093732de622edd25340e01a9",
+      "afterSha256": "83f6810f7bdaabbd6c11e91577e21e19b32612f637410361f75b65974cb0729c",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.InventoryMemoryState.cs",
+      "beforeSha256": "9bc246f589aad22656a797d5ce664b727251a335dac29ccc194971cc02df1f82",
+      "afterSha256": "1945d0644ab206fc75ad78d10d976cf8abf8f04b31dd85446537b65352f05596",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.InventoryRendering.cs",
+      "beforeSha256": "ae93b343848dc7a3f4299bdff85bc332676f351fe93e24fa1be055a120d8f545",
+      "afterSha256": "d0ef55212b004dcd06fc7208a247260605f74c595c9057f71df66bf40252a2cd",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.InventoryReplayRendering.cs",
+      "beforeSha256": "de67927738877b9d0858c231877d5ba5153b8ef4debadbb7b8a3326c16824b1c",
+      "afterSha256": "305a1e6d4eb07b1d2019d03360189111504b8284c3c714d5af755cc5be2a0278",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.JsonElementAccessors.cs",
+      "beforeSha256": "71987428962dc5075a79a1b8ea446c25affc9cd20a2a3a17df0fd36217e439e8",
+      "afterSha256": "5cc5a8b67cb97702bd2ce310b639726357a30b2620015f0dd4b14eb27982fa3e",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.JsonHelpers.cs",
+      "beforeSha256": "c1a3bc22265e125d41405b2bc9ea75aaf30a49aa3a6071d5631ed0e297e425f3",
+      "afterSha256": "8f5d1ac2b07b363e2a2d37ffb1f2e2d67716f910db06a5906f73e6b0a6e7944a",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.LiveSummaryAnchors.cs",
+      "beforeSha256": "7cd8bb7775f0e4877a9e16c278d9b795a3dc61843ecc769eea5a95431e20eed7",
+      "afterSha256": "ae73226de49a71f6dec492442fe5426a3467fa54af8b7a7f6aecc374a517818a",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.LiveSummaryExecution.cs",
+      "beforeSha256": "454e63790ce1e2aba03c2abebe4e7833cd8800675aae3809baea0ecc75ca15ad",
+      "afterSha256": "fe5435f15211e916d7e05a7d4f872bf72fd43b7a48b9d660fa9126a233f68586",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.LiveSummaryPromptFormatting.cs",
+      "beforeSha256": "885c77da3c093e10686198eaa858fa9afdad28da3b5f265bc0c2bc3278e99ebe",
+      "afterSha256": "be591b6cad41c4412b2a376bd7383007b4e5365505955cb7be57440db8b52f04",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.LiveSummaryRetrievalQueries.cs",
+      "beforeSha256": "8b8162b4a824c1537770da196fe4d98c541e6482ffdcafa7eb44ffb8b05708e0",
+      "afterSha256": "0b015b95bbdafe9b9d615ffc86726607da18154df82f9e47f63b5b5b7ff24eeb",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.LiveSummarySelection.cs",
+      "beforeSha256": "548530c0845e8af7f47bb92fdea80d17aebff4da4f461e9ebeeb70536d9d4e62",
+      "afterSha256": "651e6cf798b04b9bf0d5764bab56ccd7910f7cd042e23c4a558ee6a655a9cab3",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.LiveSummarySourceMaterial.cs",
+      "beforeSha256": "b78b7d093ba102deae8ccdbe313cf250e02febabf60e57a66220636845a8d561",
+      "afterSha256": "d83a7646ba5b50a1590dbb96b019a1c033a6347322b9f45030874210907e3958",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.LlmCompletion.cs",
+      "beforeSha256": "8227db87a5aa53c1760a8f881356edf78b811697dc0a3f4530cfa4b30b94ad15",
+      "afterSha256": "be2a7d9c9fb3e12ef35b6facd9e7524b0edb771ae87230ce8e3d62143e3a52f8",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.LocalMetaTools.cs",
+      "beforeSha256": "888d1d2ea96304dbc08ce61658dd2e69369e9040ee08c39517e046aeb8723f2a",
+      "afterSha256": "cd4ef7e0796251317de62ab85eeb2a53463b45e9b018e9deda25da5338617157",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagCategoryScopeLexical.cs",
+      "beforeSha256": "7b1969a8826918e7371b17f1af2674a79ad33751db23f5fe6f8026ec22595879",
+      "afterSha256": "f839fe4b9dd538a4a3ad8877a4d0a54b90a6e0496a656fd922e38246abd6d9ba",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagCategoryScopeResolution.cs",
+      "beforeSha256": "20815a0cf0b16cdeb0890d18918b425cc2f30b97f6c016097f2bfddecf513679",
+      "afterSha256": "4b0490611ddcdf0398afae7e7bba11e5736093c33770de6a9968cb59b6b011d3",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagDiagnostics.cs",
+      "beforeSha256": "2056b247b425b8676a53a5d59aa23fd09a935c02b6824b618253ec531dc7401a",
+      "afterSha256": "3f4599e2e5774559ffc816ab875f90f6595611c09d6306edb11f118f98879dcd",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagMultiSearchExecution.cs",
+      "beforeSha256": "78506b51c679dbce5b4572445cfd0fe79120d98c7989379adaff6924f0e858e9",
+      "afterSha256": "6703b88b4b230e8a7e40fb69cc5f3400b912ca726379ebf93620ac156a321fc5",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagMultiSearchSupport.cs",
+      "beforeSha256": "69a553b8f4a1ee57626caa3795eef7f5675a6bcd3ccdf3b284075b62e94bea29",
+      "afterSha256": "2c7ab9b489df8c1db70ebc71f765ec5f2ea3b3e55b86753d4ae5bcef7d275976",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagQueryTextNormalization.cs",
+      "beforeSha256": "ccbf389716072c8c05b0108ed91833493f84d983abba661d2a6439322c18420d",
+      "afterSha256": "d532967730b955704d5f1db6eec279767013a1d00449aef31cda8bbc10df2869",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagSearchExecution.cs",
+      "beforeSha256": "a1cfebee7cea735fd9c56ff8d5a6bafced00010de2e3777c770383e188d319ec",
+      "afterSha256": "fa6fbed042f067c3edf6569d462b40187dedb860b03633956ae8c4c228ede78c",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ResponseRepairAndCompletion.cs",
+      "beforeSha256": "2e8830d990ee9632232cf704ec5cf81a102045c0374e4926eb5b99c7106ae8ab",
+      "afterSha256": "9103643f9bf3fb013a672947e9a0d3ba245e455ef74d76070139aa078a41b836",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RouterCore.cs",
+      "beforeSha256": "3a5d2389ab554359632bf29e03e5bb3a3693ce85ee6ac21681c9d74b339abdec",
+      "afterSha256": "256419bc8398bddc5aa40f60508c772d289900b7038b5514d4258aa1f13b8381",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RouterPlanPolicy.cs",
+      "beforeSha256": "3447f0c9d8f5504fdc9c4a8bde8660fc53aca7467ddfef3126cc10d9476146fd",
+      "afterSha256": "3b68aa8837f2a80d1ca939f313b84efffe20bbb42cdc1af5b8cac71fff881a5f",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RouterPromptsAndMemory.cs",
+      "beforeSha256": "5f17f7fff9cfe2fe6d99c0929d2e67edf8eb817a69653ae0ee1fe9659fa046ef",
+      "afterSha256": "bc5b192c1808e6d344fd5a2b412e88225a138e27e53071a5f2a02d303277ff89",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RouterRagCategoryScope.cs",
+      "beforeSha256": "57d13775d4de2ebf63fec1a74286a15724fdcfa6a66d8fb01bb3fd496ab0bc08",
+      "afterSha256": "30eaefe78caacd805b5df86373a5183b0510141a4c6d4036681040652dd8b801",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RouterRepair.cs",
+      "beforeSha256": "8d7427520071c9f46556813587a61ebb55547c0c34eceb31c3a7cac2f449372b",
+      "afterSha256": "5ebe2f9fc93d41555e88ebace686ac22bfe1d0d1dc2655edca76e088dc2a5d0e",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RunPipeline.cs",
+      "beforeSha256": "1aed2e7fcdf938a9571622f7aead95ca02784434fea1ab6bdc49af82b5bf1568",
+      "afterSha256": "862b654b1ee2f8b0921a65cd239688e6aa841d12ddde701a993a70e44b717fff",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RuntimeSnapshot.cs",
+      "beforeSha256": "5d7e254e5757e709c33d83990384d5bbca6aa60b5831ba7c507cf974f7f08e2c",
+      "afterSha256": "c00ef27528375ac08c1cf0f0c8c70b5111ff4ca799a95edaf94f8cb1554c0b27",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ShortcutConversationState.cs",
+      "beforeSha256": "3cc408fef50942ab15b8de822b2e7e53cdaa21d73ca43647bf86810aeae90487",
+      "afterSha256": "440891522475beb8ddd00285c7910036cc3dcd72d3b0abf679ff54df9316e46a",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ShortcutExecution.cs",
+      "beforeSha256": "0da7f4e07225a94b404a2bd0ee40f9c690142fc4a659ce41036cb54620063c94",
+      "afterSha256": "4de72fdb4d34068683d195eaf5607879a23afac031a55b445ba6b9fcb6e2a58b",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ShortcutIntentDetection.cs",
+      "beforeSha256": "fa381c615da8b45668ec4400af97f21aa51d2a4ff2d2bd1bba7062ae6eeed6fc",
+      "afterSha256": "54abc5842ac35587d38b18c2342fa3e6d8184d1f984737ba23c0ffef10050473",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ShortcutPromptMatching.cs",
+      "beforeSha256": "ece4ae430c6d7337d99b946f40b89753b1f00e255ea1e8e2999920cd72c4a76c",
+      "afterSha256": "4bfd99ae4f77b979f9fa6b36199ab658699f41bf3eea9a14a4181b827d7e1135",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ShortcutTranslation.cs",
+      "beforeSha256": "9b777822f88c160466710fee8249d686e99fdc35d55fd500e9ae60914c5b2497",
+      "afterSha256": "aebec3c0f65f38a16cdd90adb6c9d9cea8e61a89d2e2323f28e22bedeb9d6ff4",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedAdaptationAnswer.cs",
+      "beforeSha256": "90dadd1f4b0196430d9e5ef2434a580e19acc354806cf19e798aa97887aeb076",
+      "afterSha256": "3bedf5b06fae5ed4bac56d38e20054710dca8db95ba4387ce7470a254af49fc1",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedBackendGuidanceFallbacks.cs",
+      "beforeSha256": "29281d5c20a695aae07b5f938fde5f24ba0c0967d089e8b834a468b5ebed4665",
+      "afterSha256": "31d75d1bb92e59ec94d1d7e9f9cf30ad5cc7c18f4a517a1b73a019d336fdec86",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedBroadSynthesisGates.cs",
+      "beforeSha256": "aa59e75a3204146b232a6a6300b06778853100088ce53505b3b9687fbcacb653",
+      "afterSha256": "2b01bb3a0e0647c9d7e73efeedfa7fdcd580d7b79dc02a7af31b7ab965017c51",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedCandidateAdjudication.cs",
+      "beforeSha256": "eeacaf92e2861f986f450fecfd41efcd5d812ac88e1ed952b4f26458075880a4",
+      "afterSha256": "e69bc2a64a5d1dfda7ee0eb7302b4375633f0d01b846ed440db8ec4d0dbaeca5",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedCandidateAdjudicationPrompts.cs",
+      "beforeSha256": "af772efc1a18a756c1cf85d0b78c75fd275bb5adb9c4f2bf3ea015c6532fa753",
+      "afterSha256": "e5ffd7a6264ba3343a0b5a81cb5134c72b5ad20431051065f0b09d9e56a1521c",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedCandidateAdjudicationSignal.cs",
+      "beforeSha256": "63ff131ac400eb0b188110abf5b82df6d7e526bbc785ba37cbe46dbe8be7dd85",
+      "afterSha256": "0833afbcd913d2564eeaf19f94faef8c660c62a64ae530ede075b89110274c8d",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedComparativeHitSelection.cs",
+      "beforeSha256": "1810421c304838a4d506a715b1819c312074e286608d680fc58831996bf82ddd",
+      "afterSha256": "c494b8ac0f7da02f488466040909cf330fc791398ac57e97ab400699ffbd0171",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedContentCardEvidence.cs",
+      "beforeSha256": "e9f40fc8ebbb2ff6f21941da23d3b4be94bf9734e48d981bd2766670327412b7",
+      "afterSha256": "d0461bd316a6e3bae981b63423eb758cc7f21e7061d2b00cadfe7288ff8c73e0",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedContentCardProof.cs",
+      "beforeSha256": "4dad146fd5f5f171e845e717287caefc0f203c19a5776614e32ca06e81477c2c",
+      "afterSha256": "ce208336660a4e60d40da404fa66fa6955a99aa2e702b5c8472714f5dc1407b0",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedContextualSnippetCompaction.cs",
+      "beforeSha256": "3f8258eddc03ab93ff80cb7da75201be78a8a49669a32581b4f8c9d77ecff831",
+      "afterSha256": "fa4446353f8eab2ef97f4df1f2a9f455dd87324230b6a3b8418b99757b6cf67e",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedCountdownPlanning.cs",
+      "beforeSha256": "2a4615a90726fa1eccb2322831264b0b7c808473c64ce1d9c63bb66c4a754817",
+      "afterSha256": "32d39c8b97e2b27beca84c1f1acd9bf13fe5d729a3d011df0508c043e066665c",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedDocumentTypeRetrievalSignals.cs",
+      "beforeSha256": "47d1b940c228299d7ff83d43ef0ab59c54024ade01eb377d05adbfc1092e906e",
+      "afterSha256": "fd2b057379916c1c506295cda778988f54eaa88e6130acd3ae408135561a352e",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedDocumentVersionTraceabilityAnswer.cs",
+      "beforeSha256": "59e48f9db223d1cddcfe51a464d947dfed07818dc204a4fd921ba73efe8ac881",
+      "afterSha256": "8843adc131e76d488a6296a2fef2c6ac232fa2ab80804f9624cd7557e2c75787",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedDocumentVersionTraceabilityHitSelection.cs",
+      "beforeSha256": "87dda64721b2e47d64263a4cc3463d78d1bffb71ab29bef03adc92c70ebc920c",
+      "afterSha256": "799115c70cd7e5776d6dc8229f21f7d54d4d7cc50adf64ddee9fe24c77614aa4",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedDocumentVersionTraceabilityQueries.cs",
+      "beforeSha256": "ccfb73d581484df3b248e668bdf430c6e428b36e00d352b4963936940907f054",
+      "afterSha256": "a9dd8e252c92b4ed36392d7144c641801b4772e4927cbeaf0cc3e55f72b40ae7",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedDocumentVersionTraceabilityRanking.cs",
+      "beforeSha256": "2a45419fdddb7f64cf8f849fd7a121d6fd6924c1afd6e0832c7851002fe3f794",
+      "afterSha256": "97a31778a4b71b05f4850fa2853ebfaead5431e672a8af50b72c68bd132019c5",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedDurationParsing.cs",
+      "beforeSha256": "12d6916494de9d2b3bdcc38cb8f2894ed20052abf9cf878c30796e7ae143cca6",
+      "afterSha256": "9118ff31b34c2978ce3ef86b6ff6be9534dbf7d50ce5a987a808f5f535290f30",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedEvidenceExplorationContext.cs",
+      "beforeSha256": "cc7b9a28f582c6910d0b1611caa32ee81a00ecbc7403f56366e4aee6ca0c78ce",
+      "afterSha256": "2be359d95e2a82540be4c7b62bfb6721b773c7a6eede6afc14556ddbab5915f0",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedEvidenceExplorationNavigation.cs",
+      "beforeSha256": "6c3fa2d63b45adce990828331b1d69afe4a5db7d29729ca92d5fdbf52c404ecf",
+      "afterSha256": "ffb33e9b1d955252421b9dd9794839f891f0854eb7c2ac17640da2dbe19c384c",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedEvidenceExplorationNavigationSeeding.cs",
+      "beforeSha256": "e979b1709b95f7609d2ef2e555178ab807086cff531eb134f79639781a9f57be",
+      "afterSha256": "eede61720809107eb7fa4426faeee4482a83dfec9e8f48aa6f444027934087ed",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedEvidenceExplorationPasses.cs",
+      "beforeSha256": "b3c5a6504a3c22214831d7893b4bc905ebce2a14ebe2a2c0b6eac3b5ff4ac8ee",
+      "afterSha256": "a15fe69f966b4698bc5bfe8f7f66e571cf86df526db4c1a1c0b18936ddfa5a64",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedEvidenceFacts.cs",
+      "beforeSha256": "7aa6345b52dfd275326d9c3d38f56f7ba16814a37bb4cc849fc18e0df913534f",
+      "afterSha256": "b91563f120bf0518fced7ab20c21e0ab4fbadaaa4098f1bda29a322014408dec",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedEvidenceSelectionQuery.cs",
+      "beforeSha256": "e017003f27b59ac7f243c3996198b72ad131090c1f3b4dab25e72bbbdcffcff0",
+      "afterSha256": "088fed9e060d2f02fd5aff0482a6f99380a32e7191efc6b93b53acc105184a9c",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedEvidenceTextFormatting.cs",
+      "beforeSha256": "3a391eb44f77fd4cd8a901c1ad711056a38e563d8a89bf46e2dac6718c9a5415",
+      "afterSha256": "e1a48357731c03e1bb5cb66d87288abe1a01edc8c5c6cc6639599c62c79fe845",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedExactItemAnswerRendering.cs",
+      "beforeSha256": "dbd5877aab37de3ad6e5f29d15d6e39d01a0ce5515aa9aa6ddfff894c7ab23a9",
+      "afterSha256": "97f3580b68f0e7dd23b02a6662094947ef5e1fcccdbf25dc56f2ef40b26ac796",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedExactItemCardAnswer.cs",
+      "beforeSha256": "f8e23a182038c24c4079044036a6404b9d03edfa92fca5848ee66d2ee8deae6a",
+      "afterSha256": "7efee02e2e7786b3cfb17b61ab2841435eab08dcd7e499d98393a139f269b663",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedExactItemDisplayTitle.cs",
+      "beforeSha256": "665ed05136e8a11c84a97a3447f375423bbeedc3392718d01913fda6fd0d1aa4",
+      "afterSha256": "c65dbdd63f8b69963f485c40023ec8c67c62158b1833ee46ef30d7c2b31988ee",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedExactItemTitleExtraction.cs",
+      "beforeSha256": "78ea3bcc28f6df8e3fa31fc2ccf87789cc5780b0586a7bbccd4c594066ac74dd",
+      "afterSha256": "dbeab5d0192980e9a22734caf7398639e3e2392b23a4010b27d447c406eafba7",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedExactItemTitleMatching.cs",
+      "beforeSha256": "95e3ad7744146970779e6d3e507470dd85e4aa0b7d32feec638a54d6805a1a6c",
+      "afterSha256": "9bc79ba7312a18a6eff7d094a41ad307980e7303bba0192cc906cc3eb0ecb5e4",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedExtractionDiagnosticsRefs.cs",
+      "beforeSha256": "1b58d2df89c0b4b4b103a62ebae5bf86bb8f3462bd0261b39832278ae2468587",
+      "afterSha256": "36b411f6014e48d8d888bc48ed976c609874c49cc81ab085b9cf3bf226816b3c",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedExtractiveAnswerCore.cs",
+      "beforeSha256": "918b313ff2d8cd909ba29a0b417bd212d9ef017f739a9a0b7b6963ccf7b18230",
+      "afterSha256": "7bca2c131aaf2754ca2c767948794715b9980d66ab84e4442c2fae03f92b4793",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedFallbackAnswers.cs",
+      "beforeSha256": "a796cce1efd5eb1cd221affbeb9dc6878d7874a2b4c703d52b9c90ad9d019fe9",
+      "afterSha256": "639ae48a3b6992969209ec94aba4676959ba59f4034ce3bb18e2c42516d2b8ef",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedFallbackIntentPolicy.cs",
+      "beforeSha256": "870e5fd90e9c359b61a34058d3ee7f7ca8ac6a4449f8fb92ad2fa7eb3001e4ce",
+      "afterSha256": "d9dec85ec64f2a0977c3dc2b63fa8b2dfbb38e0e0f116b1a62348f3e2849b81e",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedFallbackRouting.cs",
+      "beforeSha256": "fa04dfd6b8463a83c6126c2ad569fda80fb87a5153c93ac7abad03055640fc0e",
+      "afterSha256": "ae12d12f28b112006461a975227f177452460ecb15f211e2320cc7cc41d7806f",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedGenericRetrievalQueries.cs",
+      "beforeSha256": "a79dfcea383694e9dbec8b3b6c1fae7163ae9491c676b2c026d5c90d2fb72703",
+      "afterSha256": "823f9db0fe682c04f949f6124a3144c9a7283ad1cf6e17a15d45cc08bad568bd",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedInitialLlmCategoryScope.cs",
+      "beforeSha256": "6561c908312e0d6902d3b7afb9cc7886e193e68a97d732eeec83391d9fd37aae",
+      "afterSha256": "96c5c1dc0073a485fe19c820603e2375efa864f12d6c5712628a4b8abab2850a",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedInitialPlanningProbeQueries.cs",
+      "beforeSha256": "3b138bd46d3d4d07beb47027b813bb443e724149356e2339fbcc287ce9c9d543",
+      "afterSha256": "9fe447995163cd3b127a653f814832c2903062b96564bd516324d1fcdf274a94",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedInsufficientEvidenceFallbacks.cs",
+      "beforeSha256": "e55b5735dd592cddc06cba1d829ca2d13b5153202a775fe01847ad754d14c183",
+      "afterSha256": "ddaf834d7330e80c6664350d42940befeec5ccd9bc49c9c0ca7f61fdcdedb3a1",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedLlmEvidencePlanner.cs",
+      "beforeSha256": "076dbbf78d571ba59e23850fea41022ed892fc2b1a8a01964e0466d30df21335",
+      "afterSha256": "0db5a4897a88c0127ba35bb4d7e1f0ddcfd7f2049d9f92a521b24d7e59ff9b87",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedLlmEvidencePlannerCategoryPrompt.cs",
+      "beforeSha256": "6ea16bf8a1ae758a30831ef4fb38439c550a34de8f3f41064594e40fb1afd05d",
+      "afterSha256": "f51e144afef5ed9a558d4edf4e112553768e92dc9c12f6638b33c0b862b404d5",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedLlmEvidencePlannerCoveragePrompt.cs",
+      "beforeSha256": "0e377ff7b4f17b22297467deb46a5358739864b22a887bc353c71af1eb5abc81",
+      "afterSha256": "6ed0732baf6e74fc5aecbbc3763dbf99ea8c64c2de8425d46c9c887a7e918357",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedLlmEvidencePlannerParsing.cs",
+      "beforeSha256": "db1ce37d9b3e55930e8226aaead64f9e97635fb1b0a68942b59d23abea8184c5",
+      "afterSha256": "071adcdb8d146ba8d3fc978e9a1540139d62cb91f4bc6fe4d4b39ab469203f85",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedLlmEvidencePlannerPrompts.cs",
+      "beforeSha256": "a54b157f16cacb20cd55acbcb3cddac1bba1bc6e6653b6afdf8c4a954ac04e9e",
+      "afterSha256": "2566086adf5ae43b647d9152ae76d7eb449af20a1d71566e073c523c678bff66",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedLlmEvidencePlannerQuerySeeds.cs",
+      "beforeSha256": "3c9717370295a93113ab1902ae76696bbcc74771e9526dca197bbe248715cccc",
+      "afterSha256": "e6c40986d370fed629e884f2076dd1da601eecb09b21f40086e0d268267e19b9",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedLlmEvidencePlannerStructureHints.cs",
+      "beforeSha256": "655e8639672c00624b84652aa2edc2ce9985e3daac5433ad360fb7314c6f4005",
+      "afterSha256": "e926d0857ef56f6d440c539e7ede43edac03f9fcbb27d13253d15acc1977a1bb",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedLlmEvidencePlannerWorkingNotes.cs",
+      "beforeSha256": "2cd3a3a6176b476219ab21605b9d909a14d02dcfb1471a0cbc31a447be745f17",
+      "afterSha256": "bb95a0f61ac4d4a64b6fa982210dfd174618dee288e627578cba6cb015de0fe1",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedLlmEvidenceToolCalls.cs",
+      "beforeSha256": "cf6645b274079e087db62c44167ffa479d7233bcdddf440d47da151f89dcc933",
+      "afterSha256": "b320cc8e9150e1fd4cbf97fe4fc23d9408b2d998512832d2ed52a270cb184e32",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedMissingExactItemAnswers.cs",
+      "beforeSha256": "828475b0b012ccf4011c095d68b10e6c79d02efda7e89d70319e3c8b3ab6755e",
+      "afterSha256": "df1f08ba5f30699674874abcdc57e416d15eb58ea096673a7c3a89ef6129ba02",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedOptionAnswer.cs",
+      "beforeSha256": "1541595cf4c54789b71d72c10266950ece7caa7eb73fa5b26eac67ad7d50caa6",
+      "afterSha256": "de36bd406a92b53b0eface4e64e09063e9b1df98c6cd43c120dfc534978f8686",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedOptionCandidateExtraction.cs",
+      "beforeSha256": "e89c6fb9ce6bb116738ec5d5225d564f7d5de761bf6e29ab68daca113add7335",
+      "afterSha256": "e6b409a926942328217de30afb5cf56a68905657161db635d6463dd42f13a4c2",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedOptionCandidateQuality.cs",
+      "beforeSha256": "c8038cecd2c7bee424c5ef13a3872ee4082e911108a5df391214a5a16b24d0e3",
+      "afterSha256": "3defd00131783474337a78a820cd3ab57025fcf9297ca9e0cfdb850b147f746f",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedOptionCandidateSelection.cs",
+      "beforeSha256": "7b17b4763adcf3b0e1cd5d31195047e30157ad416a82fda1774a161e7fa0f051",
+      "afterSha256": "951eee1fb7623b4782ed60efd0fee1255fb055195ba4abb25dbee7323d418292",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedOptionKind.cs",
+      "beforeSha256": "5a73103c8fac0ba2ea8d2d1eedaff22eb06ef4ae8c222633576b870719ce9fad",
+      "afterSha256": "286a7e31e7b50649436e1e7802e14876b8fc7a43f1e239759e6bc3135e8ffdc2",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedOptionScoring.cs",
+      "beforeSha256": "d9542f8d074c04389a31066d16b49f4eddd68f05354cae0d8e310fe61c9d03b0",
+      "afterSha256": "7aa547b93280744ed4cf0d2198ac32f0a449fcdeb96efda5ec49761cb59c4db3",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedOptionTitleCleaning.cs",
+      "beforeSha256": "88bfa669e94b64d2b2e54167cbd57126a5f888ee1cd89fd23c17af64a61db0b3",
+      "afterSha256": "477b4f029c98722ec74be5e20cea7e617ffc4e69a9f3376cb79c96a34e08af56",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanItemTitleExtractionV2.cs",
+      "beforeSha256": "e8b3ed1933c18cfb9395ca4f62eef04fc3bbb6e5e169cae0107854fd361d176f",
+      "afterSha256": "e9e96338a8182147dfef1280ed6c30825cdeac29b6946ab2a55aa6e6b0cf5822",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningAnswerRepair.cs",
+      "beforeSha256": "7a66fab9a7bcf84d984c4f3426c30601d1040d217f9cb083c2dc28ce80fa6ff5",
+      "afterSha256": "c332d59a87c94b33644e257df2128f0c5afe84a417ba397a609c62626c7eefdd",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningAnswerVerifier.cs",
+      "beforeSha256": "70c4fdfb1f00cca171d4ee920c12f16aedd1afefb3d3e4cf5bf9f96ca459f5e4",
+      "afterSha256": "c0de4a6b619c214a3cf496ed5df5ff2165e28e0e2fe638bc22810a4a6bb00759",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningCandidateDiagnostics.cs",
+      "beforeSha256": "c6eb4c209e2f4fd132a187c8b93b64f7d82aa837d0f572238046b852f06ff12f",
+      "afterSha256": "930d730f4deae7a511f3d1683fdac88974328fbd51efe9397c4d7118d939dde7",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningCandidateEligibility.cs",
+      "beforeSha256": "3d69df93f9ddbccf1b71595dc9470af4b188a9531316b497a4c8f932a3fc852f",
+      "afterSha256": "f92b72a3c27fa1ee89d60cf36c0a5ef77b3863cbb0c4cd5aa76e47c5f4f235cc",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningCandidateEvidence.cs",
+      "beforeSha256": "4c0bd8b19b61d8f79c0f810be28338f87eb6be07ad4e848b12d7b2add811503a",
+      "afterSha256": "df9acced8449dea01670905cc754c068f5e20e929ea1cbc14b35cf1e529488c7",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningCandidateRanking.cs",
+      "beforeSha256": "89a4fd95b33704d55543270dba70089cf951b272d65581c7b448975622634f21",
+      "afterSha256": "dba252a909b842081ff14b7377c9c1a34772a68e75255dad3c120a262f4ae691",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningCandidateRendering.cs",
+      "beforeSha256": "bb5726af7583d3c807424ca90c041d7c19a99f2210e2be6a6ea3dfafd68f044c",
+      "afterSha256": "69368adcb42131f9e1b1420f5718f036d9ad7e16cff14dade3a95298e65bd3d5",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningCandidateSelection.cs",
+      "beforeSha256": "30b0a6221d9814172d8ae4e0d028eba65d0cdf9c86451643f0045d318cf77acf",
+      "afterSha256": "ea756471756a6072b88f4a97d08aa64b7380660102230d59504f9124e2c3fb90",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningContextCandidates.cs",
+      "beforeSha256": "31583f07b1c69753eec9671069bd393ffd902fab82259573019f79eb40260798",
+      "afterSha256": "5e5ed843cb096ea27762d991d30c7faf90e52413e44cc643b34742bacd43b45e",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningDraft.cs",
+      "beforeSha256": "03298f2079ef9cecfa10793b6852956a110bad57b6806194b6cb489735422a6c",
+      "afterSha256": "63dd9d6b0dd4d101e3eeeb0340d02fca454e806ad65fe4fe852ac76c936bdeaa",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningFieldValueCandidates.cs",
+      "beforeSha256": "6843202168195686ae03b349ea96f78e3985434cb697218911652acda4bc9b3e",
+      "afterSha256": "62d9a9deb8abfd2236885b39b5ec4b4069ada7d9b0ff7ebc25c73c8f3c3ede19",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningFieldValueOwnership.cs",
+      "beforeSha256": "b15dd66cc036d0ad4a571cbc2311611736d2cd7415113fb9d155a797794b5daf",
+      "afterSha256": "3f2902a699943ca56ec974fac8c7d3d30bc47269fcdad24c90fab5b2741685bd",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningFieldValueRejectionKinds.cs",
+      "beforeSha256": "f6fbf4cb56f5de19043f8e5aa87d741c92e4af98966924fddebec60166b63fcf",
+      "afterSha256": "92e7e54f2aa8b49951632670dee9c0cebb1002cc4a48c9b8a8470c50beacf56a",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningLocalProof.cs",
+      "beforeSha256": "659a581d54029402e831ba0d8cbcaa5d8bcf47bfc3cbd2e1c74ca5491bdc5893",
+      "afterSha256": "71e320ff74e30a6b0c796251d32ca93a254b56a9d4897c6296813585773a90c6",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningModels.cs",
+      "beforeSha256": "b7120e842be6ceed02ec7bcaddc9c02b7607779d28e93650eb2eb48cfb4b3efc",
+      "afterSha256": "a6013faac4eea699f3060104de584cc504866e0a2f9a1ce090864e2c7e989e7e",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningRuntimeTrace.cs",
+      "beforeSha256": "150910b8df087713c07c91fc865150db8f668278eb1e09d50e305c0d1c27f616",
+      "afterSha256": "f7939c37d396778d1c9e1d4832d57c3d11a54fea5ef3658b41216b1372f3d522",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningSupportAnalysis.cs",
+      "beforeSha256": "915a7f52cdc84cea8cc9e0e4a238e053f222b731b8a5fe5bb1015b11b0dd2a7a",
+      "afterSha256": "661d046bdf485b623168fc4a0f345e18a81f42f7b64a8b88aa5ed83b1fbdfafe",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningTitleQuality.cs",
+      "beforeSha256": "87009aa60c330d6da1eea23e660a17c251339f909ae8eb7a5f9d13cd1c85f68d",
+      "afterSha256": "9ca7450e36dd90ceaecbb0f704683ae11e54db13415bc4992928de96b20fe62f",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningWriterGates.cs",
+      "beforeSha256": "be874f1d90a6ef13c56df6c38ba223e33eae714c15d8632a3722556b911693a3",
+      "afterSha256": "47ec709807d7b0ac6019c9de3cc2459bfd5b4478285aa39bffa487a6c4229078",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedQuantityScaling.cs",
+      "beforeSha256": "e5fe5309410172d4257a1dddb35bb4d8dedb9b4f884e38832c2725f7204b9a68",
+      "afterSha256": "caad7e3cae5c9e46e83816840a49184c60808b8971889d452183befbe209e138",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRag.cs",
+      "beforeSha256": "6d61d31d67b9bd35ce7a629e0f2832569175e457a4bb563acd4b242e8b932e35",
+      "afterSha256": "9c8fea1db57761d1a4bf1e05bc7f2657c2af72cc856578b7347cc2d07b4744ca",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRagHitRelevanceAndProfile.cs",
+      "beforeSha256": "72c4544b2b484424be8e823ab96bacc7e19db2a30c477dcd9db06c90ffff87e4",
+      "afterSha256": "c7765e6af838d4a38778c6afb33564ce1faef3f78fe34e6dbbf1d05546258b30",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRagHitSummaryParsing.cs",
+      "beforeSha256": "f6895f0e7b73a7117dcad08bf454adf80b6fbd4a672f2f9de1fc14216e46b9a6",
+      "afterSha256": "87cc2a78f21401f79a4d819e33cdd21ca58263a36f8122f982870471aac5a758",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRagJsonNormalization.cs",
+      "beforeSha256": "2b0e855f12474e39419e0a9a432b8ac7bbe3714f66133145ee2f8e89dc9c717d",
+      "afterSha256": "bc6c2281721bd56182171b340ff1852dde61b2538dfd5eaeeb1df722332c8577",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRagModels.cs",
+      "beforeSha256": "d46fbfd167a6159ffbe8bdca94eebe3a776cca1aacee789d4235aa555a675cac",
+      "afterSha256": "007a90cd42a9409f43f686ac2dbd0317b31c1c61657c639796ddfb0e118b65de",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRagToolExecutor.cs",
+      "beforeSha256": "750e2c065add356387c2eedc4571fd07318c67f6e65bc13366200ab9a4916e48",
+      "afterSha256": "879a17889247144481dd6b7c97216ce99b68b9471b8f84a52b443f997cb38370",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRankingAnswer.cs",
+      "beforeSha256": "edddb19edf8428c11f143bcb7467339d47ad1b611089b601df0fb1f16db0a4a0",
+      "afterSha256": "301ee4323d1eeb179e40ff392dd0ed18589aff787942445471d70c89dda29cd6",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedReadableFallbacks.cs",
+      "beforeSha256": "3fa736171639f435a9838997c2f5b5f0da3bdd8f0edfcfef4760544b7b3151f9",
+      "afterSha256": "651f8b8490883df834a9890926cf784cc7ebf8d6c9d26088ee8e97b5f0b46391",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRepairWriter.cs",
+      "beforeSha256": "2f241062e8a00e02190fcac59897659e568d078f845546764ed880a83658d018",
+      "afterSha256": "9c43a893ac699f4730cdff2be8dc6eb304552ee8b8f62caa74492b437483c188",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRepairWriterCitationIds.cs",
+      "beforeSha256": "043b2152fa4ba4a9968a86f7c7286ec00696bb179f8d8e8a1edc802150ec6c20",
+      "afterSha256": "d278009c626151350570176e5291d39c030d8dc71e49a7431fc7395cc6d16a55",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRepairWriterPrompts.cs",
+      "beforeSha256": "f973fd7a8f7f19a851824e653c738b91ce7aa70500d419b61faedcfa77ff2dbf",
+      "afterSha256": "21349b22ce7ce542fc958c88c09dc44cea18f98f1cf2045337c8e5ba59ed922c",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRequestClassification.cs",
+      "beforeSha256": "e830e990f396375ead7577efbc0a9dc1faf22c0408bdc690ed5d8bf78d553881",
+      "afterSha256": "46c73f1df9f54ba83b21c5f24306ddae96f1981a48f668c646992d3c90109655",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRetrievalCaps.cs",
+      "beforeSha256": "25010575fca077e6fbebb2be50e5ca5e2c9da427ef52c0ea7a7e9faa0d7afc23",
+      "afterSha256": "8957cad309975c4a6ccc02cdd202d37ba901c72f46da8e49483435d0a2f776d4",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRetrievalDiscoveryQueries.cs",
+      "beforeSha256": "cc13076871955e3648682b2607deb341ae556dd5ac7e1fcf974a540333d5e697",
+      "afterSha256": "dd4b795880c301758a6613f08e1e170373d824a358b8e062d53afee56a37f7e5",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRetrievalNavigationQueries.cs",
+      "beforeSha256": "482b1f40e3433b9276e484abaa3ff1e63b54da42ed0b4932eec82ff5e09603aa",
+      "afterSha256": "9525d1e2c45133fcac6c2de9c2107ad43e91d8bd2feccd4479ef8458753d5264",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRetrievalPlanningQueries.cs",
+      "beforeSha256": "61091862ab3ebd3f14047f4fc59bcea0ecac653eed4f004d6bb34b8d52979d51",
+      "afterSha256": "69477d6c6373ac080b50fa4038568cdc1d969ab70082d2208a6cce20de702693",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRetrievalPlanningQueriesSupport.cs",
+      "beforeSha256": "e64dd2bab845ff4fea42b67525211c8284c2ea7251b68834fc625db2756986da",
+      "afterSha256": "e8906227fddac50cd30532e536233b2661894e8f22cd5af3d65509f536bda229",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedSoftChoiceComparativeRetrieval.cs",
+      "beforeSha256": "254c1714bbba36918bbfd7e6fec49799033983822bf4789df96b5620c628b50f",
+      "afterSha256": "c5d6bebf2fb49eff54a04439e39b5ba574c9e2dded1a7b0928f36af915ba5b63",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedSourcePolicyGuards.cs",
+      "beforeSha256": "99546d1a52440af99728e21abc45042bd942bd21afc4ee42c6d4a2f1380e8229",
+      "afterSha256": "f653d2cdc1ac944d35add1c31c023b674dafd7ffadd63b0d5b3dc7e6d6251a40",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedStructuredAxisPlanner.cs",
+      "beforeSha256": "590fcf72c43a58a748b73f71ae10cb8460a756eef335b9e6f8340abca5e1105b",
+      "afterSha256": "cea85acf67ba07630c75ac498a24981e936c057da1229615472d4d473689ae83",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedStructuredPlanningGrid.cs",
+      "beforeSha256": "73cd06c0e010d7d84666947553a0688b78f815fb6c8c35c66ffc792d45dc18e3",
+      "afterSha256": "079c0d60f6bdeef91be945e5c6187b48241f81cc06477df2999e62ee7ee48560",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedStructuredPlanningPreWriterFallback.cs",
+      "beforeSha256": "eb6b409f1b01e721a99901f66c56300cd9cd3512deccb1efc3acaf55561a09a6",
+      "afterSha256": "dd7510195f29d11b972477c65f9dfc57e3f97f4eb8281408801267b9070abd3d",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedWriterAnswerQuality.cs",
+      "beforeSha256": "c48279eecb64a8b3465289a3d72e1baf1b638660829b6072a866490f162c9bdc",
+      "afterSha256": "720f56843c49d01a72b81fea9b7c119b19439470b47751d96826353cdbc4002e",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedWriterEvidenceCitations.cs",
+      "beforeSha256": "7baac4466d5e20a1038fa7ea544721359ae7167e6116399efe7db3fa068dfbd6",
+      "afterSha256": "f7378b0fa305698ff09ef0048c9019176f953c1842baee6c9e8729ab079ccf1a",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedWriterEvidenceInventory.cs",
+      "beforeSha256": "de868db30fe8ead15af658229ff5c0535c96bd6bc4ef63946210ee8c1f332d8f",
+      "afterSha256": "0ecaccf6be2018066b6545f8cd5ea6bf5fcf763f5a7ee1b54e431b4ca7f6cac2",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedWriterGuidance.cs",
+      "beforeSha256": "aed6ca5a307854d3207e015add34ee30185e497f0a0305c1a22c71116162bde3",
+      "afterSha256": "03aee84e72b6492cd4fb2c4ea99d6d8f20d7e93d72f98fa5bc620679d460802b",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceCitationReconciliation.cs",
+      "beforeSha256": "c8425a7252b44cbda617a2d94ea6ef651fc423297bd915f105029b1331b9d1cc",
+      "afterSha256": "38314b5498b6b1ec93eae67a87d1c603491eed7484f95e7774a524d3073c543f",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourcePayload.cs",
+      "beforeSha256": "c8ed721c1b0ba1734b6486d42efd6e9151ded104a883dc157d5fdf1e36517f5a",
+      "afterSha256": "59780a7282e4dc0ce3eb2abcd12bad0e0bdb12a9afdc822dc6e5331739cf0dd6",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourcePolicyShortcut.cs",
+      "beforeSha256": "6517b0f607831c90e34523e6a3207b6a41423d0fd923ff1a206e30606b547b83",
+      "afterSha256": "8f0dc9d886ea99db5d0582e5b68ecfcd928693dea4094c97bd6ea9f8149a8ab7",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceRefDerivation.cs",
+      "beforeSha256": "964a3906fe7e978a8e1ef59200c001fa1919bc2dad27f0a319384a85031a232b",
+      "afterSha256": "364acd4c4963ad46242ba5ab00db29de53854ec32902aa72563bce8a9268d7df",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceReferenceResolution.cs",
+      "beforeSha256": "b64c3cbae2a170ef92bf77d182eae98a6b1e42a92320dfa25d262226307ca540",
+      "afterSha256": "226b36ed65deb0a3cfb051acfc066185624c8bb9ea156017afcba7e00db862cd",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceRefs.cs",
+      "beforeSha256": "5dd931bd57425b4669a9be43075e336cfbb1d3b02022c9940e8c68bd26b151d4",
+      "afterSha256": "f883401f9b77046afd3f5ecda9d99b5152d07dc8346b848c781f80ea2395eed5",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.State.cs",
+      "beforeSha256": "9d5a042f9b2ae712119c438a32af02ccf149733d7fb8a66218039ade84f313e1",
+      "afterSha256": "4eb2ca0f072135e798b0922ca2a6edcb37d4dea51100afc05c7072ae16832f88",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.StatsFallback.cs",
+      "beforeSha256": "78dc70d2a7c78d7ada385ebfaf00ce045ab28b9b1f03d00f203efbb220d53842",
+      "afterSha256": "3873b445604e1a9b8f80eee8f191acba4d8be3423b8a8fc33ba1c8a0d2f89fe3",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.Summaries.cs",
+      "beforeSha256": "87a0d0059fe6110870d032e977e32930c3c02aac4f0c281be424adcf57b7c4c7",
+      "afterSha256": "251fa4e7fd6d8a90af08c5e34b1ea8dc6df5960f3452571dd4778f72e14979d9",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.TestHooksCoreAndSourcePayloads.cs",
+      "beforeSha256": "dc5117de20e62551a799fbdeb5ebb424735c8b0276b803ab20791bb5c686fff2",
+      "afterSha256": "8a1c9b9ea5e7b696808eee7679b42311aae7cd76ede7625cbaf09b4fad7cba39",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.TestHooksDocumentaryAndQuery.cs",
+      "beforeSha256": "0d72a8fa3cff81152e67b011326b5aad97f0c69cb2778c20cbb45d580bc94057",
+      "afterSha256": "f51edaa5089f6cac9f0c9d96ed175f6fb6bc67f590dff87bf12aa20284f342ff",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.TestHooksExplorationAndRetrieval.cs",
+      "beforeSha256": "b7ebba56b8cb729179fb204e70baa3c068439db42464a22b483ebbdfa79af750",
+      "afterSha256": "d835c361254de63aaf7d1cba08d0cf868cf611a237f99ddb705d63cbd0a9c375",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.TestHooksPlanning.cs",
+      "beforeSha256": "1a0838332a0fa5f7277865ad30d29d6c10876d4dc2c79233760da90ed8012177",
+      "afterSha256": "a377e70687e9fdf6edfaacd2f0b9020b2887aeed0cc8d655b43def431e260558",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.TestHooksWriterAndFallbacks.cs",
+      "beforeSha256": "bfb18199e5f6a18aed3c1382b277d0b203aa2ccc83442536883818bae9bbba81",
+      "afterSha256": "321b977391a071a1b27da827371a47ff18a230ff8b45fb3648928fdd6be901d1",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ToolArgumentAccessors.cs",
+      "beforeSha256": "12b165b32dfe080618b40a5fa5c2dbc53c47c27af0a7af6062a996a2cf66f94b",
+      "afterSha256": "004a7a1e2b6bdb96cf6798a82dfce7f07d167290c229be71090e1203aecf927f",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ToolCategoryScopeResolution.cs",
+      "beforeSha256": "d074419202a58891aea15de4f4c4edd15447e57f63bcacf38451ec60a39fc1ca",
+      "afterSha256": "2d71480edcfbf7ce362446af90ee229f9cdd0d659caee57e1ff2d9e46de92e4b",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ToolExecution.cs",
+      "beforeSha256": "207097cf7d70176f3dfbb332f6f7b57a7d4f68c49834b0fb4fc02eee25d38698",
+      "afterSha256": "c287e4df03bb79abb800a44dcce0e4861bff5ca6c92f79d2eacb7377fadaebc7",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ToolExecutionPipeline.cs",
+      "beforeSha256": "f24e81af080b00df20c68642ed638c579cba480323b58c8f946bb27f23815220",
+      "afterSha256": "1b226e85213e46aefcff90d18921d6131ef9c095a1c1544dfa0c3dddfed73be4",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ToolPlanNormalization.cs",
+      "beforeSha256": "c4a17f9e627ea846ef48382f80113da3695c370d99f4f881a8b12719a96d9a6c",
+      "afterSha256": "3eb43833c902f52468a55f0cca880eec55bf0a630bd0492dccbb4ba2f98956cf",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ToolReferenceModels.cs",
+      "beforeSha256": "851b28ce5e25df35adbae10bd82861574e6a29845c8e65abc3043bb3f0229516",
+      "afterSha256": "a941c32e4c5dd221c90745390d69005530bb6083c5c4e0822de637eb28b7ba34",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.TurnMemoryState.cs",
+      "beforeSha256": "befad0f9f7337b7838e9f95c4d06d617df10b2a25e3fe9730cdd6d52fdd8759e",
+      "afterSha256": "beb01c510881fa54aa37cf746eade526c7249841a36dcddb0d7fa246b7744199",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.WriterPromptBudget.cs",
+      "beforeSha256": "5ebd6ff792f21a8bed3b6c4e39324a784e9f8bc1c1cad4c66b2fcc555b8aa9ce",
+      "afterSha256": "8dc833909b480877585160c4f1f4b4382415e9f261c5fe073635fc1b1dab5567",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.WriterRagCompaction.cs",
+      "beforeSha256": "7a55f4a969c625e05ac9f4299fb373e8d9a6de7af353573309175f1fd433c4e0",
+      "afterSha256": "277451952faaf562b87b50a83072be360a4dfc83acfe4bb168193f0c7a0fcde9",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.WriterRagRanking.cs",
+      "beforeSha256": "1bae784f1d754d98d78dd8ca033e656f6eb301e4d70c677a676750eaf63ebd62",
+      "afterSha256": "0b9bdf69df7b26166cabfe5fdb6bebcd82664a7516e3da6b0d3a4825de0522f3",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.cs",
+      "beforeSha256": "049bc211944bc000b0b7d623a0ee2da2209ab3e84c3829a1d7c4424db2a1bba9",
+      "afterSha256": "663c7059546e9c1ea3ce68c8a60293d7c6662c6d6cf005b4a47dadf6195490aa",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolResults.cs",
+      "beforeSha256": "a8232cb47eb8b91eb27217c27e93439d452256e3a28fb51c67671b664758f5d4",
+      "afterSha256": "e019692a9acbd8a5170c9b849bddc2987f1a0b9423d882e89745aca188c93fac",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "contracts/SAAIA.Contracts/AdvancedAnalysisClientLayoutLimits.cs",
+      "beforeSha256": "327f7aff1f9f831c2effb16b9f5a052320a2334d035e41881b316944c8411e39",
+      "afterSha256": "3d5c8bca83ea0f49899f99cff77079fc3591438c8dfd18528de8c454d0b83685",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "contracts/SAAIA.Contracts/AdvancedAnalysisConversationContext.cs",
+      "beforeSha256": "1cba67f87c334a8331d1e4dbf4439f28d1b665a66fe2ece51119254bbaaf2e6a",
+      "afterSha256": "247e91d85b2e3c82a973548bcc590704991686ce83cc830a3c6ad0274c1efe50",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "infra/scripts/test-infra.ps1",
+      "beforeSha256": "e7898e29c7ee77737e79a4ff31f0ddc251571c94821d41e9f7acd8e2fa6faf8e",
+      "afterSha256": "8fbac0db039dd063d5b54df5dbdb8d6fbf9375807d648c6009d4148c17dea08d",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "tools/ConfigSigner/Program.cs",
+      "beforeSha256": "dd1745bd04be77a17325852d728de6270a06d3ca4e295d816fa0bb967d82e1ef",
+      "afterSha256": "c2fbf73c394f3a701a53a6f661e5e81b5fad881a0850e56afd8a4b3bc3036489",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "tools/SAAIA.AdvancedValidationJobGuard/Program.cs",
+      "beforeSha256": "f2ce95c5dc2f10e5c670ce015e49fc3ae26b0a2a95c3f152bf73b6164b2324ff",
+      "afterSha256": "48b0dd8d9b7e54444201c4ac8c038a035db3c3bac8eccc939f0163b0fe6b37b9",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "tools/validation-ingestion/probe-local-vectors.py",
+      "beforeSha256": "0e4db4d548753271105587ff72b72aa7e9dc8d02c9948c9ae1a9fac763b46c98",
+      "afterSha256": "6277e9a0216adaef679037cb85c4c75ac26393b9de716d49e8c7216f6c963e9c",
+      "onlyCRLFToLF": true
+    },
+    {
+      "path": "tools/validation-ingestion/stop-local-dependencies.ps1",
+      "beforeSha256": "e3113cd0938b018f5a0347836865b0f6aface35382a6afa3556ebb3959452517",
+      "afterSha256": "c75a37effb7243fae952a89d0dc59c632e0428158e9beb2d54ace6c13392d149",
+      "onlyCRLFToLF": true
+    }
+  ]
+}

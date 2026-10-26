@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "fr_table_spatial_source_witness_v1",
+  "scope": "OFFLINE_GEOMETRY_PREDICTION_NOT_PRODUCT_EXECUTION",
+  "inputSha256": {
+    "artifacts\\ingestion-ocr-audit-20261025\\fr-table-native-observation-v1.private.json": "7d8247e6c4c45fbed4814d1ca8f80c487be42f7215131d85ba5910c520229536",
+    "artifacts\\ingestion-ocr-audit-20261025\\worker-full-e5-071-v1\\private-observations\\sql-publication.private.json": "ce6b10b174b320ecb945f4c98a2c538eac3597a8497668af5d00aa80215cf6fc"
+  },
+  "predictedSelectedCells": 2,
+  "associations": [
+    {
+      "physicalPage": 1,
+      "cellId": "cell_87d23ae10d63f2298613b36c8bc91fcc",
+      "forwardCandidates": 1,
+      "reverseCells": 1,
+      "sourceBlockReadingOrder": 1,
+      "overlapNative": 0.79902,
+      "overlapCell": 0.775754,
+      "observedLiteralSha256": "2c69010ac46522f808ae32280746555d99bbd85609c6f2f1f858e2763e3b9e47",
+      "sourceLiteralDifferent": true
+    },
+    {
+      "physicalPage": 2,
+      "cellId": "cell_3c3c3b43bd41b9cef399589e494bb959",
+      "forwardCandidates": 1,
+      "reverseCells": 1,
+      "sourceBlockReadingOrder": 1,
+      "overlapNative": 0.983903,
+      "overlapCell": 0.775754,
+      "observedLiteralSha256": "192a38a4bf4c63073c381f6949b26ef04b5e2e2985a583913c12e65ee85976c8",
+      "sourceLiteralDifferent": true
+    }
+  ]
+}

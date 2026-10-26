@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "saaia-owned-ingestion-lifecycle-offline-guards.v1",
+  "passed": true,
+  "caseCount": 16,
+  "results": [
+    {
+      "passed": true,
+      "name": "one owned generated hash-pinned published document accepted",
+      "expectedRejection": false
+    },
+    {
+      "passed": true,
+      "name": "target traversal rejected before action",
+      "expectedRejection": true
+    },
+    {
+      "passed": true,
+      "name": "another selected document rejected",
+      "expectedRejection": true
+    },
+    {
+      "passed": true,
+      "name": "invalid UUID rejected",
+      "expectedRejection": true
+    },
+    {
+      "passed": true,
+      "name": "unknown source hash rejected",
+      "expectedRejection": true
+    },
+    {
+      "passed": true,
+      "name": "source with no generator rejected",
+      "expectedRejection": true
+    },
+    {
+      "passed": true,
+      "name": "unpublished document rejected",
+      "expectedRejection": true
+    },
+    {
+      "passed": true,
+      "name": "unscoped vector plan rejected",
+      "expectedRejection": true
+    },
+    {
+      "passed": true,
+      "name": "foreign documents root rejected",
+      "expectedRejection": true
+    },
+    {
+      "passed": true,
+      "name": "public captures directory rejected",
+      "expectedRejection": true
+    },
+    {
+      "passed": true,
+      "name": "foreign Qdrant rejected",
+      "expectedRejection": true
+    },
+    {
+      "passed": true,
+      "name": "normal collection rejected",
+      "expectedRejection": true
+    },
+    {
+      "passed": true,
+      "name": "plan UUID matches independent Python/.NET little-endian fixture",
+      "expectedRejection": false
+    },
+    {
+      "passed": true,
+      "name": "incomplete plan rejected by point identity",
+      "expectedRejection": true
+    },
+    {
+      "passed": true,
+      "name": "AST OwnedIngestionLifecycle.ps1",
+      "expectedRejection": false
+    },
+    {
+      "passed": true,
+      "name": "AST Test-OwnedIngestionLifecycleGuards.ps1",
+      "expectedRejection": false
+    }
+  ],
+  "serviceCalls": 0,
+  "processesStarted": 0,
+  "credentialsRead": 0,
+  "databaseOperations": 0,
+  "modelCalls": 0
+}

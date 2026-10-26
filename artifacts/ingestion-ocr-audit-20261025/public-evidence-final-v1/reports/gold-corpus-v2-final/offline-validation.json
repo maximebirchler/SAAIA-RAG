@@ -1,0 +1,109 @@
+{
+  "schemaVersion": "ingestion_gold_offline_validation_v1",
+  "status": "PASS",
+  "pythonTestExitCode": 0,
+  "pythonTestCount": 24,
+  "manifestSha256": "24cc69860eeec3804e903a1e190ee4292cbda389ec271aaa293bf12eff74ae35",
+  "sourceCount": 12,
+  "physicalPageCount": 16,
+  "sources": [
+    {
+      "caseId": "native-two-column-v1",
+      "sourceSha256": "0630e326a1c116fdd946f87c5ae951448b10786d7fdca35949b08e89fa36316c",
+      "pageCount": 1,
+      "byteIdenticalSecondGeneration": true
+    },
+    {
+      "caseId": "native-three-column-v1",
+      "sourceSha256": "912ef2c91233681f38515b45e18c3cdeb847b373bcc3d2fc1cfb41a5e086ebdc",
+      "pageCount": 1,
+      "byteIdenticalSecondGeneration": true
+    },
+    {
+      "caseId": "native-unequal-columns-v1",
+      "sourceSha256": "84604de71139c5e5bea1a9da361909b1383438a335863f84a8fcad97120e9b09",
+      "pageCount": 1,
+      "byteIdenticalSecondGeneration": true
+    },
+    {
+      "caseId": "native-late-page-title-v1",
+      "sourceSha256": "f2e98a62ea501e6470771c9c62e3077b53b01457481ccff716845918cea94058",
+      "pageCount": 1,
+      "byteIdenticalSecondGeneration": true
+    },
+    {
+      "caseId": "native-columns-and-table-v1",
+      "sourceSha256": "60de8a516ec9925c0c2d0dfc714233187f91ada1c0dc0607ca2bcb09fe3e4469",
+      "pageCount": 1,
+      "byteIdenticalSecondGeneration": true
+    },
+    {
+      "caseId": "structured-table-v1",
+      "sourceSha256": "7e890e7721eb440b6269c94066adcbb57cbbb17371e510e7f15f390f26aac7bf",
+      "pageCount": 1,
+      "byteIdenticalSecondGeneration": true
+    },
+    {
+      "caseId": "mixed-image-text-v1",
+      "sourceSha256": "7ebf33a08461b1310052954141256ac7975eeca5e7eb74fa0dc44a79f60746e8",
+      "pageCount": 1,
+      "byteIdenticalSecondGeneration": true
+    },
+    {
+      "caseId": "full-page-scan-v1",
+      "sourceSha256": "b8b6a1b51695119a264919c97545539179fcd0540e0986d384db0a4ed18be4bf",
+      "pageCount": 1,
+      "byteIdenticalSecondGeneration": true
+    },
+    {
+      "caseId": "fr-native-critical-v2",
+      "sourceSha256": "5bb9e63e5dd3b5a8a32bedc5c1d81d1598fd765032066d6548faf6a7a71fb3c0",
+      "pageCount": 2,
+      "byteIdenticalSecondGeneration": true,
+      "nativePhysicalFactCount": 10,
+      "nativePhysicalFactsExact": true,
+      "rasterOnlyPages": []
+    },
+    {
+      "caseId": "fr-mixed-critical-v2",
+      "sourceSha256": "01adcd257d9359351544d5ed656b49035d6550465559eb5b1a5d9e18c1a52349",
+      "pageCount": 3,
+      "byteIdenticalSecondGeneration": true,
+      "nativePhysicalFactCount": 4,
+      "nativePhysicalFactsExact": true,
+      "rasterOnlyPages": [
+        2
+      ]
+    },
+    {
+      "caseId": "fr-table-critical-v2",
+      "sourceSha256": "c9482adbfd47104a1a81fb1d1087c602b2f0275a8860deb8373aec076a697371",
+      "pageCount": 2,
+      "byteIdenticalSecondGeneration": true,
+      "nativePhysicalFactCount": 4,
+      "nativePhysicalFactsExact": true,
+      "rasterOnlyPages": []
+    },
+    {
+      "caseId": "fr-scan-critical-v2",
+      "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2",
+      "pageCount": 1,
+      "byteIdenticalSecondGeneration": true,
+      "nativePhysicalFactCount": 0,
+      "nativePhysicalFactsExact": true,
+      "rasterOnlyPages": [
+        1
+      ]
+    }
+  ],
+  "visualRenderCount": 8,
+  "visualReview": "All eight French pages rendered with local pdftoppm and visually inspected; no clipping or overlapping text observed.",
+  "serviceCalls": 0,
+  "modelCalls": 0,
+  "dotnetBuilds": 0,
+  "doclingExecuted": false,
+  "ocrExecuted": false,
+  "ingestionWorkerExecuted": false,
+  "sqlPublicationValidated": false,
+  "vectorValidated": false
+}

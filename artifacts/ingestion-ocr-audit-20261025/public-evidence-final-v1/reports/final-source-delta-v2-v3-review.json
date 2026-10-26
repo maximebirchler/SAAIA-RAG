@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "saaia-independent-source-delta-review.v1",
+  "execution": "read_only_captured_inventories_no_build_no_api",
+  "campaigns": {
+    "unit-all-final-v2": {
+      "runId": "86b8f2fcea0e4b589c4e64990a77b69c",
+      "manifestSha256": "e237a8ceaaf996d5898cc0f9aa3e6164246b3f6eef75d6ea94681584699c36de",
+      "inventorySha256": "b43dab12bcb378ff061d0a10a80a558ebeb7f556f58b980da23de6c15b596b53",
+      "sourceChangedDuringRun": false,
+      "backendSha256": "00A011D0DB86BFDAEF82972DDE6B1C7CD0B142C79D43C871C1128E4CF107ABD7"
+    },
+    "unit-all-final-v3": {
+      "runId": "7aa68db8f4ef45288d2345324a686be7",
+      "manifestSha256": "3ced181efab0e98f53e356eab236af14ac6a2970c86b4d6f1abe01677703cd75",
+      "inventorySha256": "d50be0b138b41f57b09bb097797dad9fa235e54626cb4f117ca3ce5f2ae6acf3",
+      "sourceChangedDuringRun": false,
+      "backendSha256": "A21D64DA8465CCB39449008FDD5106C81860B4D90E1290A2FA83340F3F827BC7"
+    }
+  },
+  "changes": [
+    {
+      "path": "backend/SAAIA.Backend.Tests/DoclingCanonicalDocumentAdapterTests.UncoveredHeadings.cs",
+      "kind": "added",
+      "beforeSha256": null,
+      "afterSha256": "771A8064F9F3F1F96A5198FA3791A0726FE31A1360DC73FF0719278494D198E0"
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingCanonicalRetrievalProjector.UncoveredHeadings.cs",
+      "kind": "added",
+      "beforeSha256": null,
+      "afterSha256": "B8AF0F9811EAC02400F6ADDF0F6F6C1E16F634AF371B802F31895B8D9F5B8E63"
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingCanonicalRetrievalProjector.cs",
+      "kind": "modified",
+      "beforeSha256": "751F5135282768F45BBA0D0CC0DAE1C23DD2ADF5CEAD90AF49FE45B74948D968",
+      "afterSha256": "6DF03051C4052FC83DD263FF46AE38D65D5C421D71FC945D6B518AF65434055F"
+    }
+  ],
+  "leaseWorkerJobRepoCancellationUnchanged": true,
+  "unchangedCriticalPaths": [
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionEnqueue.Delete.cs",
+      "sha256": "E8D90DC63C3900D1F8C837C49FF9A00CFFA769DB50F98DD0C01941FFE8A12A72"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionEnqueue.StateTransitions.cs",
+      "sha256": "8A00BA5A9649A74072B0999E14793D3AF27A3BA31BE783F3D6E2A76AA2E56A02"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionEnqueue.cs",
+      "sha256": "25ECDFD1961A1F44DCD1892EE31B01C6E6CCC20E9430B4E8C123D3D0FE65D6BF"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionLeaseGuard.cs",
+      "sha256": "2D0E7A7273786C957F76B1208171436D7A603AF93742B95DFC7C6CF6614D65C0"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionPublicationStage.cs",
+      "sha256": "93A3817101E613F56C785C3D7290ECC63236065F5E40C425E00D9EBB81F21445"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionWorker.cs",
+      "sha256": "2C950333487BB1280F3DDC211EFA12D6D63F9EB64E365B5155DF7D91009E3C2D"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/JobRepo.Completion.cs",
+      "sha256": "B1CA2A8D601071A68356121D3CB21E9BBD2050201160B2B66CFD1529AF43403C"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/JobRepo.DocumentState.cs",
+      "sha256": "372344C59B7BF6140A69AD18724D613D847899E58958EA8C00C69990176198B6"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/JobRepo.cs",
+      "sha256": "8F5215BBC41FC6A7206A9AB9B1F944156DCA5DE7ABCB706BAABDA6E160596FC0"
+    },
+    {
+      "path": "tools/validation-ingestion/OwnedIngestionLifecycle.ps1",
+      "sha256": "E904F366E59E88D8ACAD4ECB03B0792A9D1430440B1CE36E95B050FBDCABCC28"
+    }
+  ],
+  "claimLimit": "The actual cancellation PASS belongs to worker lifecycle v1 on 00A011D0. Worker lifecycle v2 on A21D64DA did not validate cancellation because completion won the race. Unchanged source does not convert NON_EXECUTED into PASS."
+}

@@ -1,0 +1,21 @@
+{
+  "checkedPorts": [
+    15101,
+    15102,
+    15103,
+    16341
+  ],
+  "sourceProofSha256": "F13CC63566FB7A3FC2DA68BEF408A5FD24C33475542D083F36FCBC9699A1DDE0",
+  "listenersReleased": true,
+  "roles": [
+    "docling-wrapper",
+    "docling-upstream",
+    "local-embeddings",
+    "qdrant"
+  ],
+  "processesStopped": true,
+  "observedAtUtc": "2026-10-26T01:07:11.4762229+00:00",
+  "schemaVersion": "saaia-owned-cleanup-summary.v1",
+  "wrapperLogsFlushed": true,
+  "sourceProof": "dependency-stop-814cb2e6bb034229bdeef599177b0efc.json"
+}

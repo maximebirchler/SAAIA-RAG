@@ -1,0 +1,187 @@
+{
+  "schemaVersion": "saaia-owned-ingestion-offline-guards.v1",
+  "passed": true,
+  "caseCount": 35,
+  "results": [
+    {
+      "expectedRejection": false,
+      "name": "explicit local canonical worker accepted",
+      "passed": true
+    },
+    {
+      "expectedRejection": false,
+      "name": "provenance binds the loaded DLL bytes",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "Git HEAD alone is not loaded-DLL evidence",
+      "passed": true
+    },
+    {
+      "expectedRejection": false,
+      "name": "queued job alone is not worker execution",
+      "passed": true
+    },
+    {
+      "expectedRejection": false,
+      "name": "actual running claim proves worker observed",
+      "passed": true
+    },
+    {
+      "expectedRejection": false,
+      "name": "terminal done proves worker observed",
+      "passed": true
+    },
+    {
+      "expectedRejection": false,
+      "name": "IPv6 literal loopback accepted",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "reject origin 7",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "reject origin 8",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "reject origin 9",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "reject origin 10",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "reject origin 11",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "reject origin 12",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "cannot override authentication",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "cannot override PostgreSQL",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "cannot inject a Qdrant key reference",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "cannot configure an external LLM",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "worker must execute",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "canonical artifacts required",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "background scanner forbidden",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "legacy OCR command forbidden",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "chunk minimum override forbidden",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "typed concurrency required",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "actual OCR required",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "observed engine identity required",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "remote Docling forbidden",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "multiline values forbidden",
+      "passed": true
+    },
+    {
+      "expectedRejection": false,
+      "name": "bounded campaign file accepted",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "outside campaign root rejected before read",
+      "passed": true
+    },
+    {
+      "expectedRejection": false,
+      "name": "explicit pinned local Transformers profile accepted",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "mutable model revision rejected",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "remote embedding endpoint rejected",
+      "passed": true
+    },
+    {
+      "expectedRejection": true,
+      "name": "embedding credential fields rejected",
+      "passed": true
+    },
+    {
+      "expectedRejection": false,
+      "name": "AST OwnedIngestionConfig.ps1",
+      "passed": true
+    },
+    {
+      "expectedRejection": false,
+      "name": "AST invoke-owned-ingestion.ps1",
+      "passed": true
+    }
+  ],
+  "serviceCalls": 0,
+  "processesStarted": 0,
+  "credentialsRead": 0,
+  "databaseOperations": 0,
+  "modelCalls": 0
+}

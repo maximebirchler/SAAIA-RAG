@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "saaia-hybrid-nonce-harness-offline.v1",
+  "stage": "RED",
+  "expectedFailure": true,
+  "testExitCode": 1,
+  "testCaseCount": 1,
+  "serviceCalls": 0,
+  "modelCalls": 0,
+  "credentialsRead": 0,
+  "captures": "synthetic_only",
+  "sourceHashes": {
+    "verifier": "497DFD3B9DAE335C6A27D1EE370144F438459E53ADD609A8077E720553056C60",
+    "test": "4B56E95EA9CAA98EFE55D1220F6C408865F217ED4F8F1BAF33FDFA752E6D4116"
+  },
+  "testsSucceeded": false,
+  "redObserved": true
+}

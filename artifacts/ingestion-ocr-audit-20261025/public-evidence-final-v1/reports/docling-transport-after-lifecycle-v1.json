@@ -1,0 +1,17 @@
+{
+  "observedAtUtc": "2026-10-26T01:02:16.4893272+00:00",
+  "afterCampaign": "worker-full-e5-lifecycle-final-v1",
+  "conversionTransport": {
+    "scope": "upstream_http_forwarding_threads_in_this_process",
+    "active": 1,
+    "started": 41,
+    "finished": 40,
+    "success": 40,
+    "upstream_rejected": 0,
+    "failed": 0,
+    "lastFinishedDurationMs": 2031,
+    "upstreamModelExecutionCancellationProven": false
+  },
+  "schemaVersion": "saaia-docling-transport-observation.v1",
+  "overlapWithNextRecipePossible": true
+}

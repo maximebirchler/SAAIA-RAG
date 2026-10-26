@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "saaia-docling-transport-observation.v1",
+  "afterCampaign": "worker-recipe-e5-final-v2",
+  "observedAtUtc": "2026-10-26T01:04:45.6442887+00:00",
+  "conversionTransport": {
+    "scope": "upstream_http_forwarding_threads_in_this_process",
+    "active": 0,
+    "started": 41,
+    "finished": 41,
+    "success": 41,
+    "upstream_rejected": 0,
+    "failed": 0,
+    "lastFinishedDurationMs": 64141,
+    "upstreamModelExecutionCancellationProven": false
+  }
+}

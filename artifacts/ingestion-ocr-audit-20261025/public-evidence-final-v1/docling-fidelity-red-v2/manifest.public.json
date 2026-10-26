@@ -1,0 +1,172 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "fc8079b5c65a43bc9aa5df859545cf9e",
+  "startedAtUtc": "2026-10-25T23:01:37.3087130+00:00",
+  "finishedAtUtc": "2026-10-25T23:01:43.6991783+00:00",
+  "profile": "Unit",
+  "filter": "(Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid)&(FullyQualifiedName~Docling_fidelity_)",
+  "configuration": "Release",
+  "gitCommit": "24b21ab2efb819e961dfeabb33e850dc45fb1203",
+  "gitDirty": true,
+  "requestedProjects": [
+    "Backend"
+  ],
+  "buildRequested": true,
+  "restoreRequested": false,
+  "state": "failed",
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-25T23:01:38.4935327+00:00",
+    "sha256": "EBF31685585E4F26274EB286CFB6721DAFE8345F221D63C710120E27B6709A35",
+    "fileCount": 1710,
+    "inventory": "source-files-fc8079b5c65a43bc9aa5df859545cf9e-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-25T23:01:44.4280923+00:00",
+    "sha256": "EBF31685585E4F26274EB286CFB6721DAFE8345F221D63C710120E27B6709A35",
+    "fileCount": 1710,
+    "inventory": "source-files-fc8079b5c65a43bc9aa5df859545cf9e-after.json"
+  },
+  "sourceChangedDuringRun": false,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "publicProjection": {
+    "originalSha256": "81ffdf52435baa8caf229a305e0088f6523794cd9e715dae95dde85e2559118e",
+    "rawOutputIncluded": false,
+    "environmentAndPrerequisiteDetailsOmitted": true,
+    "testArgumentsIncluded": false,
+    "originalTestNamesHashed": true,
+    "approvalGranted": false
+  },
+  "results": [
+    {
+      "project": "Backend",
+      "path": "backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj",
+      "status": "failed",
+      "exitCode": 1,
+      "counts": {
+        "adapterReportedExecuted": 11,
+        "total": 11,
+        "notExecuted": 0,
+        "failed": 10,
+        "passed": 1,
+        "executed": 11
+      },
+      "assemblies": [
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.AdvancedValidationJobGuard.dll",
+          "role": "local_product_dependency",
+          "sha256": "7B200D1CE421A2E4FF77F2336CF7B73BB7214A15255F6433D91E66C3D9E9E650",
+          "sizeBytes": 62464,
+          "lastWriteTimeUtc": "2026-10-25T23:00:50.3845168Z",
+          "capturedAtUtc": "2026-10-25T23:01:43.6686274+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.dll",
+          "role": "local_product_dependency",
+          "sha256": "6142733855E5E3A7C27F959EF879A70814F2251CE966A5475ED996EFEEEDCCEC",
+          "sizeBytes": 7815680,
+          "lastWriteTimeUtc": "2026-10-25T23:00:56.9670053Z",
+          "capturedAtUtc": "2026-10-25T23:01:43.6783384+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "B9BD603D7DF9FB8350DF17C47662AEA641A17E2AC39E27B14BFB467B0463486E",
+          "sizeBytes": 4876800,
+          "lastWriteTimeUtc": "2026-10-25T23:01:41.7101935Z",
+          "capturedAtUtc": "2026-10-25T23:01:43.6842132+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "BEABC1BAFC97D303BE7FEFC31D039B180AEA6B25D9B1C9685A64A0BF3404D352",
+          "sizeBytes": 154112,
+          "lastWriteTimeUtc": "2026-10-25T23:00:50.4793709Z",
+          "capturedAtUtc": "2026-10-25T23:01:43.6852023+00:00"
+        }
+      ],
+      "cases": [
+        {
+          "name": "DoclingCanonicalDocumentAdapterTests.Docling_fidelity_repeated_margin_warning_remains_retrievable_even_when_parser_marks_furniture",
+          "originalTestNameSha256": "f7192f73e1199663d4b5c188bd8496e0599a6a8c1c944658c5b69ec86e63f442",
+          "outcome": "Failed",
+          "duration": "00:00:00.0170871"
+        },
+        {
+          "name": "DoclingCanonicalDocumentAdapterTests.Docling_fidelity_high_coverage_and_one_word_do_not_erase_native_disagreement",
+          "originalTestNameSha256": "47fe7fcce916c9f1e4e038581f50563cdfcb65a31e0a583a4950261963745471",
+          "outcome": "Failed",
+          "duration": "00:00:00.0008369"
+        },
+        {
+          "name": "DoclingCanonicalDocumentAdapterTests.Docling_fidelity_repeated_margin_warning_remains_retrievable_even_when_parser_marks_furniture",
+          "originalTestNameSha256": "b4495911a215f967ba0e08c0973e6907f566109604e590ae7e02cee46a8130df",
+          "outcome": "Failed",
+          "duration": "00:00:00.0007752"
+        },
+        {
+          "name": "DoclingCanonicalDocumentAdapterTests.Docling_fidelity_high_coverage_and_one_word_do_not_erase_native_disagreement",
+          "originalTestNameSha256": "d42dfb86ed3dccce13be2ae1221085725c3475ed37ec847b8c86ce751ca6e3e9",
+          "outcome": "Failed",
+          "duration": "00:00:00.0004047"
+        },
+        {
+          "name": "DoclingCanonicalDocumentAdapterTests.Docling_fidelity_document_timing_does_not_claim_observed_page_counts",
+          "originalTestNameSha256": "37955ef98c59f79a155577ac75088957bd0cc97e3e49dba975f8a5c9665a3c56",
+          "outcome": "Failed",
+          "duration": "00:00:00.0085621"
+        },
+        {
+          "name": "DoclingCanonicalDocumentAdapterTests.Docling_fidelity_navigation_elsewhere_on_page_does_not_hide_recovered_content",
+          "originalTestNameSha256": "c233ca136f6f168db3351b04d5902513c1d7e9f9cd23dc66abf69b4d0c7d8109",
+          "outcome": "Failed",
+          "duration": "00:00:00.0016823"
+        },
+        {
+          "name": "DoclingCanonicalDocumentAdapterTests.Docling_fidelity_true_page_counter_stays_out_of_searchable_content",
+          "originalTestNameSha256": "d974b0006c34a5420def4a1537f3d4cd03801e30679468984c00b72e9c58d55c",
+          "outcome": "Passed",
+          "duration": "00:00:00.0046619"
+        },
+        {
+          "name": "DoclingCanonicalDocumentAdapterTests.Docling_fidelity_failed_table_repair_has_a_durable_degraded_stage",
+          "originalTestNameSha256": "9ef3377e26d02214d8e9599e5838951f2f7ba77326808cafce0baab392c83a90",
+          "outcome": "Failed",
+          "duration": "00:00:00.0304833"
+        },
+        {
+          "name": "DoclingCanonicalDocumentAdapterTests.Docling_fidelity_recovered_native_text_has_no_inferred_last_subject_heading",
+          "originalTestNameSha256": "06878202b7c686aaa8828582754086e0a566549617ccc3380f87f866f1a5951b",
+          "outcome": "Failed",
+          "duration": "00:00:00.0154134"
+        },
+        {
+          "name": "DoclingCanonicalDocumentAdapterTests.Docling_fidelity_missing_physical_page_refuses_a_complete_projection",
+          "originalTestNameSha256": "e5ec94102082e44a628c8983b37d4a674e2518a9d5e7e6f5f3fe4f0bcaa7e41f",
+          "outcome": "Failed",
+          "duration": "00:00:00.0754618"
+        },
+        {
+          "name": "DoclingCanonicalDocumentAdapterTests.Docling_fidelity_legacy_page_view_respects_exact_unicode_region_boundaries",
+          "originalTestNameSha256": "0c2e51df3ac8fee44cd99f3dc5cb710db617a13e3188f5ff8cb06904ef48fee0",
+          "outcome": "Failed",
+          "duration": "00:00:00.0039860"
+        }
+      ],
+      "trx": "Backend.public.trx",
+      "trxSha256": "37968ad63d7b3aef398cf7b26bdf5bc2c9522f6a7973c0f9034d3a9c47317c47",
+      "originalTrxSha256": "6bb009635253b6885904a765a82a5618ab7e46ed592af4f8e5ab3c9a0437cd4c",
+      "trxProjection": {
+        "outcomeCounts": {
+          "Failed": 10,
+          "Passed": 1
+        },
+        "removedSubtreeCount": 13,
+        "rawErrorsAndStdoutIncluded": false,
+        "projectionIsOriginalTrx": false,
+        "testArgumentsIncluded": false,
+        "originalTestNamesHashed": true,
+        "fieldsPolicy": "explicit_result_and_identity_allowlist"
+      }
+    }
+  ]
+}

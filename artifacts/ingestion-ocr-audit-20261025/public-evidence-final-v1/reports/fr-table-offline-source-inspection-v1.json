@@ -1,0 +1,142 @@
+{
+  "schemaVersion": "fr_table_offline_source_inspection_v1",
+  "scope": "READ_ONLY_CAPTURED_WORKER_JSON_NO_MODEL_NO_NEW_RUN",
+  "inputSha256": {
+    "artifacts\\ingestion-ocr-audit-20261025\\worker-full-e5-071-v1\\private-observations\\sql-publication.private.json": "ce6b10b174b320ecb945f4c98a2c538eac3597a8497668af5d00aa80215cf6fc",
+    "artifacts\\ingestion-ocr-audit-20261025\\worker-full-e5-071-v1\\private-observations\\api-context.private.json": "99826973b57267b371554a6072df5b07a74cc81fe1e74b05196e47ddf5083a89",
+    "config\\ingestion-acceptance-gold.v2.json": "2aafffedd4c2d736d0ee02d06482a0f76c9eb11c3160cffae062911f50aea505"
+  },
+  "caseCount": 12,
+  "factCount": 90,
+  "cases": [
+    {
+      "caseId": "fr-mixed-critical-v2",
+      "factCount": 8,
+      "canonicalSourceFactFailures": 0,
+      "retrievalFactFailures": 0,
+      "apiFactFailures": 0,
+      "otherCanonicalIssueCounts": {},
+      "storedChunkCount": 4,
+      "storedChunkHashFailures": 0
+    },
+    {
+      "caseId": "fr-native-critical-v2",
+      "factCount": 10,
+      "canonicalSourceFactFailures": 0,
+      "retrievalFactFailures": 0,
+      "apiFactFailures": 0,
+      "otherCanonicalIssueCounts": {},
+      "storedChunkCount": 4,
+      "storedChunkHashFailures": 0
+    },
+    {
+      "caseId": "fr-scan-critical-v2",
+      "factCount": 5,
+      "canonicalSourceFactFailures": 0,
+      "retrievalFactFailures": 0,
+      "apiFactFailures": 0,
+      "otherCanonicalIssueCounts": {},
+      "storedChunkCount": 1,
+      "storedChunkHashFailures": 0
+    },
+    {
+      "caseId": "fr-table-critical-v2",
+      "factCount": 4,
+      "canonicalSourceFactFailures": 0,
+      "retrievalFactFailures": 4,
+      "apiFactFailures": 4,
+      "otherCanonicalIssueCounts": {
+        "canonical_table": 2
+      },
+      "storedChunkCount": 7,
+      "storedChunkHashFailures": 0
+    },
+    {
+      "caseId": "full-page-scan-v1",
+      "factCount": 5,
+      "canonicalSourceFactFailures": 0,
+      "retrievalFactFailures": 0,
+      "apiFactFailures": 0,
+      "otherCanonicalIssueCounts": {},
+      "storedChunkCount": 1,
+      "storedChunkHashFailures": 0
+    },
+    {
+      "caseId": "mixed-image-text-v1",
+      "factCount": 7,
+      "canonicalSourceFactFailures": 0,
+      "retrievalFactFailures": 0,
+      "apiFactFailures": 0,
+      "otherCanonicalIssueCounts": {},
+      "storedChunkCount": 2,
+      "storedChunkHashFailures": 0
+    },
+    {
+      "caseId": "native-columns-and-table-v1",
+      "factCount": 8,
+      "canonicalSourceFactFailures": 0,
+      "retrievalFactFailures": 0,
+      "apiFactFailures": 0,
+      "otherCanonicalIssueCounts": {
+        "canonical_alternative_reading_order": 1,
+        "canonical_alternative_count": 1
+      },
+      "storedChunkCount": 4,
+      "storedChunkHashFailures": 0
+    },
+    {
+      "caseId": "native-late-page-title-v1",
+      "factCount": 11,
+      "canonicalSourceFactFailures": 0,
+      "retrievalFactFailures": 0,
+      "apiFactFailures": 0,
+      "otherCanonicalIssueCounts": {},
+      "storedChunkCount": 4,
+      "storedChunkHashFailures": 0
+    },
+    {
+      "caseId": "native-three-column-v1",
+      "factCount": 12,
+      "canonicalSourceFactFailures": 0,
+      "retrievalFactFailures": 0,
+      "apiFactFailures": 0,
+      "otherCanonicalIssueCounts": {
+        "canonical_alternative_reading_order": 1,
+        "canonical_alternative_count": 1
+      },
+      "storedChunkCount": 2,
+      "storedChunkHashFailures": 0
+    },
+    {
+      "caseId": "native-two-column-v1",
+      "factCount": 8,
+      "canonicalSourceFactFailures": 0,
+      "retrievalFactFailures": 0,
+      "apiFactFailures": 0,
+      "otherCanonicalIssueCounts": {},
+      "storedChunkCount": 3,
+      "storedChunkHashFailures": 0
+    },
+    {
+      "caseId": "native-unequal-columns-v1",
+      "factCount": 10,
+      "canonicalSourceFactFailures": 0,
+      "retrievalFactFailures": 0,
+      "apiFactFailures": 0,
+      "otherCanonicalIssueCounts": {},
+      "storedChunkCount": 3,
+      "storedChunkHashFailures": 0
+    },
+    {
+      "caseId": "structured-table-v1",
+      "factCount": 2,
+      "canonicalSourceFactFailures": 0,
+      "retrievalFactFailures": 0,
+      "apiFactFailures": 0,
+      "otherCanonicalIssueCounts": {},
+      "storedChunkCount": 4,
+      "storedChunkHashFailures": 0
+    }
+  ],
+  "meaning": "Reevaluation of frozen captures with unchanged critical source annotations. Not evidence that the new product correction passed."
+}

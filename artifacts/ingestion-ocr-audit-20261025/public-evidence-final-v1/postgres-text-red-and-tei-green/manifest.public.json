@@ -1,0 +1,286 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "89de8830baba41f5b65a4b8edb8888a4",
+  "startedAtUtc": "2026-10-25T23:22:36.7518167+00:00",
+  "finishedAtUtc": "2026-10-25T23:22:44.7387950+00:00",
+  "profile": "Unit",
+  "filter": "(Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid)&(FullyQualifiedName~PostgresSourceFidelityTests|FullyQualifiedName~TeiEmbeddingIntegrityTests|FullyQualifiedName~IngestionIntegrityTests)",
+  "configuration": "Release",
+  "gitCommit": "24b21ab2efb819e961dfeabb33e850dc45fb1203",
+  "gitDirty": true,
+  "requestedProjects": [
+    "Backend"
+  ],
+  "buildRequested": true,
+  "restoreRequested": false,
+  "state": "failed",
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-25T23:22:37.7131302+00:00",
+    "sha256": "A226457E363E365713C58F88920B95DA77C9EC7182C8EABE6798CF86FF2BAC58",
+    "fileCount": 1740,
+    "inventory": "source-files-89de8830baba41f5b65a4b8edb8888a4-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-25T23:22:45.3853766+00:00",
+    "sha256": "A226457E363E365713C58F88920B95DA77C9EC7182C8EABE6798CF86FF2BAC58",
+    "fileCount": 1740,
+    "inventory": "source-files-89de8830baba41f5b65a4b8edb8888a4-after.json"
+  },
+  "sourceChangedDuringRun": false,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "publicProjection": {
+    "originalSha256": "fd960a3c8d234dc92b61a9db43eb76a198d110c8396a2200969e6896d81eb4b0",
+    "rawOutputIncluded": false,
+    "environmentAndPrerequisiteDetailsOmitted": true,
+    "testArgumentsIncluded": false,
+    "originalTestNamesHashed": true,
+    "approvalGranted": false
+  },
+  "results": [
+    {
+      "project": "Backend",
+      "path": "backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj",
+      "status": "failed",
+      "exitCode": 1,
+      "counts": {
+        "adapterReportedExecuted": 30,
+        "passed": 27,
+        "failed": 3,
+        "executed": 30,
+        "total": 30,
+        "notExecuted": 0
+      },
+      "assemblies": [
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.AdvancedValidationJobGuard.dll",
+          "role": "local_product_dependency",
+          "sha256": "7B200D1CE421A2E4FF77F2336CF7B73BB7214A15255F6433D91E66C3D9E9E650",
+          "sizeBytes": 62464,
+          "lastWriteTimeUtc": "2026-10-25T23:00:50.3845168Z",
+          "capturedAtUtc": "2026-10-25T23:22:44.7064186+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.dll",
+          "role": "local_product_dependency",
+          "sha256": "E667A13CDF2ADC0D43D141E99CB97F9FDCF5ECD27A24131D69276B76D9F7E176",
+          "sizeBytes": 7841280,
+          "lastWriteTimeUtc": "2026-10-25T23:22:41.5925958Z",
+          "capturedAtUtc": "2026-10-25T23:22:44.7144550+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "57AE721621AF063961703A5BB298D58C79957E9D9710016957E27129720E136A",
+          "sizeBytes": 4910080,
+          "lastWriteTimeUtc": "2026-10-25T23:22:43.4038636Z",
+          "capturedAtUtc": "2026-10-25T23:22:44.7256599+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "BEABC1BAFC97D303BE7FEFC31D039B180AEA6B25D9B1C9685A64A0BF3404D352",
+          "sizeBytes": 154112,
+          "lastWriteTimeUtc": "2026-10-25T23:00:50.4793709Z",
+          "capturedAtUtc": "2026-10-25T23:22:44.7264526+00:00"
+        }
+      ],
+      "cases": [
+        {
+          "name": "SAAIA.Backend.Tests.PostgresSourceFidelityTests.Published_source_text_is_not_repaired_or_reinterpreted_by_storage",
+          "originalTestNameSha256": "0a5c963b81789a076d8f0cfec36e0a20b7a80eea42a15820cd381687358b81ee",
+          "outcome": "Passed",
+          "duration": "00:00:00.0034945"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.IngestionIntegrityTests.Published_pipeline_identity_changes_when_unchanged_source_requires_reprocessing",
+          "originalTestNameSha256": "ba834c033ac48056feda5c4209db49fbcbb69e5f9d4f6aa699218e6e80f5244c",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001127"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.IngestionIntegrityTests.Publication_verifies_each_acknowledged_point_instead_of_trusting_the_checkpoint",
+          "originalTestNameSha256": "f8e264b8aa485620ab77f87b9a14793792d0fc5a49b4e8a9cbbf1146b69a13ff",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000807"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.IngestionIntegrityTests.Unchanged_source_matches_the_hash_of_the_exact_snapshot_bytes",
+          "originalTestNameSha256": "6a0f567441e244568cb2345d79f6dcde5b711321b53065dc6340777ceac12c82",
+          "outcome": "Passed",
+          "duration": "00:00:00.0122086"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.TeiEmbeddingIntegrityTests.Upstream_error_body_is_not_copied_into_the_persisted_exception",
+          "originalTestNameSha256": "a2eb348f9da048a3c59a666d99acefa7ba6043fe423673792ec00ff098bcb7d9",
+          "outcome": "Passed",
+          "duration": "00:00:00.0004348"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.TeiEmbeddingIntegrityTests.A_batch_requires_unique_input_bindings_and_consistent_dimensions",
+          "originalTestNameSha256": "06d3e5f36ee93dd692d1bd2e2fa10dca064588cc0e91f43d59eaf516974bef6b",
+          "outcome": "Passed",
+          "duration": "00:00:00.0003355"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.IngestionIntegrityTests.A_checkpoint_requires_identical_projected_content_target_and_model_revision",
+          "originalTestNameSha256": "85517b1ddfdc06dd328b11697fc5bafc0242a0fb1ac27eeccdd4636be5d21fa0",
+          "outcome": "Passed",
+          "duration": "00:00:00.0094517"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.TeiEmbeddingIntegrityTests.Invalid_vector_cannot_be_published_as_a_valid_embedding",
+          "originalTestNameSha256": "841e8e0d13eb41564798a520b56658e23ba7bfcd16591d30f6768c39821337a8",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001820"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.TeiEmbeddingIntegrityTests.Response_indices_bind_vectors_to_their_original_input",
+          "originalTestNameSha256": "5772217f88d1adb10164af9f4784ba2c2163936605978a026b93e308d296e9f7",
+          "outcome": "Passed",
+          "duration": "00:00:00.0008414"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.TeiEmbeddingIntegrityTests.A_batch_requires_unique_input_bindings_and_consistent_dimensions",
+          "originalTestNameSha256": "06d3e5f36ee93dd692d1bd2e2fa10dca064588cc0e91f43d59eaf516974bef6b",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001297"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.IngestionIntegrityTests.Published_pipeline_identity_changes_when_unchanged_source_requires_reprocessing",
+          "originalTestNameSha256": "4994db949ec61ea6d6cf1ccd6c3ad4bad0c0818a88118cd0cd15c24c3db7fb01",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000415"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.IngestionIntegrityTests.Publication_verifies_each_acknowledged_point_instead_of_trusting_the_checkpoint",
+          "originalTestNameSha256": "da01c6453966b142c51fb845ebc662e49177fd60010e3c42b9599d16b3137b35",
+          "outcome": "Passed",
+          "duration": "00:00:00.0003352"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.IngestionIntegrityTests.Publication_verifies_each_acknowledged_point_instead_of_trusting_the_checkpoint",
+          "originalTestNameSha256": "748bddfe07b2cbc2af7f176db7c0de8718739b270e95d941b2cce96e8f0114ba",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000283"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.IngestionIntegrityTests.Publication_verifies_each_acknowledged_point_instead_of_trusting_the_checkpoint",
+          "originalTestNameSha256": "c9ea08fd8d5935cf49846342efda0cfef710353fe7ef1c38c4952698a074a1d0",
+          "outcome": "Passed",
+          "duration": "00:00:00.0111864"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.TeiEmbeddingIntegrityTests.Invalid_vector_cannot_be_published_as_a_valid_embedding",
+          "originalTestNameSha256": "61d1e5ec585f31927571828b6a5461de8a1e65e6465f71246af7c8646f12102a",
+          "outcome": "Passed",
+          "duration": "00:00:00.0048320"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.IngestionIntegrityTests.Published_pipeline_identity_changes_when_unchanged_source_requires_reprocessing",
+          "originalTestNameSha256": "4553c1da1200bc06aef09d87d978dbf28ccd68dbcf4acb3a4dfd7226db633892",
+          "outcome": "Passed",
+          "duration": "00:00:00.0067942"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.TeiEmbeddingIntegrityTests.Dimension_cache_is_scoped_to_the_runtime_endpoint",
+          "originalTestNameSha256": "2ed4dfc7c0e139092f876458219842db33613d2abf5e0c5502b5e10df6a82f03",
+          "outcome": "Passed",
+          "duration": "00:00:00.0011829"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PostgresSourceFidelityTests.Json_storage_preserves_literal_values_and_keys_without_alias_collisions",
+          "originalTestNameSha256": "4b3f79486b8fa6a576c04fd5bbc9b7984ccd52cca010e6c624ed2319437cc943",
+          "outcome": "Failed",
+          "duration": "00:00:00.0109425"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.TeiEmbeddingIntegrityTests.A_batch_requires_unique_input_bindings_and_consistent_dimensions",
+          "originalTestNameSha256": "63065d141f00fbdb36294f54d3f9c12b5cde4edcc4652fec308ba956c4362451",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000374"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.IngestionIntegrityTests.Publication_verifies_each_acknowledged_point_instead_of_trusting_the_checkpoint",
+          "originalTestNameSha256": "0d613f753938a767ea8b0a609cfc0641359aa46130bad17158ad15117735dba7",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000500"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.IngestionIntegrityTests.Publication_verifies_each_acknowledged_point_instead_of_trusting_the_checkpoint",
+          "originalTestNameSha256": "b54603859ff9f4e2ae92b7711c442a53d44d2cbf3d9be1bec7ee0c97a64dcaef",
+          "outcome": "Passed",
+          "duration": "00:00:00.0009825"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.IngestionIntegrityTests.Published_pipeline_identity_changes_when_unchanged_source_requires_reprocessing",
+          "originalTestNameSha256": "b2509b8e32e0aad1ff5689808d584438853d730833a8c31ca234a256a9a18ffa",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000264"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PostgresSourceFidelityTests.Published_source_text_is_not_repaired_or_reinterpreted_by_storage",
+          "originalTestNameSha256": "7c2989053a9a478e0f40bd8738ddb16f8aa6dfb77733acb19fb933cac83fb7b1",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000235"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PostgresSourceFidelityTests.Published_source_text_is_not_repaired_or_reinterpreted_by_storage",
+          "originalTestNameSha256": "1c0a5a6f47c3e5bd6295e95a9fe56e16e4b2330ae60c0b711b323f837e2b9acb",
+          "outcome": "Failed",
+          "duration": "00:00:00.0018572"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.TeiEmbeddingIntegrityTests.Invalid_vector_cannot_be_published_as_a_valid_embedding",
+          "originalTestNameSha256": "a453ef50a8521d916eba3abb9bad3da28e6c03491e55f35db151be20425318cf",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000448"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.IngestionIntegrityTests.Published_pipeline_identity_changes_when_unchanged_source_requires_reprocessing",
+          "originalTestNameSha256": "82f9af31243c5cbe81e08fc98786affa98d88828016daa4e744ec3b24781c89f",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000272"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.IngestionIntegrityTests.Every_extractor_can_read_the_same_snapshot_despite_replacing_the_original",
+          "originalTestNameSha256": "c0906faddf59fbe5839b14889797e092d969934a7cab183c39b0282be53bb236",
+          "outcome": "Passed",
+          "duration": "00:00:00.0105866"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PostgresSourceFidelityTests.Published_source_text_is_not_repaired_or_reinterpreted_by_storage",
+          "originalTestNameSha256": "4b80604f2e622971f936ca475659573fb85fd4b7fe57bddc8bfacaad378c15e7",
+          "outcome": "Failed",
+          "duration": "00:00:00.0012188"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.TeiEmbeddingIntegrityTests.Invalid_vector_cannot_be_published_as_a_valid_embedding",
+          "originalTestNameSha256": "b717adfa5e1aa850905b35221e917cd54baf0a09ea9fe5f2856998f7aeb8c9c7",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000532"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.TeiEmbeddingIntegrityTests.Invalid_vector_cannot_be_published_as_a_valid_embedding",
+          "originalTestNameSha256": "3e1303b4328d17bb0715f98b611206d778fc930df8bc33d3e792c2bc1a872705",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000464"
+        }
+      ],
+      "trx": "Backend.public.trx",
+      "trxSha256": "6cb390701a6ba86492ce043fd025b976b5bed0904be0fe5072a1e97aae4eb6c4",
+      "originalTrxSha256": "d0a989d72ebcc83afc5792bfb541ef90e07942e392d6fde0fe7c4adfd1a48081",
+      "trxProjection": {
+        "outcomeCounts": {
+          "Passed": 27,
+          "Failed": 3
+        },
+        "removedSubtreeCount": 6,
+        "rawErrorsAndStdoutIncluded": false,
+        "projectionIsOriginalTrx": false,
+        "testArgumentsIncluded": false,
+        "originalTestNamesHashed": true,
+        "fieldsPolicy": "explicit_result_and_identity_allowlist"
+      }
+    }
+  ]
+}

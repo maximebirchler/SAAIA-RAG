@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "saaia-source-index-verifier-synthetic-proof.v1",
+  "capturedAtUtc": "2026-10-26T01:22:08.166905+00:00",
+  "scope": "NEW_SYNTHETIC_GIT_REPOSITORIES_ONLY",
+  "realRepositoryIndexRead": false,
+  "realRepositoryGitMutationCommands": 0,
+  "testCount": 17,
+  "passed": 17,
+  "failed": 0,
+  "skipped": 0,
+  "syntheticSetupGitMutations": "init/config/add/hash-object/update-index only inside verified temporary artifact fixtures; no commit",
+  "verifierGitCommands": [
+    "rev-parse --show-toplevel",
+    "ls-files --stage -z",
+    "cat-file --batch-check",
+    "cat-file --batch"
+  ],
+  "indexBytesUnchangedByVerifierWitness": true,
+  "files": [
+    {
+      "path": "artifacts\\ingestion-ocr-audit-20261025\\verify-tested-source-index.py",
+      "sha256": "0174255f405d624aa26b4e7e2ab0bc6e45f94e8a26fabcf338d5d9210905c31e",
+      "sizeBytes": 15835
+    },
+    {
+      "path": "artifacts\\ingestion-ocr-audit-20261025\\tests\\source-index-anchor-v1\\test_source_index_anchor.py",
+      "sha256": "5cec6293f121686a9dfbc2aebaf67b3c091aed3e17ab422ad0ed21d996997c68",
+      "sizeBytes": 11036
+    },
+    {
+      "path": "artifacts\\ingestion-ocr-audit-20261025\\tests\\source-index-anchor-v1\\green-v3.log",
+      "sha256": "a1fa5b53c59d10385c78cf26a447252f19deafa2ee83900c608acf19274d0a78",
+      "sizeBytes": 2826
+    }
+  ],
+  "implicitGitNetworkAndLazyFetchDisabled": true
+}

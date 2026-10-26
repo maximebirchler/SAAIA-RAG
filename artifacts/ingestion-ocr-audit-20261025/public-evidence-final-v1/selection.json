@@ -1,0 +1,1438 @@
+{
+  "schemaVersion": "saaia-ingestion-public-evidence-selection.v1",
+  "proposalSha256": "1a5f2196297410fe4f2e7caba9dc05ab368c776d68e792ec2bbefe7719dd7fcc",
+  "approvalGranted": false,
+  "gitOperationsPerformed": 0,
+  "selectedFileCount": 163,
+  "files": [
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/PLAN-ACTION.md",
+      "sha256": "97bb273425771a05ccaaada9f94ce76513ebeca87ffddfbe34253e5f8edd18e5",
+      "sizeBytes": 6257,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/PLAN-ACTION.md",
+      "originalSha256": "97bb273425771a05ccaaada9f94ce76513ebeca87ffddfbe34253e5f8edd18e5"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/RAPPORT-CLOTURE-TELEGRAM.md",
+      "sha256": "2a4dccff1b0a41770be2b84d0e5f9979cc967eb528a1f47191d2cd950c9a5162",
+      "sizeBytes": 5296,
+      "reason": "Final French progress report actually sent, covering developments since00h53",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/RAPPORT-CLOTURE-TELEGRAM.md",
+      "originalSha256": "2a4dccff1b0a41770be2b84d0e5f9979cc967eb528a1f47191d2cd950c9a5162"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/RAPPORT-ETAPE-2358.md",
+      "sha256": "1803011822a2855c8c2d39b965f1f696c47af0877afc5d192524cf7b85cba7a0",
+      "sizeBytes": 4552,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/RAPPORT-ETAPE-2358.md",
+      "originalSha256": "1803011822a2855c8c2d39b965f1f696c47af0877afc5d192524cf7b85cba7a0"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/RAPPORT-INGESTION.md",
+      "sha256": "6e2887550aef320b91e20e8810c41bd3a8b8ee28b2da818a4a8542c807abe9f1",
+      "sizeBytes": 15140,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/RAPPORT-INGESTION.md",
+      "originalSha256": "6e2887550aef320b91e20e8810c41bd3a8b8ee28b2da818a4a8542c807abe9f1"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/architecture-final-v1.json",
+      "sha256": "eda179a11494a5721d821544c174d29b937b1e9fcf73f6c779904228ddc2f7d4",
+      "sizeBytes": 272330,
+      "reason": "Latest existing architecture check; final-source recheck remains a pending gate",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/architecture-final-v1.json",
+      "originalSha256": "eda179a11494a5721d821544c174d29b937b1e9fcf73f6c779904228ddc2f7d4"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/architecture-final-v3.json",
+      "sha256": "69e658b17bc880228aef1d40fbb048a56d7cec70ef70ed916d878ac4ea63e142",
+      "sizeBytes": 273612,
+      "reason": "Final-source architecture audit, zero violations with21 explicit size-review items",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/architecture-final-v3.json",
+      "originalSha256": "69e658b17bc880228aef1d40fbb048a56d7cec70ef70ed916d878ac4ea63e142"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/architecture-v1.json",
+      "sha256": "771e02f0b585fc0cfe62fc03509b3eeb8abe95386eb556676f9b9278d229b871",
+      "sizeBytes": 269895,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/architecture-v1.json",
+      "originalSha256": "771e02f0b585fc0cfe62fc03509b3eeb8abe95386eb556676f9b9278d229b871"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/canonical-block-coverage-public-summary-final-v1.json",
+      "sha256": "32bd1aac3a3f09558b7094357f80b9afcbeb990f94b3587faef5c81c9358c5bf",
+      "sizeBytes": 24058,
+      "reason": "Counts/IDs/hashes only of block-coverage audit; no PDF text, title or excerpt",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/canonical-block-coverage-public-summary-final-v1.json",
+      "originalSha256": "32bd1aac3a3f09558b7094357f80b9afcbeb990f94b3587faef5c81c9358c5bf"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/canonical-legacy-contract-reconciliation-20261026.md",
+      "sha256": "6a72731672dad2d9b6cc30029d9dd5ebe0a3faeff5ff351060fb412516980db3",
+      "sizeBytes": 4735,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/canonical-legacy-contract-reconciliation-20261026.md",
+      "originalSha256": "6a72731672dad2d9b6cc30029d9dd5ebe0a3faeff5ff351060fb412516980db3"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/canonical-publication-audit.md",
+      "sha256": "ee7ff116c792bae7ba472be3f327f010b01d2535cdfb3002f84d5eae84ca5f55",
+      "sizeBytes": 32605,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/canonical-publication-audit.md",
+      "originalSha256": "ee7ff116c792bae7ba472be3f327f010b01d2535cdfb3002f84d5eae84ca5f55"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/canonical-resolution-20261026.md",
+      "sha256": "a44807ac383cbb88f2989e2e6449543417ca27aae17cadefe2bcde07baa1bba5",
+      "sizeBytes": 8282,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/canonical-resolution-20261026.md",
+      "originalSha256": "a44807ac383cbb88f2989e2e6449543417ca27aae17cadefe2bcde07baa1bba5"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/cleanup-dependencies-v6-public-final-v1.json",
+      "sha256": "36740d671a31b4d5a5a14c6eaf64a1195566cdadfb4b6e0a7c6587c01585854f",
+      "sizeBytes": 555,
+      "reason": "Actual v6 dependency stop summary; process/port checks and original proof hash",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/cleanup-dependencies-v6-public-final-v1.json",
+      "originalSha256": "36740d671a31b4d5a5a14c6eaf64a1195566cdadfb4b6e0a7c6587c01585854f"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/cleanup-dependencies-v7-public-final-v1.json",
+      "sha256": "390ad35c8cf2a63e69e7e8a6e46d6153f5e085cea0d7cbe79bb0d30b88927a87",
+      "sizeBytes": 555,
+      "reason": "Actual final v7 dependency stop summary; process/port checks and original proof hash",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/cleanup-dependencies-v7-public-final-v1.json",
+      "originalSha256": "390ad35c8cf2a63e69e7e8a6e46d6153f5e085cea0d7cbe79bb0d30b88927a87"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/code-staging-acceptance-final-v1.json",
+      "sha256": "5986b190f80c5c2b67d72aa9ff9be87ac8bb836d7afe60fcc266e7eaa131645b",
+      "sizeBytes": 2552,
+      "reason": "Explicit bounded acceptance:1705 tested code/test files and pinned corpus exact; full strict flag not rewritten",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/code-staging-acceptance-final-v1.json",
+      "originalSha256": "5986b190f80c5c2b67d72aa9ff9be87ac8bb836d7afe60fcc266e7eaa131645b"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/dense-overfetch-resolution-20261026.md",
+      "sha256": "8d205a36099215d300c5efcc4e38864a04f249db6827f2e0d556531ad9906c50",
+      "sizeBytes": 5405,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/dense-overfetch-resolution-20261026.md",
+      "originalSha256": "8d205a36099215d300c5efcc4e38864a04f249db6827f2e0d556531ad9906c50"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/dependency-guards-final-v1/guards.json",
+      "sha256": "df018defdbefbb9d76771fdf6b26431a5bc2d3cc8d031341af32603068e5121e",
+      "sizeBytes": 4745,
+      "reason": "36 offline dependency guards PASS",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/dependency-guards-final-v1/guards.json",
+      "originalSha256": "df018defdbefbb9d76771fdf6b26431a5bc2d3cc8d031341af32603068e5121e"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/dependency-guards-green-v2/guards.json",
+      "sha256": "bb0e6f771d81c6827f510b5786875296027843830378de02e2d4e776a357239e",
+      "sizeBytes": 4745,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/dependency-guards-green-v2/guards.json",
+      "originalSha256": "bb0e6f771d81c6827f510b5786875296027843830378de02e2d4e776a357239e"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/docling-transport-after-lifecycle-v1.json",
+      "sha256": "0c4df483623916978a404ad9f4daf1d257541f8fb60ba61f3a9e4b358ab588b8",
+      "sizeBytes": 541,
+      "reason": "Observed zero/inflight transport counts after owned lifecycle, not upstream-cancel proof",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/docling-transport-after-lifecycle-v1.json",
+      "originalSha256": "0c4df483623916978a404ad9f4daf1d257541f8fb60ba61f3a9e4b358ab588b8"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/docling-transport-final-v1.json",
+      "sha256": "c28ae7224def6a0923c8af2cf14709db5c5ddce678fa5a32a711578397e91385",
+      "sizeBytes": 492,
+      "reason": "Historical final transport observation before last heading correction",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/docling-transport-final-v1.json",
+      "originalSha256": "c28ae7224def6a0923c8af2cf14709db5c5ddce678fa5a32a711578397e91385"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/docling-transport-final-v2.json",
+      "sha256": "8109e922f042d56b5fea3e121e800ee8cdcdc3eae40a6126f8d45ceb2ce288af",
+      "sizeBytes": 492,
+      "reason": "Final transport observation, no upstream-compute cancellation claim",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/docling-transport-final-v2.json",
+      "originalSha256": "8109e922f042d56b5fea3e121e800ee8cdcdc3eae40a6126f8d45ceb2ce288af"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/final-acceptance-summary-v1.json",
+      "sha256": "da4c5defd348a25226a36bd9f4e22ef8180b269f9c898f186899c72d93206f9b",
+      "sizeBytes": 2407,
+      "reason": "Frozen final acceptance summary and six principal proof hashes, code commit12202cb",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/final-acceptance-summary-v1.json",
+      "originalSha256": "da4c5defd348a25226a36bd9f4e22ef8180b269f9c898f186899c72d93206f9b"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/final-source-delta-v2-v3-review.json",
+      "sha256": "83c8fcae63cd5b109d748ab06ad199340e960c4a5aa7a1e5bbe21a10e5b4a936",
+      "sizeBytes": 3923,
+      "reason": "Bounded reuse of real cancellation proof: critical paths unchanged across final delta",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/final-source-delta-v2-v3-review.json",
+      "originalSha256": "83c8fcae63cd5b109d748ab06ad199340e960c4a5aa7a1e5bbe21a10e5b4a936"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/fr-table-literal-fidelity-correction-v1.md",
+      "sha256": "a55efc9180773d5557e9515be680bbf7b989ad8756b83355ba723d67ada8077b",
+      "sizeBytes": 5312,
+      "reason": "Proven source-to-table/retrieval defects, conservative fixes and test scope",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/fr-table-literal-fidelity-correction-v1.md",
+      "originalSha256": "a55efc9180773d5557e9515be680bbf7b989ad8756b83355ba723d67ada8077b"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/fr-table-literal-test-anchor-v1.json",
+      "sha256": "be4ecc6b0f752757ca385c8d1fd795941db423f1ec33bd9c619a1fa022d96c24",
+      "sizeBytes": 868,
+      "reason": "Independently checked original TRX hashes and RED/GREEN table-only counts",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/fr-table-literal-test-anchor-v1.json",
+      "originalSha256": "be4ecc6b0f752757ca385c8d1fd795941db423f1ec33bd9c619a1fa022d96c24"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/fr-table-offline-source-inspection-v1.json",
+      "sha256": "385001be47b08b3be0578d67fe05d756332c6ad65506bf5e29f051ac9acbe5f9",
+      "sizeBytes": 4454,
+      "reason": "Frozen-capture reevaluation of 90 critical facts; not a new worker run",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/fr-table-offline-source-inspection-v1.json",
+      "originalSha256": "385001be47b08b3be0578d67fe05d756332c6ad65506bf5e29f051ac9acbe5f9"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/fr-table-spatial-source-witness-v1.json",
+      "sha256": "7e696353e2f0ed3fe0f202baed488adf9320e8ac707e4ecfd71bf87929faa391",
+      "sizeBytes": 1323,
+      "reason": "Offline unique spatial association witness; not product execution",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/fr-table-spatial-source-witness-v1.json",
+      "originalSha256": "7e696353e2f0ed3fe0f202baed488adf9320e8ac707e4ecfd71bf87929faa391"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/gold-corpus-v2-final/offline-validation.json",
+      "sha256": "dd7f9575903913cc800e458fe2c5047430f2c80e4777fb1b8e49e82446ae0a1a",
+      "sizeBytes": 3644,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/gold-corpus-v2-final/offline-validation.json",
+      "originalSha256": "dd7f9575903913cc800e458fe2c5047430f2c80e4777fb1b8e49e82446ae0a1a"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/gold-harness-resolution.md",
+      "sha256": "a90010959f13935708b699411cf8671383b7e3f41c8a047b94f7847d9b672e40",
+      "sizeBytes": 4600,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/gold-harness-resolution.md",
+      "originalSha256": "a90010959f13935708b699411cf8671383b7e3f41c8a047b94f7847d9b672e40"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/hybrid-nonce-harness-resolution-v1.md",
+      "sha256": "1dbfefbbbe1177d7882b1fd229a0a1f5ec7d6db98ee99baf5f1601886b1ecc62",
+      "sizeBytes": 3242,
+      "reason": "Nonce negative-control correction preserving real dense-neighbor semantics",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/hybrid-nonce-harness-resolution-v1.md",
+      "originalSha256": "1dbfefbbbe1177d7882b1fd229a0a1f5ec7d6db98ee99baf5f1601886b1ecc62"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/ingestion-guards-final-v1/guards.json",
+      "sha256": "647f049fd393a346fe5f0c14919e62b252e5b7ce7de5315e883e41f6cb68f94c",
+      "sizeBytes": 4436,
+      "reason": "35 offline owned-ingestion guards PASS",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/ingestion-guards-final-v1/guards.json",
+      "originalSha256": "647f049fd393a346fe5f0c14919e62b252e5b7ce7de5315e883e41f6cb68f94c"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/ingestion-lease-vector-fencing-resolution.md",
+      "sha256": "04d38897a26bba7aa655c284789b24bab4febdfb335da7e1b4ecc04d85b9a2a1",
+      "sizeBytes": 7827,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/ingestion-lease-vector-fencing-resolution.md",
+      "originalSha256": "04d38897a26bba7aa655c284789b24bab4febdfb335da7e1b4ecc04d85b9a2a1"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/layout-capture-replay-contracts-v2.json",
+      "sha256": "32a069af7a7367c0e4af54a641aa4e126027784cd7b91ebda63ec0b1bc68ab39",
+      "sizeBytes": 11354,
+      "reason": "Explicitly labeled capture replay; no worker reexecution claim",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/layout-capture-replay-contracts-v2.json",
+      "originalSha256": "32a069af7a7367c0e4af54a641aa4e126027784cd7b91ebda63ec0b1bc68ab39"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/layout-contract-geometry-green-v2.json",
+      "sha256": "b38cf8fa782f3bf0d4cb784f8f555b96a294dfe18c45dd5fd3833342c5ca8e4e",
+      "sizeBytes": 1164,
+      "reason": "Offline layout geometry/evaluator guards, distinct from worker execution",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/layout-contract-geometry-green-v2.json",
+      "originalSha256": "b38cf8fa782f3bf0d4cb784f8f555b96a294dfe18c45dd5fd3833342c5ca8e4e"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/layout-worker-failures-resolution-20261026.md",
+      "sha256": "bc28232a74e3623a43ac117ebd603fb45bf94bfa307f2e7e48931f697376a005",
+      "sizeBytes": 7813,
+      "reason": "Generic layout-order and conservative section-association corrections",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/layout-worker-failures-resolution-20261026.md",
+      "originalSha256": "bc28232a74e3623a43ac117ebd603fb45bf94bfa307f2e7e48931f697376a005"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/lifecycle-negative-ack-green-v1/cancel-ack-regression-result.json",
+      "sha256": "e5cc9195bb34331c294b14fd427ba0b1d3ff7dc6cdc2a77aa6bd6dfb273f0100",
+      "sizeBytes": 414,
+      "reason": "Corrected nominal/negative cancellation-ACK control",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/lifecycle-negative-ack-green-v1/cancel-ack-regression-result.json",
+      "originalSha256": "e5cc9195bb34331c294b14fd427ba0b1d3ff7dc6cdc2a77aa6bd6dfb273f0100"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/lifecycle-negative-ack-red-v1/cancel-ack-regression-result.json",
+      "sha256": "98a340030604b51e6d0ca43ebf4f2f565005994769a35dceb733e395097147fb",
+      "sizeBytes": 406,
+      "reason": "Causal negative control: unsafe cancellation result without true ACK rejected",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/lifecycle-negative-ack-red-v1/cancel-ack-regression-result.json",
+      "originalSha256": "98a340030604b51e6d0ca43ebf4f2f565005994769a35dceb733e395097147fb"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/lifecycle-offline-guards-root-v1/guards.json",
+      "sha256": "58fcbea33d4a042557a002c82c035adefe8aab090ed3636d83f698478c6f93d2",
+      "sizeBytes": 2265,
+      "reason": "16 offline lifecycle guards PASS, distinct from real lifecycle runs",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/lifecycle-offline-guards-root-v1/guards.json",
+      "originalSha256": "58fcbea33d4a042557a002c82c035adefe8aab090ed3636d83f698478c6f93d2"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/monotonic-generation-consumer-audit-v1.md",
+      "sha256": "6f2e1d1bce4f0472541213ab75b99efdd45902ffadfbcf94a6f3e6da30ae8f76",
+      "sizeBytes": 5203,
+      "reason": "Proven monotone-generation consumer issues; final resolution still pending",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/monotonic-generation-consumer-audit-v1.md",
+      "originalSha256": "6f2e1d1bce4f0472541213ab75b99efdd45902ffadfbcf94a6f3e6da30ae8f76"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/monotonic-generation-consumer-proof-review-v1.json",
+      "sha256": "9d97e67a9ea8d1222850547d065b25490eb075d6885024db3ba7c6994d6930e1",
+      "sizeBytes": 3207,
+      "reason": "Independent readonly RED/GREEN and script-hash review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/monotonic-generation-consumer-proof-review-v1.json",
+      "originalSha256": "9d97e67a9ea8d1222850547d065b25490eb075d6885024db3ba7c6994d6930e1"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/monotonic-generation-consumer-resolution-v1.md",
+      "sha256": "88ad9a9ef215a676ff4e75b632313999ad18132dd3ac36f4a6020d582153c15a",
+      "sizeBytes": 3536,
+      "reason": "Historical monotone-consumer resolution stage",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/monotonic-generation-consumer-resolution-v1.md",
+      "originalSha256": "88ad9a9ef215a676ff4e75b632313999ad18132dd3ac36f4a6020d582153c15a"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/monotonic-generation-consumer-resolution-v2.md",
+      "sha256": "7c95eee418a31131be7f66acc0cd197fd9d18eaa31f235e8b0259a0a1bd7ab8a",
+      "sizeBytes": 4807,
+      "reason": "Final monotone-generation diagnostic resolution and verified boundaries",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/monotonic-generation-consumer-resolution-v2.md",
+      "originalSha256": "7c95eee418a31131be7f66acc0cd197fd9d18eaa31f235e8b0259a0a1bd7ab8a"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/ocr-legacy-contract-reconciliation-v1.md",
+      "sha256": "8824bea4125fc2ae782c8f42c1607ed5662ad9ec148729c7163d2e8d96885433",
+      "sizeBytes": 3280,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/ocr-legacy-contract-reconciliation-v1.md",
+      "originalSha256": "8824bea4125fc2ae782c8f42c1607ed5662ad9ec148729c7163d2e8d96885433"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/ocr-native-audit.md",
+      "sha256": "361f4036ea75f8df700cc37bb23fbb565411f16f3f01361bfa70d98261a0332a",
+      "sizeBytes": 27666,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/ocr-native-audit.md",
+      "originalSha256": "361f4036ea75f8df700cc37bb23fbb565411f16f3f01361bfa70d98261a0332a"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/ocr-native-resolution-v1.md",
+      "sha256": "1ee44c3ab24913a4c82010544b7732146050b11cf5c526f89565eb8966579528",
+      "sizeBytes": 12386,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/ocr-native-resolution-v1.md",
+      "originalSha256": "1ee44c3ab24913a4c82010544b7732146050b11cf5c526f89565eb8966579528"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/offline-tests-final-v1.json",
+      "sha256": "09df63f8183bb7808677e1bb1daa3aa6fbfc2df88fe2402c9d26eba94726acdd",
+      "sizeBytes": 7785,
+      "reason": "Frozen offline tests61+13 and guard summaries with input hashes; no services claimed",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/offline-tests-final-v1.json",
+      "originalSha256": "09df63f8183bb7808677e1bb1daa3aa6fbfc2df88fe2402c9d26eba94726acdd"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/public-evidence-and-source-provenance-plan.md",
+      "sha256": "6a5b08a31cdcb9c0c2224f26ff9e13e9035d9460174c19389a95cf855b33ae45",
+      "sizeBytes": 6623,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/public-evidence-and-source-provenance-plan.md",
+      "originalSha256": "6a5b08a31cdcb9c0c2224f26ff9e13e9035d9460174c19389a95cf855b33ae45"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/public-evidence-export-safety-review-v1.md",
+      "sha256": "0880efb84bd2d32c9eaa797b87827da357339afe9c18b5c9be0aa6cdcef0b824",
+      "sizeBytes": 4268,
+      "reason": "Independent synthetic privacy/path-traversal audit and bounded resolution",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/public-evidence-export-safety-review-v1.md",
+      "originalSha256": "0880efb84bd2d32c9eaa797b87827da357339afe9c18b5c9be0aa6cdcef0b824"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/public-evidence-final-index-v1.md",
+      "sha256": "dbda6ca98334f253f41648979ac46b24c30fc42bc4a033693f399b445011d8d5",
+      "sizeBytes": 4604,
+      "reason": "Final minimal reading index, actual limits and private exclusions; no pending validation invented",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-index-v1.md",
+      "originalSha256": "dbda6ca98334f253f41648979ac46b24c30fc42bc4a033693f399b445011d8d5"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/qdrant-short-path-control-v2.json",
+      "sha256": "a05d501aa83b3d9fd35b085b805be3dfa1a17767b19c1fb6d07049e846a17ae3",
+      "sizeBytes": 570,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/qdrant-short-path-control-v2.json",
+      "originalSha256": "a05d501aa83b3d9fd35b085b805be3dfa1a17767b19c1fb6d07049e846a17ae3"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/quality-script-parse-final-v1.json",
+      "sha256": "30d6e24fc3368211ce7e2b941b54ed6c432a616e49000e2ef1f11ef9d1979a0b",
+      "sizeBytes": 235,
+      "reason": "Actual quality-script parser check with zero errors",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/quality-script-parse-final-v1.json",
+      "originalSha256": "30d6e24fc3368211ce7e2b941b54ed6c432a616e49000e2ef1f11ef9d1979a0b"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/real-vector-probe-v2.json",
+      "sha256": "e9be354f103feac29f4ed728840fda7a4a67ea27a617953761dca871e13f8af7",
+      "sizeBytes": 2806,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/real-vector-probe-v2.json",
+      "originalSha256": "e9be354f103feac29f4ed728840fda7a4a67ea27a617953761dca871e13f8af7"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/real-vector-probe-v3.json",
+      "sha256": "8c74389b4c463a01c44e4dd50bd9df480e1e4f6fd48529c94a9b60172346a38a",
+      "sizeBytes": 2804,
+      "reason": "Actual local E5/Qdrant probe and bounded dependency identity",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/real-vector-probe-v3.json",
+      "originalSha256": "8c74389b4c463a01c44e4dd50bd9df480e1e4f6fd48529c94a9b60172346a38a"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/source-eol-normalization-v1.json",
+      "sha256": "f645263ad06f245f0731470026afb789d0d1cc72a6a7bfa2efe7399d5431c6dd",
+      "sizeBytes": 129645,
+      "reason": "Historical source-byte normalization hashes before the relevant builds",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/source-eol-normalization-v1.json",
+      "originalSha256": "f645263ad06f245f0731470026afb789d0d1cc72a6a7bfa2efe7399d5431c6dd"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/source-index-anchor-final-v2.json",
+      "sha256": "71247af3885c02ed933fdc964d6fe7c1093eb48ea632fe64ab310f28054638a8",
+      "sizeBytes": 2065099,
+      "reason": "Entire actual binary index anchor; global strictPassed=false retained for31 EOL-only historical configurations",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/source-index-anchor-final-v2.json",
+      "originalSha256": "71247af3885c02ed933fdc964d6fe7c1093eb48ea632fe64ab310f28054638a8"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/source-index-verifier-protocol-v1.md",
+      "sha256": "888685ce05b25dd35f419aa3ef3389d8b9066808831b737b7dd3013c9c1287e6",
+      "sizeBytes": 5783,
+      "reason": "Binary readonly Git verifier contract, EOL/provenance limits and exactness policy",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/source-index-verifier-protocol-v1.md",
+      "originalSha256": "888685ce05b25dd35f419aa3ef3389d8b9066808831b737b7dd3013c9c1287e6"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/source-staging-allowlist-v1.json",
+      "sha256": "16e45b4f9eead9c05d63fb2268652ae581e540418ad0ee77746e445dc5945053",
+      "sizeBytes": 9894,
+      "reason": "Explicit code-staging path selection, distinct from untracked/private artifacts",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/source-staging-allowlist-v1.json",
+      "originalSha256": "16e45b4f9eead9c05d63fb2268652ae581e540418ad0ee77746e445dc5945053"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/telegram-cloture-delivery.json",
+      "sha256": "5f0caf73c3d0187f8cb2f8bb700f6c7dcfba529ee686822762075fd0a64ca4aa",
+      "sizeBytes": 417,
+      "reason": "Bounded delivery acknowledgement linked to report hash; no credential content",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/telegram-cloture-delivery.json",
+      "originalSha256": "5f0caf73c3d0187f8cb2f8bb700f6c7dcfba529ee686822762075fd0a64ca4aa"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/tests/hybrid-nonce-harness-green-v1/manifest.json",
+      "sha256": "2133a4f9643183899ed5e434fb4a5afbc1fed0a55378578252407c8ae13481cd",
+      "sizeBytes": 8493,
+      "reason": "Pure-Python hybrid nonce guards GREEN; no worker reexecution",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/hybrid-nonce-harness-green-v1/manifest.json",
+      "originalSha256": "2133a4f9643183899ed5e434fb4a5afbc1fed0a55378578252407c8ae13481cd"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/tests/hybrid-nonce-harness-red-v1/manifest.json",
+      "sha256": "12c82c1a03d29cfee65a7530d6c54d599c95192e8dc387b9dbe6effe7fcae473",
+      "sizeBytes": 500,
+      "reason": "Pure-Python causal RED metadata; not a .NET TRX campaign",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/hybrid-nonce-harness-red-v1/manifest.json",
+      "originalSha256": "12c82c1a03d29cfee65a7530d6c54d599c95192e8dc387b9dbe6effe7fcae473"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/tests/public-evidence-export-v1/proof-v1.json",
+      "sha256": "837732af91df0326c7c7cbdc2ee0e495c63393a551618e795aa7e03519b697f2",
+      "sizeBytes": 2121,
+      "reason": "12 pure-Python synthetic guards PASS; explicit RED anchoring limits",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/public-evidence-export-v1/proof-v1.json",
+      "originalSha256": "837732af91df0326c7c7cbdc2ee0e495c63393a551618e795aa7e03519b697f2"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/tests/public-evidence-export-v1/test_public_evidence_export.py",
+      "sha256": "cc2f4de41f1506f24e18a74ea8cdeb006d7b7cf01082bdfe43549d69cd635ace",
+      "sizeBytes": 10228,
+      "reason": "12 synthetic privacy/name/hash/path export guards",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/public-evidence-export-v1/test_public_evidence_export.py",
+      "originalSha256": "cc2f4de41f1506f24e18a74ea8cdeb006d7b7cf01082bdfe43549d69cd635ace"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/tests/source-index-anchor-v1/proof-v2.json",
+      "sha256": "1c4b82c6d4c4d012aa776a53935b6c4fd3d0b074e2a601c0727d106231ca4ad3",
+      "sizeBytes": 1389,
+      "reason": "17PASS source-index verifier proof and exact final tool hashes",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/source-index-anchor-v1/proof-v2.json",
+      "originalSha256": "1c4b82c6d4c4d012aa776a53935b6c4fd3d0b074e2a601c0727d106231ca4ad3"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/tests/source-index-anchor-v1/test_source_index_anchor.py",
+      "sha256": "5cec6293f121686a9dfbc2aebaf67b3c091aed3e17ab422ad0ed21d996997c68",
+      "sizeBytes": 11036,
+      "reason": "17 synthetic-repository tests; no real index mutation by test agent",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/source-index-anchor-v1/test_source_index_anchor.py",
+      "originalSha256": "5cec6293f121686a9dfbc2aebaf67b3c091aed3e17ab422ad0ed21d996997c68"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/tooling-fencing-search-resolution-v1.md",
+      "sha256": "316d1ac515c399ce81a0e188852ebf0ae31edd7881d7cb411937f147a8238a44",
+      "sizeBytes": 3626,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tooling-fencing-search-resolution-v1.md",
+      "originalSha256": "316d1ac515c399ce81a0e188852ebf0ae31edd7881d7cb411937f147a8238a44"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/uncovered-observed-headings-resolution-20261026.md",
+      "sha256": "70ccefe34baf60929da9211e5921b94560a9fe1d3fb932646c63c039d3b430e5",
+      "sizeBytes": 4828,
+      "reason": "Two useful canonical headings retained in retrieval after causal regression tests",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/uncovered-observed-headings-resolution-20261026.md",
+      "originalSha256": "70ccefe34baf60929da9211e5921b94560a9fe1d3fb932646c63c039d3b430e5"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/validation-and-runtime-audit.md",
+      "sha256": "afe7679aa3ccda5fd95bf4439c30f2731c2a1aed2cc0ee5eb62b6fa0e4c51429",
+      "sizeBytes": 17607,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/validation-and-runtime-audit.md",
+      "originalSha256": "afe7679aa3ccda5fd95bf4439c30f2731c2a1aed2cc0ee5eb62b6fa0e4c51429"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/verify-tested-source-index.py",
+      "sha256": "0174255f405d624aa26b4e7e2ab0bc6e45f94e8a26fabcf338d5d9210905c31e",
+      "sizeBytes": 15835,
+      "reason": "Exact readonly binary index verifier source, no staging or implicit transport",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/verify-tested-source-index.py",
+      "originalSha256": "0174255f405d624aa26b4e7e2ab0bc6e45f94e8a26fabcf338d5d9210905c31e"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-e2e-protocol.md",
+      "sha256": "f1193e20d79d14001b01c2fce62489228049f89fc1d03c7e74b4323cb04bdf99",
+      "sizeBytes": 3312,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-e2e-protocol.md",
+      "originalSha256": "f1193e20d79d14001b01c2fce62489228049f89fc1d03c7e74b4323cb04bdf99"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-first-3d-v2/execution-result.json",
+      "sha256": "c811a3b0c8826686f02197421a148e39f71599448ce886b0e81f1a5e7f03bcf4",
+      "sizeBytes": 1707,
+      "reason": "Historical initial owned-worker smoke run; mocked embeddings/vector limits retained",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-first-3d-v2/execution-result.json",
+      "originalSha256": "c811a3b0c8826686f02197421a148e39f71599448ce886b0e81f1a5e7f03bcf4"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-first-3d-v2/publication-verification.json",
+      "sha256": "b8e6d4b4f09a53b2100c8fb2a1dbd7124e9b2c356545a7f619ef43b9b621c479",
+      "sizeBytes": 2082,
+      "reason": "Historical initial smoke publication checks; never treated as real vector proof",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-first-3d-v2/publication-verification.json",
+      "originalSha256": "b8e6d4b4f09a53b2100c8fb2a1dbd7124e9b2c356545a7f619ef43b9b621c479"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-full-e5-071-v1/execution-result.json",
+      "sha256": "3c8b39a868b27104d0f6adde18f17c0849f274a454fdfddcc252e1e27e6a862e",
+      "sizeBytes": 2269,
+      "reason": "Historical real worker failure; no relabeling after corrections",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-full-e5-071-v1/execution-result.json",
+      "originalSha256": "3c8b39a868b27104d0f6adde18f17c0849f274a454fdfddcc252e1e27e6a862e"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-full-e5-071-v1/offline-reevaluation-v2.json",
+      "sha256": "41512add00b1ac5779ce2a38bbc44adfc1e6a5fdbf627f4db217ad87e7fa691a",
+      "sizeBytes": 1948,
+      "reason": "Explicit offline reevaluation metadata for original failed worker capture",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-full-e5-071-v1/offline-reevaluation-v2.json",
+      "originalSha256": "41512add00b1ac5779ce2a38bbc44adfc1e6a5fdbf627f4db217ad87e7fa691a"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-full-e5-071-v1/publication-verification-v2.json",
+      "sha256": "7dc9d16e12c9e398e1f11748d21e411a8029e91490ad58a8d86013372750f30a",
+      "sizeBytes": 15855,
+      "reason": "Offline reevaluation of the original capture, not a new worker run",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-full-e5-071-v1/publication-verification-v2.json",
+      "originalSha256": "7dc9d16e12c9e398e1f11748d21e411a8029e91490ad58a8d86013372750f30a"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-full-e5-071-v1/publication-verification.json",
+      "sha256": "9fcd85f5d5a1449d5c3e6f1781a4e57d19de0b31eca910b2c725805b1eb87cbb",
+      "sizeBytes": 14271,
+      "reason": "Original real worker failure detail retained as historical",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-full-e5-071-v1/publication-verification.json",
+      "originalSha256": "9fcd85f5d5a1449d5c3e6f1781a4e57d19de0b31eca910b2c725805b1eb87cbb"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-full-e5-071-v2/execution-result.json",
+      "sha256": "7070d74467d68ed170ffa2f375fe79e6aca6ab8f48c30d2e00c2b8a7da30bc16",
+      "sizeBytes": 2267,
+      "reason": "Independent review of original12PDF real worker run, identities and source facts",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-full-e5-071-v2/execution-result.json",
+      "originalSha256": "7070d74467d68ed170ffa2f375fe79e6aca6ab8f48c30d2e00c2b8a7da30bc16"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-full-e5-071-v2/independent-review.md",
+      "sha256": "42adcd2f9c463f731dcfac3f61483ddab255554e1fa1b5494d58957496cc60ee",
+      "sizeBytes": 8989,
+      "reason": "Independent review of original12PDF real worker run, identities and source facts",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-full-e5-071-v2/independent-review.md",
+      "originalSha256": "42adcd2f9c463f731dcfac3f61483ddab255554e1fa1b5494d58957496cc60ee"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-full-e5-071-v2/public-summary.json",
+      "sha256": "1d7d59dd36cca0600bde13ce3069324fa3360b539094337170ae3f1f4affa5ea",
+      "sizeBytes": 907,
+      "reason": "Independent review of original12PDF real worker run, identities and source facts",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-full-e5-071-v2/public-summary.json",
+      "originalSha256": "1d7d59dd36cca0600bde13ce3069324fa3360b539094337170ae3f1f4affa5ea"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-full-e5-071-v2/publication-verification.json",
+      "sha256": "9c393385cd5cfb12b0cac354c38fcfdaf3ad50447c36e50c8017ac1ef3d280eb",
+      "sizeBytes": 15305,
+      "reason": "Independent review of original12PDF real worker run, identities and source facts",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-full-e5-071-v2/publication-verification.json",
+      "originalSha256": "9c393385cd5cfb12b0cac354c38fcfdaf3ad50447c36e50c8017ac1ef3d280eb"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-full-e5-lifecycle-final-v1/execution-result.json",
+      "sha256": "58d86de32aea00424e6b298a0121351a0e0193157d73f15b71074b3bddea2daf",
+      "sizeBytes": 5995,
+      "reason": "Historical real cancellation ACKtrue and preserved publication on prior DLL",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-full-e5-lifecycle-final-v1/execution-result.json",
+      "originalSha256": "58d86de32aea00424e6b298a0121351a0e0193157d73f15b71074b3bddea2daf"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-full-e5-lifecycle-final-v1/independent-review.md",
+      "sha256": "6dcb95a0d2815de7ff258e51ef3343db8d8d5bfce989a929a1800956ad29a369",
+      "sizeBytes": 7028,
+      "reason": "Historical real cancellation ACKtrue and preserved publication on prior DLL",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-full-e5-lifecycle-final-v1/independent-review.md",
+      "originalSha256": "6dcb95a0d2815de7ff258e51ef3343db8d8d5bfce989a929a1800956ad29a369"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-full-e5-lifecycle-final-v1/lifecycle-verification.json",
+      "sha256": "776dfe0362a5ff470cba9f1fac9639b4ddc80a7c9df8d18f8fa035e0206cf40d",
+      "sizeBytes": 3507,
+      "reason": "Historical real cancellation ACKtrue and preserved publication on prior DLL",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-full-e5-lifecycle-final-v1/lifecycle-verification.json",
+      "originalSha256": "776dfe0362a5ff470cba9f1fac9639b4ddc80a7c9df8d18f8fa035e0206cf40d"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-full-e5-lifecycle-final-v1/publication-verification.json",
+      "sha256": "9c393385cd5cfb12b0cac354c38fcfdaf3ad50447c36e50c8017ac1ef3d280eb",
+      "sizeBytes": 15305,
+      "reason": "Historical real cancellation ACKtrue and preserved publication on prior DLL",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-full-e5-lifecycle-final-v1/publication-verification.json",
+      "originalSha256": "9c393385cd5cfb12b0cac354c38fcfdaf3ad50447c36e50c8017ac1ef3d280eb"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-full-e5-lifecycle-final-v2/execution-result.json",
+      "sha256": "faa006c33c426dced2932b2ee22ccb20a403d676899e3fc824323513c41ae35c",
+      "sizeBytes": 5741,
+      "reason": "Final real12PDF/90fact/37point worker lifecycle; cancellationNON_EXECUTED because completion won",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-full-e5-lifecycle-final-v2/execution-result.json",
+      "originalSha256": "faa006c33c426dced2932b2ee22ccb20a403d676899e3fc824323513c41ae35c"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-full-e5-lifecycle-final-v2/independent-review.md",
+      "sha256": "c3378bdeea64d91bb6f295e97faa1dd0b89983f4caf0a0a763542e5f14e2dc2e",
+      "sizeBytes": 6825,
+      "reason": "Final real12PDF/90fact/37point worker lifecycle; cancellationNON_EXECUTED because completion won",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-full-e5-lifecycle-final-v2/independent-review.md",
+      "originalSha256": "c3378bdeea64d91bb6f295e97faa1dd0b89983f4caf0a0a763542e5f14e2dc2e"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-full-e5-lifecycle-final-v2/lifecycle-verification.json",
+      "sha256": "56a8ca9d1d62aaccc00c92c1d1c14c9021dc3bc0c61f2a9310b705a588001e2e",
+      "sizeBytes": 3267,
+      "reason": "Final real12PDF/90fact/37point worker lifecycle; cancellationNON_EXECUTED because completion won",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-full-e5-lifecycle-final-v2/lifecycle-verification.json",
+      "originalSha256": "56a8ca9d1d62aaccc00c92c1d1c14c9021dc3bc0c61f2a9310b705a588001e2e"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-full-e5-lifecycle-final-v2/publication-verification.json",
+      "sha256": "9c393385cd5cfb12b0cac354c38fcfdaf3ad50447c36e50c8017ac1ef3d280eb",
+      "sizeBytes": 15305,
+      "reason": "Final real12PDF/90fact/37point worker lifecycle; cancellationNON_EXECUTED because completion won",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-full-e5-lifecycle-final-v2/publication-verification.json",
+      "originalSha256": "9c393385cd5cfb12b0cac354c38fcfdaf3ad50447c36e50c8017ac1ef3d280eb"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-harness-offline-v2/offline-validation.json",
+      "sha256": "69018e7c4d171503b390267aa0147bdf7b045aeb985be121491501bdbf1ebc31",
+      "sizeBytes": 1365,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-harness-offline-v2/offline-validation.json",
+      "originalSha256": "69018e7c4d171503b390267aa0147bdf7b045aeb985be121491501bdbf1ebc31"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-harness-offline-v4/offline-validation.json",
+      "sha256": "9891b1828d410fb227d72e99265024693d164a52f61a085b90bd728ec56d8688",
+      "sizeBytes": 1720,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-harness-offline-v4/offline-validation.json",
+      "originalSha256": "9891b1828d410fb227d72e99265024693d164a52f61a085b90bd728ec56d8688"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-harness-offline-v5/guards/guards.json",
+      "sha256": "ded0591daf4043a976eec732e0d068d16b1e1aab01f2c975d498a648acea45d7",
+      "sizeBytes": 4436,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-harness-offline-v5/guards/guards.json",
+      "originalSha256": "ded0591daf4043a976eec732e0d068d16b1e1aab01f2c975d498a648acea45d7"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-harness-resolution.md",
+      "sha256": "0bc8d2156c957755e375c3c3bd61848e3c0936df738a1ac0ef63909d2dfdd15e",
+      "sizeBytes": 6294,
+      "reason": "Explicit public report or bounded summary; requires final content review",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-harness-resolution.md",
+      "originalSha256": "0bc8d2156c957755e375c3c3bd61848e3c0936df738a1ac0ef63909d2dfdd15e"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-recipe-e5-071-v1/execution-result.json",
+      "sha256": "57cb9aa49f87cde355642a629f3fb87815f6e5b7ab2c9ada49df8a377fb37561",
+      "sizeBytes": 1904,
+      "reason": "Separate real 36-page recipe-PDF ingestion PASS; not meal-planning generation",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-recipe-e5-071-v1/execution-result.json",
+      "originalSha256": "57cb9aa49f87cde355642a629f3fb87815f6e5b7ab2c9ada49df8a377fb37561"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-recipe-e5-071-v1/publication-verification.json",
+      "sha256": "2be2e7335a5e553110b3d57abdff551e921c80b39b8ce5808511d807cf2b57d1",
+      "sizeBytes": 2119,
+      "reason": "Real recipe-PDF publication/read/search evidence with explicit limits",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-recipe-e5-071-v1/publication-verification.json",
+      "originalSha256": "2be2e7335a5e553110b3d57abdff551e921c80b39b8ce5808511d807cf2b57d1"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-recipe-e5-final-v2/execution-result.json",
+      "sha256": "03663182dc8aceee964924a6da71f4d333771407435b076b3586ee8ef7ac749a",
+      "sizeBytes": 1904,
+      "reason": "Historical real36page/14fact/158point recipe run; title losses found afterwards",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-recipe-e5-final-v2/execution-result.json",
+      "originalSha256": "03663182dc8aceee964924a6da71f4d333771407435b076b3586ee8ef7ac749a"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-recipe-e5-final-v2/publication-verification.json",
+      "sha256": "1d2e39a8e42c5ae5bd510a32f7b258bbc932155dec34f444e89b4d806bb07c8c",
+      "sizeBytes": 2119,
+      "reason": "Historical real36page/14fact/158point recipe run; title losses found afterwards",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-recipe-e5-final-v2/publication-verification.json",
+      "originalSha256": "1d2e39a8e42c5ae5bd510a32f7b258bbc932155dec34f444e89b4d806bb07c8c"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-recipe-e5-final-v3/execution-result.json",
+      "sha256": "689300e8c164ce31dfb3979cbc676761359f0183e303af5d0cdd92d805f07ae4",
+      "sizeBytes": 1904,
+      "reason": "Final real36page/16fact/160point recipe run, including two heading regressions",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-recipe-e5-final-v3/execution-result.json",
+      "originalSha256": "689300e8c164ce31dfb3979cbc676761359f0183e303af5d0cdd92d805f07ae4"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/reports/worker-recipe-e5-final-v3/publication-verification.json",
+      "sha256": "7a921a08ba3bc3e502ae301e6cac9dd531d39583d81ed06589a9382ed32c73f8",
+      "sizeBytes": 2119,
+      "reason": "Final real36page/16fact/160point recipe run, including two heading regressions",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/worker-recipe-e5-final-v3/publication-verification.json",
+      "originalSha256": "7a921a08ba3bc3e502ae301e6cac9dd531d39583d81ed06589a9382ed32c73f8"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/docling-fidelity-red-v2/Backend.public.trx",
+      "sha256": "37968ad63d7b3aef398cf7b26bdf5bc2c9522f6a7973c0f9034d3a9c47317c47",
+      "sizeBytes": 14481,
+      "reason": "Sanitized test outcomes; raw stdout/errors excluded",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/docling-fidelity-red-v2/Backend-fc8079b5c65a43bc9aa5df859545cf9e.trx",
+      "originalSha256": "6bb009635253b6885904a765a82a5618ab7e46ed592af4f8e5ab3c9a0437cd4c"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/docling-fidelity-red-v2/source-files-fc8079b5c65a43bc9aa5df859545cf9e-before.json",
+      "sha256": "c1c8e420a19d63db0f768f6810637ae53ea1b5c4ff1232a44b0b519626601ffc",
+      "sizeBytes": 309542,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/docling-fidelity-red-v2/source-files-fc8079b5c65a43bc9aa5df859545cf9e-before.json",
+      "originalSha256": "c1c8e420a19d63db0f768f6810637ae53ea1b5c4ff1232a44b0b519626601ffc"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/docling-fidelity-red-v2/source-files-fc8079b5c65a43bc9aa5df859545cf9e-after.json",
+      "sha256": "c1c8e420a19d63db0f768f6810637ae53ea1b5c4ff1232a44b0b519626601ffc",
+      "sizeBytes": 309542,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/docling-fidelity-red-v2/source-files-fc8079b5c65a43bc9aa5df859545cf9e-after.json",
+      "originalSha256": "c1c8e420a19d63db0f768f6810637ae53ea1b5c4ff1232a44b0b519626601ffc"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/docling-fidelity-red-v2/manifest.public.json",
+      "sha256": "df9579eaa201ab7a976f9b4a935fb4d8597f6531124463a63420734dd13fdda6",
+      "sizeBytes": 7942,
+      "reason": "Projected test manifest preserving failures/skips/source drift",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/docling-fidelity-red-v2/manifest.json",
+      "originalSha256": "81ffdf52435baa8caf229a305e0088f6523794cd9e715dae95dde85e2559118e"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/layout-association-red-table-green-v1/Backend.public.trx",
+      "sha256": "045f32ef56cd868fd167973b19f75780dfcced56dbf0ce204c5eedb82fa605e0",
+      "sizeBytes": 32521,
+      "reason": "Sanitized test outcomes; raw stdout/errors excluded",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/layout-association-red-table-green-v1/Backend-3e69aad2c3184fff8cc81ece0704d6f8.trx",
+      "originalSha256": "ae14d9208b5c41966dfe94d814f7bb497fc1eca205b8ad4a7de3c7c51356ebe8"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/layout-association-red-table-green-v1/source-files-3e69aad2c3184fff8cc81ece0704d6f8-before.json",
+      "sha256": "cad826145c469c3c4b341ab006cf8bcf0a9807ddf12f23f20c35a60c0721c928",
+      "sizeBytes": 319929,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/layout-association-red-table-green-v1/source-files-3e69aad2c3184fff8cc81ece0704d6f8-before.json",
+      "originalSha256": "cad826145c469c3c4b341ab006cf8bcf0a9807ddf12f23f20c35a60c0721c928"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/layout-association-red-table-green-v1/source-files-3e69aad2c3184fff8cc81ece0704d6f8-after.json",
+      "sha256": "cad826145c469c3c4b341ab006cf8bcf0a9807ddf12f23f20c35a60c0721c928",
+      "sizeBytes": 319929,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/layout-association-red-table-green-v1/source-files-3e69aad2c3184fff8cc81ece0704d6f8-after.json",
+      "originalSha256": "cad826145c469c3c4b341ab006cf8bcf0a9807ddf12f23f20c35a60c0721c928"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/layout-association-red-table-green-v1/manifest.public.json",
+      "sha256": "95aded717592c014b5b360463eabf50cb8636e95fc2ad588f566da3533de078a",
+      "sizeBytes": 13075,
+      "reason": "Projected test manifest preserving failures/skips/source drift",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/layout-association-red-table-green-v1/manifest.json",
+      "originalSha256": "29929a8e147fa041b6501be2f1e325ee7f2b9fadb2ea5a027c5fa8ab8b7adbd8"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/literal-boundaries-red/Backend.public.trx",
+      "sha256": "b17d456fac16d60ead13f331f74deec95999be381f7eefe092fafbe1a932ef85",
+      "sizeBytes": 9349,
+      "reason": "Sanitized test outcomes; raw stdout/errors excluded",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/literal-boundaries-red/Backend-03dc62ff26de46e69c4ebc3771bd5068.trx",
+      "originalSha256": "2849567c554e0fdce086a83b803dbc047b73d586c6306948f35eee10bee4f6a8"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/literal-boundaries-red/source-files-03dc62ff26de46e69c4ebc3771bd5068-before.json",
+      "sha256": "2618ed0cbec6297a06d771ae4cea2e991fae645408eb484b0cb72bd0437385fb",
+      "sizeBytes": 315243,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/literal-boundaries-red/source-files-03dc62ff26de46e69c4ebc3771bd5068-before.json",
+      "originalSha256": "2618ed0cbec6297a06d771ae4cea2e991fae645408eb484b0cb72bd0437385fb"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/literal-boundaries-red/source-files-03dc62ff26de46e69c4ebc3771bd5068-after.json",
+      "sha256": "2618ed0cbec6297a06d771ae4cea2e991fae645408eb484b0cb72bd0437385fb",
+      "sizeBytes": 315243,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/literal-boundaries-red/source-files-03dc62ff26de46e69c4ebc3771bd5068-after.json",
+      "originalSha256": "2618ed0cbec6297a06d771ae4cea2e991fae645408eb484b0cb72bd0437385fb"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/literal-boundaries-red/manifest.public.json",
+      "sha256": "35cb13825c598b33323a91fc4e21100ebf0d03ec7013766e837ccf97aa10ee52",
+      "sizeBytes": 6537,
+      "reason": "Projected test manifest preserving failures/skips/source drift",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/literal-boundaries-red/manifest.json",
+      "originalSha256": "70b5a7fcc3647bd80dff62cd9a807cf886411c5715d5274f6059d549fadcb22c"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/native-layout-canonical-order-red-v1/Backend.public.trx",
+      "sha256": "2c408e0a9473ecf4f83d5443bfa65e9822ce7c2786e8216c990a5b15e65abd30",
+      "sizeBytes": 9910,
+      "reason": "Sanitized test outcomes; raw stdout/errors excluded",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/native-layout-canonical-order-red-v1/Backend-aa93867d33c54140b6bb43a0abf3b006.trx",
+      "originalSha256": "fd1cd0b6f428f65214ee8a1e234aa6884bdb4dbe0a66ff97cafcf76103ca8fb2"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/native-layout-canonical-order-red-v1/source-files-aa93867d33c54140b6bb43a0abf3b006-before.json",
+      "sha256": "17d74747d4764e0c5b9b39879f3ee6e0b84524d1622d14a96e440f19752c4e74",
+      "sizeBytes": 319005,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/native-layout-canonical-order-red-v1/source-files-aa93867d33c54140b6bb43a0abf3b006-before.json",
+      "originalSha256": "17d74747d4764e0c5b9b39879f3ee6e0b84524d1622d14a96e440f19752c4e74"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/native-layout-canonical-order-red-v1/source-files-aa93867d33c54140b6bb43a0abf3b006-after.json",
+      "sha256": "17d74747d4764e0c5b9b39879f3ee6e0b84524d1622d14a96e440f19752c4e74",
+      "sizeBytes": 319005,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/native-layout-canonical-order-red-v1/source-files-aa93867d33c54140b6bb43a0abf3b006-after.json",
+      "originalSha256": "17d74747d4764e0c5b9b39879f3ee6e0b84524d1622d14a96e440f19752c4e74"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/native-layout-canonical-order-red-v1/manifest.public.json",
+      "sha256": "2cb6c1488273901766ee5b22daa7b13b5aa70d1358bef83e21ffe4389c1595ae",
+      "sizeBytes": 6735,
+      "reason": "Projected test manifest preserving failures/skips/source drift",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/native-layout-canonical-order-red-v1/manifest.json",
+      "originalSha256": "55a69f7ff74b8e8025ae3bdf2cdf936fee619cb881a1069123a01a4013dd3b65"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/ocr-fidelity-red/Backend.public.trx",
+      "sha256": "1b957211fd927bd2c5292cca98d31c2d6f3ef4b8c2356a6e0e14daa87da0ed69",
+      "sizeBytes": 29447,
+      "reason": "Sanitized test outcomes; raw stdout/errors excluded",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/ocr-fidelity-red/Backend-465262d2439446f38a138706f5484e6d.trx",
+      "originalSha256": "8313158e787c09f171bb663ffcd780fad434711251933530f626c9bacabd7d58"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/ocr-fidelity-red/source-files-465262d2439446f38a138706f5484e6d-before.json",
+      "sha256": "23a78eb0d313bbca537480a06aeba4d4d2ac319259770a3aa61a3a72b42d44b9",
+      "sizeBytes": 308772,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/ocr-fidelity-red/source-files-465262d2439446f38a138706f5484e6d-before.json",
+      "originalSha256": "23a78eb0d313bbca537480a06aeba4d4d2ac319259770a3aa61a3a72b42d44b9"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/ocr-fidelity-red/source-files-465262d2439446f38a138706f5484e6d-after.json",
+      "sha256": "23a78eb0d313bbca537480a06aeba4d4d2ac319259770a3aa61a3a72b42d44b9",
+      "sizeBytes": 308772,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/ocr-fidelity-red/source-files-465262d2439446f38a138706f5484e6d-after.json",
+      "originalSha256": "23a78eb0d313bbca537480a06aeba4d4d2ac319259770a3aa61a3a72b42d44b9"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/ocr-fidelity-red/manifest.public.json",
+      "sha256": "3fb0b56703694d3f5f16a7f59292f686abfcfa4c8a7e5e47f3a075256bfa60c9",
+      "sizeBytes": 11932,
+      "reason": "Projected test manifest preserving failures/skips/source drift",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/ocr-fidelity-red/manifest.json",
+      "originalSha256": "5ced09ad44661c5e126e6e752b2816c6613e11fe8f9d72c1440ed8090b30c67e"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/postgres-text-red-and-tei-green/Backend.public.trx",
+      "sha256": "6cb390701a6ba86492ce043fd025b976b5bed0904be0fe5072a1e97aae4eb6c4",
+      "sizeBytes": 37802,
+      "reason": "Sanitized test outcomes; raw stdout/errors excluded",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/postgres-text-red-and-tei-green/Backend-89de8830baba41f5b65a4b8edb8888a4.trx",
+      "originalSha256": "d0a989d72ebcc83afc5792bfb541ef90e07942e392d6fde0fe7c4adfd1a48081"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/postgres-text-red-and-tei-green/source-files-89de8830baba41f5b65a4b8edb8888a4-before.json",
+      "sha256": "29d934958f23a72f9aa60fe9859438a3861baa4581c3d0dd94e11df293adc29c",
+      "sizeBytes": 314573,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/postgres-text-red-and-tei-green/source-files-89de8830baba41f5b65a4b8edb8888a4-before.json",
+      "originalSha256": "29d934958f23a72f9aa60fe9859438a3861baa4581c3d0dd94e11df293adc29c"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/postgres-text-red-and-tei-green/source-files-89de8830baba41f5b65a4b8edb8888a4-after.json",
+      "sha256": "29d934958f23a72f9aa60fe9859438a3861baa4581c3d0dd94e11df293adc29c",
+      "sizeBytes": 314573,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/postgres-text-red-and-tei-green/source-files-89de8830baba41f5b65a4b8edb8888a4-after.json",
+      "originalSha256": "29d934958f23a72f9aa60fe9859438a3861baa4581c3d0dd94e11df293adc29c"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/postgres-text-red-and-tei-green/manifest.public.json",
+      "sha256": "ff2ce7664e480be310048b6fe96bfcde19fae244270ec2908caf9ce2cc0479c8",
+      "sizeBytes": 14376,
+      "reason": "Projected test manifest preserving failures/skips/source drift",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/postgres-text-red-and-tei-green/manifest.json",
+      "originalSha256": "fd960a3c8d234dc92b61a9db43eb76a198d110c8396a2200969e6896d81eb4b0"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/table-literal-red-layout-green-v2/Backend.public.trx",
+      "sha256": "dc1f0f31a88fb59b7c7604bcd9ce8366f23022486444fa215fe7d9e3687b2f0c",
+      "sizeBytes": 22416,
+      "reason": "Sanitized test outcomes; raw stdout/errors excluded",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/table-literal-red-layout-green-v2/Backend-1e4c7ba8917447848ac93426b8420318.trx",
+      "originalSha256": "de4501ffb0c9ce9aa81b448369a57fcdd6dcdabcdf782cdff55e6ace5139ae6d"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/table-literal-red-layout-green-v2/source-files-1e4c7ba8917447848ac93426b8420318-before.json",
+      "sha256": "fb104806443ffda3f3c4328952c77b9bccb85ea994e415e3c940385488478508",
+      "sizeBytes": 319544,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/table-literal-red-layout-green-v2/source-files-1e4c7ba8917447848ac93426b8420318-before.json",
+      "originalSha256": "fb104806443ffda3f3c4328952c77b9bccb85ea994e415e3c940385488478508"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/table-literal-red-layout-green-v2/source-files-1e4c7ba8917447848ac93426b8420318-after.json",
+      "sha256": "fb104806443ffda3f3c4328952c77b9bccb85ea994e415e3c940385488478508",
+      "sizeBytes": 319544,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/table-literal-red-layout-green-v2/source-files-1e4c7ba8917447848ac93426b8420318-after.json",
+      "originalSha256": "fb104806443ffda3f3c4328952c77b9bccb85ea994e415e3c940385488478508"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/table-literal-red-layout-green-v2/manifest.public.json",
+      "sha256": "ff71e0c67bb147774c57a9d9bd6c14f9fa9dc28e056f227f378a567c38514762",
+      "sizeBytes": 10194,
+      "reason": "Projected test manifest preserving failures/skips/source drift",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/table-literal-red-layout-green-v2/manifest.json",
+      "originalSha256": "50ec95cc1683d17c09ec61f1e502767db5448e325e99dd17cf36e5ab103bd213"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/uncovered-heading-green-v1/Backend.public.trx",
+      "sha256": "6c8726210fe29164accdc091e1a51d866be51b18abd052eabfda5f4905496572",
+      "sizeBytes": 10974,
+      "reason": "Sanitized test outcomes; raw stdout/errors excluded",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/uncovered-heading-green-v1/Backend-0607e056afac4783bac91cfa15dc0556.trx",
+      "originalSha256": "44c98e341c0d4d202c866b458f2491b30dc81fd98d846f87b9bd3cab1c72eb5f"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/uncovered-heading-green-v1/source-files-0607e056afac4783bac91cfa15dc0556-before.json",
+      "sha256": "d50be0b138b41f57b09bb097797dad9fa235e54626cb4f117ca3ce5f2ae6acf3",
+      "sizeBytes": 320524,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/uncovered-heading-green-v1/source-files-0607e056afac4783bac91cfa15dc0556-before.json",
+      "originalSha256": "d50be0b138b41f57b09bb097797dad9fa235e54626cb4f117ca3ce5f2ae6acf3"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/uncovered-heading-green-v1/source-files-0607e056afac4783bac91cfa15dc0556-after.json",
+      "sha256": "d50be0b138b41f57b09bb097797dad9fa235e54626cb4f117ca3ce5f2ae6acf3",
+      "sizeBytes": 320524,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/uncovered-heading-green-v1/source-files-0607e056afac4783bac91cfa15dc0556-after.json",
+      "originalSha256": "d50be0b138b41f57b09bb097797dad9fa235e54626cb4f117ca3ce5f2ae6acf3"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/uncovered-heading-green-v1/manifest.public.json",
+      "sha256": "b275dcb28e2583aeaf3f668f393144361c3f6c5a9b1c93c039f4b25ebf543843",
+      "sizeBytes": 6980,
+      "reason": "Projected test manifest preserving failures/skips/source drift",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/uncovered-heading-green-v1/manifest.json",
+      "originalSha256": "16e4e20ef451dffdf1492a33f92f991383c84616adfa9ee6eefd77cbae6a3bb4"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/uncovered-heading-red-v1/Backend.public.trx",
+      "sha256": "ab4c7fbb3e404db5154ed9a6fe3e21c4dd069018d575989bdd8ff6d13fa79734",
+      "sizeBytes": 10971,
+      "reason": "Sanitized test outcomes; raw stdout/errors excluded",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/uncovered-heading-red-v1/Backend-10b2db9d82724d9c958c6b9864370a82.trx",
+      "originalSha256": "7a496238ccc8b37254da4d22d16f66a1f4682aca351211e2c07726f4417a0172"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/uncovered-heading-red-v1/source-files-10b2db9d82724d9c958c6b9864370a82-before.json",
+      "sha256": "75b4dfa463329423fbe0e34c47348d4465731d5b145babc9bb9d71b299ef6cb3",
+      "sizeBytes": 320308,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/uncovered-heading-red-v1/source-files-10b2db9d82724d9c958c6b9864370a82-before.json",
+      "originalSha256": "75b4dfa463329423fbe0e34c47348d4465731d5b145babc9bb9d71b299ef6cb3"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/uncovered-heading-red-v1/source-files-10b2db9d82724d9c958c6b9864370a82-after.json",
+      "sha256": "75b4dfa463329423fbe0e34c47348d4465731d5b145babc9bb9d71b299ef6cb3",
+      "sizeBytes": 320308,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/uncovered-heading-red-v1/source-files-10b2db9d82724d9c958c6b9864370a82-after.json",
+      "originalSha256": "75b4dfa463329423fbe0e34c47348d4465731d5b145babc9bb9d71b299ef6cb3"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/uncovered-heading-red-v1/manifest.public.json",
+      "sha256": "37acfb372fac9aec477a7b4ec2de395b75871e0dff6236a54000605a45bdae47",
+      "sizeBytes": 7003,
+      "reason": "Projected test manifest preserving failures/skips/source drift",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/uncovered-heading-red-v1/manifest.json",
+      "originalSha256": "31da5e9358b66f1671a16faca1104a2555bfe430f5c8ed526a91219a5e11f082"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/unit-all-final-v3/Backend.public.trx",
+      "sha256": "df4f4a4b66239496313442917181925fa631466f302411a20e15e0954216525e",
+      "sizeBytes": 3431435,
+      "reason": "Sanitized test outcomes; raw stdout/errors excluded",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/unit-all-final-v3/Backend-7aa68db8f4ef45288d2345324a686be7.trx",
+      "originalSha256": "26fb4182be54c241648fae35253211fdca8d93848ec6e85c8d349b73bc776f28"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/unit-all-final-v3/Contracts.public.trx",
+      "sha256": "3f11766ce511ab5e4400cfedfb01fa5756e36d8ef4ad7b6af6e7f7e758a88786",
+      "sizeBytes": 24825,
+      "reason": "Sanitized test outcomes; raw stdout/errors excluded",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/unit-all-final-v3/Contracts-7aa68db8f4ef45288d2345324a686be7.trx",
+      "originalSha256": "7ae14c297a4c0357fec5e8714844d34d9223359206f44cc9d132fa1d48dfe96b"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/unit-all-final-v3/ClientCore.public.trx",
+      "sha256": "578fdfaadd076061ecfac62a1d2f2e4ec4f845ec87d95917d896115c0110dba7",
+      "sizeBytes": 103357,
+      "reason": "Sanitized test outcomes; raw stdout/errors excluded",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/unit-all-final-v3/ClientCore-7aa68db8f4ef45288d2345324a686be7.trx",
+      "originalSha256": "88aec53e5cf14083a61d2cad76a1fbddfe9078f02bc5b9c1f4a35e1bcce8cee7"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/unit-all-final-v3/Client.public.trx",
+      "sha256": "7cc9ac12f16787ee404d8b7a5b68b3572080149e303dac4502beeec4864926fc",
+      "sizeBytes": 3057583,
+      "reason": "Sanitized test outcomes; raw stdout/errors excluded",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/unit-all-final-v3/Client-7aa68db8f4ef45288d2345324a686be7.trx",
+      "originalSha256": "45ac69e2f5607a0bc2726c9047e9332267fd54a4e76597d56247d5050f56bfc0"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/unit-all-final-v3/source-files-7aa68db8f4ef45288d2345324a686be7-before.json",
+      "sha256": "d50be0b138b41f57b09bb097797dad9fa235e54626cb4f117ca3ce5f2ae6acf3",
+      "sizeBytes": 320524,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/unit-all-final-v3/source-files-7aa68db8f4ef45288d2345324a686be7-before.json",
+      "originalSha256": "d50be0b138b41f57b09bb097797dad9fa235e54626cb4f117ca3ce5f2ae6acf3"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/unit-all-final-v3/source-files-7aa68db8f4ef45288d2345324a686be7-after.json",
+      "sha256": "d50be0b138b41f57b09bb097797dad9fa235e54626cb4f117ca3ce5f2ae6acf3",
+      "sizeBytes": 320524,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/unit-all-final-v3/source-files-7aa68db8f4ef45288d2345324a686be7-after.json",
+      "originalSha256": "d50be0b138b41f57b09bb097797dad9fa235e54626cb4f117ca3ce5f2ae6acf3"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/unit-all-final-v3/manifest.public.json",
+      "sha256": "62ea0a192e9ed49f50e3c01ff7a24629c6038de6d24e25aec069ecfe16a75226",
+      "sizeBytes": 1817680,
+      "reason": "Projected test manifest preserving failures/skips/source drift",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/unit-all-final-v3/manifest.json",
+      "originalSha256": "3ced181efab0e98f53e356eab236af14ac6a2970c86b4d6f1abe01677703cd75"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/dense-overfetch-red-v1-tests/Backend.public.trx",
+      "sha256": "5325ab6fafc00ef75b97630c2b11821835c702c8aef29c7224ae79abee3e2198",
+      "sizeBytes": 6310,
+      "reason": "Sanitized test outcomes; raw stdout/errors excluded",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/dense-overfetch-red-v1/tests/Backend-45370d840f8e41afa293e3a14161eed0.trx",
+      "originalSha256": "c9625ca8b2bb258683e07681e3282d004915eab446a177610824a4d905e9d6b3"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/dense-overfetch-red-v1-tests/source-files-45370d840f8e41afa293e3a14161eed0-before.json",
+      "sha256": "82c21acbe19179c25cba79e0216742f280c59a224ee1d66b496e68f3dd3f1b45",
+      "sizeBytes": 315945,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/dense-overfetch-red-v1/tests/source-files-45370d840f8e41afa293e3a14161eed0-before.json",
+      "originalSha256": "82c21acbe19179c25cba79e0216742f280c59a224ee1d66b496e68f3dd3f1b45"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/dense-overfetch-red-v1-tests/source-files-45370d840f8e41afa293e3a14161eed0-after.json",
+      "sha256": "82c21acbe19179c25cba79e0216742f280c59a224ee1d66b496e68f3dd3f1b45",
+      "sizeBytes": 315945,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/dense-overfetch-red-v1/tests/source-files-45370d840f8e41afa293e3a14161eed0-after.json",
+      "originalSha256": "82c21acbe19179c25cba79e0216742f280c59a224ee1d66b496e68f3dd3f1b45"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/dense-overfetch-red-v1-tests/manifest.public.json",
+      "sha256": "eefe836a1beae9ae36985177998bf175fb1b1f94d3b3c64bc9d522e14df57823",
+      "sizeBytes": 5724,
+      "reason": "Projected test manifest preserving failures/skips/source drift",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/dense-overfetch-red-v1/tests/manifest.json",
+      "originalSha256": "270678872a1c1227f16f69d79db778160b2e40c7e8968ced77a81d8236072ff6"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/lease-publication-lock-red-v1-tests/Backend.public.trx",
+      "sha256": "8cea4e95d578c21af1ed9604da88acb73dd52ea8a87c2d95d641f2d0cdf2fde3",
+      "sizeBytes": 3642,
+      "reason": "Sanitized test outcomes; raw stdout/errors excluded",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/lease-publication-lock-red-v1/tests/Backend-af7d35001a8b4c8b948d5c763b1402ce.trx",
+      "originalSha256": "f986212eda1fc32876dfec4c965bc49fc7d9d4fb48a08f45d2b239b031416c5e"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/lease-publication-lock-red-v1-tests/source-files-af7d35001a8b4c8b948d5c763b1402ce-before.json",
+      "sha256": "4db12da894ff5ed73df43ab36849fd014e9c15aed021b8476e6923bb54b4b93e",
+      "sizeBytes": 317788,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/lease-publication-lock-red-v1/tests/source-files-af7d35001a8b4c8b948d5c763b1402ce-before.json",
+      "originalSha256": "4db12da894ff5ed73df43ab36849fd014e9c15aed021b8476e6923bb54b4b93e"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/lease-publication-lock-red-v1-tests/source-files-af7d35001a8b4c8b948d5c763b1402ce-after.json",
+      "sha256": "b6957a62d4eb0fcdd051b879850b594328f7abf63fa39513044e57b403820e1e",
+      "sizeBytes": 317788,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/lease-publication-lock-red-v1/tests/source-files-af7d35001a8b4c8b948d5c763b1402ce-after.json",
+      "originalSha256": "b6957a62d4eb0fcdd051b879850b594328f7abf63fa39513044e57b403820e1e"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/lease-publication-lock-red-v1-tests/manifest.public.json",
+      "sha256": "9bc1a194ac9f8ca4b6ce673e8a8001fa44eb5d30b3843d650644a5221a02f10e",
+      "sizeBytes": 5016,
+      "reason": "Projected test manifest preserving failures/skips/source drift",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/lease-publication-lock-red-v1/tests/manifest.json",
+      "originalSha256": "76acb3a6837072fec78c48eef92a2f1abea6149d1ebe12e8f3871763b66b8a85"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/lease-red-v2-tests/Backend.public.trx",
+      "sha256": "975e31e2bf396413f50334fa745b9203de6037cf458bf002a76facafe198c5e6",
+      "sizeBytes": 7632,
+      "reason": "Sanitized test outcomes; raw stdout/errors excluded",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/lease-red-v2/tests/Backend-eed9cd0952b84bfe922ab1ca56384d76.trx",
+      "originalSha256": "ab807b1ab4ffabcbde9c0c7eb492dfa8e0786c1ab0af5332c388b2fa5a294d4c"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/lease-red-v2-tests/source-files-eed9cd0952b84bfe922ab1ca56384d76-before.json",
+      "sha256": "679f6588b2f1b33b47a1231d5d4a2be8682cbde27076aa40e2f35f10415012f2",
+      "sizeBytes": 315755,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/lease-red-v2/tests/source-files-eed9cd0952b84bfe922ab1ca56384d76-before.json",
+      "originalSha256": "679f6588b2f1b33b47a1231d5d4a2be8682cbde27076aa40e2f35f10415012f2"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/lease-red-v2-tests/source-files-eed9cd0952b84bfe922ab1ca56384d76-after.json",
+      "sha256": "679f6588b2f1b33b47a1231d5d4a2be8682cbde27076aa40e2f35f10415012f2",
+      "sizeBytes": 315755,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/lease-red-v2/tests/source-files-eed9cd0952b84bfe922ab1ca56384d76-after.json",
+      "originalSha256": "679f6588b2f1b33b47a1231d5d4a2be8682cbde27076aa40e2f35f10415012f2"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/lease-red-v2-tests/manifest.public.json",
+      "sha256": "2800f0026e6bd7f6b8d631cb2625bf13761b97cdee686a1a4bb23aba6ced23ba",
+      "sizeBytes": 6114,
+      "reason": "Projected test manifest preserving failures/skips/source drift",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/lease-red-v2/tests/manifest.json",
+      "originalSha256": "cd70f563044c87e9b944bddb3b7141f00088f39fb1da026a01d6e42625abbd7e"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/monotonic-consumers-green-v1-tests/Backend.public.trx",
+      "sha256": "554598701e50a182356d13958b4dbf9e235e762c4e403db692bfca111bde863d",
+      "sizeBytes": 10057,
+      "reason": "Sanitized test outcomes; raw stdout/errors excluded",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/monotonic-consumers-green-v1/tests/Backend-a0b1142a7a854625b76ac18ed5ab8ff8.trx",
+      "originalSha256": "bc2901f591560c5bef67663e95cb626a3f3579964e6db05067b4ad3c74e2ddc8"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/monotonic-consumers-green-v1-tests/source-files-a0b1142a7a854625b76ac18ed5ab8ff8-before.json",
+      "sha256": "b43dab12bcb378ff061d0a10a80a558ebeb7f556f58b980da23de6c15b596b53",
+      "sizeBytes": 320113,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/monotonic-consumers-green-v1/tests/source-files-a0b1142a7a854625b76ac18ed5ab8ff8-before.json",
+      "originalSha256": "b43dab12bcb378ff061d0a10a80a558ebeb7f556f58b980da23de6c15b596b53"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/monotonic-consumers-green-v1-tests/source-files-a0b1142a7a854625b76ac18ed5ab8ff8-after.json",
+      "sha256": "b43dab12bcb378ff061d0a10a80a558ebeb7f556f58b980da23de6c15b596b53",
+      "sizeBytes": 320113,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/monotonic-consumers-green-v1/tests/source-files-a0b1142a7a854625b76ac18ed5ab8ff8-after.json",
+      "originalSha256": "b43dab12bcb378ff061d0a10a80a558ebeb7f556f58b980da23de6c15b596b53"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/monotonic-consumers-green-v1-tests/manifest.public.json",
+      "sha256": "9f4df54a69366a295f73200e854064ddbf5d1e5f92eb5b35f7a2408f4232f760",
+      "sizeBytes": 6738,
+      "reason": "Projected test manifest preserving failures/skips/source drift",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/monotonic-consumers-green-v1/tests/manifest.json",
+      "originalSha256": "34358af47be3cdf4e501481da39060e7fa33933caeca43dd770454a4e4e67ac7"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/monotonic-consumers-red-v2-tests/Backend.public.trx",
+      "sha256": "bdfd43385dffd825df8a1ba617c04cd019dc60e58efdf1467daa35a19030f5ca",
+      "sizeBytes": 7485,
+      "reason": "Sanitized test outcomes; raw stdout/errors excluded",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/monotonic-consumers-red-v2/tests/Backend-fbb1fada79f84a2396af166cef978b64.trx",
+      "originalSha256": "f49e79ade1c6ff2215555033ad94edf610f9a41e59209ebc0671a851ffacbeea"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/monotonic-consumers-red-v2-tests/source-files-fbb1fada79f84a2396af166cef978b64-before.json",
+      "sha256": "fa69c7c896d1e76e328c3f2ec9df79a9ee04f0f965814f17e36ea1b32af93e11",
+      "sizeBytes": 320113,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/monotonic-consumers-red-v2/tests/source-files-fbb1fada79f84a2396af166cef978b64-before.json",
+      "originalSha256": "fa69c7c896d1e76e328c3f2ec9df79a9ee04f0f965814f17e36ea1b32af93e11"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/monotonic-consumers-red-v2-tests/source-files-fbb1fada79f84a2396af166cef978b64-after.json",
+      "sha256": "fa69c7c896d1e76e328c3f2ec9df79a9ee04f0f965814f17e36ea1b32af93e11",
+      "sizeBytes": 320113,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/monotonic-consumers-red-v2/tests/source-files-fbb1fada79f84a2396af166cef978b64-after.json",
+      "originalSha256": "fa69c7c896d1e76e328c3f2ec9df79a9ee04f0f965814f17e36ea1b32af93e11"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/monotonic-consumers-red-v2-tests/manifest.public.json",
+      "sha256": "0643955dac68da7aea78a07df603c163463e66686d434894aeaad12cbf0168e6",
+      "sizeBytes": 6056,
+      "reason": "Projected test manifest preserving failures/skips/source drift",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/monotonic-consumers-red-v2/tests/manifest.json",
+      "originalSha256": "964a41754b4813cabe8ccac9614ea42e23c81da10f37c5655d93d8d66845b8e7"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/postgres-all-final-v3-tests/Backend.public.trx",
+      "sha256": "818ba1472daa47748ed31a8e0176a3d54862f03bf0f1d783321a71fc3fe09ba0",
+      "sizeBytes": 396672,
+      "reason": "Sanitized test outcomes; raw stdout/errors excluded",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/postgres-all-final-v3/tests/Backend-5b1a83c0911147a2b549323575e02856.trx",
+      "originalSha256": "397abdc44376c3b427144d651bbe7ff519350cd3b1167e94558ee095de21e422"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/postgres-all-final-v3-tests/source-files-5b1a83c0911147a2b549323575e02856-before.json",
+      "sha256": "d50be0b138b41f57b09bb097797dad9fa235e54626cb4f117ca3ce5f2ae6acf3",
+      "sizeBytes": 320524,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/postgres-all-final-v3/tests/source-files-5b1a83c0911147a2b549323575e02856-before.json",
+      "originalSha256": "d50be0b138b41f57b09bb097797dad9fa235e54626cb4f117ca3ce5f2ae6acf3"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/postgres-all-final-v3-tests/source-files-5b1a83c0911147a2b549323575e02856-after.json",
+      "sha256": "d50be0b138b41f57b09bb097797dad9fa235e54626cb4f117ca3ce5f2ae6acf3",
+      "sizeBytes": 320524,
+      "reason": "Original tested source paths and byte hashes; no source contents",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/postgres-all-final-v3/tests/source-files-5b1a83c0911147a2b549323575e02856-after.json",
+      "originalSha256": "d50be0b138b41f57b09bb097797dad9fa235e54626cb4f117ca3ce5f2ae6acf3"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/public-evidence-final-v1/postgres-all-final-v3-tests/manifest.public.json",
+      "sha256": "ece3b0fcc08f638f78429de59d55a2df2c98799b7d3cea34484ed2e3d730384a",
+      "sizeBytes": 112508,
+      "reason": "Projected test manifest preserving failures/skips/source drift",
+      "originalPath": "artifacts/ingestion-ocr-audit-20261025/tests/postgres-all-final-v3/tests/manifest.json",
+      "originalSha256": "c8fc687fecdd9597c54995c1e7268917f2f1d9eac245bf194647f0de3482f11d"
+    }
+  ],
+  "historicalRuns": [
+    {
+      "label": "docling-fidelity-red-v2",
+      "sourceChangedDuringRun": false,
+      "buildRequested": true,
+      "state": "failed",
+      "scope": "Historical evidence; current source/DLL identity requires final sealed build and inventory"
+    },
+    {
+      "label": "layout-association-red-table-green-v1",
+      "sourceChangedDuringRun": false,
+      "buildRequested": true,
+      "state": "failed",
+      "scope": "Historical evidence; current source/DLL identity requires final sealed build and inventory"
+    },
+    {
+      "label": "literal-boundaries-red",
+      "sourceChangedDuringRun": false,
+      "buildRequested": true,
+      "state": "failed",
+      "scope": "Historical evidence; current source/DLL identity requires final sealed build and inventory"
+    },
+    {
+      "label": "native-layout-canonical-order-red-v1",
+      "sourceChangedDuringRun": false,
+      "buildRequested": true,
+      "state": "failed",
+      "scope": "Historical evidence; current source/DLL identity requires final sealed build and inventory"
+    },
+    {
+      "label": "ocr-fidelity-red",
+      "sourceChangedDuringRun": false,
+      "buildRequested": true,
+      "state": "failed",
+      "scope": "Historical evidence; current source/DLL identity requires final sealed build and inventory"
+    },
+    {
+      "label": "postgres-text-red-and-tei-green",
+      "sourceChangedDuringRun": false,
+      "buildRequested": true,
+      "state": "failed",
+      "scope": "Historical evidence; current source/DLL identity requires final sealed build and inventory"
+    },
+    {
+      "label": "table-literal-red-layout-green-v2",
+      "sourceChangedDuringRun": false,
+      "buildRequested": true,
+      "state": "failed",
+      "scope": "Historical evidence; current source/DLL identity requires final sealed build and inventory"
+    },
+    {
+      "label": "uncovered-heading-green-v1",
+      "sourceChangedDuringRun": false,
+      "buildRequested": true,
+      "state": "passed",
+      "scope": "Historical evidence; current source/DLL identity requires final sealed build and inventory"
+    },
+    {
+      "label": "uncovered-heading-red-v1",
+      "sourceChangedDuringRun": false,
+      "buildRequested": true,
+      "state": "failed",
+      "scope": "Historical evidence; current source/DLL identity requires final sealed build and inventory"
+    },
+    {
+      "label": "unit-all-final-v3",
+      "sourceChangedDuringRun": false,
+      "buildRequested": true,
+      "state": "passed",
+      "scope": "Historical evidence; current source/DLL identity requires final sealed build and inventory"
+    },
+    {
+      "label": "dense-overfetch-red-v1-tests",
+      "sourceChangedDuringRun": false,
+      "buildRequested": true,
+      "state": "failed",
+      "scope": "Historical evidence; current source/DLL identity requires final sealed build and inventory"
+    },
+    {
+      "label": "lease-publication-lock-red-v1-tests",
+      "sourceChangedDuringRun": true,
+      "buildRequested": true,
+      "state": "failed",
+      "scope": "Historical evidence; current source/DLL identity requires final sealed build and inventory"
+    },
+    {
+      "label": "lease-red-v2-tests",
+      "sourceChangedDuringRun": false,
+      "buildRequested": true,
+      "state": "failed",
+      "scope": "Historical evidence; current source/DLL identity requires final sealed build and inventory"
+    },
+    {
+      "label": "monotonic-consumers-green-v1-tests",
+      "sourceChangedDuringRun": false,
+      "buildRequested": true,
+      "state": "passed",
+      "scope": "Historical evidence; current source/DLL identity requires final sealed build and inventory"
+    },
+    {
+      "label": "monotonic-consumers-red-v2-tests",
+      "sourceChangedDuringRun": false,
+      "buildRequested": true,
+      "state": "failed",
+      "scope": "Historical evidence; current source/DLL identity requires final sealed build and inventory"
+    },
+    {
+      "label": "postgres-all-final-v3-tests",
+      "sourceChangedDuringRun": false,
+      "buildRequested": false,
+      "state": "passed",
+      "scope": "Historical evidence; current source/DLL identity requires final sealed build and inventory"
+    }
+  ],
+  "secretPatternMatches": 0,
+  "credentialStoresRead": 0,
+  "knownSecretValuesCompared": false,
+  "limits": [
+    "Pattern scanning is not a proof that every possible secret is absent.",
+    "Only projected TRX are selected; original errors and stdout remain excluded.",
+    "Theory arguments are omitted from XML and case names; original name digests distinguish variants.",
+    "This manifest does not prove index/staging contents or authorize a commit.",
+    "Preserve evidence bytes with Git -text or verify exported blob hashes after staging.",
+    "LF-equivalent source bytes alone do not prove a DLL was compiled from staged blobs."
+  ]
+}

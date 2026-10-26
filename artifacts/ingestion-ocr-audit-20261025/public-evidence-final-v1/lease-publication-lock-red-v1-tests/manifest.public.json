@@ -1,0 +1,118 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "af7d35001a8b4c8b948d5c763b1402ce",
+  "startedAtUtc": "2026-10-26T00:07:30.4451076+00:00",
+  "finishedAtUtc": "2026-10-26T00:07:38.9364284+00:00",
+  "profile": "IntegrationPg",
+  "filter": "(Profile=IntegrationPg)&(FullyQualifiedName~Ingestion_renewal_does_not_block_on_a_publication_row_lock)",
+  "configuration": "Release",
+  "gitCommit": "24b21ab2efb819e961dfeabb33e850dc45fb1203",
+  "gitDirty": true,
+  "requestedProjects": [
+    "Backend"
+  ],
+  "buildRequested": true,
+  "restoreRequested": false,
+  "state": "failed",
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-26T00:07:31.3841934+00:00",
+    "sha256": "2BAF5585C1955722E4B95160DF45438F2C0187D74746B33CC573DF65D9806F2B",
+    "fileCount": 1759,
+    "inventory": "source-files-af7d35001a8b4c8b948d5c763b1402ce-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-26T00:07:39.5894286+00:00",
+    "sha256": "F0A4948E951183053B56FB63D174DC78B0A9EFB9EB586E5623B06482150F4B4E",
+    "fileCount": 1759,
+    "inventory": "source-files-af7d35001a8b4c8b948d5c763b1402ce-after.json"
+  },
+  "sourceChangedDuringRun": true,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "publicProjection": {
+    "originalSha256": "76acb3a6837072fec78c48eef92a2f1abea6149d1ebe12e8f3871763b66b8a85",
+    "rawOutputIncluded": false,
+    "environmentAndPrerequisiteDetailsOmitted": true,
+    "testArgumentsIncluded": false,
+    "originalTestNamesHashed": true,
+    "approvalGranted": false
+  },
+  "results": [
+    {
+      "project": "Backend",
+      "path": "backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj",
+      "status": "failed",
+      "exitCode": 1,
+      "counts": {
+        "notExecuted": 0,
+        "passed": 1,
+        "total": 2,
+        "executed": 2,
+        "failed": 1,
+        "adapterReportedExecuted": 2
+      },
+      "assemblies": [
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.AdvancedValidationJobGuard.dll",
+          "role": "local_product_dependency",
+          "sha256": "7B200D1CE421A2E4FF77F2336CF7B73BB7214A15255F6433D91E66C3D9E9E650",
+          "sizeBytes": 62464,
+          "lastWriteTimeUtc": "2026-10-25T23:00:50.3845168Z",
+          "capturedAtUtc": "2026-10-26T00:07:38.9135302+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.dll",
+          "role": "local_product_dependency",
+          "sha256": "403AD6B86BBB9ABF1D5B54343A8C5340635A28C089F920137D562C10F45F717B",
+          "sizeBytes": 7855104,
+          "lastWriteTimeUtc": "2026-10-26T00:00:03.6742073Z",
+          "capturedAtUtc": "2026-10-26T00:07:38.9210594+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "B93AE3AA4C4E2CA9569439DBBBB0D15FF2A7404FCBD949D373262B4250F2D518",
+          "sizeBytes": 5003776,
+          "lastWriteTimeUtc": "2026-10-26T00:07:35.1552648Z",
+          "capturedAtUtc": "2026-10-26T00:07:38.9261179+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "BEABC1BAFC97D303BE7FEFC31D039B180AEA6B25D9B1C9685A64A0BF3404D352",
+          "sizeBytes": 154112,
+          "lastWriteTimeUtc": "2026-10-25T23:00:50.4793709Z",
+          "capturedAtUtc": "2026-10-26T00:07:38.9268569+00:00"
+        }
+      ],
+      "cases": [
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_renewal_does_not_block_on_a_publication_row_lock_but_rejects_another_owner",
+          "originalTestNameSha256": "cda1e8f650d6320e49a81e7e6f9788886ae4bb8594a8abae87831852141dd219",
+          "outcome": "Failed",
+          "duration": "00:00:01.8584251"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_renewal_does_not_block_on_a_publication_row_lock_but_rejects_another_owner",
+          "originalTestNameSha256": "f7ccb63b1c541f9e1c7ba64fc4999c0aa84c6a199edd3b60debdbdfc6051d6a7",
+          "outcome": "Passed",
+          "duration": "00:00:00.9304356"
+        }
+      ],
+      "trx": "Backend.public.trx",
+      "trxSha256": "8cea4e95d578c21af1ed9604da88acb73dd52ea8a87c2d95d641f2d0cdf2fde3",
+      "originalTrxSha256": "f986212eda1fc32876dfec4c965bc49fc7d9d4fb48a08f45d2b239b031416c5e",
+      "trxProjection": {
+        "outcomeCounts": {
+          "Failed": 1,
+          "Passed": 1
+        },
+        "removedSubtreeCount": 4,
+        "rawErrorsAndStdoutIncluded": false,
+        "projectionIsOriginalTrx": false,
+        "testArgumentsIncluded": false,
+        "originalTestNamesHashed": true,
+        "fieldsPolicy": "explicit_result_and_identity_allowlist"
+      }
+    }
+  ]
+}

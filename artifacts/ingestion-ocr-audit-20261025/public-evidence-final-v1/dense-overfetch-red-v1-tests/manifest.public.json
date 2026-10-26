@@ -1,0 +1,129 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "45370d840f8e41afa293e3a14161eed0",
+  "startedAtUtc": "2026-10-25T23:49:13.5733111+00:00",
+  "finishedAtUtc": "2026-10-25T23:49:21.7316774+00:00",
+  "profile": "IntegrationPg",
+  "filter": "(Profile=IntegrationPg)&(FullyQualifiedName~DocumentFoundationIntegrationTests.Dense_overfetch)",
+  "configuration": "Release",
+  "gitCommit": "24b21ab2efb819e961dfeabb33e850dc45fb1203",
+  "gitDirty": true,
+  "requestedProjects": [
+    "Backend"
+  ],
+  "buildRequested": true,
+  "restoreRequested": false,
+  "state": "failed",
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-25T23:49:14.5095722+00:00",
+    "sha256": "3FB4A2407F6A5F5A12AE81B6813E57CC473DE5AC8FEA572B796F6B4F4E0012D3",
+    "fileCount": 1748,
+    "inventory": "source-files-45370d840f8e41afa293e3a14161eed0-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-25T23:49:22.3138838+00:00",
+    "sha256": "3FB4A2407F6A5F5A12AE81B6813E57CC473DE5AC8FEA572B796F6B4F4E0012D3",
+    "fileCount": 1748,
+    "inventory": "source-files-45370d840f8e41afa293e3a14161eed0-after.json"
+  },
+  "sourceChangedDuringRun": false,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "publicProjection": {
+    "originalSha256": "270678872a1c1227f16f69d79db778160b2e40c7e8968ced77a81d8236072ff6",
+    "rawOutputIncluded": false,
+    "environmentAndPrerequisiteDetailsOmitted": true,
+    "testArgumentsIncluded": false,
+    "originalTestNamesHashed": true,
+    "approvalGranted": false
+  },
+  "results": [
+    {
+      "project": "Backend",
+      "path": "backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj",
+      "status": "failed",
+      "exitCode": 1,
+      "counts": {
+        "notExecuted": 0,
+        "failed": 4,
+        "adapterReportedExecuted": 4,
+        "executed": 4,
+        "passed": 0,
+        "total": 4
+      },
+      "assemblies": [
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.AdvancedValidationJobGuard.dll",
+          "role": "local_product_dependency",
+          "sha256": "7B200D1CE421A2E4FF77F2336CF7B73BB7214A15255F6433D91E66C3D9E9E650",
+          "sizeBytes": 62464,
+          "lastWriteTimeUtc": "2026-10-25T23:00:50.3845168Z",
+          "capturedAtUtc": "2026-10-25T23:49:21.7098796+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.dll",
+          "role": "local_product_dependency",
+          "sha256": "7C6CF4298796E51AA2E279D4AF7102BED7FF8B36983647EE5344DACE6B867C34",
+          "sizeBytes": 7845888,
+          "lastWriteTimeUtc": "2026-10-25T23:45:49.2181630Z",
+          "capturedAtUtc": "2026-10-25T23:49:21.7172903+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "D491CCD2050686D8631F03403ACFBD06782B6755B4944012849588C11F719523",
+          "sizeBytes": 4956672,
+          "lastWriteTimeUtc": "2026-10-25T23:49:16.9424492Z",
+          "capturedAtUtc": "2026-10-25T23:49:21.7221672+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "BEABC1BAFC97D303BE7FEFC31D039B180AEA6B25D9B1C9685A64A0BF3404D352",
+          "sizeBytes": 154112,
+          "lastWriteTimeUtc": "2026-10-25T23:00:50.4793709Z",
+          "capturedAtUtc": "2026-10-25T23:49:21.7228389+00:00"
+        }
+      ],
+      "cases": [
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Dense_overfetch_reports_incomplete_channel_when_obsolete_points_exhaust_bounded_candidate_budget",
+          "originalTestNameSha256": "587b691c66985eb176927fba487907bd5c0f3d3c029633ccaa4a6e3dd3eb5a3a",
+          "outcome": "Failed",
+          "duration": "00:00:00.8410315"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Dense_overfetch_reaches_current_points_hidden_after_obsolete_top_hits_with_one_embedding",
+          "originalTestNameSha256": "806ed19e2ccda89747f33184829ee15441456bfb9e7d61b8c505d41f43f31083",
+          "outcome": "Failed",
+          "duration": "00:00:00.8900072"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Dense_overfetch_cancellation_during_retry_is_not_reported_as_exhaustive_empty_search",
+          "originalTestNameSha256": "0b9a60fef2fe91386228d47a275a230db34d902615307fa108a10af666116f25",
+          "outcome": "Failed",
+          "duration": "00:00:00.8759041"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Dense_overfetch_stops_when_qdrant_is_exhausted_without_claiming_a_candidate_budget_failure",
+          "originalTestNameSha256": "e83225d4fc23c56d67a34dea1248d15425564685b6cc864b57a7c2dda91c2778",
+          "outcome": "Failed",
+          "duration": "00:00:01.1683908"
+        }
+      ],
+      "trx": "Backend.public.trx",
+      "trxSha256": "5325ab6fafc00ef75b97630c2b11821835c702c8aef29c7224ae79abee3e2198",
+      "originalTrxSha256": "c9625ca8b2bb258683e07681e3282d004915eab446a177610824a4d905e9d6b3",
+      "trxProjection": {
+        "outcomeCounts": {
+          "Failed": 4
+        },
+        "removedSubtreeCount": 7,
+        "rawErrorsAndStdoutIncluded": false,
+        "projectionIsOriginalTrx": false,
+        "testArgumentsIncluded": false,
+        "originalTestNamesHashed": true,
+        "fieldsPolicy": "explicit_result_and_identity_allowlist"
+      }
+    }
+  ]
+}

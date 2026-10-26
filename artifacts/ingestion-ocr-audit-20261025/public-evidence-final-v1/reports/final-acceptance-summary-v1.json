@@ -1,0 +1,70 @@
+{
+  "newPaidProviderCalls": 0,
+  "files": [
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/tests/unit-all-final-v3/manifest.json",
+      "sha256": "3CED181EFAB0E98F53E356EAB236AF14AC6A2970C86B4D6F1ABE01677703CD75"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/tests/postgres-all-final-v3/tests/manifest.json",
+      "sha256": "C8FC687FECDD9597C54995C1E7268917F2F1D9EAC245BF194647F0DE3482F11D"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/worker-full-e5-lifecycle-final-v2/execution-result.json",
+      "sha256": "FAA006C33C426DCED2932B2EE22CCB20A403D676899E3FC824323513C41AE35C"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/worker-recipe-e5-final-v3/execution-result.json",
+      "sha256": "689300E8C164CE31DFB3979CBC676761359F0183E303AF5D0CDD92D805F07AE4"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/dependencies-v7-cleanup-public-v1.json",
+      "sha256": "390AD35C8CF2A63E69E7E8A6E46D6153F5E085CEA0D7CBE79BB0D30B88927A87"
+    },
+    {
+      "path": "artifacts/ingestion-ocr-audit-20261025/code-staging-acceptance-final-v1.json",
+      "sha256": "5986B190F80C5C2B67D72AA9FF9BE87AC8BB836D7AFE60FCC266E7EAA131645B"
+    }
+  ],
+  "schemaVersion": "saaia-ingestion-final-acceptance-summary.v1",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "backendAssemblySha256": "A21D64DA8465CCB39449008FDD5106C81860B4D90E1290A2FA83340F3F827BC7",
+  "postgres": {
+    "skipped": 2,
+    "passed": 310,
+    "failed": 0,
+    "sourceStable": true
+  },
+  "codeCommit": "12202cbf97b9ca6a53a88d8dab105fb4a5524d41",
+  "realBook": {
+    "facts": 16,
+    "passed": true,
+    "chunks": 160,
+    "points": 160,
+    "extraFactsAddedAfterDefectObserved": 2,
+    "pages": 36
+  },
+  "cancellation": {
+    "reason": "job_completed_before_cancel_effect",
+    "upstreamEngineCancellationVerified": false,
+    "latestRun": "worker-full-e5-lifecycle-final-v2",
+    "priorStatus": "PASS",
+    "priorRealRun": "worker-full-e5-lifecycle-final-v1",
+    "latestStatus": "NON_EXECUTED"
+  },
+  "generatedCorpus": {
+    "facts": 90,
+    "passed": true,
+    "pages": 16,
+    "chunks": 37,
+    "points": 37,
+    "documents": 12
+  },
+  "unit": {
+    "skipped": 1,
+    "passed": 5255,
+    "failed": 0,
+    "sourceStable": true
+  },
+  "observedAtUtc": "2026-10-26T01:31:51.7802837+00:00"
+}

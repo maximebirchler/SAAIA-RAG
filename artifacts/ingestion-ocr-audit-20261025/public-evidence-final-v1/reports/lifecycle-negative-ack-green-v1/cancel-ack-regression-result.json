@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "helperCancelStatus": "NOT_CONFIRMED",
+  "apiCancellationAcknowledged": false,
+  "mockedTransport": true,
+  "observedTerminal": "canceled",
+  "schemaVersion": "saaia-owned-ingestion-lifecycle-cancel-ack-regression.v1",
+  "unsafeCancelPassRejected": true,
+  "modelCalls": 0,
+  "realServiceCalls": 0,
+  "realDatabaseOperations": 0,
+  "helperPassed": false,
+  "credentialsRead": 0
+}

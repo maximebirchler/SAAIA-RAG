@@ -1,0 +1,25 @@
+{
+  "caseCount": 12,
+  "originalExecutionResultSha256": "7070D74467D68ED170FFA2F375FE79E6ACA6AB8F48C30D2E00C2B8A7DA30BC16",
+  "physicalPages": 16,
+  "emptyBaselineVerified": true,
+  "chunks": 37,
+  "backendAssemblySha256": "DD300C4EDB492825503C3F901B56D167543C30B267500E44D0240752968E8800",
+  "paidProviderCalls": 0,
+  "sqlPublicationValidated": true,
+  "passed": true,
+  "canonicalRowsSeeded": false,
+  "cleanup": {
+    "zeroActiveJobs": true,
+    "externalDependenciesStopped": false,
+    "activeJobCountBeforeStop": 0,
+    "ownedEnvironmentStopped": true
+  },
+  "criticalFacts": 90,
+  "sourceManifestSha256": "2AAFFFEDD4C2D736D0EE02D06482A0F76C9EB11C3160CFFAE062911F50AEA505",
+  "vectorStorePublicationValidated": true,
+  "canonicalSearchValidated": true,
+  "globalSemanticRetrievalValidated": false,
+  "schemaVersion": "saaia-owned-worker-campaign-summary.v1",
+  "points": 37
+}

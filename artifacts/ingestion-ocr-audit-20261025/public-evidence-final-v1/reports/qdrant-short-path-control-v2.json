@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "saaia-qdrant-short-path-control.v2",
+  "collection": "ingestion_715469803c7d4ca09964a7a816f1dadc",
+  "requestVectorDimensions": 3,
+  "requestDistance": "Cosine",
+  "httpStatus": 200,
+  "oldStorage": "dependencies-v4/qdrant-storage",
+  "newStorage": "out/qdrant-validation (owned run directory)",
+  "sameCollectionAsFailedReady": true,
+  "oldFailure": "Gridstore IO error, Windows path not found",
+  "newObservedResult": "collection created",
+  "scope": "Identical collection creation with same Qdrant binary; no corpus/LLM involved"
+}

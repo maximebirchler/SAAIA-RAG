@@ -1,0 +1,15 @@
+{
+  "testedSourceChanges": 0,
+  "baselineConfigurationsEolOnly": 31,
+  "schemaVersion": "saaia-public-evidence-staging-receipt.v1",
+  "exportedFiles": 163,
+  "selectionManifestCount": 1,
+  "finalStageAnchorSha256": "A356845E7C4F638AA8C328405E656CB43D58F802CBF4DDA7DAF955E93EE6C2BC",
+  "selectionSha256": "98287BF2A0CAAFA98AE3A9B6CF8C15787D7E0BB4245F6EB2D820B1ABC0CCA9DB",
+  "exportedProofFilesExact": 164,
+  "codeCommit": "12202cbf97b9ca6a53a88d8dab105fb4a5524d41",
+  "gitAttributesSha256": "40323FF0D2CD8A4809F0E1EC40AE6652E4EBFD6261FD7BDDD39D7EC03B244EEC",
+  "explanation": "Evidence bytes retained with -text; CR-at-EOL is treated as a line ending for Git whitespace checks. The full anchor and this receipt are separately added after their observed selection, without self-hash claims.",
+  "codeAndTestFilesExact": 1705,
+  "fullStrictPassed": false
+}

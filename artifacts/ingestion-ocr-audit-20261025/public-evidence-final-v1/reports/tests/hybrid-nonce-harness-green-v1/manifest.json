@@ -1,0 +1,220 @@
+{
+  "schemaVersion": "saaia-ingestion-python-offline.v1",
+  "stage": "GREEN",
+  "exitCode": 0,
+  "testCount": 50,
+  "passed": true,
+  "sourceChangedDuringRun": false,
+  "sourceBefore": [
+    {
+      "path": "tools/ingestion_gold/__init__.py",
+      "sha256": "DCA985906ACBEED2244642A8C51B013A44DB7A2010C7167A6F7CA6CD76808A1E"
+    },
+    {
+      "path": "tools/ingestion_gold/canonical_evaluator.py",
+      "sha256": "1CC58E76FE608122CFAE35CE8D5323BDA788AE75B51F671C65B8071CA295B07D"
+    },
+    {
+      "path": "tools/ingestion_gold/contracts.py",
+      "sha256": "2E4DE685B377D063ADF32B3842E7AF94717E46F65473A0C31E4573CE887EF6CA"
+    },
+    {
+      "path": "tools/ingestion_gold/critical_facts.py",
+      "sha256": "2A106E8EE4A6EE80EDD5039DDA1158117506BC9A84A2B4361CE35D254F308823"
+    },
+    {
+      "path": "tools/ingestion_gold/evaluate_responses.py",
+      "sha256": "D761137DEEF8DEB189E63D241BCB9A41E712F0DB3F182C58780AB0259C10A333"
+    },
+    {
+      "path": "tools/ingestion_gold/evaluator.py",
+      "sha256": "1D605EA6AA07B7865CEA237A498F44EEB7A027ED8EA5E9890E4572201F82F04B"
+    },
+    {
+      "path": "tools/ingestion_gold/fixtures_fr.py",
+      "sha256": "03A403AA9AF86B3CF2B58770CB265DA29E069C118B08CE0E19C2935F933AD37C"
+    },
+    {
+      "path": "tools/ingestion_gold/fixtures.py",
+      "sha256": "830B398BD98101F688BC72D951DC797376F3A03EF6F76970B610F18465B11D1B"
+    },
+    {
+      "path": "tools/ingestion_gold/generate.py",
+      "sha256": "9EBCA08EDEA69F7F69789612D73009CD6CC477E1E64F0E5455336E86D88CB981"
+    },
+    {
+      "path": "tools/ingestion_gold/layout_model_probe.py",
+      "sha256": "757BD8F1DA4C5A2AFD459734D753EE73242C19B01CA59B155171D7B29CD52CE0"
+    },
+    {
+      "path": "tools/ingestion_gold/renderer.py",
+      "sha256": "8A643BEC7B533CA3D770F98B48A70B150296E391E7756D2627CE2E901D4F5E9E"
+    },
+    {
+      "path": "tools/ingestion_gold/runner.py",
+      "sha256": "A4F4EE188B24E605C36308B809156D1DAA1FBF6F281DCAD18F9A86ABD7D85E3A"
+    },
+    {
+      "path": "tools/ingestion_gold/structural_metrics.py",
+      "sha256": "EE69E11F5B1AEC83E57CB408B5F37DD1F2F984D39FB211680FE6917D9F766E38"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/__init__.py",
+      "sha256": "37C1926C1F0680356327ABE1BB658F092AF7C9AD60CC55488EBBEB86BD796BAD"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_acceptance_contracts.py",
+      "sha256": "2A0E88EFC410142D62BAECB6B961BE083A5B49C3ACBF8096405D30AADEA7F690"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_evaluator.py",
+      "sha256": "7E43536D15F5A0D4725A4EAB8BBCB525DBE1BE65B98295BD4431AB6311EC6211"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_local_vector_probe.py",
+      "sha256": "73D26DB5CF10FB4D74120053C37BBB4EADB1948FB1BFB5B9CE38342E29048377"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_real_source_contract.py",
+      "sha256": "FFDBE17D257159C3D9D50607FFA3D81414C292EFD9D4ECDB8C8A4C7F166AA352"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_vector_point_identity.py",
+      "sha256": "BFE68C6172D9DE65DB84BF4F09EF68432BD239BB1366DA3CB529FBC4E9F061A9"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_worker_verifier.py",
+      "sha256": "968583551CC1E1F716C443B54A346B535F2B8B50678D8C4D01767C85D7CCB6D8"
+    },
+    {
+      "path": "tools/validation-ingestion/canonical_search_checks.py",
+      "sha256": "00BE4BB0EAD9F0AB56276A95B869EA2A479169BDEC21819A0303FDF5C4A769C6"
+    },
+    {
+      "path": "tools/validation-ingestion/local_embeddings.py",
+      "sha256": "1455E2BE54DD944E7123A67C7C3050AB52EFAAAFFF2DE3A2AE8BEF4DBA5BAAF8"
+    },
+    {
+      "path": "tools/validation-ingestion/probe-local-vectors.py",
+      "sha256": "6277E9A0216ADAEF679037CB85C4C75AC26393B9DE716D49E8C7216F6C963E9C"
+    },
+    {
+      "path": "tools/validation-ingestion/vector_point_identity.py",
+      "sha256": "F744100E57BA0788A9829C0BE93D982168BA46A14BA8DB6C1AE83402519BE9C3"
+    },
+    {
+      "path": "tools/validation-ingestion/verify_worker_publication.py",
+      "sha256": "14EF16EF8629B063D151033883AB84338FAF7792F0B1B929DF8480FC60907349"
+    }
+  ],
+  "sourceAfter": [
+    {
+      "path": "tools/ingestion_gold/__init__.py",
+      "sha256": "DCA985906ACBEED2244642A8C51B013A44DB7A2010C7167A6F7CA6CD76808A1E"
+    },
+    {
+      "path": "tools/ingestion_gold/canonical_evaluator.py",
+      "sha256": "1CC58E76FE608122CFAE35CE8D5323BDA788AE75B51F671C65B8071CA295B07D"
+    },
+    {
+      "path": "tools/ingestion_gold/contracts.py",
+      "sha256": "2E4DE685B377D063ADF32B3842E7AF94717E46F65473A0C31E4573CE887EF6CA"
+    },
+    {
+      "path": "tools/ingestion_gold/critical_facts.py",
+      "sha256": "2A106E8EE4A6EE80EDD5039DDA1158117506BC9A84A2B4361CE35D254F308823"
+    },
+    {
+      "path": "tools/ingestion_gold/evaluate_responses.py",
+      "sha256": "D761137DEEF8DEB189E63D241BCB9A41E712F0DB3F182C58780AB0259C10A333"
+    },
+    {
+      "path": "tools/ingestion_gold/evaluator.py",
+      "sha256": "1D605EA6AA07B7865CEA237A498F44EEB7A027ED8EA5E9890E4572201F82F04B"
+    },
+    {
+      "path": "tools/ingestion_gold/fixtures_fr.py",
+      "sha256": "03A403AA9AF86B3CF2B58770CB265DA29E069C118B08CE0E19C2935F933AD37C"
+    },
+    {
+      "path": "tools/ingestion_gold/fixtures.py",
+      "sha256": "830B398BD98101F688BC72D951DC797376F3A03EF6F76970B610F18465B11D1B"
+    },
+    {
+      "path": "tools/ingestion_gold/generate.py",
+      "sha256": "9EBCA08EDEA69F7F69789612D73009CD6CC477E1E64F0E5455336E86D88CB981"
+    },
+    {
+      "path": "tools/ingestion_gold/layout_model_probe.py",
+      "sha256": "757BD8F1DA4C5A2AFD459734D753EE73242C19B01CA59B155171D7B29CD52CE0"
+    },
+    {
+      "path": "tools/ingestion_gold/renderer.py",
+      "sha256": "8A643BEC7B533CA3D770F98B48A70B150296E391E7756D2627CE2E901D4F5E9E"
+    },
+    {
+      "path": "tools/ingestion_gold/runner.py",
+      "sha256": "A4F4EE188B24E605C36308B809156D1DAA1FBF6F281DCAD18F9A86ABD7D85E3A"
+    },
+    {
+      "path": "tools/ingestion_gold/structural_metrics.py",
+      "sha256": "EE69E11F5B1AEC83E57CB408B5F37DD1F2F984D39FB211680FE6917D9F766E38"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/__init__.py",
+      "sha256": "37C1926C1F0680356327ABE1BB658F092AF7C9AD60CC55488EBBEB86BD796BAD"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_acceptance_contracts.py",
+      "sha256": "2A0E88EFC410142D62BAECB6B961BE083A5B49C3ACBF8096405D30AADEA7F690"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_evaluator.py",
+      "sha256": "7E43536D15F5A0D4725A4EAB8BBCB525DBE1BE65B98295BD4431AB6311EC6211"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_local_vector_probe.py",
+      "sha256": "73D26DB5CF10FB4D74120053C37BBB4EADB1948FB1BFB5B9CE38342E29048377"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_real_source_contract.py",
+      "sha256": "FFDBE17D257159C3D9D50607FFA3D81414C292EFD9D4ECDB8C8A4C7F166AA352"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_vector_point_identity.py",
+      "sha256": "BFE68C6172D9DE65DB84BF4F09EF68432BD239BB1366DA3CB529FBC4E9F061A9"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_worker_verifier.py",
+      "sha256": "968583551CC1E1F716C443B54A346B535F2B8B50678D8C4D01767C85D7CCB6D8"
+    },
+    {
+      "path": "tools/validation-ingestion/canonical_search_checks.py",
+      "sha256": "00BE4BB0EAD9F0AB56276A95B869EA2A479169BDEC21819A0303FDF5C4A769C6"
+    },
+    {
+      "path": "tools/validation-ingestion/local_embeddings.py",
+      "sha256": "1455E2BE54DD944E7123A67C7C3050AB52EFAAAFFF2DE3A2AE8BEF4DBA5BAAF8"
+    },
+    {
+      "path": "tools/validation-ingestion/probe-local-vectors.py",
+      "sha256": "6277E9A0216ADAEF679037CB85C4C75AC26393B9DE716D49E8C7216F6C963E9C"
+    },
+    {
+      "path": "tools/validation-ingestion/vector_point_identity.py",
+      "sha256": "F744100E57BA0788A9829C0BE93D982168BA46A14BA8DB6C1AE83402519BE9C3"
+    },
+    {
+      "path": "tools/validation-ingestion/verify_worker_publication.py",
+      "sha256": "14EF16EF8629B063D151033883AB84338FAF7792F0B1B929DF8480FC60907349"
+    }
+  ],
+  "servicesStarted": 0,
+  "httpCalls": 0,
+  "sqlOperations": 0,
+  "modelCalls": 0,
+  "credentialsRead": 0,
+  "limits": [
+    "Synthetic fixtures and captured observations; no worker, OCR, SQL or Qdrant executed."
+  ]
+}

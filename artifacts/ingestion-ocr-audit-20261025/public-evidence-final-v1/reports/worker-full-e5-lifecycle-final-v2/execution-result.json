@@ -1,0 +1,158 @@
+{
+  "schemaVersion": "saaia-owned-ingestion-execution.v1",
+  "startedAtUtc": "2026-10-26T01:14:12.9439034+00:00",
+  "passed": true,
+  "executed": true,
+  "plan": {
+    "schemaVersion": "saaia-owned-ingestion-plan.v1",
+    "executeRequested": true,
+    "caseIds": [
+      "native-two-column-v1",
+      "native-three-column-v1",
+      "native-unequal-columns-v1",
+      "native-late-page-title-v1",
+      "native-columns-and-table-v1",
+      "structured-table-v1",
+      "mixed-image-text-v1",
+      "full-page-scan-v1",
+      "fr-native-critical-v2",
+      "fr-mixed-critical-v2",
+      "fr-table-critical-v2",
+      "fr-scan-critical-v2"
+    ],
+    "sourceCount": 12,
+    "corpusManifestSha256": "2AAFFFEDD4C2D736D0EE02D06482A0F76C9EB11C3160CFFAE062911F50AEA505",
+    "backendAssemblySha256": "A21D64DA8465CCB39449008FDD5106C81860B4D90E1290A2FA83340F3F827BC7",
+    "dependencyManifestSha256": "6528941122C81977758F06A041AB8ED93258CACFA32546636BFEE2CA87D79DD4",
+    "profileSha256": "DEF96E5CF860034C42527A06002AFD3673A048C0A71E44B92F036988E52784C2",
+    "backendPort": 5129,
+    "fixturePort": 18091,
+    "qdrantCollection": "ingestion_198674e6fc024e4984954fdbcbdf6f6c",
+    "maximumWaitSeconds": 600,
+    "workerEnabled": true,
+    "canonicalRowsSeeded": false,
+    "paidProviderEnabled": false,
+    "embeddingAdapter": "transformers_cpu",
+    "embeddingsReal": true,
+    "vectorValidated": false,
+    "productStatus": "TESTE_NON_APPROUVE",
+    "verifyCanonicalSearch": true,
+    "validateLifecycle": true,
+    "embeddingProfileSha256": "FC6FA94317ADFDAE069736DF44E2A960D1DAA416AC9B588BD81FFC1C0C646370"
+  },
+  "canonicalRowsSeeded": false,
+  "paidProviderCalls": 0,
+  "ingestionWorkerExecuted": true,
+  "sqlPublicationValidated": true,
+  "vectorStorePublicationValidated": true,
+  "vectorValidated": false,
+  "cleanup": {
+    "activeJobCountBeforeStop": 0,
+    "zeroActiveJobs": true,
+    "ownedEnvironmentStopped": true,
+    "externalDependenciesStopped": false
+  },
+  "state": "verified",
+  "embeddingRuntimeAttested": true,
+  "emptyBaselineVerified": true,
+  "apiEnqueuedJobCount": 12,
+  "jobPollCount": 41,
+  "canonicalSearchValidated": true,
+  "lifecycle": {
+    "schemaVersion": "saaia-owned-ingestion-lifecycle.v1",
+    "executed": true,
+    "passed": true,
+    "caseId": "fr-scan-critical-v2",
+    "docId": "b2f9aee2-f0fb-1431-9647-a6cd9b7b73b1",
+    "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2",
+    "startedAtUtc": "2026-10-26T01:16:43.7051710+00:00",
+    "canonicalRowsSeeded": false,
+    "paidProviderCalls": 0,
+    "steps": [
+      {
+        "phase": "initial",
+        "docId": "b2f9aee2-f0fb-1431-9647-a6cd9b7b73b1",
+        "revisionId": "71516efc-ec5b-33cc-c2c3-1c6b03f43769",
+        "indexedVersion": 1,
+        "ingestionVersion": 1,
+        "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2",
+        "plan": "feb19bc252f5c49e7a58ee31cdf17ce7670de57660f5f47573b6f055b651c5e2",
+        "chunkCount": 1,
+        "pointIds": [
+          "f0c1eb4a-82b2-cdc1-3301-8815c9af34f3"
+        ],
+        "currentRagItems": 1,
+        "obsoleteRagIdentities": 0,
+        "activeJobs": 0
+      },
+      {
+        "phase": "unchanged-upsert",
+        "docId": "b2f9aee2-f0fb-1431-9647-a6cd9b7b73b1",
+        "revisionId": "4afb2d2b-1791-51af-616e-a8aff2fc11e1",
+        "indexedVersion": 2,
+        "ingestionVersion": 2,
+        "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2",
+        "plan": "cede2972028f69c0cb7a6d9b2274f136612873d425b228737949e88b24b0170a",
+        "chunkCount": 1,
+        "pointIds": [
+          "362e5de2-0ea2-aa6f-86d1-21f98479a853"
+        ],
+        "currentRagItems": 1,
+        "obsoleteRagIdentities": 0,
+        "activeJobs": 0
+      },
+      {
+        "phase": "delete",
+        "ingestionVersion": 3,
+        "indexedVersion": 0,
+        "activeJobs": 0,
+        "currentRagItems": 0
+      },
+      {
+        "phase": "recreate-upsert",
+        "docId": "b2f9aee2-f0fb-1431-9647-a6cd9b7b73b1",
+        "revisionId": "3dc7075d-a27d-263e-a322-0bba516a0ad8",
+        "indexedVersion": 4,
+        "ingestionVersion": 4,
+        "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2",
+        "plan": "2c9e49ff9d9af34630925bb08af0ef8d0b73ca132ceb20a2b9a694907df347e8",
+        "chunkCount": 1,
+        "pointIds": [
+          "2e74833b-4639-538c-5af4-9edbd8d5290a"
+        ],
+        "currentRagItems": 1,
+        "obsoleteRagIdentities": 0,
+        "activeJobs": 0
+      },
+      {
+        "phase": "final",
+        "docId": "b2f9aee2-f0fb-1431-9647-a6cd9b7b73b1",
+        "revisionId": "f92c9c6e-b967-20f2-66b6-af799e1ab3c0",
+        "indexedVersion": 5,
+        "ingestionVersion": 5,
+        "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2",
+        "plan": "b0de08d3d0515ce95e3b4f86644e392f9aab7d967197188345f4d505d5ab193b",
+        "chunkCount": 1,
+        "pointIds": [
+          "f0956183-2476-6511-02c2-1ad41c5d0888"
+        ],
+        "currentRagItems": 1,
+        "obsoleteRagIdentities": 0,
+        "activeJobs": 0
+      }
+    ],
+    "cancel": {
+      "status": "NON_EXECUTED",
+      "reason": "job_completed_before_cancel_effect",
+      "upstreamEngineCancellationVerified": false
+    },
+    "limits": {
+      "cancelObservationSeconds": 30,
+      "maximumWaitSecondsPerJob": 300,
+      "singleOwnedDocument": true,
+      "sqlReadOnly": true
+    },
+    "finishedAtUtc": "2026-10-26T01:17:21.6585718+00:00"
+  },
+  "finishedAtUtc": "2026-10-26T01:17:30.6650081+00:00"
+}

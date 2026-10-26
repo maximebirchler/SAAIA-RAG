@@ -1,0 +1,101 @@
+{
+  "schemaVersion": "saaia-real-local-vector-probe.v2",
+  "passed": true,
+  "scope": "Attested offline E5 and real Qdrant on three permuted synthetic passages; not ingestion or corpus-wide recall",
+  "runtime": {
+    "ok": true,
+    "adapter": "transformers_cpu",
+    "model_id": "intfloat/multilingual-e5-base",
+    "model_revision": "d128750597153bb5987e10b1c3493a34e5a4502a",
+    "dimensions": 768,
+    "model_file_sha256": "a18a44fad1d0b46ded15928144138cff1135d5cc8233bdd90be5f18822de09a7",
+    "runtime_revision": "saaia-validation-transformers-cpu.v1:1455e2be54dd944e7123a67c7c3050ab52efaaafff2de3a2ae8bef4dba5baaf8:torch-2.14.1+cpu:transformers-5.20.2",
+    "torch": "2.14.1+cpu",
+    "offline": true,
+    "externalLlmCalls": 0,
+    "counters": {
+      "requests": 0,
+      "inputs": 0,
+      "maximumTokens": 0,
+      "rejectedTooLong": 0
+    }
+  },
+  "runtimeAttestationMatchesProfile": true,
+  "embeddingDimensions": 768,
+  "minimumCosineMargin": 0.001,
+  "permutations": [
+    {
+      "passageOrder": [
+        0,
+        1,
+        2
+      ],
+      "expectedPassagePosition": 1,
+      "cosineScoresInPresentedOrder": [
+        0.8462987595069689,
+        0.7638319713515154,
+        0.7654296574380066
+      ],
+      "cosineMargin": 0.08086910206896225,
+      "qdrantMargin": 0.08086910000000003,
+      "expectedPassageRank": 1,
+      "qdrantExpectedPassageRank": 1
+    },
+    {
+      "passageOrder": [
+        1,
+        2,
+        0
+      ],
+      "expectedPassagePosition": 3,
+      "cosineScoresInPresentedOrder": [
+        0.7638319713515154,
+        0.7654296574380066,
+        0.8462987595069689
+      ],
+      "cosineMargin": 0.08086910206896225,
+      "qdrantMargin": 0.08086910000000003,
+      "expectedPassageRank": 1,
+      "qdrantExpectedPassageRank": 1
+    },
+    {
+      "passageOrder": [
+        2,
+        0,
+        1
+      ],
+      "expectedPassagePosition": 2,
+      "cosineScoresInPresentedOrder": [
+        0.7654296574380066,
+        0.8462987595069689,
+        0.7638319713515154
+      ],
+      "cosineMargin": 0.08086910206896225,
+      "qdrantMargin": 0.08086910000000003,
+      "expectedPassageRank": 1,
+      "qdrantExpectedPassageRank": 1
+    }
+  ],
+  "negativeControls": [
+    {
+      "expectedHttpStatus": 400,
+      "observedHttpStatus": 400
+    },
+    {
+      "expectedHttpStatus": 400,
+      "observedHttpStatus": 400
+    },
+    {
+      "expectedHttpStatus": 413,
+      "observedHttpStatus": 413
+    }
+  ],
+  "freshCollectionVerifiedBeforeCreate": true,
+  "ownedCollectionDeletedAndAbsent": true,
+  "elapsedSeconds": 0.344,
+  "paidProviderCalls": 0,
+  "semanticSmokeValidated": true,
+  "corpusSemanticRecallValidated": false,
+  "ingestionValidated": false,
+  "expectedProfileFileSha256": "fc6fa94317adfdae069736df44e2a960d1daa416ac9b588bd81ffc1c0c646370"
+}

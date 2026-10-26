@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "saaia-public-export-synthetic-test-proof.v1",
+  "scope": "PURE_PYTHON_SYNTHETIC_ONLY_NO_REAL_EVIDENCE_EXPORT",
+  "capturedAtUtc": "2026-10-26T00:46:45.929163+00:00",
+  "green": {
+    "executed": 12,
+    "passed": 12,
+    "failed": 0,
+    "skipped": 0,
+    "log": "artifacts\\ingestion-ocr-audit-20261025\\tests\\public-evidence-export-v1\\green-v3.log"
+  },
+  "red": {
+    "executed": 9,
+    "passed": 2,
+    "assertionFailures": 6,
+    "errors": 1,
+    "log": "artifacts\\ingestion-ocr-audit-20261025\\tests\\public-evidence-export-v1\\red-v2.log",
+    "meaning": "Name/payload leaks and path traversal reproduced. Inventory traversal raised FileExistsError after trying a destination outside output; expected prior ValueError. Earlier red.log has a duplicate-inventory fixture error and is not the retained baseline."
+  },
+  "files": [
+    {
+      "path": "artifacts\\ingestion-ocr-audit-20261025\\prepare-public-evidence.py",
+      "sha256": "71d0c0440f7cee55418df0affff67db41c43c03594991f7cbfd8ad0ac8aa59b8",
+      "sizeBytes": 19560
+    },
+    {
+      "path": "artifacts\\ingestion-ocr-audit-20261025\\tests\\public-evidence-export-v1\\test_public_evidence_export.py",
+      "sha256": "cc2f4de41f1506f24e18a74ea8cdeb006d7b7cf01082bdfe43549d69cd635ace",
+      "sizeBytes": 10228
+    },
+    {
+      "path": "artifacts\\ingestion-ocr-audit-20261025\\tests\\public-evidence-export-v1\\red-v2.log",
+      "sha256": "0428e9c3e2aa718ce941204e6a23942f652cb077883fe80eb392fdcb6978fd09",
+      "sizeBytes": 11339
+    },
+    {
+      "path": "artifacts\\ingestion-ocr-audit-20261025\\tests\\public-evidence-export-v1\\green-v3.log",
+      "sha256": "5bf1a05ed42aa7d0413a1abac0710b49a5e92f7136b31e9c949628bc2b6a2e5d",
+      "sizeBytes": 1924
+    }
+  ],
+  "limits": [
+    "Synthetic fixtures only; no real evidence projected or staged.",
+    "Original-script bytes were not separately hash-sealed before RED; logs record execution sequence, current exporter/test bytes are sealed here.",
+    "Pattern scanning remains heuristic; unknown arbitrary secret shapes are not claimed universally detectable."
+  ]
+}

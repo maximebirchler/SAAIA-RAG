@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "saaia-owned-worker-publication-verification.v1",
+  "passed": true,
+  "caseCoverageComplete": true,
+  "caseCount": 1,
+  "completedJobsObserved": true,
+  "workerExecutionAndNoSeedingRequireRunnerProof": true,
+  "sqlPublicationValidated": true,
+  "vectorStorePublicationValidated": true,
+  "canonicalSearchExecuted": true,
+  "canonicalSearchValidated": true,
+  "embeddingAdapter": "transformers_cpu",
+  "embeddingsReal": true,
+  "vectorValidated": false,
+  "results": [
+    {
+      "caseId": "recipe-real-v1",
+      "ok": true,
+      "issues": [],
+      "documentId": "81594a45-c76a-3818-af8c-53810b0b32a0",
+      "revisionId": "bf8b035b-64a8-8f06-3f57-eb98d18f6081",
+      "sourceSha256": "aa11e234fb3336ee76644958e888d83565e25ba875264ba75f7ce22b32d25c18",
+      "canonicalBundleChecksumExact": true,
+      "chunkCount": 160,
+      "chunkChecksumFailures": 0,
+      "sourceAnchorCount": 160,
+      "criticalPhysicalFactCount": 16,
+      "canonicalChecksPassed": true,
+      "readApiFactsPassed": true,
+      "qdrantPointCount": 160,
+      "qdrantPointIdsAndPlanExact": true,
+      "canonicalSearch": {
+        "passed": true,
+        "factId": "p5-servings",
+        "physicalPage": 5,
+        "positiveHitCount": 2,
+        "negativeControlCount": 2,
+        "requestsSourceBound": true,
+        "searchIdentityExact": true,
+        "positiveFactFound": true,
+        "negativeControlsPassed": true,
+        "searchToReadExact": true,
+        "noDegradedRetrievers": true,
+        "absentQueryLexicalMatchesZero": true,
+        "absentQueryDenseNeighborsCurrent": true,
+        "absentQueryDenseNeighborCount": 3,
+        "absentDocumentEmpty": true
+      }
+    }
+  ],
+  "limits": [
+    "Real Qdrant storage and point identity are distinct from semantic embedding quality.",
+    "Neither embedding mode alone validates semantic dense ranking; Transformers CPU is not the TEI binary.",
+    "Read API chunks can overlap pages; independent canonical page facts must pass separately.",
+    "This verifier consumes captured observations; process ownership and execution are proved by the runner."
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "saaia-owned-worker-offline-reevaluation.v1",
+  "newVerification": "publication-verification-v2.json",
+  "originalVerificationUnchanged": true,
+  "onlyCapturedObservationsRead": true,
+  "httpCalls": 0,
+  "sqlOperations": 0,
+  "servicesStarted": 0,
+  "modelCalls": 0,
+  "credentialsRead": 0,
+  "inputHashesBefore": {
+    "manifest": "24CC69860EEEC3804E903A1E190EE4292CBDA389EC271AAA293BF12EFF74AE35",
+    "observation": "CE6B10B174B320ECB945F4C98A2C538EAC3597A8497668AF5D00AA80215CF6FC",
+    "api": "99826973B57267B371554A6072DF5B07A74CC81FE1E74B05196E47DDF5083A89",
+    "vectors": "26DC48CF0B8AC55281C8D965CE079AAA521D2D27753E72B0FCFDE3DC3BD4C9E2",
+    "searches": "71BBDBBBA8C5016FFF1421E86129027C2E52C0A14C54DE2E5E5A47B521566D78"
+  },
+  "inputHashesAfter": {
+    "manifest": "24CC69860EEEC3804E903A1E190EE4292CBDA389EC271AAA293BF12EFF74AE35",
+    "observation": "CE6B10B174B320ECB945F4C98A2C538EAC3597A8497668AF5D00AA80215CF6FC",
+    "api": "99826973B57267B371554A6072DF5B07A74CC81FE1E74B05196E47DDF5083A89",
+    "vectors": "26DC48CF0B8AC55281C8D965CE079AAA521D2D27753E72B0FCFDE3DC3BD4C9E2",
+    "searches": "71BBDBBBA8C5016FFF1421E86129027C2E52C0A14C54DE2E5E5A47B521566D78"
+  },
+  "inputsUnchanged": true,
+  "verificationExitCode": 1,
+  "caseCount": 12,
+  "canonicalSearchPassCount": 11,
+  "remainingFailedCaseCount": 7,
+  "remainingIssueCodes": [
+    "canonical_alternative_count",
+    "canonical_alternative_reading_order",
+    "canonical_geometry",
+    "canonical_label_count",
+    "canonical_primary_reading_order",
+    "canonical_search_or_search_to_read",
+    "canonical_table",
+    "critical_retrieval_fact",
+    "read_api_identity_or_facts"
+  ],
+  "allCasesApproved": false,
+  "sourceHashes": {
+    "searchChecks": "00BE4BB0EAD9F0AB56276A95B869EA2A479169BDEC21819A0303FDF5C4A769C6",
+    "verifier": "14EF16EF8629B063D151033883AB84338FAF7792F0B1B929DF8480FC60907349"
+  }
+}

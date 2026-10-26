@@ -1,0 +1,1978 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "5b1a83c0911147a2b549323575e02856",
+  "startedAtUtc": "2026-10-26T01:14:17.2987972+00:00",
+  "finishedAtUtc": "2026-10-26T01:21:16.0311453+00:00",
+  "profile": "IntegrationPg",
+  "filter": "Profile=IntegrationPg",
+  "configuration": "Release",
+  "gitCommit": "24b21ab2efb819e961dfeabb33e850dc45fb1203",
+  "gitDirty": true,
+  "requestedProjects": [
+    "Backend"
+  ],
+  "buildRequested": false,
+  "restoreRequested": false,
+  "state": "passed",
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-26T01:14:18.2905978+00:00",
+    "sha256": "A01F65BC99F5AE780381643BFF76D672ED247D20A55ED7687E8912806E92E496",
+    "fileCount": 1774,
+    "inventory": "source-files-5b1a83c0911147a2b549323575e02856-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-26T01:21:16.7193975+00:00",
+    "sha256": "A01F65BC99F5AE780381643BFF76D672ED247D20A55ED7687E8912806E92E496",
+    "fileCount": 1774,
+    "inventory": "source-files-5b1a83c0911147a2b549323575e02856-after.json"
+  },
+  "sourceChangedDuringRun": false,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "publicProjection": {
+    "originalSha256": "c8fc687fecdd9597c54995c1e7268917f2f1d9eac245bf194647f0de3482f11d",
+    "rawOutputIncluded": false,
+    "environmentAndPrerequisiteDetailsOmitted": true,
+    "testArgumentsIncluded": false,
+    "originalTestNamesHashed": true,
+    "approvalGranted": false
+  },
+  "results": [
+    {
+      "project": "Backend",
+      "path": "backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj",
+      "status": "passed",
+      "exitCode": 0,
+      "counts": {
+        "failed": 0,
+        "notExecuted": 2,
+        "executed": 310,
+        "total": 312,
+        "adapterReportedExecuted": 310,
+        "passed": 310
+      },
+      "assemblies": [
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.AdvancedValidationJobGuard.dll",
+          "role": "local_product_dependency",
+          "sha256": "4B6A2ACCECE9935D87C0F8CFB1A2CDF95C023597A526FDC1176761A094BDE298",
+          "sizeBytes": 62464,
+          "lastWriteTimeUtc": "2026-10-26T00:15:08.5105105Z",
+          "capturedAtUtc": "2026-10-26T01:21:15.9947640+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.dll",
+          "role": "local_product_dependency",
+          "sha256": "A21D64DA8465CCB39449008FDD5106C81860B4D90E1290A2FA83340F3F827BC7",
+          "sizeBytes": 7882752,
+          "lastWriteTimeUtc": "2026-10-26T01:12:45.0440880Z",
+          "capturedAtUtc": "2026-10-26T01:21:16.0027230+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "C82F23C9DFF4104F1EC7CAC5967B1EB0AB477B2455A5E564E15C9A07522CD23B",
+          "sizeBytes": 5082624,
+          "lastWriteTimeUtc": "2026-10-26T01:12:48.5247123Z",
+          "capturedAtUtc": "2026-10-26T01:21:16.0080169+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "F68A8BD25D479EE88A9F39BC7F9E8335F09572D25B4274AFF7BF868FA48B7F6D",
+          "sizeBytes": 154112,
+          "lastWriteTimeUtc": "2026-10-26T00:15:08.5271766Z",
+          "capturedAtUtc": "2026-10-26T01:21:16.0088074+00:00"
+        }
+      ],
+      "cases": [
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_execution_contract_can_fail_claimed_jobs",
+          "originalTestNameSha256": "d72f4d1e0ce5c82408e3bcd4f5374f486f3f6a948f1980397afc69b13bc57cc6",
+          "outcome": "Passed",
+          "duration": "00:00:01.4950611"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Dense_overfetch_candidate_cap_is_visible_in_canonical_response_metrics",
+          "originalTestNameSha256": "339044fb6280ecdea3ea573a872fa98bbfd0bcb76ea8c8a0a754f093f133255c",
+          "outcome": "Passed",
+          "duration": "00:00:01.0379913"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchDocumentProfileMatchesAsync_repairs_missing_scoped_profile_search_projection",
+          "originalTestNameSha256": "b0f77ecc14f98644f86ab0e06a9441e6711a46b1058b4f6d901f3c4500d63d66",
+          "outcome": "Passed",
+          "duration": "00:00:01.0042996"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchDocumentProfileMatchesAsync_refreshes_stale_scoped_profile_search_projection",
+          "originalTestNameSha256": "5e766347e0e728194af4c22c5ea615f138fc64dd73e0b84cbe063e76841df505",
+          "outcome": "Passed",
+          "duration": "00:00:01.3766462"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_returns_ask_clarification_for_placeholder_standard_question",
+          "originalTestNameSha256": "068ccd2996ffd459b10d6f92d68ac7dbcff2a041493c819b6768761c2e1670fe",
+          "outcome": "Passed",
+          "duration": "00:00:01.1029673"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_worker_processes_next_queued_job_and_stores_deterministic_summary",
+          "originalTestNameSha256": "8a904a80d9e39b1570cc555828507f6afc67111af7723ba59a8d2bd690973343",
+          "outcome": "Passed",
+          "duration": "00:00:02.3217532"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.ResolveSummaryGenerationExecutionAsync_returns_server_backoffice_when_capability_b_is_selected",
+          "originalTestNameSha256": "dd6c78c15556ef7878a3019b5bad54547fcec97335f93e80842ce37b3803cedc",
+          "outcome": "Passed",
+          "duration": "00:00:00.9028899"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Catalog_cache_endpoints_return_304_when_if_none_match_matches_etag",
+          "originalTestNameSha256": "00b9dbe4ce03ff119e58cce772055bcdab0472bdf5b92f13b6df4179a488f197",
+          "outcome": "Passed",
+          "duration": "00:00:01.2616375"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_missing_or_empty_lease_cannot_mutate_progress_terminal_state_or_publication",
+          "originalTestNameSha256": "dd2d86fe3f23a158b4429db10e550f8cff7cd21bcdc4c863146db5121211938c",
+          "outcome": "Passed",
+          "duration": "00:00:00.8446366"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchSparseMatchesAsync_lexical_fallback_matches_accents_and_ligatures",
+          "originalTestNameSha256": "df736bac37bd995e04a6cd3e5e23d8123880932dd6ab71055c26d2d65227cb64",
+          "outcome": "Passed",
+          "duration": "00:00:01.0529366"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchDocumentProfileMatchesAsync_ignores_pruned_cards_left_only_in_profile_search_text",
+          "originalTestNameSha256": "17e1042cf202fb962c312c4c043479a5ea72adee9218b5dde78f7b08e7d609ea",
+          "outcome": "Passed",
+          "duration": "00:00:00.8977535"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.SubmitSummaryAsync_rejects_stale_expected_source_hash_and_does_not_store_summary",
+          "originalTestNameSha256": "63db4744ec8abc58c09f1b7c4579f0bcb060b8f9264f74abe9ca9f5ec26cdcde",
+          "outcome": "Passed",
+          "duration": "00:00:01.1283635"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Failed_admitted_tool_time_is_charged_once_and_survives_resume",
+          "originalTestNameSha256": "94a7683f849d2fa545d98eaad12cc7e21590ef5dc96cdfd8deb1318e71590d6b",
+          "outcome": "Passed",
+          "duration": "00:00:01.1910144"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.UpsertDocumentProfileAsync_purges_legacy_cards_with_stale_profile_version",
+          "originalTestNameSha256": "f7c74b1a8a943cc5155e3b77cdc94876fee2ddd38a3bca05c61b0c778de7396e",
+          "outcome": "Passed",
+          "duration": "00:00:00.9647241"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_reprocesses_an_unchanged_source_only_for_a_changed_pipeline_and_respects_admin_pause",
+          "originalTestNameSha256": "1ea0fea3785158a334c5f70eff00d9715d73526330411e56355d188c8f5f46bf",
+          "outcome": "Passed",
+          "duration": "00:00:00.9114793"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_reprocesses_an_unchanged_source_only_for_a_changed_pipeline_and_respects_admin_pause",
+          "originalTestNameSha256": "506c8e302d227a4bed749438af4aa23f1bb43d708e9617aed8361ee8d42c2d34",
+          "outcome": "Passed",
+          "duration": "00:00:00.9242613"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_suppresses_duplicate_pdf_content_without_delete_when_duplicate_is_already_clean",
+          "originalTestNameSha256": "aece30dfb72921a5d0194f320d4b18cd6ec070cff25fa787afffa206d44a2be5",
+          "outcome": "Passed",
+          "duration": "00:00:00.8956686"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.RequalifyAsync_blocks_qualification_when_runtime_specific_gate_fails",
+          "originalTestNameSha256": "597aa8b0c6509d03ba4fe8452d3c718bd847de2e9eba3b3cf23aa1f279b4d60d",
+          "outcome": "Passed",
+          "duration": "00:00:01.2229412"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilityBQualityReviewSummaryArtifactAsync_returns_named_artifact_snapshot",
+          "originalTestNameSha256": "450904d210926483299e2c36152e29d5a9dc2ad35c2d51f52612f234bb31cc2a",
+          "outcome": "Passed",
+          "duration": "00:00:01.2452728"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_lease_reassigned_to_another_worker_rejects_old_publication_without_mutating_new_owner",
+          "originalTestNameSha256": "9ab2f191ceeca2ec0ad8933cf539936ee5ee6422beae688634a57dd73f9acc49",
+          "outcome": "Passed",
+          "duration": "00:00:01.0486708"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Summary_management_surfaces_expose_capability_b_cooldown_policy_for_recent_failures",
+          "originalTestNameSha256": "e5603e36a0291bd22830d07faf8a6a062f1d044923facffd0f9e370604066233",
+          "outcome": "Passed",
+          "duration": "00:00:00.9095764"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.EnqueueUpsertAsync_preserves_capability_a_seed_until_dequeue",
+          "originalTestNameSha256": "34c0300447bdd63a22a91f84dcea018acf8f8a634f011a2ac1e8c9f44186096e",
+          "outcome": "Passed",
+          "duration": "00:00:00.8756302"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.RagLiveSummaryMultilingualBackendTests.Rag_search_response_preserves_document_and_profile_language_for_live_summary_consumers",
+          "originalTestNameSha256": "71e63c677a84cea00e3ac80ef5d31937838190e396570b4744e4edfffef6c8f7",
+          "outcome": "Passed",
+          "duration": "00:00:01.8743601"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.MonotonicIngestionConsumersIntegrationTests.Failure_without_a_valid_publication_remains_visible_and_policy_blocked",
+          "originalTestNameSha256": "0b47e44f3b2e14d49ec8e7e502f6cc4d3b562e91308473769baf5df41f716d41",
+          "outcome": "Passed",
+          "duration": "00:00:00.8214223"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_publishes_revision_foundation_and_artifact_summaries",
+          "originalTestNameSha256": "062f47943c0939a4f75573f68b332603c79fa16179d916bd6a1f5b6a9fac3a9b",
+          "outcome": "Passed",
+          "duration": "00:00:01.0827217"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Admin_extraction_quality_uses_processing_run_from_current_revision_only",
+          "originalTestNameSha256": "73e7acdb1f5759d261690af480eac97dc50dc58b0cd8faa4f336e463afc509ab",
+          "outcome": "Passed",
+          "duration": "00:00:02.3863822"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected",
+          "originalTestNameSha256": "cd9ba4c543b036fdd8c8178d962bb10f7d180a20d236ab76a9349d2982caacb3",
+          "outcome": "Passed",
+          "duration": "00:00:01.3870168"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Extraction_quality_admin_endpoint_reports_llm_enrichment_pending_counters",
+          "originalTestNameSha256": "1907d91fa6d35638c5aec18f16c7455606d223f0e04b0f9c175d03fd99cd214e",
+          "outcome": "Passed",
+          "duration": "00:00:01.5417780"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.SubmitSummaryAsync_rejects_non_summary_and_mismatched_admin_jobs",
+          "originalTestNameSha256": "2d6c6a2eac9486b4e72c2ce4847c79dcecb86175de387b5f199ef56a8dfcd779",
+          "outcome": "Passed",
+          "duration": "00:00:01.0304135"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.DiagnosticsAsync_surfaces_blockers_for_expired_qualification",
+          "originalTestNameSha256": "4e92a318034d08390ac260f90ae4ad32ef1ed97ecc042791d792b0869116d56e",
+          "outcome": "Passed",
+          "duration": "00:00:01.2912414"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Canonical_find_rejects_changed_identity_even_for_an_absent_literal",
+          "originalTestNameSha256": "f9239e3b135bc8f0a6a974590e4b6d481615f1810bcfc5af803bf3295a8b035f",
+          "outcome": "Passed",
+          "duration": "00:00:01.0284772"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Tracking_route_falls_back_to_message_metadata_when_job_is_gone",
+          "originalTestNameSha256": "57a3b8fda1661e0195892e48314036c404636bb1c191ac97889cb90b37772e8a",
+          "outcome": "Passed",
+          "duration": "00:00:01.2830315"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Validation_job_guard_uses_recorded_random_owners_and_preserves_other_jobs",
+          "originalTestNameSha256": "3a3bd405107c6e91c68b86ac8ba7d871fe1aca5c13836dffd478ae04b84d7426",
+          "outcome": "Passed",
+          "duration": "00:00:01.5138434"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Summary_source_hash_changes_when_indexed_version_changes_without_file_hash_change",
+          "originalTestNameSha256": "44c6ef069400025e1d516b3d593eba8780303078711b91a1b07c0fb167ff844a",
+          "outcome": "Passed",
+          "duration": "00:00:00.9809600"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminKeysAndAuditEndpointsTests.Rotate_key_rolls_back_when_audit_write_fails",
+          "originalTestNameSha256": "031dedd0fa4d506c7d11f849a499c5a0dc33219054e788d2cc7482fd030eb42a",
+          "outcome": "Passed",
+          "duration": "00:00:01.4717771"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_worker_waits_when_ingestion_is_active",
+          "originalTestNameSha256": "f5368aaaeefefb79b95f0561655f290c5303d6928ce05ca7da49f922f599ed72",
+          "outcome": "Passed",
+          "duration": "00:00:01.3439869"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.MonotonicIngestionConsumersIntegrationTests.Abandoned_generation_is_not_pending_backlog_or_automatic_reindex",
+          "originalTestNameSha256": "1ce135389bd2313a2296c59a20e2f971ef96f41f125d34f5d31a84e1cf8acc23",
+          "outcome": "Passed",
+          "duration": "00:00:00.8583675"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_suppresses_duplicate_pdf_content_and_queues_delete_for_known_duplicate",
+          "originalTestNameSha256": "2b518decccf57ddac3848c075139f3b8c130327e04020d4ab9330b293a7dec4b",
+          "outcome": "Passed",
+          "duration": "00:00:00.9540060"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.MarkCanceledAsync_keeps_published_revision_and_monotone_ingestion_generation",
+          "originalTestNameSha256": "e441e67c217620deaaf588985db796a15eb78366185df10e1f2fc8349a2891a3",
+          "outcome": "Passed",
+          "duration": "00:00:01.8226689"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Retention_purges_expired_payloads_and_traces_after_active_leases_end",
+          "originalTestNameSha256": "a2e2e68c3df572dd722ccff65008a14e2067ded24c1a69dbe82513405b71e5c0",
+          "outcome": "Passed",
+          "duration": "00:00:01.2850746"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.EventsAsync_records_rejected_selection_and_stale_reconciliation_actions",
+          "originalTestNameSha256": "77a5ba128da4fc6ae152d5dc7e3be1ed4b9ac01aa42588d9d1da454a1ef78753",
+          "outcome": "Passed",
+          "duration": "00:00:01.3463183"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchLinkedMatchesAsync_falls_back_to_same_page_chunks_for_exact_heading_anchor",
+          "originalTestNameSha256": "114b9df732db3616920c915ea03f78532b27c786c5e384242bb94affc43aba60",
+          "outcome": "Passed",
+          "duration": "00:00:01.2479456"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DbMigratorDiagnosticIntegrationTests.Applied_migration_modification_is_rejected_before_the_changed_sql_runs",
+          "originalTestNameSha256": "6ff13d7054dae0e0fd3509136baa2316656a54e554f13fda6d5b1c59c1a49195",
+          "outcome": "Passed",
+          "duration": "00:00:00.4089586"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_publishes_ocr_diagnostics_in_processing_payload",
+          "originalTestNameSha256": "3d2fa937dbb8fc7ff218213ec4c1413c16907660a014c07504e623ba3326ca81",
+          "outcome": "Passed",
+          "duration": "00:00:01.9417087"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchAsync_does_not_return_admin_diagnostics_from_public_endpoint",
+          "originalTestNameSha256": "a7feb15ace220f6d684ccdef7480bab3336eaa2860290df5ecde5aa9615c521e",
+          "outcome": "Passed",
+          "duration": "00:00:01.2686716"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_requeues_stale_running_job_without_marking_failed",
+          "originalTestNameSha256": "a7538bac69ec7cb9f3ec849dbe07350075a3d96c34fbd3b9ec2e3f9ac2591e22",
+          "outcome": "Passed",
+          "duration": "00:00:01.1079549"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.MonotonicIngestionConsumersIntegrationTests.Active_generation_gap_remains_signaled_and_blocked_by_actual_job",
+          "originalTestNameSha256": "0076a485a8e6e8c12f8f908971676d7d6ff79e9ccf881f553e29dbb4e8ad26a1",
+          "outcome": "Passed",
+          "duration": "00:00:00.9063210"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DbMigratorDiagnosticIntegrationTests.Legacy_migration_hash_is_explicitly_baselined_instead_of_claiming_historical_verification",
+          "originalTestNameSha256": "2fbd757860c4c1828432ff2ae8330a76b133e8ac38cc57227b0541e415162e87",
+          "outcome": "Passed",
+          "duration": "00:00:00.3776622"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchTitleAnchorRouteMatchesAsync_prefers_content_card_full_title_lead_over_dense_partial_page_chunk",
+          "originalTestNameSha256": "e2e1028084c8636391d4f635ea0b9853c97e253239318ee626db145b3c205768",
+          "outcome": "Passed",
+          "duration": "00:00:01.6364840"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Expired_job_fails_closed_when_provider_or_model_changes",
+          "originalTestNameSha256": "3a1495a24ee3e65c2d583eb00863378504252eaf60e232991ca26638ebcc68a8",
+          "outcome": "Passed",
+          "duration": "00:00:01.5060677"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Session_delete_cascades_only_owned_tenant_user_and_commits_one_audit",
+          "originalTestNameSha256": "098dd72d57625327e394743f6ccf983368dbdb1bb1ed75f8b348ff3972b890a8",
+          "outcome": "Passed",
+          "duration": "00:00:01.3817347"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_does_not_publish_when_version_is_superseded",
+          "originalTestNameSha256": "82f2cd761c9558474fe3fa55109b4642c19680180d06697fce8849c46904eb41",
+          "outcome": "Passed",
+          "duration": "00:00:01.2795773"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchAsync_returns_extraction_quality_for_rag_items",
+          "originalTestNameSha256": "765211582e008fd2df7441c02a650d270fc46452774c905c07681bbdcfbcd6b9",
+          "outcome": "Passed",
+          "duration": "00:00:02.3012121"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Delete_summary_endpoint_refreshes_profile_search_projection",
+          "originalTestNameSha256": "d6d36dd7ac51b7ebce5a1a056e16cb96e60b3655f529d46ff7b2d58e7aeafdbd",
+          "outcome": "Passed",
+          "duration": "00:00:01.0654265"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchAsync_does_not_call_capability_a_llm_questions_during_interactive_search",
+          "originalTestNameSha256": "ded52fb7b56805fec5229ac8317ad8e515b5232f22ffbfeef94f8236c8dba5b5",
+          "outcome": "Passed",
+          "duration": "00:00:01.4741964"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchExactMatchesAsync_honors_category_and_document_filters",
+          "originalTestNameSha256": "2b4c056fcc5b56a8b49fea9b6606606a8dd26a8b63b154bddf743b1f31990f83",
+          "outcome": "Passed",
+          "duration": "00:00:01.3434955"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Canonical_find_promotes_a_leading_title_even_when_the_chunk_was_already_observed",
+          "originalTestNameSha256": "454d2ad4d6290602d9de6203f0d03e82d2fb455fe125d412416030a14abbbaa1",
+          "outcome": "Passed",
+          "duration": "00:00:01.3329138"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.RequalifyAsync_marks_capability_b_not_qualified_when_llm_runtime_probe_fails",
+          "originalTestNameSha256": "9778ed5224fec79f1b4c52492aeca31f4b2a7eaba01924bd1353ae187083dd32",
+          "outcome": "Passed",
+          "duration": "00:00:01.2376675"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Canonical_response_reports_revision_change_instead_of_publishing_stale_chunks_with_new_identity",
+          "originalTestNameSha256": "c43d814844a0cafd09139672ba91236cead965e477b966bde02c75cd65f1fa8b",
+          "outcome": "Passed",
+          "duration": "00:00:01.8261021"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.CapabilityBCompleteAsync_strips_nul_characters_from_summary_text_and_meta",
+          "originalTestNameSha256": "6707fe3841f005ba19d554c1b84c5c41bbb8c3b043adc28377d959f6a8771691",
+          "outcome": "Passed",
+          "duration": "00:00:01.1391309"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SnapshotAsync_returns_304_when_if_none_match_matches_snapshot_etag",
+          "originalTestNameSha256": "63636b68f3634c586d0d062488e12d4c2877536b9db4362fc6fb9546393a8b2f",
+          "outcome": "Passed",
+          "duration": "00:00:01.2100447"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_lease_reassigned_to_another_worker_rejects_old_publication_without_mutating_new_owner",
+          "originalTestNameSha256": "fad1a326ba505c54630ad342a61dc40aa6fcd90b71cb25a0740ef9d98555795c",
+          "outcome": "Passed",
+          "duration": "00:00:01.2593531"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.RuntimeCapabilityBExtractionQualitySnapshotTests.LoadCapabilityBDocumentAsync_loads_revision_extraction_quality_snapshot",
+          "originalTestNameSha256": "274e1895abd3b8134d9c584d1c41830f7329dbb0c19f8bfba582bb4fa2f26d8a",
+          "outcome": "Passed",
+          "duration": "00:00:00.7964770"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.ResolveSummaryGenerationExecutionAsync_falls_back_to_client_admin_when_live_runtime_probe_fails",
+          "originalTestNameSha256": "330ddad32d993c84ac822ca7c83b7adb4480d50f53d96f5d6955697896f9a022",
+          "outcome": "Passed",
+          "duration": "00:00:00.8717333"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Worker_rejects_cross_tenant_evidence_before_provider_call",
+          "originalTestNameSha256": "4d295aab434d9210532e03c35915e32a7d3ba4b98ad8b579bff86059a1e035f0",
+          "outcome": "Passed",
+          "duration": "00:00:01.4891252"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.UpdateSelectionAsync_rejects_selecting_unqualified_capability",
+          "originalTestNameSha256": "b42a643a9d87a9cda72e05c27ff14b22630da8b5e40e81bf06af28e648f80dc1",
+          "outcome": "Passed",
+          "duration": "00:00:01.2555483"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.LoadNextQueuedCapabilityBExecutionJobAsync_prioritizes_payload_priority_score",
+          "originalTestNameSha256": "425f7242b8703040d0e1fe68f2880779879bc9698def16368203c6a49f49dc4a",
+          "outcome": "Passed",
+          "duration": "00:00:00.9462752"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Tool_gateway_matches_shared_canonical_retrieval_and_deduplicates",
+          "originalTestNameSha256": "7ac00a13c2f76b4461c24e20df23aa7f29a99ecf5d8e58f25d6548908113a80a",
+          "outcome": "Passed",
+          "duration": "00:00:03.9283295"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Worker_rate_limit_retry_stops_at_the_job_attempt_cap",
+          "originalTestNameSha256": "66ebc1f552bc0edf6951c115fd31a3e9124bf80678a60f9ed5575777480de3d8",
+          "outcome": "Passed",
+          "duration": "00:00:01.2351572"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Dense_overfetch_reports_incomplete_channel_when_obsolete_points_exhaust_bounded_candidate_budget",
+          "originalTestNameSha256": "587b691c66985eb176927fba487907bd5c0f3d3c029633ccaa4a6e3dd3eb5a3a",
+          "outcome": "Passed",
+          "duration": "00:00:01.3283683"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_publishes_canonical_bundle_and_queryable_source_anchor_atomically",
+          "originalTestNameSha256": "297956a5fde6e76759c083d676c318852e2771714147be57234559ec602dbb48",
+          "outcome": "Passed",
+          "duration": "00:00:01.7882637"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.CapabilityB_force_enqueue_can_regenerate_existing_fresh_summary_for_quality_review",
+          "originalTestNameSha256": "2870af3e3c8d814ef5fe49362c18c103ac85413b9aca3fd31759c817355992d6",
+          "outcome": "Passed",
+          "duration": "00:00:01.0124984"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Canonical_http_authentication_scopes_search_and_context_to_the_key_tenant",
+          "originalTestNameSha256": "cce4bbebbc1a3af439f8865b1db3ab0d22cd855da2977eb28b1314d6bd019c57",
+          "outcome": "Passed",
+          "duration": "00:00:03.1844942"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_missing_or_empty_lease_cannot_mutate_progress_terminal_state_or_publication",
+          "originalTestNameSha256": "3fc9ec8800e42e243f91ce1f7042d37053528e3b621a736d68452ca97602299b",
+          "outcome": "Passed",
+          "duration": "00:00:00.8502445"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Empty_canonical_page_window_revalidates_source_before_reporting_no_chunks",
+          "originalTestNameSha256": "7cb0aaa9dd3b34ac7382b4382c5e7e036b56b7586cf534aa1826f19c9b2b171e",
+          "outcome": "Passed",
+          "duration": "00:00:01.0607362"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Canonical_context_exposes_revision_change_after_search_without_relabeling_the_old_anchor",
+          "originalTestNameSha256": "06e337671be3bb68c61e07f4bee1ce79e7eadfa9736b5a50970e33af74b7b69d",
+          "outcome": "Passed",
+          "duration": "00:00:01.4624574"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilityStateArtifactAsync_returns_persisted_runtime_state_snapshot",
+          "originalTestNameSha256": "43fd41d8266b99e8e003eb30be2fc466b685df0716bb338f5a0984c6b3a262de",
+          "outcome": "Passed",
+          "duration": "00:00:01.2526910"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.RequalifyAsync_can_qualify_and_select_capability_a",
+          "originalTestNameSha256": "1fbe19eb9ae90d91e24926da2c6a830e301491284817366a66b2e78180f918df",
+          "outcome": "Passed",
+          "duration": "00:00:01.2992438"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Session_delete_failure_rolls_back_messages_jobs_and_session_without_success_audit",
+          "originalTestNameSha256": "e763633b50a3d7bbff23f9c15fd67c1944e5e032dd3fb6ea6a05c0a9d9f64249",
+          "outcome": "Passed",
+          "duration": "00:00:01.3109211"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_does_not_publish_when_no_searchable_chunks_exist",
+          "originalTestNameSha256": "8f8116b7b44940317cf5221e57276298371b88b7442ce9ad7e9b83746b4c5582",
+          "outcome": "Passed",
+          "duration": "00:00:00.9405424"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_lease_reassigned_to_another_worker_rejects_old_publication_without_mutating_new_owner",
+          "originalTestNameSha256": "76c8df782657b0f5717c84b0051415d24df0a08b9a6f06d672abd1d3aaf9e16d",
+          "outcome": "Passed",
+          "duration": "00:00:00.8963718"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Dense_overfetch_cancellation_during_retry_is_not_reported_as_exhaustive_empty_search",
+          "originalTestNameSha256": "0b9a60fef2fe91386228d47a275a230db34d902615307fa108a10af666116f25",
+          "outcome": "Passed",
+          "duration": "00:00:01.0045318"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_worker_processes_next_queued_job_and_stores_llm_summary_when_runtime_is_available",
+          "originalTestNameSha256": "9fe07580a3c3b87114e55caf663e360df4e4be8688cfd8e0e23f6c56d7139406",
+          "outcome": "Passed",
+          "duration": "00:00:01.2216464"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Canonical_find_locates_literal_text_paginates_and_excludes_other_documents_and_tenants",
+          "originalTestNameSha256": "9e87546a65af45833324adef821b73fa81ad3858de00cc8c88dfd202f8f76955",
+          "outcome": "Passed",
+          "duration": "00:00:01.1894147"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_worker_auto_enqueues_missing_summary_when_ingestion_is_idle",
+          "originalTestNameSha256": "c358e9232a86d4dee31911915c272f3531cf0c8b5f97effaec8813beec6874a8",
+          "outcome": "Passed",
+          "duration": "00:00:01.5460747"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchExactMatchesAsync_falls_back_to_document_metadata_for_reference_visible_in_filename",
+          "originalTestNameSha256": "12f614330cd5d090ac9a99a174b0247817f62fff9ce81743b1106ebe96208b80",
+          "outcome": "Passed",
+          "duration": "00:00:00.9362307"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchDocumentProfileMatchesAsync_uses_content_cards_beyond_legacy_projection_limit",
+          "originalTestNameSha256": "a3f5f7dbca7cb4339a3d434eff5e7c90f46f898d2abe2af90642edcd412e4524",
+          "outcome": "Passed",
+          "duration": "00:00:01.2434108"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.RuntimeGovernance_excerpt_loaders_prefer_content_chunks_over_navigation_units",
+          "originalTestNameSha256": "836d758674d8215686e13cc5e9f354059aa83c3525bb5369f8a85418bce53e17",
+          "outcome": "Passed",
+          "duration": "00:00:00.9005009"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Rag_categories_merges_dynamic_indexed_categories_when_snapshot_is_partial",
+          "originalTestNameSha256": "59d3c35107d261163246a127305d6c8e349721f01dddab25813d758afeeed689",
+          "outcome": "Passed",
+          "duration": "00:00:01.5589141"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Dense_overfetch_stops_when_qdrant_is_exhausted_without_claiming_a_candidate_budget_failure",
+          "originalTestNameSha256": "e83225d4fc23c56d67a34dea1248d15425564685b6cc864b57a7c2dda91c2778",
+          "outcome": "Passed",
+          "duration": "00:00:00.9495366"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.PublishFailedOcrExtractionAsync_keeps_existing_indexed_source_metadata",
+          "originalTestNameSha256": "34060eff163b907834f9f2eaff080d7d2dd2b252c9f5f24aeffab9d27b207ece",
+          "outcome": "Passed",
+          "duration": "00:00:01.0958842"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Canonical_exact_search_returns_only_current_chunks_linked_to_the_matched_source_unit",
+          "originalTestNameSha256": "3b4425e4edf1ee419a10c23ca314422b5adcf961a397396c5fcc98a5e2180eaf",
+          "outcome": "Passed",
+          "duration": "00:00:02.8286284"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Validation_job_audit_exports_only_recorded_owners_with_checkpoint_and_tool_events",
+          "originalTestNameSha256": "fba17b5acbd6ff01f1b22cea0f0bc98fee8c8baf4ebb21196c350250e57024e6",
+          "outcome": "Passed",
+          "duration": "00:00:01.4422203"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_does_not_publish_when_no_searchable_chunks_exist",
+          "originalTestNameSha256": "ff4e8e2947ce13a97d3d098a3acb0ee4f47d530f09f94c9349eec70258674f8b",
+          "outcome": "Passed",
+          "duration": "00:00:01.0916835"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_delete_or_cancel_never_reuses_an_abandoned_source_generation",
+          "originalTestNameSha256": "66d85e8169b23d0b7dcb95964fdad4d6a283f7b960a14382cad048f5d52ae566",
+          "outcome": "Passed",
+          "duration": "00:00:01.0711264"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchLinkedMatchesAsync_recovers_inverse_same_section_companion",
+          "originalTestNameSha256": "e602e26126b6c28bebd58d41377e66c9705fc5ac1906b0e23e218b102a4793b5",
+          "outcome": "Passed",
+          "duration": "00:00:01.3820690"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Session_delete_failure_rolls_back_messages_jobs_and_session_without_success_audit",
+          "originalTestNameSha256": "cc361d42d18fc7131013764e65b049592f86cfa162c0597a7b174cf4804e7f87",
+          "outcome": "Passed",
+          "duration": "00:00:01.3382517"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchDocumentProfileMatchesAsync_uses_llm_profile_terms_and_cards_as_candidates",
+          "originalTestNameSha256": "59162dc25501f8764f5efae6723d0b0eb27959003e98778f6a00bbf31dd5fa0d",
+          "outcome": "Passed",
+          "duration": "00:00:01.7724447"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Canonical_search_preserves_real_pdf_hash_pages_and_extracted_text_for_client_citations",
+          "originalTestNameSha256": "fc336472f6128506c590d7b9c131bd170d6fdbef584f7c30d051648ca7595f48",
+          "outcome": "Passed",
+          "duration": "00:00:01.3827465"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.RuntimeGovernance_batch_loaders_return_per_doc_titles_and_excerpts_without_cross_mix",
+          "originalTestNameSha256": "965710e87864847de504a87f05ae6ca9fc43ffd7231c9222da36a7b87103400e",
+          "outcome": "Passed",
+          "duration": "00:00:01.0465485"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Session_lifecycle_routes_preserve_user_scope_and_emit_audit",
+          "originalTestNameSha256": "e8f1c7e3c2a04c3e6069856dc43fb57025df0b1f8b0cd93736b73d9b11f0582a",
+          "outcome": "Passed",
+          "duration": "00:00:01.3823657"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Canonical_resolver_preserves_ingested_section_locators_without_changing_proof_identity",
+          "originalTestNameSha256": "36bd98b3723f96e1aa28949dd435ed1d07f664dbf63b1b18d630640066c44387",
+          "outcome": "Passed",
+          "duration": "00:00:00.7957805"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.SubmitSummaryAsync_rejects_unclaimed_capability_b_job_and_leaves_it_queued",
+          "originalTestNameSha256": "fd461d9f4a83de8082b625c2cfb2f71466281421b0e9fe48c93c6dfd5df076b7",
+          "outcome": "Passed",
+          "duration": "00:00:01.2867658"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Exclusive_claim_and_expired_lease_recovery_are_deterministic",
+          "originalTestNameSha256": "07aa2e4e85f0dfb72e3a8e3f15fd1e19ef6531970bb9761ba8c9b957615b4136",
+          "outcome": "Passed",
+          "duration": "00:00:01.5111546"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Resolve_source_endpoint_exposes_compact_ocr_diagnostics_without_raw_payload",
+          "originalTestNameSha256": "7ddee773b1d12885c255903f39bfa1840d2855ab89c728974d5fb42206f7010b",
+          "outcome": "Passed",
+          "duration": "00:00:02.5306159"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Durable_tool_trace_is_revalidated_after_expired_lease_retry",
+          "originalTestNameSha256": "e7fbca6a62bb4b30e7da243cbcc19297cdcd4ac3dd3add09ccc97e06b12a7344",
+          "outcome": "Passed",
+          "duration": "00:00:02.9773667"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.RequalifyAsync_qualifies_core_retrieval_and_persists_state_and_warmup",
+          "originalTestNameSha256": "ffb6d5ffc1e78d881066481e7d543531732e7c8603ae53e0eb37390b7db907f4",
+          "outcome": "Passed",
+          "duration": "00:00:01.2875274"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Get_summary_endpoint_keeps_stale_summary_behavior_before_source_projection",
+          "originalTestNameSha256": "1a1df2d85bc9c285ce5e03d0002bfb3be44dbb200e983bfcf0f896b59e13f978",
+          "outcome": "Passed",
+          "duration": "00:00:02.0710655"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Search_summary_endpoint_exposes_enriched_source_projection_for_items",
+          "originalTestNameSha256": "02d9dd73b5989d469f391fd1138ecec91d641967ddd1ea9a7bcf754b96f82839",
+          "outcome": "Passed",
+          "duration": "00:00:01.3954022"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Canonical_resolver_preserves_physical_context_metadata_without_fabricating_heading_or_proof_identity",
+          "originalTestNameSha256": "421ddae3d36e055a00e4b468e05250b48869095c32dd863bcac6f16cf85a87bc",
+          "outcome": "Passed",
+          "duration": "00:00:00.8973444"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchTitleAnchorRouteMatchesAsync_direct_route_handles_accents_and_ignores_navigation_chunks",
+          "originalTestNameSha256": "6c4c3ac7adfef723b3472429cc6761fa117c5d059f77baa3f17fbd15081dc302",
+          "outcome": "Passed",
+          "duration": "00:00:01.1405308"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Canonical_source_identity_does_not_reassign_an_observed_chunk_after_reindexing",
+          "originalTestNameSha256": "c990f17a24456682a1a3c4792fbb8057271fab63bd34990a74e2d0d1e55d03b5",
+          "outcome": "Passed",
+          "duration": "00:00:01.6605684"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.GenerateSummaryAsync_returns_backoffice_unavailable_without_job_when_b_runtime_probe_fails",
+          "originalTestNameSha256": "2c283d40ba378eb97e1fb29fbcdb3ba5766eed17e6b975c54358e332187d9f3b",
+          "outcome": "Passed",
+          "duration": "00:00:00.9617804"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.DiagnosticsAsync_surfaces_blockers_for_profile_policy_failure",
+          "originalTestNameSha256": "f501e7a400f3dac1be05a8fdc382001d629e33971bc32c278e1a5f133305dc62",
+          "outcome": "Passed",
+          "duration": "00:00:01.2820920"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.RagLiveSummaryMultilingualBackendTests.LoadRagDocumentLanguagesAsync_keeps_profile_language_and_uses_summary_language_only_when_profile_unknown",
+          "originalTestNameSha256": "7b7214c840387c2cfb07f0baf824efafe6b73ad5bc3cfe41cd75225c6183cb50",
+          "outcome": "Passed",
+          "duration": "00:00:02.7043451"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_execution_contract_claims_jobs_and_requires_valid_lease_for_completion",
+          "originalTestNameSha256": "54cf4c94dea55b7785209d9196f7d915181833a4d33077134e9e0fc19efb1b0d",
+          "outcome": "Passed",
+          "duration": "00:00:01.1882974"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Worker_rejects_provider_result_with_forged_citation",
+          "originalTestNameSha256": "a521aea16a662f411c53efadb362f54a502321e9b0eecf749d7ef86dfef9709c",
+          "outcome": "Passed",
+          "duration": "00:00:01.0791199"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.CapabilityB_candidates_include_fresh_summaries_when_backoffice_profile_schema_is_stale",
+          "originalTestNameSha256": "2f0d3d80408fa4e6d5c3dc73034cab5fe1184853fc8179ef49c12bfb2dca2ca6",
+          "outcome": "Passed",
+          "duration": "00:00:00.8144465"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilityBQualityReviewArtifactAsync_returns_named_artifact_snapshot",
+          "originalTestNameSha256": "eb55e90fd7f57a50e2f6de9be0d9724e350f37c2d40a2222f51896e0e79b46d9",
+          "outcome": "Passed",
+          "duration": "00:00:01.2731874"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Admin_jobs_pause_and_resume_support_queued_capability_b_backoffice_jobs",
+          "originalTestNameSha256": "15c255a84654055847d6c115a2be83ecc2c66df06bf96faea3ed43abc66eb448",
+          "outcome": "Passed",
+          "duration": "00:00:01.2533771"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchSparseMatchesAsync_returns_contextual_chunk_hits_for_business_query",
+          "originalTestNameSha256": "88272ff5ae1454f6fdb11c57e3abe85ae134b183d14a0de9cc230d6f7e90c472",
+          "outcome": "Passed",
+          "duration": "00:00:01.3049153"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.DiagnosticsAsync_surfaces_blockers_for_performance_budget_failure",
+          "originalTestNameSha256": "b5c6fad287e2b1251425db476e27e02417ded8cd62d3e353dae62880eafeb92f",
+          "outcome": "Passed",
+          "duration": "00:00:01.3737232"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_worker_can_process_idle_tenant_when_another_tenant_is_ingesting",
+          "originalTestNameSha256": "7f609ef247c1c89eef995cbdd17e3b9f01a5efca66daa5b72306f91f2d22f967",
+          "outcome": "Passed",
+          "duration": "00:00:01.1103085"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_reprocesses_an_unchanged_source_only_for_a_changed_pipeline_and_respects_admin_pause",
+          "originalTestNameSha256": "d7539dffe790fe4dc3e802232c088101d7a12667f297767444a886fcdedc3cd8",
+          "outcome": "Passed",
+          "duration": "00:00:00.9751710"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.DiagnosticsAsync_returns_summary_and_recommendations_for_runtime_state",
+          "originalTestNameSha256": "2168662d1b7adacaba9f9f1937c73432fce0462fbd4df49a785ad44e68bf6f0a",
+          "outcome": "Passed",
+          "duration": "00:00:01.3408191"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_renewal_does_not_block_on_a_publication_row_lock_but_rejects_another_owner",
+          "originalTestNameSha256": "f7ccb63b1c541f9e1c7ba64fc4999c0aa84c6a199edd3b60debdbdfc6051d6a7",
+          "outcome": "Passed",
+          "duration": "00:00:01.1602092"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilityBQualityReviewAsync_ignores_malformed_quality_scores_without_500",
+          "originalTestNameSha256": "19c095c73f010f9616af205955a3267e640cabbd0b4dfba87f23298bd1a980f6",
+          "outcome": "Passed",
+          "duration": "00:00:01.3054706"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Http_pipeline_authenticates_advanced_jobs_and_enforces_tenant_isolation",
+          "originalTestNameSha256": "30743dc85e2b915a12d8df6e37e496f7266327fce989e1f118a3193f13b41f19",
+          "outcome": "Passed",
+          "duration": "00:00:01.6691640"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.CanonicalIndexProbeIntegrationTests.Presence_is_scoped_to_tenant_current_revision_and_exact_page_or_chunk",
+          "originalTestNameSha256": "82502c06ab973a1918b9ccec5bab5da3b7960cad55ffc491cdc6c9868d7f85a0",
+          "outcome": "Passed",
+          "duration": "00:00:01.4802671"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_missing_or_empty_lease_cannot_mutate_progress_terminal_state_or_publication",
+          "originalTestNameSha256": "65d0bdebbcf91376ffa506d5b8757f92b616111f7947177eae24a92ff38783d6",
+          "outcome": "Passed",
+          "duration": "00:00:00.8753039"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Unified_documents_route_returns_user_safe_catalog_for_user_and_legacy_shape_for_admin",
+          "originalTestNameSha256": "5a3c5eedc31b87f8987ddcbb73650461e2375ea850f0e3f424c42917db3236d3",
+          "outcome": "Passed",
+          "duration": "00:00:01.3390363"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.RequalifyAsync_keeps_capability_a_unselected_when_retrieval_runtime_is_unavailable",
+          "originalTestNameSha256": "7ca8d2d3efe41fe46ed41658a7e662559715c568afd29b26cf96113afcc6cd82",
+          "outcome": "Passed",
+          "duration": "00:00:01.2431736"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilityBQualityReviewAsync_returns_only_low_quality_capability_b_summaries",
+          "originalTestNameSha256": "1d8180af82cb7110ee73529c1da80b5338e5ec60557536b1b75a270b1b0a4f49",
+          "outcome": "Passed",
+          "duration": "00:00:01.2633777"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Job_mutation_and_audit_roll_back_together_when_audit_is_rejected",
+          "originalTestNameSha256": "98949c19ad90bf3a3dc23d2278f976d39970161275b9438d5d05a522257e9366",
+          "outcome": "Passed",
+          "duration": "00:00:01.3052002"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminKeysAndAuditEndpointsTests.Rotate_key_revokes_old_key_creates_new_key_and_records_audit_event",
+          "originalTestNameSha256": "744697e6aef9f0ae2339e6e4812a1396379a8bf45f4d63da87fc370d938c47a6",
+          "outcome": "Passed",
+          "duration": "00:00:01.3006039"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_returns_exact_ind570_document_for_manual_lookup",
+          "originalTestNameSha256": "80e0f573eff433b738637bfd0804135f6aba4a4bb212a22f163855a23e8552d5",
+          "outcome": "Passed",
+          "duration": "00:00:02.4679117"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchAsync_sets_hyp_questions_matched_when_query_overlaps_capability_a_questions",
+          "originalTestNameSha256": "95de1bbcccf1d7c19d2043ddb3be8522c33e7abf122c5974598f90d9cda57f98",
+          "outcome": "Passed",
+          "duration": "00:00:02.0222218"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchLinkedMatchesAsync_accepts_sparse_bm25_anchor_for_same_page_expansion",
+          "originalTestNameSha256": "886a3ddfff4c1ae5ce1647cb9f98b9a8e4f17fce3e0043d85a0c34ca39a3ff72",
+          "outcome": "Passed",
+          "duration": "00:00:00.9922174"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.DeferTransientAsync_requeues_running_job_without_publishing_document_foundation",
+          "originalTestNameSha256": "25dec03e46722c6d9cb384e7b9249c1fe4373abd7cdd56d7566f7978bdfa87a5",
+          "outcome": "Passed",
+          "duration": "00:00:01.7302015"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchTitleAnchorRouteMatchesAsync_prefers_same_page_section_title_hit_over_adjacent_dense_chunk",
+          "originalTestNameSha256": "b058f0c6c516463a8e4e54179df82c42610b8b7ddc56713437f96d60dbb8b7d4",
+          "outcome": "Passed",
+          "duration": "00:00:01.5438895"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.RequalifyAsync_blocks_qualification_when_profile_requires_rerank_but_rerank_is_disabled",
+          "originalTestNameSha256": "ee4148d0cab75895999e21208d16baaf72eb7859b188ea772459d34fd31d42c0",
+          "outcome": "Passed",
+          "duration": "00:00:01.2782088"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Rag_search_uses_extraction_quality_from_current_revision_only",
+          "originalTestNameSha256": "43f0ef4635e903e22ee8d4ab5f403b347b40a5f2ea11de6844cab9a60238123d",
+          "outcome": "Passed",
+          "duration": "00:00:03.1461566"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.CapabilityBTerminalUpdates_require_current_execution_lease_token",
+          "originalTestNameSha256": "3987f7d043f2d90e07bcc5552702923d3f2175ef93724f90b452b03aea1ab702",
+          "outcome": "Passed",
+          "duration": "00:00:00.8588553"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Canonical_search_preserves_current_source_identity_and_explicit_scope_without_server_guidance",
+          "originalTestNameSha256": "cf4c96996828ec28b19fd5f1426fafccf41fe8aaaf236705a5ddd3d45bc0370e",
+          "outcome": "Passed",
+          "duration": "00:00:03.8564061"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Resolve_source_endpoint_infers_quality_from_native_status_and_page_counters",
+          "originalTestNameSha256": "3982e7ccdb3a7e58d38fd715dd1d6f5ada043fcfe844c90d38c45d56f8b56248",
+          "outcome": "Passed",
+          "duration": "00:00:01.3088083"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Get_summary_endpoint_exposes_same_enriched_source_as_sources_resolve",
+          "originalTestNameSha256": "5e1e810a8f8a67d48728a591768cc5b73ab52d0c89c265bc5c44d5c2860ce5ab",
+          "outcome": "Passed",
+          "duration": "00:00:01.2681245"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.MonotonicIngestionConsumersIntegrationTests.Active_generation_gap_remains_signaled_and_blocked_by_actual_job",
+          "originalTestNameSha256": "4a37eff9a030439a5d922dbccb00b1bce5f1c458e47074b3009b338351b07ba2",
+          "outcome": "Passed",
+          "duration": "00:00:00.9567971"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchLinkedMatchesAsync_supports_exact_match_anchor_when_it_resolves_to_a_retrieval_chunk",
+          "originalTestNameSha256": "2ee1daecba3f00c794267b92867fecb8d17666f0d8fd3f785c49e6cb474e9827",
+          "outcome": "Passed",
+          "duration": "00:00:01.5226321"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.MarkFailedAsync_when_superseded_current_version_is_already_indexed_does_not_queue_redundant_follow_up",
+          "originalTestNameSha256": "f0b9e232727c2aede87a33b03ac6ad3a1707e2769a6c710a331f37a9aa0ac77f",
+          "outcome": "Passed",
+          "duration": "00:00:01.1769013"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.EnqueueUpsertAsync_while_running_job_is_superseded_queues_current_version_after_commit",
+          "originalTestNameSha256": "9b106c36f5e7a77592e1e7617c3923877046a9454a870b5b766bb38817cf4920",
+          "outcome": "Passed",
+          "duration": "00:00:01.1708186"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_with_admin_diagnostics_captures_bounded_retrieval_phases",
+          "originalTestNameSha256": "ad244026167183c82671e4d0ae6ca7792242c6ff6be2b6d5e6929bf2798dec6b",
+          "outcome": "Passed",
+          "duration": "00:00:01.2654717"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_worker_waits_when_rag_activity_is_recent",
+          "originalTestNameSha256": "ca5f753705c54075ad95326ff362ccf739ac7424f50acd39855118b6fc9b7042",
+          "outcome": "Passed",
+          "duration": "00:00:00.9913556"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_lease_reassigned_to_another_worker_rejects_old_publication_without_mutating_new_owner",
+          "originalTestNameSha256": "bab8ec6965e3f3a147b89fe03001f4820d5c168ada76550b14bf53077dbedb97",
+          "outcome": "Passed",
+          "duration": "00:00:00.9397088"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEventHistoryIntegrationTests.Job_retention_removes_its_content_free_event_history_with_the_job",
+          "originalTestNameSha256": "4a5ad031f1dace293a27f454c4d8802539d447d1d7c21c3b11ce878bc735d66e",
+          "outcome": "Passed",
+          "duration": "00:00:00.8305029"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilitiesAsync_marks_core_retrieval_as_stale_when_qualification_has_expired",
+          "originalTestNameSha256": "1b206dc3dbd7d79db09d2952b07de0532696942e9ea80304385ed79453a35917",
+          "outcome": "Passed",
+          "duration": "00:00:01.2987016"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Resolver_never_reintroduces_withdrawn_or_unindexed_document_proof",
+          "originalTestNameSha256": "2e5e9751555511d3316f5c2f025c20f67e728b82f902bc10385af329bd740323",
+          "outcome": "Passed",
+          "duration": "00:00:00.8997348"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchExactMatchesAsync_returns_active_exact_match_hits_before_dense_search",
+          "originalTestNameSha256": "d6290954d348ff4319720a6b1bcaadc7d1853828b2edab6cdcb79910a97300ee",
+          "outcome": "Passed",
+          "duration": "00:00:01.8649785"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_returns_answer_with_caveat_for_customer_compliance_question_on_en_15281",
+          "originalTestNameSha256": "d5dc20d115cef1789fe80e85f65daffa347d70337e06b81a438aced281cd35e8",
+          "outcome": "Passed",
+          "duration": "00:00:02.1246614"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Resolver_never_reintroduces_withdrawn_or_unindexed_document_proof",
+          "originalTestNameSha256": "71cfdd62c5ce6c853fc4fb0801c50e742372e4b3623d8cd67a3a42c560666a7a",
+          "outcome": "Passed",
+          "duration": "00:00:00.8525721"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchSparseMatchesAsync_uses_profile_cards_from_non_preferred_profiles_as_recall_anchors",
+          "originalTestNameSha256": "b2f367ce5a8838de59cef36cef266b3d0bc6a0adea6333978570f9141dbfc619",
+          "outcome": "Passed",
+          "duration": "00:00:01.4381460"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_strips_nul_characters_before_publishing_text_artifacts",
+          "originalTestNameSha256": "f7bd98398745e8abe612029e4fc751468efd9fc30d09dd746f0250bf5a185896",
+          "outcome": "Passed",
+          "duration": "00:00:01.2668946"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilityBQualityReviewSummaryAsync_returns_aggregate_snapshot_for_low_quality_summaries",
+          "originalTestNameSha256": "5bbbb23c79b9b60cc18ccac9cd1fe1d2f12d68846e83daece6d52838c03be3b3",
+          "outcome": "Passed",
+          "duration": "00:00:01.2476182"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Research_checkpoint_survives_expired_lease_retry_and_remains_tenant_scoped",
+          "originalTestNameSha256": "764f17a95d176f54f939a4372f8fe64b9640f340301902069911e0e0b1f2603f",
+          "outcome": "Passed",
+          "duration": "00:00:01.0989833"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_enqueues_upsert_when_only_root_category_changes",
+          "originalTestNameSha256": "d027bbc0d62fa72e6929eebd8de859788c261b2bcdfe021c4f4c6ee9a50dd5fb",
+          "outcome": "Passed",
+          "duration": "00:00:00.9446584"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_worker_requeues_interrupted_running_job_before_processing",
+          "originalTestNameSha256": "18a2e6d72f1caa96f257769f2ac4b21a05b1efeaadeaed76cdc02dea56cbb569",
+          "outcome": "Passed",
+          "duration": "00:00:01.3950895"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Admin_job_surfaces_project_capability_b_metadata_for_server_backoffice_jobs",
+          "originalTestNameSha256": "ac4f87fec44b17bfa6a04c3ede40df8631cbcf17e0c0b9194663e551147dc2d0",
+          "outcome": "Passed",
+          "duration": "00:00:01.0446571"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_lease_reassigned_to_another_worker_rejects_old_publication_without_mutating_new_owner",
+          "originalTestNameSha256": "715497aa6dc5bda9f2341af626450f4fce32ce62f3d7bf585d84ecd14f1064c6",
+          "outcome": "Passed",
+          "duration": "00:00:00.9386387"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Empty_canonical_page_window_revalidates_source_before_reporting_no_chunks",
+          "originalTestNameSha256": "bd3be608aa634aaa52fd5686e388ec19176f8790bee5684d5eaf8546cd2d80bb",
+          "outcome": "Passed",
+          "duration": "00:00:00.9272539"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.SupportBundleAsync_returns_zip_with_generated_backend_artifacts_and_optional_missing_companions",
+          "originalTestNameSha256": "0583b85a759e5b36acc5c7420112706246880c29585c381d313e63f688326472",
+          "outcome": "Passed",
+          "duration": "00:00:01.6657697"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.MarkFailedAsync_when_running_upsert_payload_version_is_superseded_queues_current_version",
+          "originalTestNameSha256": "f03f29c87ffbbbd142c67f5d9efe7c1a4d13282eb3c7f75c23425f7ab7a29204",
+          "outcome": "Passed",
+          "duration": "00:00:01.0253691"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentsEndpointFilteringTests.Admin_documents_default_excludes_tombstones_but_status_filters_can_include_them",
+          "originalTestNameSha256": "675607d5850d8e054e6bc97bbc3d30faa5575629a078c0490e06a84beaac9d2d",
+          "outcome": "Passed",
+          "duration": "00:00:01.2894220"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_runtime_ready_customer_questions_keep_valid_sources_through_late_selection",
+          "originalTestNameSha256": "0f3ee046a233045ea72974ca5aa0aa1fd25012e133d15caa38e6c64947911c71",
+          "outcome": "Passed",
+          "duration": "00:00:02.1224247"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.ResolveSummaryGenerationExecutionAsync_returns_client_admin_when_capability_b_is_not_selected",
+          "originalTestNameSha256": "0bf877d4ea9f5c249960700b6ff3204d025621a1eec67aff7c8c9100f87b3ffd",
+          "outcome": "Passed",
+          "duration": "00:00:00.8573046"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchExactMatchesAsync_matches_quoted_heading_when_extraction_glues_following_text",
+          "originalTestNameSha256": "21acefc611f1c886e4ae27dd5538ef8b997644efa59742b2eead60e5e8af4fa1",
+          "outcome": "Passed",
+          "duration": "00:00:01.4855365"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Canonical_read_limit_is_atomic_correctable_and_does_not_hide_changed_identity",
+          "originalTestNameSha256": "a36ca3ade4be397f51d5870ab1102e6159a51c156dea1a14dbf0069753d6e82a",
+          "outcome": "Passed",
+          "duration": "00:00:01.2560053"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Canonical_exact_search_returns_only_current_chunks_linked_to_the_matched_source_unit",
+          "originalTestNameSha256": "9c76df2adf5a423f2ffac77d0113d1f61fc32dd82c8a1527e181ec289d6ca7b7",
+          "outcome": "Passed",
+          "duration": "00:00:02.6395806"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchLinkedMatchesAsync_accepts_direct_title_token_route_anchor_for_same_page_expansion",
+          "originalTestNameSha256": "275c1545a1a699db11856d9e84f0842dda0e6708a7c64967c3352065c6283674",
+          "outcome": "Passed",
+          "duration": "00:00:01.0342655"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_lease_reassigned_to_another_worker_rejects_old_publication_without_mutating_new_owner",
+          "originalTestNameSha256": "0b49e27059904b872668368fb92d3e25d4fb0926db67f3610aab891b8f92674b",
+          "outcome": "Passed",
+          "duration": "00:00:01.2291018"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchTitleAnchorRouteMatchesAsync_prefers_content_card_full_title_lead_over_dense_partial_page_chunk",
+          "originalTestNameSha256": "c0a1a042034d13334039b4621432ae533d44ec62c2824340b74a845fd43b90c7",
+          "outcome": "Passed",
+          "duration": "00:00:01.0952607"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.RefreshDocumentProfileSearchEntryAsync_filters_unsafe_legacy_profile_cards",
+          "originalTestNameSha256": "6f8bbc2f12b27f58b791076fa524aa02ad62ba10d311275f5e1e01b987b33d83",
+          "outcome": "Passed",
+          "duration": "00:00:01.0317809"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.MonotonicIngestionConsumersIntegrationTests.Unknown_generation_without_a_matching_job_stays_explicitly_unresolved",
+          "originalTestNameSha256": "daed1e36ff05fe064f54c17de34a511882929682e0d23aa804dc996aec8ba105",
+          "outcome": "Passed",
+          "duration": "00:00:00.9550808"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Scoped_search_rejects_stale_revision_handle_but_explicit_page_read_can_inspect_it",
+          "originalTestNameSha256": "d75f2223fa2f63a10d3b4317be75b0ca11977b7353940ecc9a2db0de85ef89c8",
+          "outcome": "Passed",
+          "duration": "00:00:01.1097519"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.UpdateSelectionAsync_rejects_stale_capability_until_it_is_requalified",
+          "originalTestNameSha256": "86e8c3acbfa7a0e54e9bcf5209b56d4e07b7262280381103c4d5b28bdf226a75",
+          "outcome": "Passed",
+          "duration": "00:00:01.2556284"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.GenerateSummaryAsync_marks_server_backoffice_job_as_capability_b_claimable",
+          "originalTestNameSha256": "71bc327f78e057f5c5cd0f19ae9f8720ce9b940076f93cdb32f7d01dc34ef4d0",
+          "outcome": "Passed",
+          "duration": "00:00:00.9656410"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_merges_capability_a_seed_without_unproved_content_cards",
+          "originalTestNameSha256": "b00b7407197cbebd6c2a977353248835b74af4cc731fdcd86dd76fa2b31cf187",
+          "outcome": "Passed",
+          "duration": "00:00:00.9618265"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.UpdateSelectionAsync_disabling_capability_clears_authorization_and_selection",
+          "originalTestNameSha256": "a20ecba4d3291baeebe150a6d0891ff2e48e616b999f9533c11c0c5c8226b00a",
+          "outcome": "Passed",
+          "duration": "00:00:01.2807210"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Resolve_category_endpoint_resolves_category_ref_and_returns_aliases",
+          "originalTestNameSha256": "df8b2fda8ecd281662a225f94c2af5aeaacff556dd4724026e28db6b3ee2878e",
+          "outcome": "Passed",
+          "duration": "00:00:02.1749299"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.RequalifyAsync_blocks_qualification_when_hardware_gate_fails",
+          "originalTestNameSha256": "9c6ef073d6085dd094f13a46f4aafd7328728b7d15b763442246ec1da68fbac7",
+          "outcome": "Passed",
+          "duration": "00:00:01.2242119"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Message_routes_and_cdc_alias_preserve_tracking_fields_and_emit_audit",
+          "originalTestNameSha256": "449e3827c7989f550f97b170a8c61ba7d57f23a128ab31220977bc25495130c8",
+          "outcome": "Passed",
+          "duration": "00:00:01.3807922"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_lease_reassigned_to_another_worker_rejects_old_publication_without_mutating_new_owner",
+          "originalTestNameSha256": "9fbc5c3956e46f5cd9e31896141bcfecc67ec0a6b2e1b9b467ded7005fde8a0d",
+          "outcome": "Passed",
+          "duration": "00:00:00.9152620"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Worker_refuses_unsafe_persisted_or_external_execution",
+          "originalTestNameSha256": "e2713e9b0e5c029c5a3b4862099947a1e9b21624186d6441d75bf80b0acc508a",
+          "outcome": "Passed",
+          "duration": "00:00:01.6770259"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEventHistoryIntegrationTests.Queued_history_uses_the_real_session_even_when_client_header_is_missing_or_wrong",
+          "originalTestNameSha256": "ba34c7b1fa6a878f2fea3ef9396e96894285effb2549873629157395893657b0",
+          "outcome": "Passed",
+          "duration": "00:00:00.8026839"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Catalog_cache_endpoints_return_304_when_if_none_match_matches_etag",
+          "originalTestNameSha256": "54c9ce8921eb4a46574c804765ce198e5c488d8a2166d3600edf1993a1d50a68",
+          "outcome": "Passed",
+          "duration": "00:00:01.1708251"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_delete_or_cancel_never_reuses_an_abandoned_source_generation",
+          "originalTestNameSha256": "d505d8301d2bf8262c366f19efaacfb975dc2411cda95c874b3cdb03af9d4571",
+          "outcome": "Passed",
+          "duration": "00:00:00.9529354"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_reprocesses_an_unchanged_source_only_for_a_changed_pipeline_and_respects_admin_pause",
+          "originalTestNameSha256": "c136e94c25593b898c36d63d718bb2cb960a86c4edf76dbb325124d9e8625c0d",
+          "outcome": "Passed",
+          "duration": "00:00:00.9109222"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_degrades_dense_retriever_when_embedding_service_fails",
+          "originalTestNameSha256": "dbf098160584935a0a6773f07aa691014c6cbc8fed97c672cd73a20e2f2c8440",
+          "outcome": "Passed",
+          "duration": "00:00:01.1969313"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilityA_candidates_and_enqueue_flow_use_runtime_governance_and_ingestion_queue",
+          "originalTestNameSha256": "3471b30b415f72046132cd7388a334795f32bb59d6f1f436ab431c21a91f3be9",
+          "outcome": "Passed",
+          "duration": "00:00:01.8258776"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.CapabilityBCompleteAsync_cancels_stale_source_without_storing_summary",
+          "originalTestNameSha256": "1accfed4468a8c74e916133ef90d684605c4a6c55bb06339281445246d12ef62",
+          "outcome": "Passed",
+          "duration": "00:00:01.0412477"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.MarkCanceledAsync_does_not_publish_document_foundation",
+          "originalTestNameSha256": "b95b25325f412da689c0235f6c68bcc4643121ae11cbf0870b528fef077bd177",
+          "outcome": "Passed",
+          "duration": "00:00:00.8167428"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Canonical_exact_search_returns_only_current_chunks_linked_to_the_matched_source_unit",
+          "originalTestNameSha256": "2e9fbbbf548010a7d7082504a73e278fe931c9cf987ac3d81c74eac572d14f64",
+          "outcome": "Passed",
+          "duration": "00:00:02.5651017"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.DiagnosticsArtifactAsync_returns_runtime_diagnostic_snapshot",
+          "originalTestNameSha256": "04cb4c65ef819b5c95c9e3df9d79fc24ea79bea171c515ea2271cf15249cfde9",
+          "outcome": "Passed",
+          "duration": "00:00:01.3772001"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Extraction_quality_admin_endpoints_tolerate_malformed_processing_payload_values",
+          "originalTestNameSha256": "cbd5e0ff26165d566ce009622acf11742d4257b6f1617d9ff786ffc369612f8a",
+          "outcome": "Passed",
+          "duration": "00:00:01.5452150"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Resume_checkpoint_round_trips_embedding_model_and_input_format",
+          "originalTestNameSha256": "f460dbb3b8401a19f0b89eda00ed7b0796abaf58fccfa60578f0d7bd9a58c39a",
+          "outcome": "Passed",
+          "duration": "00:00:01.1898623"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_lease_reassigned_to_another_worker_rejects_old_publication_without_mutating_new_owner",
+          "originalTestNameSha256": "acb3d79c7109dc06deb2fbe0881e0254bd5b0f57d3b1ba0a5b504f955add8d24",
+          "outcome": "Passed",
+          "duration": "00:00:00.9503831"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.SubmitSummaryAsync_strips_nul_characters_from_summary_text_and_meta",
+          "originalTestNameSha256": "2a679908cedad2d3e615851e62ae6cdadf51f0e2c214450c7a84155079bcf3f2",
+          "outcome": "Passed",
+          "duration": "00:00:00.8907829"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Unadmitted_tool_call_preserves_limit_error_and_existing_durable_events",
+          "originalTestNameSha256": "57e7c37d71754fdaea43bd0b8cfebf69bb96aa1dc37441500d98c7991f9c6771",
+          "outcome": "Passed",
+          "duration": "00:00:03.3590414"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_honors_category_path_scope",
+          "originalTestNameSha256": "38f2cc6ac3c7de15853c60cd568f8783b814973b5d81ea6c98753809bab17a14",
+          "outcome": "Passed",
+          "duration": "00:00:03.3256971"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.SubmitSummaryAsync_requires_expected_source_hash_and_does_not_store_summary",
+          "originalTestNameSha256": "4a1c0a8574378751abff601a4d17ddc96ef57ba6dcf2cd1d51d3a6024c807d20",
+          "outcome": "Passed",
+          "duration": "00:00:00.9059781"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.CapabilityB_candidates_repair_missing_llm_profile_even_when_summary_is_fresh",
+          "originalTestNameSha256": "7236860c8af37033497c0cddcdee0de11f94b2b6a7bda5c9c0ed81b8871f23f7",
+          "outcome": "Passed",
+          "duration": "00:00:00.9495715"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Validation_job_guard_empty_scope_is_explicit_and_does_not_cancel_unrelated_queue",
+          "originalTestNameSha256": "d7abe3df61130894b1eab4a23e445af60bce3b4eb5c3e18de0dc38872c6b1ba9",
+          "outcome": "Passed",
+          "duration": "00:00:01.5416115"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.MonotonicIngestionConsumersIntegrationTests.Failed_generation_has_an_explicit_failure_diagnostic_instead_of_implicit_pending",
+          "originalTestNameSha256": "1d9cd072d51c3571d72531e58c80ae9dc752aea61d6d9dd24eb569dabe71d6c2",
+          "outcome": "Passed",
+          "duration": "00:00:00.9186509"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_uses_sparse_matches_for_cross_document_customer_selection_question",
+          "originalTestNameSha256": "1eb8ecbcd2d4e328cecc5f4d98b7357275e4b45382871d804e38366573fd5be1",
+          "outcome": "Passed",
+          "duration": "00:00:02.6745556"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Canonical_exact_search_returns_only_current_chunks_linked_to_the_matched_source_unit",
+          "originalTestNameSha256": "a5c3c6575b1704f2c064b78f327e361a8f40c2f61d67be0147c1b4b8ddf1b414",
+          "outcome": "Passed",
+          "duration": "00:00:02.3431045"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_keeps_profile_content_cards_active_per_document_profile",
+          "originalTestNameSha256": "7704479c5807796ae84346da732356c20386acff1eb0e17eb7a063b3ed8ff1f3",
+          "outcome": "Passed",
+          "duration": "00:00:01.0092436"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchLinkedMatchesAsync_supports_real_second_wave_expansion_from_linked_results",
+          "originalTestNameSha256": "0f2435e63e7a7819863978a9e6fc38eaf16ebe4db5abe7d09a75d3d910eac64f",
+          "outcome": "Passed",
+          "duration": "00:00:00.9960941"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchDocumentOverviewProfileMatchesAsync_repairs_missing_scoped_profile_search_projection",
+          "originalTestNameSha256": "2c67ab539bb02526d3d09ce51dd34412025d4bccb09266e3397cca688b60f0ff",
+          "outcome": "Passed",
+          "duration": "00:00:01.3541034"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Durable_job_is_idempotent_user_scoped_and_cancelable",
+          "originalTestNameSha256": "a074ea3bd442ff3cea7daf719f9153c3e9a4584cefe06727d735184e94b6b9ac",
+          "outcome": "Passed",
+          "duration": "00:00:01.4374054"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_lease_reassigned_to_another_worker_rejects_old_publication_without_mutating_new_owner",
+          "originalTestNameSha256": "30603aa6cf84d5d909e1808694c370102660f90ad58904274f3364ca7affcadc",
+          "outcome": "Passed",
+          "duration": "00:00:00.9595571"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Heartbeat_database_failure_cancels_and_observes_provider_before_worker_returns",
+          "originalTestNameSha256": "348c261c7e08361274327750aade34debd31f165a58fe4eddbffdb2191bdb3ba",
+          "outcome": "Passed",
+          "duration": "00:00:02.3655746"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchAsync_merges_hyp_questions_from_all_current_profiles",
+          "originalTestNameSha256": "0eef677befd372f4ecc2b10a3b36fb40d5f9941d01502bf5289ed9cf1870702f",
+          "outcome": "Passed",
+          "duration": "00:00:01.1126442"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.MonotonicIngestionConsumersIntegrationTests.Changed_source_observed_by_abandoned_attempt_keeps_published_data_freshness_warning",
+          "originalTestNameSha256": "8d3515ad311b0244dfab8d34caa02e9c4714a0554d216df490bf8d5832607650",
+          "outcome": "Passed",
+          "duration": "00:00:01.0087920"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.DiagnosticsAsync_surfaces_blockers_for_stale_qualification",
+          "originalTestNameSha256": "0bf0f71281129aaaf18f5c4b6e6d7faa9b506be6faf89ddf23e012dde5230223",
+          "outcome": "Passed",
+          "duration": "00:00:01.3022103"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.RequalifyAsync_blocks_qualification_when_performance_budget_fails",
+          "originalTestNameSha256": "596af2b6815a55f36827346e351dc4424b2fe2b2225a1013f8031f9f12599822",
+          "outcome": "Passed",
+          "duration": "00:00:01.3313719"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Empty_canonical_page_window_revalidates_source_before_reporting_no_chunks",
+          "originalTestNameSha256": "7c53faccf64e308f38e1dfa26573971457c6ce326e4fc3518f6583ffe3985582",
+          "outcome": "Passed",
+          "duration": "00:00:01.2092836"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_runtime_ready_writer_cases_keep_prudent_guidance_shape",
+          "originalTestNameSha256": "dd538618b92010d04d765ff948d16947afe80c6940d1728b32bd6ce477af6e7b",
+          "outcome": "NotExecuted",
+          "duration": "00:00:00.0010000"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEventHistoryIntegrationTests.Queued_history_uses_the_real_session_even_when_client_header_is_missing_or_wrong",
+          "originalTestNameSha256": "f01239220758ce74bef618e450020713d70d1a0dbb4ef109a54244c54550b510",
+          "outcome": "Passed",
+          "duration": "00:00:00.8059444"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Catalog_cache_endpoints_return_304_when_if_none_match_matches_etag",
+          "originalTestNameSha256": "0fca8514ce525fd193b9ea4332f25e59f20a4d1d9e88c707a410b673978f5946",
+          "outcome": "Passed",
+          "duration": "00:00:01.2521420"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Concurrent_distinct_handoffs_share_user_quota_but_do_not_block_other_owners",
+          "originalTestNameSha256": "2017d1711b2d245f02f222db06b11e4b8d7807d35098299449a38fd096adeb05",
+          "outcome": "Passed",
+          "duration": "00:00:01.6905223"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_with_admin_diagnostics_captures_bounded_retrieval_phases",
+          "originalTestNameSha256": "442d77fc40ca7eb5e75e0f875eea2b1063fd1aa8bfd5ffbd0f74aefe53d5dd99",
+          "outcome": "Passed",
+          "duration": "00:00:01.3889754"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentsEndpointFilteringTests.Catalog_documents_respects_category_path_query",
+          "originalTestNameSha256": "b87381904845a575beb5a49e6fba26b40336a3267f787aa7a29ed00cb9188a50",
+          "outcome": "Passed",
+          "duration": "00:00:01.0537969"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Document_language_falls_back_to_ingestion_run_when_profiles_are_temporarily_missing",
+          "originalTestNameSha256": "77833fdf34b83b74024a355355823e502032cca6bab093a90a71ec96d3496249",
+          "outcome": "Passed",
+          "duration": "00:00:02.3530127"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchExactMatchesAsync_matches_short_heading_inside_glued_extraction_excerpt",
+          "originalTestNameSha256": "4ab9f19bbeb93380e493907cbea66fd4531cb167e5046488467a3bff80b71bda",
+          "outcome": "Passed",
+          "duration": "00:00:01.1164695"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_does_not_publish_when_no_searchable_chunks_exist",
+          "originalTestNameSha256": "624c774c0c2d2a20fe41c0133e71404c82ca367937788542b154bc1275b77e67",
+          "outcome": "Passed",
+          "duration": "00:00:01.0260867"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DbMigratorDiagnosticIntegrationTests.Concurrent_startups_apply_each_migration_once_under_a_global_lock",
+          "originalTestNameSha256": "ad9687162b35b4db2a6c7b2e6b7a9e582de68d57f7e01acb6cdda54aa9feea42",
+          "outcome": "Passed",
+          "duration": "00:00:00.5171603"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Evidence_capacity_rejection_preserves_admitted_corpus_and_failed_durable_trace",
+          "originalTestNameSha256": "f4d30b2a3cffdf23fb6dbaebe9b2e0e9f299708f004670061ab85fafc5401b95",
+          "outcome": "Passed",
+          "duration": "00:00:03.5694015"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.CapabilityBHeartbeat_requires_current_lease_and_prevents_stale_requeue",
+          "originalTestNameSha256": "4767be4e2554341abfa18182d2dfede72addc8db954e4a1d52c32a4176d0fe5a",
+          "outcome": "Passed",
+          "duration": "00:00:00.8734012"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Catalog_cache_endpoints_return_304_when_if_none_match_matches_etag",
+          "originalTestNameSha256": "4fa1d978a9ca18d4bcdfd33c9815ad7f46c6bbe4b148074cae0de327a2a984d0",
+          "outcome": "Passed",
+          "duration": "00:00:01.1881390"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.UpdateSelectionAsync_rejects_authorizing_capability_when_desired_enabled_is_false",
+          "originalTestNameSha256": "a02b422a40fec8bc355e04d1555792aa2cbbc562e6ba710a6df242ff14eb4d21",
+          "outcome": "Passed",
+          "duration": "00:00:01.2590351"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_preserves_previous_indexed_version_when_new_run_has_no_searchable_chunks",
+          "originalTestNameSha256": "3c9606f237bfd2f63dd82ad2f01d10fe0f9a66a5887a59497069110b9c67632b",
+          "outcome": "Passed",
+          "duration": "00:00:00.9621473"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Resolve_source_endpoint_matches_filename_reference_to_indexed_document",
+          "originalTestNameSha256": "9b9d7ebf09996fde3b46aea29261af3a054889bc3c055a4a1fdfaf0988b87d82",
+          "outcome": "Passed",
+          "duration": "00:00:02.5980618"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_publishes_only_searchable_retrieval_chunks_and_contextual_entries",
+          "originalTestNameSha256": "33940fd59fb946b7dbf73c1d034e6b57f31edb62d51324551c85d93148682aa8",
+          "outcome": "Passed",
+          "duration": "00:00:00.8586280"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Canonical_resolver_preserves_physical_context_metadata_without_fabricating_heading_or_proof_identity",
+          "originalTestNameSha256": "c48534eeff01165753e25ef812e13439ee45d6235d86e89b1bb64927ed5f1c4b",
+          "outcome": "Passed",
+          "duration": "00:00:00.9410439"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.LoadCapabilityBDocumentAsync_returns_source_hash_from_the_same_document_snapshot",
+          "originalTestNameSha256": "79bd5a1a357e6a948f76ac739ab6088c3a8e8953c43aff1906a2ec55889b756b",
+          "outcome": "Passed",
+          "duration": "00:00:00.7919567"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.LoadHypQuestionsMatchedByDocPathAsync_normalizes_legacy_match_paths",
+          "originalTestNameSha256": "0f1e8ae21c8749af51b0ef4ccf10849b0d630e0b3b859f551b914540c60cb21b",
+          "outcome": "Passed",
+          "duration": "00:00:01.4414605"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Extraction_quality_admin_endpoints_include_failed_non_indexable_ocr_documents",
+          "originalTestNameSha256": "18def81ddd8a5f6b6e2ac87ef9bb4bdcd8b90365e63f4380d1df8c01f56ef208",
+          "outcome": "Passed",
+          "duration": "00:00:01.7253743"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Worker_logs_the_authoritative_job_session_and_separates_client_claims",
+          "originalTestNameSha256": "ee3bdf8a09ae64cfdf204e601cb5c2fb24d5311ffa05cd2a7b7502478377fc2d",
+          "outcome": "Passed",
+          "duration": "00:00:01.4921547"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchAsync_populates_category_ref_and_category_path_from_matched_document",
+          "originalTestNameSha256": "bfd0194f784a81758b36318fc9a0fee1e165527899257018b23b30a9ad889c02",
+          "outcome": "Passed",
+          "duration": "00:00:01.7525491"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.PublishFailedOcrExtractionAsync_persists_diagnostics_and_non_indexable_document_state",
+          "originalTestNameSha256": "c2bd8e4ab08c83131a5e8d8147fef9d97756b6b9a5d6b0f53a72d94b8430dd7f",
+          "outcome": "Passed",
+          "duration": "00:00:00.8527447"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilityB_candidates_and_enqueue_flow_use_runtime_governance_and_summary_jobs",
+          "originalTestNameSha256": "ddddb970c7b6f6f67235506858ef313664894baa1bd4919d492f5f7b3f892c4f",
+          "outcome": "Passed",
+          "duration": "00:00:01.8137443"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Cancellation_during_execution_stops_provider_and_prevents_late_result",
+          "originalTestNameSha256": "fe81bf339eee72ca62107de92603462def2496981adcd9e16ecd1f6c54e53fce",
+          "outcome": "Passed",
+          "duration": "00:00:00.9946808"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DatabaseTextSearchDiagnosticIntegrationTests.PostgreSQL16_C_parser_limitation_is_observed_and_reported_without_failing_startup",
+          "originalTestNameSha256": "730b152ffaa2f0e69ec586054a5cfb54a6b69fe2403ee04f2d1a68a5aaee58fa",
+          "outcome": "Passed",
+          "duration": "00:00:00.7031573"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.SubmitSummaryAsync_rejects_expired_capability_b_execution_lease",
+          "originalTestNameSha256": "37e159685b9f12c5fbb08dc699898d588f6c6897ba4876d338cd20b1d1a35f28",
+          "outcome": "Passed",
+          "duration": "00:00:00.9478842"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Worker_refuses_unsafe_persisted_or_external_execution",
+          "originalTestNameSha256": "c654f84b1b6cd613895fb07c17f154c7d01792cd73bb2e673905cc0e8032729b",
+          "outcome": "Passed",
+          "duration": "00:00:01.6363653"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.CapabilityBCandidates_do_not_cool_down_stale_source_cancellations",
+          "originalTestNameSha256": "1581a63540594d621ed9b048384eafe22c6773d3dcd71a0634154ef26eafed58",
+          "outcome": "Passed",
+          "duration": "00:00:00.8242551"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_runtime_ready_v5_cases_match_expected_behavior_and_primary_document",
+          "originalTestNameSha256": "d64ec8969c1531d99f83dbbd45db39cc0860c3e2d6a133617e1843e6e4b6d312",
+          "outcome": "NotExecuted",
+          "duration": "00:00:00.0010000"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.WarmupResultsArtifactAsync_returns_recent_runtime_warmup_artifact_snapshot",
+          "originalTestNameSha256": "c5386e404e9834078b653d1a6be432fa653f312d5c3c5ffbe46645878543c589",
+          "outcome": "Passed",
+          "duration": "00:00:01.2707542"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Page_only_reference_cites_actual_chunk_page_union_without_relabeling_outer_page_text",
+          "originalTestNameSha256": "865492f054c60bc057389c6371e79c3eb7c044d0c8402cdec6a96f72385f68ba",
+          "outcome": "Passed",
+          "duration": "00:00:00.9188231"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.RequalifyAsync_blocks_qualification_when_profile_specific_hardware_gate_fails",
+          "originalTestNameSha256": "bea3c8143ebfd38bf8e4e987478971193f6f27804d05a18b02cf137008736016",
+          "outcome": "Passed",
+          "duration": "00:00:01.2039581"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Unified_document_detail_route_returns_user_safe_detail_for_user_and_admin_detail_for_admin",
+          "originalTestNameSha256": "e24efe5d24d81a97036e3995ae887214b17b128a2cbd994fb548d6f13706d9d5",
+          "outcome": "Passed",
+          "duration": "00:00:01.2422472"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilitiesAsync_returns_persisted_core_state_and_default_optional_capabilities",
+          "originalTestNameSha256": "48fcc31fe642c7ea5e5beb0ff5847810a5b5a06f24dba9bde0fefbdf17435fbe",
+          "outcome": "Passed",
+          "duration": "00:00:01.3766697"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.CapabilityB_candidates_block_active_summary_jobs_regardless_of_source",
+          "originalTestNameSha256": "abcdaaea5fc475d04886db4215f1af5fb0087bb469bc2ef056926708691b69ca",
+          "outcome": "Passed",
+          "duration": "00:00:00.8557971"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Empty_canonical_page_window_revalidates_source_before_reporting_no_chunks",
+          "originalTestNameSha256": "b3274c560249cec5c8e4226c20119ec4c05f4fc07ec84a5df5e80722783a0755",
+          "outcome": "Passed",
+          "duration": "00:00:01.3221817"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_renewal_does_not_block_on_a_publication_row_lock_but_rejects_another_owner",
+          "originalTestNameSha256": "cda1e8f650d6320e49a81e7e6f9788886ae4bb8594a8abae87831852141dd219",
+          "outcome": "Passed",
+          "duration": "00:00:01.1694058"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchTitleAnchorRouteMatchesAsync_prefers_same_page_section_title_hit_over_adjacent_dense_chunk",
+          "originalTestNameSha256": "881cbc8174dac7313a426885aef610e45bc1357fcdafc83ec5c93359997ceb0c",
+          "outcome": "Passed",
+          "duration": "00:00:01.3543667"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_worker_processes_highest_priority_queued_job_first",
+          "originalTestNameSha256": "0d123abc6018dc7a112009cd82d56a1aa856ad3a829736e127fdbab5b26b7e8c",
+          "outcome": "Passed",
+          "duration": "00:00:01.7019694"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.UpdateSelectionAsync_can_deselect_qualified_core_retrieval",
+          "originalTestNameSha256": "b62925f859b823560c71a306026a53f0f67879fbd55a68e8bdefb0e7f2473b62",
+          "outcome": "Passed",
+          "duration": "00:00:01.4003337"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Summary_management_surfaces_expose_active_capability_b_jobs_for_missing_or_stale_docs",
+          "originalTestNameSha256": "7729f1fede7220b35a2fe98d3b224f7e69b25fc6cffdb1f370d9e3e657fc8dea",
+          "outcome": "Passed",
+          "duration": "00:00:01.0358220"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_reprocesses_an_unchanged_source_only_for_a_changed_pipeline_and_respects_admin_pause",
+          "originalTestNameSha256": "2b45de2598b019013315fe3ba207de07c3cea85ede965c79860986be96651a49",
+          "outcome": "Passed",
+          "duration": "00:00:00.8604769"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.MarkFailedAsync_does_not_publish_document_foundation",
+          "originalTestNameSha256": "6bf8dd288143f3686417d4140fc54f6cc77ac55bbe4e58ffbca728253ea68506",
+          "outcome": "Passed",
+          "duration": "00:00:00.8463137"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchLinkedMatchesAsync_returns_enriched_results_and_accepts_linked_context_anchor",
+          "originalTestNameSha256": "3118ec17ebc4592425d446d1d022bdd2e366f927cad0eb9bb1a2c0a4ca7bb933",
+          "outcome": "Passed",
+          "duration": "00:00:01.1495333"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_worker_does_not_starve_idle_tenant_behind_busy_tenant_backlog",
+          "originalTestNameSha256": "c3510dfd21f7ae313876ae40e1cc4284cafaa45e82c50b81457ff99d3b00fed4",
+          "outcome": "Passed",
+          "duration": "00:00:01.6448426"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_with_admin_diagnostics_captures_bounded_retrieval_phases",
+          "originalTestNameSha256": "0c7902b228e8ccbf343129de5b6ea931c34fc309896bf2a1b3f734c66c0c9e6b",
+          "outcome": "Passed",
+          "duration": "00:00:01.8252662"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_publishes_job_version_when_indexed_version_has_gap",
+          "originalTestNameSha256": "860d67f307ae3f1b437aa22aa3ed92f63a80f25e51cf0beb0d88dc6bc9185a54",
+          "outcome": "Passed",
+          "duration": "00:00:01.2751480"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.LoadCapabilityBRepresentativeUnitExcerptsAsync_prefers_content_over_low_value_long_units",
+          "originalTestNameSha256": "759e3f5ccdf07aeb45821c1fa2ee9eac20b85a70bfe96ca59c05e2a0df8b28c3",
+          "outcome": "Passed",
+          "duration": "00:00:01.2517493"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Worker_schedules_rate_limit_retry_at_provider_delay",
+          "originalTestNameSha256": "fa99e73c2b50c115b1d467e84388b049f5670f6da7d244d4ef96ef75febe4b0a",
+          "outcome": "Passed",
+          "duration": "00:00:01.6600131"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_does_not_publish_when_no_searchable_chunks_exist",
+          "originalTestNameSha256": "fc9e4efd792247aead2d36a8b6f6b8ccea8713982aa5e37c37217b7153e72d38",
+          "outcome": "Passed",
+          "duration": "00:00:00.9207853"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEventHistoryIntegrationTests.Queued_history_uses_the_real_session_even_when_client_header_is_missing_or_wrong",
+          "originalTestNameSha256": "ef1658652efd4d2108ca58fc8ef7d175da41323e2e1e505d3c162d0486862459",
+          "outcome": "Passed",
+          "duration": "00:00:00.8121937"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_emits_retrieval_metrics_and_phase_activities",
+          "originalTestNameSha256": "76e6cd714f5dbb9a71304b154a72588589196706217bad617278a77e3b0e47b8",
+          "outcome": "Passed",
+          "duration": "00:00:02.8027814"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.DiagnosticsAsync_surfaces_blockers_for_runtime_gate_failure",
+          "originalTestNameSha256": "fbb114c365917e24c6f11a28f93a042306df5b6901d1e7007b752f40f815c1ca",
+          "outcome": "Passed",
+          "duration": "00:00:01.3009077"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_publishes_retrieval_chunk_links_for_adjacent_chunks",
+          "originalTestNameSha256": "795cc4d58c4b3fa936123034f0f329a9dcfbcd0b8730aa5f90a559944fea7327",
+          "outcome": "Passed",
+          "duration": "00:00:00.8936481"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.CapabilityBCompleteWithGeneratedProfile_rejects_stale_profile_revision_without_storing_partial_results",
+          "originalTestNameSha256": "a926f5d74e3cb3b50a8933efcd63c09c0ae04dfb68e542a68996c7de4c468fa7",
+          "outcome": "Passed",
+          "duration": "00:00:01.0070030"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.OperationalSummaryArtifactAsync_returns_runtime_operational_snapshot",
+          "originalTestNameSha256": "3d16465b23383c9e07b2f3f7bc18bbed69c0c82074a0dce01a36225e993ab6ce",
+          "outcome": "Passed",
+          "duration": "00:00:01.2873935"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminKeysAndAuditEndpointsTests.Create_key_list_keys_and_admin_audit_surfaces_stay_consistent",
+          "originalTestNameSha256": "2d92897ad408a34993d0c4f4849f7a9c7032ad07c21f848dd50574e040715e36",
+          "outcome": "Passed",
+          "duration": "00:00:01.2464340"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Worker_logs_the_authoritative_job_session_and_separates_client_claims",
+          "originalTestNameSha256": "3c907105235aeb099bdb7d3760cf99feb869c7b36e75c345e5f354ae23399357",
+          "outcome": "Passed",
+          "duration": "00:00:01.6739152"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Resolve_source_endpoint_keeps_profile_identity_when_profile_lists_are_empty",
+          "originalTestNameSha256": "76f316b40c107381b0fe939e38ba56252315d9d3977a24652628fbdf350e209d",
+          "outcome": "Passed",
+          "duration": "00:00:01.8504952"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchDocumentProfileMatchesAsync_uses_materialized_content_cards_when_profile_search_text_is_stale",
+          "originalTestNameSha256": "38b7d0292ae38573290cccae74230a8b9ec2be30962e8ef58d1237d84e29f602",
+          "outcome": "Passed",
+          "duration": "00:00:01.8962869"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Summary_management_surfaces_include_fresh_summaries_missing_llm_profile",
+          "originalTestNameSha256": "dfb0c40b2668903c50333debff47926b4f87ac13e4ad29a971f786acdc9882d1",
+          "outcome": "Passed",
+          "duration": "00:00:01.0293126"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Provider_driven_shared_retrieval_publishes_twenty_cited_claims",
+          "originalTestNameSha256": "2dba4d762697768268f29182fb1bf8e8df0d6b1cc282788cfda72061745bb979",
+          "outcome": "Passed",
+          "duration": "00:00:06.1936916"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchDocumentProfileMatchesAsync_uses_hypothetical_questions_as_candidates",
+          "originalTestNameSha256": "f89bd9b6a1bcc42a34c831241ca2d37a0475d8cc3dd4c0c79a082cc33d38faf0",
+          "outcome": "Passed",
+          "duration": "00:00:00.9918950"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilitiesAsync_marks_core_retrieval_as_stale_when_qualification_inputs_change",
+          "originalTestNameSha256": "5038934e3164d1f682fe72d072dfe5853a1067c544c20da23e39586acc073fcd",
+          "outcome": "Passed",
+          "duration": "00:00:01.2645959"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.EventsAsync_and_artifact_return_runtime_audit_trail_for_requalification_and_selection_updates",
+          "originalTestNameSha256": "3ace072581e186c006b89b1321a9a3f174309a8c4a6cd6af988db3fa55d5c360",
+          "outcome": "Passed",
+          "duration": "00:00:01.3115671"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.WarmupResultsAsync_returns_recent_runtime_warmup_rows",
+          "originalTestNameSha256": "539b85a767af599caf0c4d0eae9b485ef753aa85f2065e18afa20da8d940d029",
+          "outcome": "Passed",
+          "duration": "00:00:01.2579730"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_heartbeat_zero_rows_cancels_and_observes_inflight_operation",
+          "originalTestNameSha256": "3a64f5fa29af3b9511eb39e735a5ebee95b4f83a4074ba99bcc8965a8ef01db1",
+          "outcome": "Passed",
+          "duration": "00:00:00.8858022"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Worker_revalidates_tenant_evidence_and_persists_cited_result",
+          "originalTestNameSha256": "92451da85d8bf91de3bb2cdc484e40e4c0435f54eb42dd38fbabf7e8031b0fcb",
+          "outcome": "Passed",
+          "duration": "00:00:01.7499762"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Extraction_quality_pages_endpoint_reports_page_level_review_signals",
+          "originalTestNameSha256": "f8466e3620792e5b764ce12c108e1b9710b5a7856578b231f5fedf31c92b42fe",
+          "outcome": "Passed",
+          "duration": "00:00:01.9732108"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Ingestion_lease_reassigned_to_another_worker_rejects_old_publication_without_mutating_new_owner",
+          "originalTestNameSha256": "8f6262aa63e60324629acddc93ab2b44f4c0fa3bab4d31ba5fbd4370d1efeb2d",
+          "outcome": "Passed",
+          "duration": "00:00:00.9002951"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Tracking_route_projects_live_ingestion_job_state",
+          "originalTestNameSha256": "4d7014dca9657bef4d97d346cf9fb7f26357329d153b8ee08f3f212cc8a743b5",
+          "outcome": "Passed",
+          "duration": "00:00:01.2652451"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Worker_logs_the_authoritative_job_session_and_separates_client_claims",
+          "originalTestNameSha256": "a3136ba09b532a8da79d00b4572e6c55bdf989daf1ede21926194bb44906c434",
+          "outcome": "Passed",
+          "duration": "00:00:01.2164472"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchDocumentProfileMatchesAsync_uses_fresh_stored_summary_when_profile_search_text_is_stale",
+          "originalTestNameSha256": "ccad156ace60537603ed5d335f1dffd0e4af9ebea87968aa3421f2b8eb65de42",
+          "outcome": "Passed",
+          "duration": "00:00:00.9390874"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.DiagnosticsAsync_surfaces_live_runtime_blocker_for_capability_b_when_probe_fails",
+          "originalTestNameSha256": "d764a3cfd002808305b1731f2a214aef3ec316c98134105e843d197cb6648f44",
+          "outcome": "Passed",
+          "duration": "00:00:01.2818584"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Dense_overfetch_reaches_current_points_hidden_after_obsolete_top_hits_with_one_embedding",
+          "originalTestNameSha256": "806ed19e2ccda89747f33184829ee15441456bfb9e7d61b8c505d41f43f31083",
+          "outcome": "Passed",
+          "duration": "00:00:00.9967517"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Resolve_source_endpoint_uses_extraction_quality_from_current_revision_only",
+          "originalTestNameSha256": "0d523ae2a01369742a6d167be73fd81d73ff4828bd1e760ef0c5cec8ad59058b",
+          "outcome": "Passed",
+          "duration": "00:00:01.2588446"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.ReconcileStaleAsync_persists_stale_invalidation_for_changed_runtime_inputs",
+          "originalTestNameSha256": "f8929fed4236cee6c9e60612676545f20789f8f31f94d4188436070050fb10b0",
+          "outcome": "Passed",
+          "duration": "00:00:01.3016716"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchTitleAnchorRouteMatchesAsync_prefers_anchor_page_over_adjacent_partial_token_hit",
+          "originalTestNameSha256": "e6849b89982a01a4f2673f9ce206297ef101cabb081ed5ef352fc5e86ca1044d",
+          "outcome": "Passed",
+          "duration": "00:00:01.1920054"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.PublishFailedOcrExtractionAsync_does_not_publish_when_version_is_superseded",
+          "originalTestNameSha256": "42dcf01bb5a72cf276ca9227805d1c471a0c9c1cfed84444c9f8c14049db2329",
+          "outcome": "Passed",
+          "duration": "00:00:00.8457005"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Rag_query_legacy_endpoint_returns_enriched_match_payload",
+          "originalTestNameSha256": "37fed32b149fb2604ba7812806b6a8263068e5f5586076e9157ada5afc79ed7b",
+          "outcome": "Passed",
+          "duration": "00:00:01.4153537"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DatabaseTextSearchDiagnosticIntegrationTests.Unicode_fixture_reports_behavior_without_creating_user_tables_or_changing_locale",
+          "originalTestNameSha256": "65cb76eb19d746d76aa4fb4eb79e50de333feff39b3a16db6e409b4571b78519",
+          "outcome": "Passed",
+          "duration": "00:00:00.3005442"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEventHistoryIntegrationTests.Job_state_history_preserves_retry_recovery_lease_correlation_and_previous_errors",
+          "originalTestNameSha256": "dec2ff76468e79b4fd63d94d717c2328e6af355fabead82cc08cd7a8718864d2",
+          "outcome": "Passed",
+          "duration": "00:00:01.0048100"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Resolver_never_reintroduces_withdrawn_or_unindexed_document_proof",
+          "originalTestNameSha256": "fd4942efdfe94abef898000d4adf95c9df870e717a5656a4e173805df0ebf5b0",
+          "outcome": "Passed",
+          "duration": "00:00:00.8354281"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.AdminRuntime_core_endpoints_and_artifacts_preserve_expected_top_level_json_shape",
+          "originalTestNameSha256": "0cf34470defa226ea939ba98c554fc4eb8419e691437b62fe9fb388b130726b1",
+          "outcome": "Passed",
+          "duration": "00:00:01.8346876"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DbMigratorDiagnosticIntegrationTests.Failed_migration_rolls_back_ddl_and_never_records_a_successful_version",
+          "originalTestNameSha256": "18c319d075227606168495c49c86e9bebf9b2b10788adc988fb31a0932c12f08",
+          "outcome": "Passed",
+          "duration": "00:00:00.3726206"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteDeleteAsync_publishes_processing_run_without_revision",
+          "originalTestNameSha256": "a755487650c157772f30150c2cc16cd9bb6dbb180838d0c14330dec86c1d3fae",
+          "outcome": "Passed",
+          "duration": "00:00:00.9360449"
+        }
+      ],
+      "trx": "Backend.public.trx",
+      "trxSha256": "818ba1472daa47748ed31a8e0176a3d54862f03bf0f1d783321a71fc3fe09ba0",
+      "originalTrxSha256": "397abdc44376c3b427144d651bbe7ff519350cd3b1167e94558ee095de21e422",
+      "trxProjection": {
+        "outcomeCounts": {
+          "Passed": 310,
+          "NotExecuted": 2
+        },
+        "removedSubtreeCount": 8,
+        "rawErrorsAndStdoutIncluded": false,
+        "projectionIsOriginalTrx": false,
+        "testArgumentsIncluded": false,
+        "originalTestNamesHashed": true,
+        "fieldsPolicy": "explicit_result_and_identity_allowlist"
+      }
+    }
+  ]
+}

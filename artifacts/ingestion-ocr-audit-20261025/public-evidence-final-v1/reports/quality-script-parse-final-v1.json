@@ -1,0 +1,7 @@
+{
+  "sha256": "AA09EC520C3C73783B36519AE2A40D94B34DC3EEF3E62075CF1DBE8E4A8939B5",
+  "path": "tools/run-ingestion-quality-checks.ps1",
+  "parserErrors": 0,
+  "passed": true,
+  "schemaVersion": "saaia-powershell-parse-check.v1"
+}

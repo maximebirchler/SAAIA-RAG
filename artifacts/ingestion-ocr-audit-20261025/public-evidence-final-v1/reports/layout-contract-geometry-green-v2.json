@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "saaia-offline-layout-contract-geometry-green.v1",
+  "execution": "pure_python_no_pdf_conversion_no_api",
+  "testsRun": 35,
+  "failures": 0,
+  "errors": 0,
+  "passed": 35,
+  "modules": [
+    "tools.ingestion_gold.tests.test_canonical_geometry_selection",
+    "tools.ingestion_gold.tests.test_layout_source_contracts",
+    "tools.ingestion_gold.tests.test_evaluator",
+    "tools.ingestion_gold.tests.test_acceptance_contracts"
+  ],
+  "sources": [
+    {
+      "path": "config/ingestion-acceptance-gold.v2.json",
+      "sha256": "2aafffedd4c2d736d0ee02d06482a0f76c9eb11c3160cffae062911f50aea505"
+    },
+    {
+      "path": "tools/ingestion_gold/canonical_evaluator.py",
+      "sha256": "8a2af0806a8327fd703a6d05918066882f6d539a2ded9eb302534fee272c38f0"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_canonical_geometry_selection.py",
+      "sha256": "e8ce4f91d74f697c0ccb79ba3b270863cdc50d238f6fdec9bb6f7e47386dc400"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_layout_source_contracts.py",
+      "sha256": "754d191147b2eae94183c00257d076759ae69e6d285d56b4d7c13e31eb1355a9"
+    }
+  ]
+}

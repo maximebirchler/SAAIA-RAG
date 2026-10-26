@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "saaia-owned-worker-publication-verification.v1",
+  "passed": true,
+  "caseCoverageComplete": true,
+  "caseCount": 2,
+  "completedJobsObserved": true,
+  "workerExecutionAndNoSeedingRequireRunnerProof": true,
+  "sqlPublicationValidated": true,
+  "vectorStorePublicationValidated": true,
+  "embeddingAdapter": "deterministic_loopback_3d",
+  "embeddingsReal": false,
+  "vectorValidated": false,
+  "results": [
+    {
+      "caseId": "fr-mixed-critical-v2",
+      "ok": true,
+      "issues": [],
+      "documentId": "139b9f76-a386-6ca1-8b27-f9fc62d7fa37",
+      "revisionId": "2307c09b-4b61-efe4-6219-5bc931048203",
+      "sourceSha256": "01adcd257d9359351544d5ed656b49035d6550465559eb5b1a5d9e18c1a52349",
+      "canonicalBundleChecksumExact": true,
+      "chunkCount": 4,
+      "chunkChecksumFailures": 0,
+      "sourceAnchorCount": 4,
+      "criticalPhysicalFactCount": 8,
+      "canonicalChecksPassed": true,
+      "readApiFactsPassed": true,
+      "qdrantPointCount": 4,
+      "qdrantPointIdsAndPlanExact": true
+    },
+    {
+      "caseId": "fr-scan-critical-v2",
+      "ok": true,
+      "issues": [],
+      "documentId": "b2f9aee2-f0fb-1431-9647-a6cd9b7b73b1",
+      "revisionId": "71516efc-ec5b-33cc-c2c3-1c6b03f43769",
+      "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2",
+      "canonicalBundleChecksumExact": true,
+      "chunkCount": 1,
+      "chunkChecksumFailures": 0,
+      "sourceAnchorCount": 1,
+      "criticalPhysicalFactCount": 5,
+      "canonicalChecksPassed": true,
+      "readApiFactsPassed": true,
+      "qdrantPointCount": 1,
+      "qdrantPointIdsAndPlanExact": true
+    }
+  ],
+  "limits": [
+    "Real Qdrant storage and point identity are distinct from semantic embedding quality.",
+    "Neither embedding mode alone validates semantic dense ranking; Transformers CPU is not the TEI binary.",
+    "Read API chunks can overlap pages; independent canonical page facts must pass separately.",
+    "This verifier consumes captured observations; process ownership and execution are proved by the runner."
+  ]
+}

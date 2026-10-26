@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "saaia-notification-delivery.v1",
+  "reportSha256": "2A4DCCFF1B0A41770BE2B84D0E5F9979CC967EB528A1F47191D2CD950C9A5162",
+  "successfulParts": [
+    {
+      "characters": 2618,
+      "completedAtUtc": "2026-10-26T01:27:27.1907519+00:00",
+      "part": 1
+    },
+    {
+      "characters": 2500,
+      "completedAtUtc": "2026-10-26T01:27:27.3054008+00:00",
+      "part": 2
+    }
+  ]
+}

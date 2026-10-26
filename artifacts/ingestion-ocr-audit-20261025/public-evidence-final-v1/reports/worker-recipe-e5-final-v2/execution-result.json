@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "saaia-owned-ingestion-execution.v1",
+  "startedAtUtc": "2026-10-26T01:02:00.3094752+00:00",
+  "passed": true,
+  "executed": true,
+  "plan": {
+    "schemaVersion": "saaia-owned-ingestion-plan.v1",
+    "executeRequested": true,
+    "caseIds": [
+      "recipe-real-v1"
+    ],
+    "sourceCount": 1,
+    "corpusManifestSha256": "705CF39099212F47364E0733A4F70910269CB2CCA48878BC2C1C964C6F83064A",
+    "backendAssemblySha256": "00A011D0DB86BFDAEF82972DDE6B1C7CD0B142C79D43C871C1128E4CF107ABD7",
+    "dependencyManifestSha256": "BB3B9692755233EA6E427B355CC6EE669701E7301507A504D27CDAB8FDA1566B",
+    "profileSha256": "DEF96E5CF860034C42527A06002AFD3673A048C0A71E44B92F036988E52784C2",
+    "backendPort": 5129,
+    "fixturePort": 18091,
+    "qdrantCollection": "ingestion_601223b24f3a46458c844d87e081d1ae",
+    "maximumWaitSeconds": 900,
+    "workerEnabled": true,
+    "canonicalRowsSeeded": false,
+    "paidProviderEnabled": false,
+    "embeddingAdapter": "transformers_cpu",
+    "embeddingsReal": true,
+    "vectorValidated": false,
+    "productStatus": "TESTE_NON_APPROUVE",
+    "verifyCanonicalSearch": true,
+    "validateLifecycle": false,
+    "embeddingProfileSha256": "FC6FA94317ADFDAE069736DF44E2A960D1DAA416AC9B588BD81FFC1C0C646370"
+  },
+  "canonicalRowsSeeded": false,
+  "paidProviderCalls": 0,
+  "ingestionWorkerExecuted": true,
+  "sqlPublicationValidated": true,
+  "vectorStorePublicationValidated": true,
+  "vectorValidated": false,
+  "cleanup": {
+    "activeJobCountBeforeStop": 0,
+    "ownedEnvironmentStopped": true,
+    "zeroActiveJobs": true,
+    "externalDependenciesStopped": false
+  },
+  "state": "verified",
+  "embeddingRuntimeAttested": true,
+  "emptyBaselineVerified": true,
+  "apiEnqueuedJobCount": 1,
+  "jobPollCount": 56,
+  "canonicalSearchValidated": true,
+  "finishedAtUtc": "2026-10-26T01:04:10.5904076+00:00"
+}

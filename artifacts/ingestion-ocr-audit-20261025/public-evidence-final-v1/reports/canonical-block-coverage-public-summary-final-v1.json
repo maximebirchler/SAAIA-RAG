@@ -1,0 +1,649 @@
+{
+  "schemaVersion": "saaia-canonical-block-coverage-public-summary.v1",
+  "sourceAuditPath": "artifacts/ingestion-ocr-audit-20261025/canonical-block-coverage-review-v1/coverage.json",
+  "sourceAuditSha256": "f0a87fc81447b5d50a387f351cd40977f94fe2acaf1ae7d9cc66efefd5b506dd",
+  "documentTextIncluded": false,
+  "captures": [
+    {
+      "label": "synthetic12",
+      "inputSha256": "824d300681d990351c767dfa664e52678360de8c476a0104b0a34b433604e991",
+      "counts": {
+        "documentCount": 12,
+        "pageCount": 16,
+        "chunkCount": 37,
+        "nonemptyCanonicalBlockCount": 253,
+        "directIdRepresented": 248,
+        "contextIdRepresented": 3,
+        "literalRepresented": 253,
+        "titleMetadataRepresented": 3,
+        "retrievalViewEmpty": 2,
+        "numericPageFooterCount": 0,
+        "classifications": {
+          "literal_represented": 253
+        }
+      },
+      "documents": [
+        {
+          "documentId": "139b9f76-a386-6ca1-8b27-f9fc62d7fa37",
+          "sourceSha256": "01adcd257d9359351544d5ed656b49035d6550465559eb5b1a5d9e18c1a52349",
+          "pageCount": 3,
+          "chunkCount": 4,
+          "nonemptyCanonicalBlockCount": 16,
+          "classificationCounts": {
+            "literal_represented": 16
+          },
+          "byBlockType": {
+            "native_text_recovery": {
+              "nonemptyBlocks": 8,
+              "directIdRepresented": 8,
+              "contextIdRepresented": 0,
+              "literalRepresented": 8,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "text": {
+              "nonemptyBlocks": 8,
+              "directIdRepresented": 8,
+              "contextIdRepresented": 0,
+              "literalRepresented": 8,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            }
+          },
+          "allBlockCoverageRowsSha256": "f6cc5bf5e6f628a6429f7320471977899d2cbe9466f9a6865a7a2f2b857ed47b"
+        },
+        {
+          "documentId": "03b829d0-f5bb-ca4a-22fc-d01aefc3b6fc",
+          "sourceSha256": "5bb9e63e5dd3b5a8a32bedc5c1d81d1598fd765032066d6548faf6a7a71fb3c0",
+          "pageCount": 2,
+          "chunkCount": 4,
+          "nonemptyCanonicalBlockCount": 20,
+          "classificationCounts": {
+            "literal_represented": 20
+          },
+          "byBlockType": {
+            "native_text_recovery": {
+              "nonemptyBlocks": 14,
+              "directIdRepresented": 14,
+              "contextIdRepresented": 0,
+              "literalRepresented": 14,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "page_footer": {
+              "nonemptyBlocks": 2,
+              "directIdRepresented": 2,
+              "contextIdRepresented": 0,
+              "literalRepresented": 2,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "text": {
+              "nonemptyBlocks": 4,
+              "directIdRepresented": 4,
+              "contextIdRepresented": 0,
+              "literalRepresented": 4,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            }
+          },
+          "allBlockCoverageRowsSha256": "d47dd8030a91d463314f7d44c66c6850ed35e1e2f52f7fef757525524cc2d27e"
+        },
+        {
+          "documentId": "b2f9aee2-f0fb-1431-9647-a6cd9b7b73b1",
+          "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2",
+          "pageCount": 1,
+          "chunkCount": 1,
+          "nonemptyCanonicalBlockCount": 6,
+          "classificationCounts": {
+            "literal_represented": 6
+          },
+          "byBlockType": {
+            "text": {
+              "nonemptyBlocks": 6,
+              "directIdRepresented": 6,
+              "contextIdRepresented": 0,
+              "literalRepresented": 6,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            }
+          },
+          "allBlockCoverageRowsSha256": "b5e6bbd322f6938347b7d12789f78703a9420a789dfa8e612ff7e9ee761a793f"
+        },
+        {
+          "documentId": "0efd6ee6-82f2-cd38-4ebc-3a3c3ef8fb75",
+          "sourceSha256": "c9482adbfd47104a1a81fb1d1087c602b2f0275a8860deb8373aec076a697371",
+          "pageCount": 2,
+          "chunkCount": 7,
+          "nonemptyCanonicalBlockCount": 26,
+          "classificationCounts": {
+            "literal_represented": 26
+          },
+          "byBlockType": {
+            "native_table_cell_observation": {
+              "nonemptyBlocks": 2,
+              "directIdRepresented": 0,
+              "contextIdRepresented": 0,
+              "literalRepresented": 2,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 2
+            },
+            "native_text_recovery": {
+              "nonemptyBlocks": 19,
+              "directIdRepresented": 19,
+              "contextIdRepresented": 0,
+              "literalRepresented": 19,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "page_header": {
+              "nonemptyBlocks": 1,
+              "directIdRepresented": 1,
+              "contextIdRepresented": 0,
+              "literalRepresented": 1,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "text": {
+              "nonemptyBlocks": 4,
+              "directIdRepresented": 4,
+              "contextIdRepresented": 0,
+              "literalRepresented": 4,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            }
+          },
+          "allBlockCoverageRowsSha256": "95c6b18e8576befbeef0fa3e15deb42081e7e53815cfcd7ede75deda594df72f"
+        },
+        {
+          "documentId": "009c2f32-8c8e-26e9-2550-9cbc072f5290",
+          "sourceSha256": "b8b6a1b51695119a264919c97545539179fcd0540e0986d384db0a4ed18be4bf",
+          "pageCount": 1,
+          "chunkCount": 1,
+          "nonemptyCanonicalBlockCount": 6,
+          "classificationCounts": {
+            "literal_represented": 6
+          },
+          "byBlockType": {
+            "section_header": {
+              "nonemptyBlocks": 1,
+              "directIdRepresented": 0,
+              "contextIdRepresented": 1,
+              "literalRepresented": 1,
+              "titleMetadataRepresented": 1,
+              "retrievalViewEmpty": 0
+            },
+            "text": {
+              "nonemptyBlocks": 5,
+              "directIdRepresented": 5,
+              "contextIdRepresented": 0,
+              "literalRepresented": 5,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            }
+          },
+          "allBlockCoverageRowsSha256": "9c7e5520d70696acd780430f3fca818d578216800e05ce613bcd7ed6442544fe"
+        },
+        {
+          "documentId": "58448496-fa92-4c2a-418f-6d7ff2d57549",
+          "sourceSha256": "7ebf33a08461b1310052954141256ac7975eeca5e7eb74fa0dc44a79f60746e8",
+          "pageCount": 1,
+          "chunkCount": 2,
+          "nonemptyCanonicalBlockCount": 10,
+          "classificationCounts": {
+            "literal_represented": 10
+          },
+          "byBlockType": {
+            "list_item": {
+              "nonemptyBlocks": 2,
+              "directIdRepresented": 2,
+              "contextIdRepresented": 0,
+              "literalRepresented": 2,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "native_text_recovery": {
+              "nonemptyBlocks": 2,
+              "directIdRepresented": 2,
+              "contextIdRepresented": 0,
+              "literalRepresented": 2,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "page_footer": {
+              "nonemptyBlocks": 1,
+              "directIdRepresented": 1,
+              "contextIdRepresented": 0,
+              "literalRepresented": 1,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "section_header": {
+              "nonemptyBlocks": 1,
+              "directIdRepresented": 0,
+              "contextIdRepresented": 1,
+              "literalRepresented": 1,
+              "titleMetadataRepresented": 1,
+              "retrievalViewEmpty": 0
+            },
+            "text": {
+              "nonemptyBlocks": 4,
+              "directIdRepresented": 4,
+              "contextIdRepresented": 0,
+              "literalRepresented": 4,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            }
+          },
+          "allBlockCoverageRowsSha256": "4bbf0e91dd18d309fcaf523b28a75ff7c56b3ba92dd9de4bafb5c2ab4dd3be7a"
+        },
+        {
+          "documentId": "a1982c14-f8fb-f58d-ad59-ce7412ecf17b",
+          "sourceSha256": "60de8a516ec9925c0c2d0dfc714233187f91ada1c0dc0607ca2bcb09fe3e4469",
+          "pageCount": 1,
+          "chunkCount": 4,
+          "nonemptyCanonicalBlockCount": 40,
+          "classificationCounts": {
+            "literal_represented": 40
+          },
+          "byBlockType": {
+            "native_layout_recovery": {
+              "nonemptyBlocks": 12,
+              "directIdRepresented": 12,
+              "contextIdRepresented": 0,
+              "literalRepresented": 12,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "native_text_recovery": {
+              "nonemptyBlocks": 20,
+              "directIdRepresented": 20,
+              "contextIdRepresented": 0,
+              "literalRepresented": 20,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "page_footer": {
+              "nonemptyBlocks": 1,
+              "directIdRepresented": 1,
+              "contextIdRepresented": 0,
+              "literalRepresented": 1,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "section_header": {
+              "nonemptyBlocks": 2,
+              "directIdRepresented": 2,
+              "contextIdRepresented": 0,
+              "literalRepresented": 2,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "text": {
+              "nonemptyBlocks": 5,
+              "directIdRepresented": 5,
+              "contextIdRepresented": 0,
+              "literalRepresented": 5,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            }
+          },
+          "allBlockCoverageRowsSha256": "b9c3a6ddce042afc29a03bcb1e6b7608fccbd7c679fc7cf416b0d0d5499c4545"
+        },
+        {
+          "documentId": "fa532474-acb0-5845-1feb-14eaf3bd1ba7",
+          "sourceSha256": "f2e98a62ea501e6470771c9c62e3077b53b01457481ccff716845918cea94058",
+          "pageCount": 1,
+          "chunkCount": 2,
+          "nonemptyCanonicalBlockCount": 27,
+          "classificationCounts": {
+            "literal_represented": 27
+          },
+          "byBlockType": {
+            "native_layout_recovery": {
+              "nonemptyBlocks": 12,
+              "directIdRepresented": 12,
+              "contextIdRepresented": 0,
+              "literalRepresented": 12,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "native_text_recovery": {
+              "nonemptyBlocks": 4,
+              "directIdRepresented": 4,
+              "contextIdRepresented": 0,
+              "literalRepresented": 4,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "page_footer": {
+              "nonemptyBlocks": 1,
+              "directIdRepresented": 1,
+              "contextIdRepresented": 0,
+              "literalRepresented": 1,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "section_header": {
+              "nonemptyBlocks": 3,
+              "directIdRepresented": 3,
+              "contextIdRepresented": 0,
+              "literalRepresented": 3,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "text": {
+              "nonemptyBlocks": 7,
+              "directIdRepresented": 7,
+              "contextIdRepresented": 0,
+              "literalRepresented": 7,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            }
+          },
+          "allBlockCoverageRowsSha256": "a88b1767121e5614d7940f93b337ebc7cca467b897b3a3450795057d67f5e4ba"
+        },
+        {
+          "documentId": "779d8183-e947-98a7-6196-9f4da8dfebab",
+          "sourceSha256": "912ef2c91233681f38515b45e18c3cdeb847b373bcc3d2fc1cfb41a5e086ebdc",
+          "pageCount": 1,
+          "chunkCount": 4,
+          "nonemptyCanonicalBlockCount": 34,
+          "classificationCounts": {
+            "literal_represented": 34
+          },
+          "byBlockType": {
+            "native_layout_recovery": {
+              "nonemptyBlocks": 17,
+              "directIdRepresented": 17,
+              "contextIdRepresented": 0,
+              "literalRepresented": 17,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "native_text_recovery": {
+              "nonemptyBlocks": 15,
+              "directIdRepresented": 15,
+              "contextIdRepresented": 0,
+              "literalRepresented": 15,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "page_footer": {
+              "nonemptyBlocks": 1,
+              "directIdRepresented": 1,
+              "contextIdRepresented": 0,
+              "literalRepresented": 1,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "section_header": {
+              "nonemptyBlocks": 1,
+              "directIdRepresented": 1,
+              "contextIdRepresented": 0,
+              "literalRepresented": 1,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            }
+          },
+          "allBlockCoverageRowsSha256": "cb19d68815122bf59d51af0180fe42c2ad47e8fceb1008d0f6bb31cd43a7ade5"
+        },
+        {
+          "documentId": "747e9c8e-5f30-954a-e13d-17db11c9f919",
+          "sourceSha256": "0630e326a1c116fdd946f87c5ae951448b10786d7fdca35949b08e89fa36316c",
+          "pageCount": 1,
+          "chunkCount": 2,
+          "nonemptyCanonicalBlockCount": 27,
+          "classificationCounts": {
+            "literal_represented": 27
+          },
+          "byBlockType": {
+            "native_layout_recovery": {
+              "nonemptyBlocks": 12,
+              "directIdRepresented": 12,
+              "contextIdRepresented": 0,
+              "literalRepresented": 12,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "native_text_recovery": {
+              "nonemptyBlocks": 4,
+              "directIdRepresented": 4,
+              "contextIdRepresented": 0,
+              "literalRepresented": 4,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "page_footer": {
+              "nonemptyBlocks": 1,
+              "directIdRepresented": 1,
+              "contextIdRepresented": 0,
+              "literalRepresented": 1,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "section_header": {
+              "nonemptyBlocks": 3,
+              "directIdRepresented": 3,
+              "contextIdRepresented": 0,
+              "literalRepresented": 3,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "text": {
+              "nonemptyBlocks": 7,
+              "directIdRepresented": 7,
+              "contextIdRepresented": 0,
+              "literalRepresented": 7,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            }
+          },
+          "allBlockCoverageRowsSha256": "deb7eb170c15c2a8d0094d1aafa7ba47fd42e93c0d6e1f2783ed08f69e5efe13"
+        },
+        {
+          "documentId": "b1956eeb-dba6-70f7-0362-261210a69126",
+          "sourceSha256": "84604de71139c5e5bea1a9da361909b1383438a335863f84a8fcad97120e9b09",
+          "pageCount": 1,
+          "chunkCount": 2,
+          "nonemptyCanonicalBlockCount": 26,
+          "classificationCounts": {
+            "literal_represented": 26
+          },
+          "byBlockType": {
+            "native_layout_recovery": {
+              "nonemptyBlocks": 14,
+              "directIdRepresented": 14,
+              "contextIdRepresented": 0,
+              "literalRepresented": 14,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "native_text_recovery": {
+              "nonemptyBlocks": 7,
+              "directIdRepresented": 7,
+              "contextIdRepresented": 0,
+              "literalRepresented": 7,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "page_footer": {
+              "nonemptyBlocks": 1,
+              "directIdRepresented": 1,
+              "contextIdRepresented": 0,
+              "literalRepresented": 1,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "section_header": {
+              "nonemptyBlocks": 3,
+              "directIdRepresented": 3,
+              "contextIdRepresented": 0,
+              "literalRepresented": 3,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "text": {
+              "nonemptyBlocks": 1,
+              "directIdRepresented": 1,
+              "contextIdRepresented": 0,
+              "literalRepresented": 1,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            }
+          },
+          "allBlockCoverageRowsSha256": "d3242428842c5dfe459688e57a3f571c4f2ad4b82777a9c46bb7e0be854fe849"
+        },
+        {
+          "documentId": "dcbe960d-a44d-d51c-9b1a-93e343b3382e",
+          "sourceSha256": "7e890e7721eb440b6269c94066adcbb57cbbb17371e510e7f15f390f26aac7bf",
+          "pageCount": 1,
+          "chunkCount": 4,
+          "nonemptyCanonicalBlockCount": 15,
+          "classificationCounts": {
+            "literal_represented": 15
+          },
+          "byBlockType": {
+            "native_text_recovery": {
+              "nonemptyBlocks": 11,
+              "directIdRepresented": 11,
+              "contextIdRepresented": 0,
+              "literalRepresented": 11,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "page_footer": {
+              "nonemptyBlocks": 1,
+              "directIdRepresented": 1,
+              "contextIdRepresented": 0,
+              "literalRepresented": 1,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "section_header": {
+              "nonemptyBlocks": 1,
+              "directIdRepresented": 0,
+              "contextIdRepresented": 1,
+              "literalRepresented": 1,
+              "titleMetadataRepresented": 1,
+              "retrievalViewEmpty": 0
+            },
+            "text": {
+              "nonemptyBlocks": 2,
+              "directIdRepresented": 2,
+              "contextIdRepresented": 0,
+              "literalRepresented": 2,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            }
+          },
+          "allBlockCoverageRowsSha256": "6b90dbe3d1e3700e3ca9c12529aeeb77aa64c658d24fc971b2b0b60e9577ec72"
+        }
+      ]
+    },
+    {
+      "label": "real36",
+      "inputSha256": "743fd5c222599d1dab2334207febc71c20b5d4675888c3b05f921e9bbeeca50c",
+      "counts": {
+        "documentCount": 1,
+        "pageCount": 36,
+        "chunkCount": 158,
+        "nonemptyCanonicalBlockCount": 2035,
+        "directIdRepresented": 1995,
+        "contextIdRepresented": 12,
+        "literalRepresented": 2000,
+        "titleMetadataRepresented": 14,
+        "retrievalViewEmpty": 0,
+        "numericPageFooterCount": 25,
+        "classifications": {
+          "literal_represented": 2000,
+          "potential_useful_loss": 2,
+          "numeric_page_footer_not_literal": 24,
+          "ordered_recovery_representation": 9
+        }
+      },
+      "documents": [
+        {
+          "documentId": "81594a45-c76a-3818-af8c-53810b0b32a0",
+          "sourceSha256": "aa11e234fb3336ee76644958e888d83565e25ba875264ba75f7ce22b32d25c18",
+          "pageCount": 36,
+          "chunkCount": 158,
+          "nonemptyCanonicalBlockCount": 2035,
+          "classificationCounts": {
+            "literal_represented": 2000,
+            "potential_useful_loss": 2,
+            "numeric_page_footer_not_literal": 24,
+            "ordered_recovery_representation": 9
+          },
+          "byBlockType": {
+            "list_item": {
+              "nonemptyBlocks": 518,
+              "directIdRepresented": 518,
+              "contextIdRepresented": 0,
+              "literalRepresented": 518,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "native_layout_recovery": {
+              "nonemptyBlocks": 617,
+              "directIdRepresented": 616,
+              "contextIdRepresented": 0,
+              "literalRepresented": 613,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "native_text_recovery": {
+              "nonemptyBlocks": 536,
+              "directIdRepresented": 536,
+              "contextIdRepresented": 0,
+              "literalRepresented": 531,
+              "titleMetadataRepresented": 2,
+              "retrievalViewEmpty": 0
+            },
+            "page_footer": {
+              "nonemptyBlocks": 25,
+              "directIdRepresented": 0,
+              "contextIdRepresented": 0,
+              "literalRepresented": 1,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            },
+            "section_header": {
+              "nonemptyBlocks": 145,
+              "directIdRepresented": 131,
+              "contextIdRepresented": 12,
+              "literalRepresented": 143,
+              "titleMetadataRepresented": 12,
+              "retrievalViewEmpty": 0
+            },
+            "text": {
+              "nonemptyBlocks": 194,
+              "directIdRepresented": 194,
+              "contextIdRepresented": 0,
+              "literalRepresented": 194,
+              "titleMetadataRepresented": 0,
+              "retrievalViewEmpty": 0
+            }
+          },
+          "allBlockCoverageRowsSha256": "b63ed9460bd1adc85ab5538f0b950ff1fcca7b582fe81111917c2df01432b550"
+        }
+      ]
+    }
+  ],
+  "postCorrection": {
+    "finalRecipeExecutionSha256": "689300e8c164ce31dfb3979cbc676761359f0183e303af5d0cdd92d805f07ae4",
+    "finalRecipePublicationSha256": "7a921a08ba3bc3e502ae301e6cac9dd531d39583d81ed06589a9382ed32c73f8",
+    "passed": true,
+    "criticalPhysicalFactCount": 16,
+    "chunkCount": 160,
+    "qdrantPointCount": 160,
+    "observedMissingTitleRegressions": 2,
+    "meaning": "The two useful heading losses identified in the historical 158-chunk capture are covered by the final 160-chunk/16-fact real run; these are regression checks, not a blind evaluation."
+  },
+  "limits": [
+    "Counts and source identity hashes only; no PDF text, title text, excerpts or raw observations are projected.",
+    "The block audit concerns the identified historical captures, not exhaustive semantic understanding.",
+    "Ordered recovery representation and numeric-page-footer exclusions remain distinguished from direct literal representation.",
+    "Dedicated retrieval queries for each of the two repaired titles were not executed."
+  ]
+}

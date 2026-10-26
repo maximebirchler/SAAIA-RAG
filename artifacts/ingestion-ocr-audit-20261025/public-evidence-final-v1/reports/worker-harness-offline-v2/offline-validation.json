@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "saaia-owned-worker-harness-offline-validation.v1",
+  "passed": true,
+  "pythonTests": 31,
+  "powerShellGuards": 30,
+  "noexecPlans": 2,
+  "observedProfilesValidatedWithoutHttp": true,
+  "serviceCalls": 0,
+  "credentialsRead": 0,
+  "databaseOperations": 0,
+  "serviceProcessesStarted": 0,
+  "dotnetBuilds": 0,
+  "modelCalls": 0,
+  "workerExecuted": false,
+  "limits": [
+    "Pure and synthetic tests validate the harness only. No real worker, OCR, PostgreSQL or Qdrant was executed by this task.",
+    "NOEXEC validates profile declarations; actual embedding /info attestation runs only with Execute.",
+    "Backend DLL hash in NOEXEC is a preparation observation, not authorization to skip the final production build."
+  ],
+  "sources": [
+    {
+      "name": "invoke-owned-ingestion.ps1",
+      "sha256": "7EA78E183708D98AFD39401B9DABB5EB6AE26ACFBBB463E7986B3C6CDDDD98DE"
+    },
+    {
+      "name": "OwnedIngestionConfig.ps1",
+      "sha256": "AD852E639CC7C80BA4D99AE9796EF0DCB8D233FC9EAE6D86CA71641A88EB5117"
+    },
+    {
+      "name": "Test-OwnedIngestionGuards.ps1",
+      "sha256": "EFFA772B5FB332136EA8844CB01ADC9A0C0DDDB0164A40C73CFF80D29B8994FC"
+    },
+    {
+      "name": "verify_worker_publication.py",
+      "sha256": "700D74E963C973B628E875C2DFB6B2172D2229639D26EFF8847564D5C83256CC"
+    }
+  ]
+}

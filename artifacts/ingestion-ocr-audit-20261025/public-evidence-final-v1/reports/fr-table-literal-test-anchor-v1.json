@@ -1,0 +1,34 @@
+{
+  "table-literal-red-layout-green-v2": {
+    "runId": "1e4c7ba8917447848ac93426b8420318",
+    "sourceStable": true,
+    "source": "59EE34D589B36AC29CD36EFB63F114DA78223B584124D9D12D4D9B197B1FF8CD",
+    "trxHashVerified": true,
+    "passed": 4,
+    "failed": 6,
+    "wholeRun": {
+      "passed": 11,
+      "adapterReportedExecuted": 17,
+      "failed": 6,
+      "executed": 17,
+      "notExecuted": 0,
+      "total": 17
+    }
+  },
+  "layout-association-red-table-green-v1": {
+    "runId": "3e69aad2c3184fff8cc81ece0704d6f8",
+    "sourceStable": true,
+    "source": "8544BE77ED39FCB2A7E1CECC5EDD943139668B43A187A9711F06079D83B936A8",
+    "trxHashVerified": true,
+    "passed": 12,
+    "failed": 0,
+    "wholeRun": {
+      "executed": 25,
+      "passed": 20,
+      "adapterReportedExecuted": 25,
+      "failed": 5,
+      "total": 25,
+      "notExecuted": 0
+    }
+  }
+}
