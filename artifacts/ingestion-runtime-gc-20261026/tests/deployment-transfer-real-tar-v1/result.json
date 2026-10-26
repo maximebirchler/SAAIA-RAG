@@ -1,0 +1,26 @@
+{
+  "schema": "saaia-synthetic-transfer-tar-proof.v1",
+  "passed": true,
+  "syntheticInputsOnly": true,
+  "actualSecretsReadOrArchived": false,
+  "tarExecuted": true,
+  "servicesStarted": 0,
+  "expectedFiles": 11,
+  "archivedFiles": 11,
+  "selectionDifferences": 0,
+  "forbiddenEntries": 0,
+  "archiveSha256": "25ee42fb6f819da6f81b1883d9539b158f300a1748b8de92b1ee6733bba8d8c8",
+  "selectedPaths": [
+    ".dockerignore",
+    "Directory.Build.props",
+    "RAG.sln",
+    "backend/SAAIA.Backend/Dockerfile",
+    "backend/SAAIA.Backend/Program.cs",
+    "backend/SAAIA.Backend/SAAIA.Backend.csproj",
+    "contracts/SAAIA.Contracts/SAAIA.Contracts.csproj",
+    "global.json",
+    "infra/docker-compose.prod.yml",
+    "infra/docling-sidecar/Dockerfile",
+    "infra/docling-sidecar/entrypoint.sh"
+  ]
+}

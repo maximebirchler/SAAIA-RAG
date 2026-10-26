@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "saaia-isolated-postgres-v1",
+  "runId": "7570ef1b39cf4ae4b1ad1d2ff83f8151",
+  "startedAtUtc": "2026-10-26T10:42:19.2949047+00:00",
+  "finishedAtUtc": "2026-10-26T10:48:18.3332863+00:00",
+  "gitCommit": "eb0d47dcb1bb5e6d0038c81c78d95418a5e272c6",
+  "postgresVersion": "postgres (PostgreSQL) 16.14",
+  "postgresBinarySha256": "C4A6839621F230076B3347F443B3DBFB133954D695F82866EA67501290BD90D3",
+  "postgresLocaleRequested": "English_United States.1252",
+  "port": 59303,
+  "ownedCluster": "C:\\Users\\maxim\\AppData\\Local\\SAAIA\\isolated-integration-postgres\\run-7570ef1b39cf4ae4b1ad1d2ff83f8151\\data",
+  "verifiedDataDirectory": true,
+  "existingClusterModified": false,
+  "externalCorpusAccess": false,
+  "state": "passed",
+  "failure": null,
+  "environmentRestored": true,
+  "clusterRemoved": true,
+  "bootstrapPasswordRemoved": true,
+  "remainingListener": false
+}

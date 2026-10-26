@@ -1,0 +1,37 @@
+{
+  "executed": true,
+  "passed": true,
+  "containerId": "2d00afb2cdf1765507da68383932833d7c27ce624486bda0ebdff2fa15acc531",
+  "imageId": "sha256:306dea810850f2aea6d0c11e10fdf65f00f5bc9ecf5f960dd8d18cb1c4700d81",
+  "counts": {
+    "selected": 26,
+    "executed": 26,
+    "passed": 26,
+    "failed": 0,
+    "notExecuted": 0,
+    "methodCases": {
+      "ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response": 3,
+      "ConvertPdfAsync_transient_retry_recovers_from_network_failure": 1,
+      "ConvertPdfAsync_transient_retry_keeps_original_source_handle_after_path_is_atomically_replaced": 1,
+      "ConvertPdfAsync_transient_retry_bounds_persistent_network_errors_and_sanitizes_final_error_and_probes": 1,
+      "ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors": 13,
+      "ConvertPdfAsync_transient_retry_does_not_retry_invalid_success_responses": 3,
+      "ConvertPdfAsync_transient_retry_has_four_retries_and_bounded_backoff_when_dependency_stays_unavailable": 1,
+      "ConvertPdfAsync_transient_retry_preserves_caller_cancellation_during_backoff": 1,
+      "ConvertPdfAsync_transient_retry_preserves_cancellation_during_a_replayed_http_request": 1,
+      "ConvertPdfAsync_transient_retry_uses_one_global_options_deadline_including_previous_attempts": 1
+    }
+  },
+  "trxSha256": "9664b6afb03c8cf8a078e3ccb93874789e9dd8747545f80fdffb32e2c081ab8d",
+  "corehostSha256": "56d1f3fe6cb200e3b892a3ee3ba8ad2255801e3a78fa36fb96380405be07bfda",
+  "containerExitCode": 0,
+  "oomKilled": false,
+  "attachExitCode": 0,
+  "networkMode": "none",
+  "testBackendSha256": "36d369a7ae567b73698324de1e76c078267edf386ecfd16f45a23c76513cf5a0",
+  "testAssemblySha256": "583c9042fb813784d405311e0dacdd68ec04637c9c4f4e8ce7a44b057299523f",
+  "packageInventorySha256": "60d5f834a3526839991b1ec7c024cc1815541f993a8b895a0098835bd5482b72",
+  "assemblyEvidence": "exact_packaged_bytes_and_host_resolution_not_profiler_module_attestation",
+  "ownedContainerStopped": true,
+  "finishedAtUnix": 1793012328.4419904
+}

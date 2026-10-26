@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "saaia-curated-public-supplement-seal.v1",
+  "createdAtUtc": "2026-10-26T11:03:24.679600+00:00",
+  "derivedPublicRecordsOnly": true,
+  "rawCapturesIncluded": false,
+  "files": [
+    {
+      "path": "runtime-final-closure.json",
+      "bytes": 5898,
+      "sha256": "bb6bbb582bf14ef753bb58a2efd49e7765436feb63f53e8b2a8e612f5fccb2c6"
+    },
+    {
+      "path": "backend-binary-preflight.json",
+      "bytes": 530,
+      "sha256": "0a3c3621424d113991662dc0c7113b1d443b98c20af31fe0631768a23e600f20"
+    },
+    {
+      "path": "dependency-health/gold-production/dependency-readiness-pre-backend.json",
+      "bytes": 7390,
+      "sha256": "f429a06b9cdca288973c5608dee43c8465dd29c7e04e58792803378307448f3c"
+    },
+    {
+      "path": "dependency-health/gold-production/dependency-readiness-backend-chronology.json",
+      "bytes": 524,
+      "sha256": "e71b1bfcee5cbcd518dbba9b403312128cef67b9681b0513de8d437a0b52db1f"
+    },
+    {
+      "path": "dependency-health/recipe-production/dependency-readiness-pre-backend.json",
+      "bytes": 7390,
+      "sha256": "39821917c3e74290e002b44da7ff6a9c2e488074fb8ac0b646d43d2e4a104272"
+    },
+    {
+      "path": "dependency-health/recipe-production/dependency-readiness-backend-chronology.json",
+      "bytes": 524,
+      "sha256": "d4e40198fa65e5e70fceacd58f0dc2468b0ccb0014442599f1fd01e4ab7aebcf"
+    },
+    {
+      "path": "dependency-health/scanner/dependency-readiness-pre-backend.json",
+      "bytes": 6302,
+      "sha256": "de51efb665402a7b4db7834b94cc4dc46a0e73d0c65be4febfc601401dddcf33"
+    },
+    {
+      "path": "dependency-health/scanner/dependency-readiness-backend-chronology.json",
+      "bytes": 523,
+      "sha256": "3e9bcfe0df01221fca61374418cc56d2103781a7b6fb0b53c6be813889f162a1"
+    },
+    {
+      "path": "dependency-health/watcher/dependency-readiness-pre-backend.json",
+      "bytes": 6302,
+      "sha256": "24620520011e4caf2611febec3f5c73bfbb9209a4bde67abe6d991c285aaceba"
+    },
+    {
+      "path": "dependency-health/watcher/dependency-readiness-backend-chronology.json",
+      "bytes": 524,
+      "sha256": "73a37877268de7f8642856c91e5effd6c18d8f86d02a2fe7a86f31c6ce75b33c"
+    },
+    {
+      "path": "dependency-health/defaults/dependency-readiness-pre-backend.json",
+      "bytes": 7390,
+      "sha256": "9cd5c24e7a2f15096cec616230c7ad743954b6351c1ff21b3b7321292feaf901"
+    },
+    {
+      "path": "dependency-health/defaults/dependency-readiness-backend-chronology.json",
+      "bytes": 524,
+      "sha256": "558fea359d43fe6a32b68fa4e5d4355c9259f44c6359b660be278301977f4d2b"
+    },
+    {
+      "path": "ocr-real-result.json",
+      "bytes": 1715,
+      "sha256": "5dc60903810d3f09d45379b1bbd911d0e5c3c8d5d40a77ad75e15357dc21fd7d"
+    },
+    {
+      "path": "linux-case-result.json",
+      "bytes": 1043,
+      "sha256": "5ccb0cbb3e432460ee97328e296d26d0a8c3a66ce63ebd5311a0f19a86f37857"
+    },
+    {
+      "path": "linux-docling-retry-result.json",
+      "bytes": 2065,
+      "sha256": "ed61a334320fbc690873b1ba0b05c14d9be2a7df45eb79e6cd07d694e2611f77"
+    },
+    {
+      "path": "startup-race-causal-observation.json",
+      "bytes": 1471,
+      "sha256": "97b8000ca569c661af6397bbcc008c0158aab5f7da6d4627f862843b20441eb9"
+    }
+  ]
+}

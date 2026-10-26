@@ -32,7 +32,8 @@ sealed record IngestionJob(
     Guid DocId,
     int Version,
     IngestionCapabilityAProfileSeed? CapabilityAProfileSeed,
-    string? LeaseOwner = null);
+    string? LeaseOwner = null,
+    bool RequiresSourceAbsence = false);
 
 sealed partial class IngestionWorker : BackgroundService
 {
@@ -267,6 +268,13 @@ sealed partial class IngestionWorker : BackgroundService
                                     bulkheadTimeout.BulkheadName,
                                     (int)Math.Ceiling(retryDelay.TotalSeconds));
                                 await JobRepo.DeferTransientAsync(ds, job.JobId, ex.Message, retryDelay, ct, leaseOwner: workerId);
+                                continue;
+                            }
+
+                            if (ex is IngestionSourcePresenceUnknownException)
+                            {
+                                _log.LogWarning("Scanner delete deferred because source presence is unknown job={JobId}", job.JobId);
+                                await JobRepo.DeferTransientAsync(ds, job.JobId, ex.Message, TimeSpan.FromSeconds(30), ct, leaseOwner: workerId);
                                 continue;
                             }
 
@@ -859,9 +867,47 @@ sealed partial class IngestionWorker : BackgroundService
         var path = DocPathNormalizer.NormalizeToRelative(job.DocPath, ingest.DocumentsRoot);
         await JobRepo.UpdateProgressAsync(ds, job.JobId, "deleting", null, null, ct, leaseOwner: workerId);
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+        if (job.RequiresSourceAbsence)
+        {
+            using var probe = BackendDiagnostics.Start("ingestion.scanner.conditional_delete", _log);
+            var presence = IngestionFilePresence.Probe(ingest.DocumentsRoot, path);
+            probe.Set("source_presence", presence.ToString().ToLowerInvariant());
+            if (presence == IngestionSourcePresence.Unknown)
+            {
+                probe.Complete("deferred", "source_presence_unknown");
+                throw new IngestionSourcePresenceUnknownException();
+            }
+            if (presence == IngestionSourcePresence.Present)
+            {
+                var outcome = await JobRepo.PreserveReturnedScannerSourceAsync(ds, job, workerId, ct);
+                probe.Complete("deferred", outcome == ReturnedScannerSourceOutcome.FreshGenerationQueued
+                    ? "source_returned_fresh_generation_queued" : "conditional_delete_superseded");
+                return false;
+            }
+            probe.Complete("success", "source_absence_observed_at_execution");
+        }
         // SQL deactivation is authoritative. No broad vector delete may race a new incarnation.
-        return await JobRepo.CompleteDeleteAsync(ds, job.TenantId, job.JobId, path, job.Version, ct,
-            leaseOwner: workerId);
+        try
+        {
+            return await JobRepo.CompleteDeleteAsync(ds, job.TenantId, job.JobId, path, job.Version, ct,
+                leaseOwner: workerId, conditionalSourcePresence: job.RequiresSourceAbsence ? () =>
+                {
+                    using var probe = BackendDiagnostics.Start("ingestion.scanner.delete_commit_presence", _log);
+                    var presence = IngestionFilePresence.Probe(ingest.DocumentsRoot, path);
+                    probe.Set("source_presence", presence.ToString().ToLowerInvariant());
+                    probe.Complete(presence == IngestionSourcePresence.Absent ? "success" : "deferred",
+                        presence == IngestionSourcePresence.Absent ? "source_absence_observed_at_commit" : "source_not_confirmed_absent");
+                    return presence;
+                } : null);
+        }
+        catch (IngestionSourceReturnedBeforeCommitException)
+        {
+            using var probe = BackendDiagnostics.Start("ingestion.scanner.source_returned_after_lock", _log);
+            var outcome = await JobRepo.PreserveReturnedScannerSourceAsync(ds, job, workerId, ct);
+            probe.Complete("deferred", outcome == ReturnedScannerSourceOutcome.FreshGenerationQueued
+                ? "source_returned_fresh_generation_queued" : "conditional_delete_superseded");
+            return false;
+        }
     }
     private async Task<bool> ProcessUpsertAsync(
         NpgsqlDataSource ds,
@@ -1436,6 +1482,9 @@ sealed partial class IngestionWorker : BackgroundService
                 new(tenantId, docId, relDocPath, category, job.Version));
             var pointIds = chunks.Select(chunk => DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, job.Version, chunk.ChunkIndex))
                 .Select(chunkId => new IngestionVectorPoint(IngestionVectorPlan.PointId(chunkId, vectorPlanFingerprint), chunkId)).ToArray();
+            var registeredVectorPlan = await IngestionVectorRegistry.RegisterAsync(ds, job, workerId, rag,
+                vectorPlanFingerprint, pointIds, ct);
+            _log.LogInformation("vector_registry.registered plan={PlanId} job={JobId} points={Count}", registeredVectorPlan, job.JobId, pointIds.Length);
             var resumeFromChunk = 0;
             var checkpointCompatible = IngestionVectorPlan.CanResume(checkpoint, hashHex, chunks.Count,
                 rag.EmbeddingsModel, embeddingInputFormat, vectorPlanFingerprint);
@@ -1549,6 +1598,7 @@ sealed partial class IngestionWorker : BackgroundService
                 await ThrowIfJobCanceledAsync(ds, job, ct);
                 using (await _bulkheads.AcquireQdrantAsync(bQToken))
                 {
+                    await IngestionVectorRegistry.AssertWritableAsync(ds, registeredVectorPlan, job, workerId, bQToken);
                     await QdrantClient.UpsertPointsAsync(qdrant, rag.QdrantCollection, points, bQToken);
                 }
                 swQ.Stop();

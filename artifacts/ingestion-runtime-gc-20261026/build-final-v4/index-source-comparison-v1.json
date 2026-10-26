@@ -1,0 +1,3127 @@
+{
+  "schemaVersion": "saaia-tested-linux-source-to-index.v1",
+  "observedAtUtc": "2026-10-26T10:50:15.140176+00:00",
+  "fileCount": 445,
+  "allCurrentWorkingBytesMatchFrozenLinuxBuild": true,
+  "allIndexFilesEquivalentUnderDeclaredGitLineEndings": true,
+  "indexByteExactCount": 443,
+  "indexLineEndingOnlyCount": 2,
+  "binaryRebuildPerformed": false,
+  "records": [
+    {
+      "path": ".dockerignore",
+      "linuxSnapshotSha256": "e77c54f3ef14640b36d464a74cd40630af3a7e627be84986415f95936e67fa28",
+      "indexSha256": "e77c54f3ef14640b36d464a74cd40630af3a7e627be84986415f95936e67fa28",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "Directory.Build.props",
+      "linuxSnapshotSha256": "6b6d3b3269e57815bf59b9fa0f61a6b4f60969396d552f21f3741cadd558a137",
+      "indexSha256": "6b6d3b3269e57815bf59b9fa0f61a6b4f60969396d552f21f3741cadd558a137",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "RAG.sln",
+      "linuxSnapshotSha256": "9043b34d42322d5f16ba96a4b5cd611d0d634a3c55585f8c5b6496ab73c7670f",
+      "indexSha256": "9043b34d42322d5f16ba96a4b5cd611d0d634a3c55585f8c5b6496ab73c7670f",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/.dockerignore",
+      "linuxSnapshotSha256": "6589d47edb41e9608c2aba6b36cbc2696b72ebe64d7ce86a1af77bfe7f6befa5",
+      "indexSha256": "6589d47edb41e9608c2aba6b36cbc2696b72ebe64d7ce86a1af77bfe7f6befa5",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisBudgetLedger.cs",
+      "linuxSnapshotSha256": "c29bbc4ec5690d824e0f42d56d9f320e9c5f5676b9fc9c8e10527560e1eb7c82",
+      "indexSha256": "c29bbc4ec5690d824e0f42d56d9f320e9c5f5676b9fc9c8e10527560e1eb7c82",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisEvidenceResolver.cs",
+      "linuxSnapshotSha256": "79c863c58b4464c41da7b677f632c86eb844d5ff50b50121c740cbbebacd9808",
+      "indexSha256": "79c863c58b4464c41da7b677f632c86eb844d5ff50b50121c740cbbebacd9808",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisExternalBudgetGuard.cs",
+      "linuxSnapshotSha256": "4d56100ec6be4a06fcd8affcb500ba4316c444ccb23e78cf55a4e4c09c993ea2",
+      "indexSha256": "4d56100ec6be4a06fcd8affcb500ba4316c444ccb23e78cf55a4e4c09c993ea2",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisJobStore.cs",
+      "linuxSnapshotSha256": "1de674e6bd617e29c47f8a066f6597aa3a27c8e80cada069e33d8670eaea2906",
+      "indexSha256": "1de674e6bd617e29c47f8a066f6597aa3a27c8e80cada069e33d8670eaea2906",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisProvider.cs",
+      "linuxSnapshotSha256": "aa702f144e695c424e4e6244abfaa06241a63cb0363c75344fe4ca54125fdd23",
+      "indexSha256": "aa702f144e695c424e4e6244abfaa06241a63cb0363c75344fe4ca54125fdd23",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisReadiness.cs",
+      "linuxSnapshotSha256": "6558f035ae70e773fc062851d3d7205442c50908ee6c2389595809ce96748ad3",
+      "indexSha256": "6558f035ae70e773fc062851d3d7205442c50908ee6c2389595809ce96748ad3",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisResultValidator.cs",
+      "linuxSnapshotSha256": "882294b9c509f85f79c3cb5fb6126e1760b8c52c0e5b2868c6e1df5c585a4b64",
+      "indexSha256": "882294b9c509f85f79c3cb5fb6126e1760b8c52c0e5b2868c6e1df5c585a4b64",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisRetentionWorker.cs",
+      "linuxSnapshotSha256": "5a7a68f00755d51a1ca62e98805c43278b028cb5c93389fb315cf6d2b1bf8941",
+      "indexSha256": "5a7a68f00755d51a1ca62e98805c43278b028cb5c93389fb315cf6d2b1bf8941",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisRuntimeState.cs",
+      "linuxSnapshotSha256": "f841e4c18df489a516004d02c9b6e11a4708629b1de4095917f43f5da7b84624",
+      "indexSha256": "f841e4c18df489a516004d02c9b6e11a4708629b1de4095917f43f5da7b84624",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisToolGateway.CanonicalFind.cs",
+      "linuxSnapshotSha256": "734cdadca4497bc1b042e7ef54189007349507b21affdaa9611801f645a9c09c",
+      "indexSha256": "734cdadca4497bc1b042e7ef54189007349507b21affdaa9611801f645a9c09c",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisToolGateway.cs",
+      "linuxSnapshotSha256": "de7bb476820194d176150f86dccd2ba7a1c4cd32b45e834c49a4aab1d88acfbf",
+      "indexSha256": "de7bb476820194d176150f86dccd2ba7a1c4cd32b45e834c49a4aab1d88acfbf",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisWorker.cs",
+      "linuxSnapshotSha256": "74772f90861c3be526fb55f2a2f1212f44749d43d5397e0c8e33602cdf4840f0",
+      "indexSha256": "74772f90861c3be526fb55f2a2f1212f44749d43d5397e0c8e33602cdf4840f0",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/CandidateCoverageSolver.cs",
+      "linuxSnapshotSha256": "8c3649c5367d61619227885696d07ad2660240f051eaf3b909b3ab99c511e3ce",
+      "indexSha256": "8c3649c5367d61619227885696d07ad2660240f051eaf3b909b3ab99c511e3ce",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/LlmPayloadDiagnostics.cs",
+      "linuxSnapshotSha256": "39020abb82d7e735ac54e1f4adc0e89baf089135461290ac1a41cd41bebee497",
+      "indexSha256": "39020abb82d7e735ac54e1f4adc0e89baf089135461290ac1a41cd41bebee497",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.ActiveProposal.cs",
+      "linuxSnapshotSha256": "b34ab5c7ff98c8f22af40763f861e5a715cbcfdb39677ac7bdbb9c0e3926af7b",
+      "indexSha256": "b34ab5c7ff98c8f22af40763f861e5a715cbcfdb39677ac7bdbb9c0e3926af7b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.BindingFeedback.cs",
+      "linuxSnapshotSha256": "5d377d841943815558afd74c1945d604c07e1d82a785834ae2e8c053ea28069f",
+      "indexSha256": "5d377d841943815558afd74c1945d604c07e1d82a785834ae2e8c053ea28069f",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.CandidateExplorer.cs",
+      "linuxSnapshotSha256": "072f971eae46f5647db90e24db7a010ed55b5710b52211a07f7cbfd227c1daad",
+      "indexSha256": "072f971eae46f5647db90e24db7a010ed55b5710b52211a07f7cbfd227c1daad",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.CandidateInventory.cs",
+      "linuxSnapshotSha256": "20a831e0a2a0f1d21f4fc262cd0076e2ee665d2e9b74a68ba0dcd652cd271797",
+      "indexSha256": "20a831e0a2a0f1d21f4fc262cd0076e2ee665d2e9b74a68ba0dcd652cd271797",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.CandidateJudge.cs",
+      "linuxSnapshotSha256": "17983e95e7eb62d8de0f3fdf2109c7161f6df64b7fb8e315299ef09fc4a581f3",
+      "indexSha256": "17983e95e7eb62d8de0f3fdf2109c7161f6df64b7fb8e315299ef09fc4a581f3",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.CandidateNavigator.cs",
+      "linuxSnapshotSha256": "502d4c3be3f0c176ce04dd6c7e9187c29c88e6f7ed9559ed6515f086d6d23a4e",
+      "indexSha256": "502d4c3be3f0c176ce04dd6c7e9187c29c88e6f7ed9559ed6515f086d6d23a4e",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.DevelopmentTrace.cs",
+      "linuxSnapshotSha256": "ab84917df11b7c31684cbbbc79e0abfd8c58347cc0c2bd958743c0fa94a92030",
+      "indexSha256": "ab84917df11b7c31684cbbbc79e0abfd8c58347cc0c2bd958743c0fa94a92030",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.EvidenceReading.cs",
+      "linuxSnapshotSha256": "89b4af7ba44c9fd890c16ed7f1550bd27d48ee592d5a8f39bce0279fb9904276",
+      "indexSha256": "89b4af7ba44c9fd890c16ed7f1550bd27d48ee592d5a8f39bce0279fb9904276",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.EvidenceVisibility.cs",
+      "linuxSnapshotSha256": "f297e6a6345770c5c5541b556eff8f46ffa341f1658540db2484764f2cc77c86",
+      "indexSha256": "f297e6a6345770c5c5541b556eff8f46ffa341f1658540db2484764f2cc77c86",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.HttpErrors.cs",
+      "linuxSnapshotSha256": "68929268a3287e9a71071b084ee8ca8a36d768ecf5b80ab1ea237c078f0eba2d",
+      "indexSha256": "68929268a3287e9a71071b084ee8ca8a36d768ecf5b80ab1ea237c078f0eba2d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.NativeResearchTools.cs",
+      "linuxSnapshotSha256": "cd3a3502e5ef087f34e8aed916b40e437f88c3881095910fbb03d66001a1a808",
+      "indexSha256": "cd3a3502e5ef087f34e8aed916b40e437f88c3881095910fbb03d66001a1a808",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.NativeResponses.cs",
+      "linuxSnapshotSha256": "6342ba98e00cf65eb9926d3a04fe6239b9ab4d4c505e00fe3c36f8d8f9dda466",
+      "indexSha256": "6342ba98e00cf65eb9926d3a04fe6239b9ab4d4c505e00fe3c36f8d8f9dda466",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.Planning.cs",
+      "linuxSnapshotSha256": "86c80fc679917685058457b8dbd4d2bb87f2bc60d888cd72f35fdc64d491662a",
+      "indexSha256": "86c80fc679917685058457b8dbd4d2bb87f2bc60d888cd72f35fdc64d491662a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.PromptsAndEvidence.cs",
+      "linuxSnapshotSha256": "391d07d7a656a8cc172375af78f63cf4390ad58710e133e7549db3b4b43d34ab",
+      "indexSha256": "391d07d7a656a8cc172375af78f63cf4390ad58710e133e7549db3b4b43d34ab",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.Protocol.cs",
+      "linuxSnapshotSha256": "06d3889008e14d41b066d02014c2411eed4623f51c7297d801237c0d4386f632",
+      "indexSha256": "06d3889008e14d41b066d02014c2411eed4623f51c7297d801237c0d4386f632",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.QuotaErrors.cs",
+      "linuxSnapshotSha256": "18e53f91ebb9ecc9017a43cffd096fb936c3e2df9938728eba35514cc66ab759",
+      "indexSha256": "18e53f91ebb9ecc9017a43cffd096fb936c3e2df9938728eba35514cc66ab759",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.ResearchAgentPrompt.cs",
+      "linuxSnapshotSha256": "3cdab5f96ff2e41fd3b673319ebb3cef4120e1cf1d9bfd960f16937eeff24b9d",
+      "indexSha256": "3cdab5f96ff2e41fd3b673319ebb3cef4120e1cf1d9bfd960f16937eeff24b9d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.ResearchContinuation.cs",
+      "linuxSnapshotSha256": "092422618ad2e9f71798c8c76787ce40cd83e0330575b2c1e65491d72410ee4b",
+      "indexSha256": "092422618ad2e9f71798c8c76787ce40cd83e0330575b2c1e65491d72410ee4b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.ResearchDiagnostics.cs",
+      "linuxSnapshotSha256": "1e47529443f0477a0d7ef76d5c66c9bcf5237483fb7469cd665350c5b4a5ab87",
+      "indexSha256": "1e47529443f0477a0d7ef76d5c66c9bcf5237483fb7469cd665350c5b4a5ab87",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.ResearchWorkspace.cs",
+      "linuxSnapshotSha256": "69ff8ed5e524b3c764ccfdf51b427152bac57c001932c0a16578ccc6879787ef",
+      "indexSha256": "69ff8ed5e524b3c764ccfdf51b427152bac57c001932c0a16578ccc6879787ef",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.ResultCoordinates.cs",
+      "linuxSnapshotSha256": "8b38b95eb3566c8fad4f800c5792354ea6a0ab67f56658efc7f1771191852250",
+      "indexSha256": "8b38b95eb3566c8fad4f800c5792354ea6a0ab67f56658efc7f1771191852250",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.Selection.cs",
+      "linuxSnapshotSha256": "ed3809a461be4847256e013916c8699711d6382c0ca6f8a4b3d5f38152ae85ed",
+      "indexSha256": "ed3809a461be4847256e013916c8699711d6382c0ca6f8a4b3d5f38152ae85ed",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.StagedCandidateExplorer.cs",
+      "linuxSnapshotSha256": "3d182eb520af29272083762521bf2dcb6b1aa090f8b3ba9186608600924fb423",
+      "indexSha256": "3d182eb520af29272083762521bf2dcb6b1aa090f8b3ba9186608600924fb423",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.cs",
+      "linuxSnapshotSha256": "c95551cb3ac1ba80134489a0c00d580c9f7062b35c6bbbb96f466e16c60e6208",
+      "indexSha256": "c95551cb3ac1ba80134489a0c00d580c9f7062b35c6bbbb96f466e16c60e6208",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Audit/AuditWriter.cs",
+      "linuxSnapshotSha256": "23d71605176fd4fe3a1b4754af9cd8e9d48a8b1a29e68a56f94029b8407996d4",
+      "indexSha256": "23d71605176fd4fe3a1b4754af9cd8e9d48a8b1a29e68a56f94029b8407996d4",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Auth/AdminAuth.cs",
+      "linuxSnapshotSha256": "48e8b8c1059c0cde41deb8023c9ffcbb7f47fe031d89e46b503f6e32fa01cf4d",
+      "indexSha256": "48e8b8c1059c0cde41deb8023c9ffcbb7f47fe031d89e46b503f6e32fa01cf4d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Auth/AllowApiKeyOrAdminKeyMetadata.cs",
+      "linuxSnapshotSha256": "42d958e4a650fc8f8ad96c2e2e351c7a29d8e9d863210229057456a89cf7b06b",
+      "indexSha256": "42d958e4a650fc8f8ad96c2e2e351c7a29d8e9d863210229057456a89cf7b06b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Auth/ApiKeyAuth.cs",
+      "linuxSnapshotSha256": "af36c7a192ee50d9d9e66820ef2f1be9558a7f189962810ee0892861e5f55a44",
+      "indexSha256": "af36c7a192ee50d9d9e66820ef2f1be9558a7f189962810ee0892861e5f55a44",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Auth/ApiKeyAuthMiddleware.cs",
+      "linuxSnapshotSha256": "a7154c210b7bf924ca5bfd86631c540d7fbbb99e4bb3fc0e1c5c6ff23284a22a",
+      "indexSha256": "a7154c210b7bf924ca5bfd86631c540d7fbbb99e4bb3fc0e1c5c6ff23284a22a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Auth/RequireAdminKeyMetadata.cs",
+      "linuxSnapshotSha256": "2f2f930b4f70651ff711b9d6b98715f5f94f37ff9c0ba8be35268ab10bdb82ff",
+      "indexSha256": "2f2f930b4f70651ff711b9d6b98715f5f94f37ff9c0ba8be35268ab10bdb82ff",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Bootstrap/Bootstrapper.cs",
+      "linuxSnapshotSha256": "d5422d8c3be81172a276bdc6b22bd0a1e02dccf139c1698cc398f96808c3615a",
+      "indexSha256": "d5422d8c3be81172a276bdc6b22bd0a1e02dccf139c1698cc398f96808c3615a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/CapabilityBBackofficeWorker.cs",
+      "linuxSnapshotSha256": "876f5537c3b8d959ac1a8a69d08e0f43d796848605e771c497bd1b2034612a97",
+      "indexSha256": "876f5537c3b8d959ac1a8a69d08e0f43d796848605e771c497bd1b2034612a97",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Catalog/DocumentsCategoryScopeResolver.cs",
+      "linuxSnapshotSha256": "50483d427b129069414a3022496cbe997b3f98c25f23e11e6e1ed869905519d1",
+      "indexSha256": "50483d427b129069414a3022496cbe997b3f98c25f23e11e6e1ed869905519d1",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/CatalogSnapshot/CatalogCategoryAliasRegistry.cs",
+      "linuxSnapshotSha256": "9ce43afc58c816231de7615f486663a4329273df47f3766bb99ace616d5a7fa4",
+      "indexSha256": "9ce43afc58c816231de7615f486663a4329273df47f3766bb99ace616d5a7fa4",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/CatalogSnapshot/CatalogSnapshotBuilder.cs",
+      "linuxSnapshotSha256": "720a78aca973c7d025a34663ac560920ba808bc08347c5751996e6d98116ae39",
+      "indexSha256": "720a78aca973c7d025a34663ac560920ba808bc08347c5751996e6d98116ae39",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/CatalogSnapshot/CatalogSnapshotOptions.cs",
+      "linuxSnapshotSha256": "78234da0287f1e03fbb24f97e868f3081d6c37b55d65d17134f09f7524c184f1",
+      "indexSha256": "78234da0287f1e03fbb24f97e868f3081d6c37b55d65d17134f09f7524c184f1",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/CatalogSnapshot/CatalogSnapshotService.cs",
+      "linuxSnapshotSha256": "ec235f0403c521fb762318778632ff39823805a5979be84844ad6bf525097fa2",
+      "indexSha256": "ec235f0403c521fb762318778632ff39823805a5979be84844ad6bf525097fa2",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/DbMigrator.cs",
+      "linuxSnapshotSha256": "0c4b1b89b42027250988840dc01b3f65f4c1f8dee81124ad0dac4aade7e1fd31",
+      "indexSha256": "0c4b1b89b42027250988840dc01b3f65f4c1f8dee81124ad0dac4aade7e1fd31",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/001_init.sql",
+      "linuxSnapshotSha256": "cb94cd7fe51e8603ae0c4fd176b5c85597e0a47403e54008803c2cc863db9356",
+      "indexSha256": "cb94cd7fe51e8603ae0c4fd176b5c85597e0a47403e54008803c2cc863db9356",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/002_documents_file_mtime.sql",
+      "linuxSnapshotSha256": "3c8d9c700a7e240670b019ef86a87daab1563e5763d01431839777d8775dbaca",
+      "indexSha256": "3c8d9c700a7e240670b019ef86a87daab1563e5763d01431839777d8775dbaca",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/003_documents_missing_version_jobs_index.sql",
+      "linuxSnapshotSha256": "d11f92f7feb7f38cb48d61fa8c9c9e9664390bd389a213fed851ac032ee31fb6",
+      "indexSha256": "d11f92f7feb7f38cb48d61fa8c9c9e9664390bd389a213fed851ac032ee31fb6",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/004_documents_indexed_version_and_jobs_refactor.sql",
+      "linuxSnapshotSha256": "4e146402853fc630a5ba56993ec7d4137d05fe946107cfa7eb61a552568c1ebb",
+      "indexSha256": "4e146402853fc630a5ba56993ec7d4137d05fe946107cfa7eb61a552568c1ebb",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/004_phase1_security.sql",
+      "linuxSnapshotSha256": "64f3a285a246631ac781262e59d740ee8f7ebf15de8c64dfb3da98d53dc31c31",
+      "indexSha256": "64f3a285a246631ac781262e59d740ee8f7ebf15de8c64dfb3da98d53dc31c31",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/005_chat_store.sql",
+      "linuxSnapshotSha256": "f779a6da6d0909f64c35f21a783c63cd7165bea792304310c1df896505970175",
+      "indexSha256": "f779a6da6d0909f64c35f21a783c63cd7165bea792304310c1df896505970175",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/006_add_user_id_to_chat_sessions.sql",
+      "linuxSnapshotSha256": "ff8eeb2fbfa498d8feda166121c2f83c5bfd79bf346f184c8a3c72fc400e4db7",
+      "indexSha256": "ff8eeb2fbfa498d8feda166121c2f83c5bfd79bf346f184c8a3c72fc400e4db7",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/007_chat_messages_status_note.sql",
+      "linuxSnapshotSha256": "1ff7acd8f8cbbdbceced1a27b6363abc572f4b90f7c7766a495db63463ed623b",
+      "indexSha256": "1ff7acd8f8cbbdbceced1a27b6363abc572f4b90f7c7766a495db63463ed623b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/008_chat_messages_tracking.sql",
+      "linuxSnapshotSha256": "bcf9c8404aa24aa0c833726c571596f1a94ef80717d820d14244ac8a81660bc8",
+      "indexSha256": "bcf9c8404aa24aa0c833726c571596f1a94ef80717d820d14244ac8a81660bc8",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/008_documents_catalog_index.sql",
+      "linuxSnapshotSha256": "1fa339b8227acca4abff399d37d989f4bf07f5554a54bd009fcf9f20b54d6463",
+      "indexSha256": "1fa339b8227acca4abff399d37d989f4bf07f5554a54bd009fcf9f20b54d6463",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/009_catalog_snapshot.sql",
+      "linuxSnapshotSha256": "0682b46fba950c1d406f3faa6556fe8933cd486b4781de36f4696d373f915f3a",
+      "indexSha256": "0682b46fba950c1d406f3faa6556fe8933cd486b4781de36f4696d373f915f3a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/010_summary_tools.sql",
+      "linuxSnapshotSha256": "04cefafec3c64f3bf29f587ae3fc6f8ec42258797292a871d3c81f52b4d96154",
+      "indexSha256": "04cefafec3c64f3bf29f587ae3fc6f8ec42258797292a871d3c81f52b4d96154",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/011_summary_schema_alignment.sql",
+      "linuxSnapshotSha256": "01f14259358bb30b82b0c5ca8863b67d28426df94984ac1b7b1979dd3dd7c64f",
+      "indexSha256": "01f14259358bb30b82b0c5ca8863b67d28426df94984ac1b7b1979dd3dd7c64f",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/012_catalog_categories.sql",
+      "linuxSnapshotSha256": "279f09a55cd0e761c450ed605d088fcc40207850921f2b5b5c01eb3eff34ee44",
+      "indexSha256": "279f09a55cd0e761c450ed605d088fcc40207850921f2b5b5c01eb3eff34ee44",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/013_catalog_category_aliases.sql",
+      "linuxSnapshotSha256": "e3f73dee2bb5c29964ce0bfc25dae5616912523b29b9a3c920b590dfa2dd2957",
+      "indexSha256": "e3f73dee2bb5c29964ce0bfc25dae5616912523b29b9a3c920b590dfa2dd2957",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/014_documents_auto_ingest_pause.sql",
+      "linuxSnapshotSha256": "777f6d1d6e1fdfa0b1d7877371def4ff1b15032806fa47ccd1329466249494dd",
+      "indexSha256": "777f6d1d6e1fdfa0b1d7877371def4ff1b15032806fa47ccd1329466249494dd",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/015_ingestion_jobs_paused_status.sql",
+      "linuxSnapshotSha256": "a107cc676171f402cdcd420c48dd9ec2bc89d9ec6d0d15d96c57c5073441bbf9",
+      "indexSha256": "a107cc676171f402cdcd420c48dd9ec2bc89d9ec6d0d15d96c57c5073441bbf9",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/016_document_foundation.sql",
+      "linuxSnapshotSha256": "c6af4c498b5919a1c8ad99f86c41204379dedada17cea8b3e5827da91a6ee068",
+      "indexSha256": "c6af4c498b5919a1c8ad99f86c41204379dedada17cea8b3e5827da91a6ee068",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/017_document_sections.sql",
+      "linuxSnapshotSha256": "cea1891a2703963d6657e4cdb1352cb49f40dcbeca53d9c50cef6aab7d1a6047",
+      "indexSha256": "cea1891a2703963d6657e4cdb1352cb49f40dcbeca53d9c50cef6aab7d1a6047",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/018_document_units.sql",
+      "linuxSnapshotSha256": "86bc5730f67ef1e835479b1d180e4f27f683854f10d0efab70b9bb10462f21b2",
+      "indexSha256": "86bc5730f67ef1e835479b1d180e4f27f683854f10d0efab70b9bb10462f21b2",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/019_retrieval_chunks.sql",
+      "linuxSnapshotSha256": "6cb520dd9611b9fca95f092f8ac0e532168aa32a4b810140a394033b0bd96ae8",
+      "indexSha256": "6cb520dd9611b9fca95f092f8ac0e532168aa32a4b810140a394033b0bd96ae8",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/020_exact_match_entries.sql",
+      "linuxSnapshotSha256": "3949cbe0f3a08abcfb64699ee074bd239d06c8b3a2fcbe0e6341feb2c8ca22fe",
+      "indexSha256": "3949cbe0f3a08abcfb64699ee074bd239d06c8b3a2fcbe0e6341feb2c8ca22fe",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/021_contextual_text_entries.sql",
+      "linuxSnapshotSha256": "184be9b607edf0a368e9f3b46dbd71b6049421891f9b72cfb8e756b525db3d09",
+      "indexSha256": "184be9b607edf0a368e9f3b46dbd71b6049421891f9b72cfb8e756b525db3d09",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/022_document_foundation_hardening.sql",
+      "linuxSnapshotSha256": "647f6b686ab6c66364e141d4608382c6bebae07e5bba7d4a75d88a9016bf744e",
+      "indexSha256": "647f6b686ab6c66364e141d4608382c6bebae07e5bba7d4a75d88a9016bf744e",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/023_retrieval_chunk_links.sql",
+      "linuxSnapshotSha256": "6e24b6b2d3adb423025f128a0e824347fb23e074f1fc0cd887debfece9dd04c4",
+      "indexSha256": "6e24b6b2d3adb423025f128a0e824347fb23e074f1fc0cd887debfece9dd04c4",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/024_retrieval_sparse_indexes.sql",
+      "linuxSnapshotSha256": "622ef55230bb0d2c4e10786ac29c9a9f1d4973304652f636e7b7364d20fcc6ec",
+      "indexSha256": "622ef55230bb0d2c4e10786ac29c9a9f1d4973304652f636e7b7364d20fcc6ec",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/025_runtime_governance.sql",
+      "linuxSnapshotSha256": "c6d4392c92373e7dbb65552f00c3e0c5db3f751e47da1642c7210fcc58a9268d",
+      "indexSha256": "c6d4392c92373e7dbb65552f00c3e0c5db3f751e47da1642c7210fcc58a9268d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/026_runtime_governance_events.sql",
+      "linuxSnapshotSha256": "e2b5c048e2203f4cd0e3d72bc287a766d5ec768f92614113f95ae4dc6196cbdf",
+      "indexSha256": "e2b5c048e2203f4cd0e3d72bc287a766d5ec768f92614113f95ae4dc6196cbdf",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/027_document_profiles.sql",
+      "linuxSnapshotSha256": "4b908e0f96bc41d159549d7b691f439dd5f1e312225311ade973965cb6c2406c",
+      "indexSha256": "4b908e0f96bc41d159549d7b691f439dd5f1e312225311ade973965cb6c2406c",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/028_retrieval_chunk_trigram_index.sql",
+      "linuxSnapshotSha256": "4f60d18fecbb0b7a1bd71e1cb7bd5aed21d80791af2053e96bfaf2f365489c1c",
+      "indexSha256": "4f60d18fecbb0b7a1bd71e1cb7bd5aed21d80791af2053e96bfaf2f365489c1c",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/029_document_profile_content_cards.sql",
+      "linuxSnapshotSha256": "5ce6bf15f91df50771b3b5f5aae97cabedfc3a4e9c077c606a94c3736a2b82f1",
+      "indexSha256": "5ce6bf15f91df50771b3b5f5aae97cabedfc3a4e9c077c606a94c3736a2b82f1",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/030_backfill_llm_profile_content_cards.sql",
+      "linuxSnapshotSha256": "7f06d095656e15f9d2963a97d0cd08782980576a681598da860ec1f4137ec341",
+      "indexSha256": "7f06d095656e15f9d2963a97d0cd08782980576a681598da860ec1f4137ec341",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/031_backfill_missing_profile_cards_from_sections.sql",
+      "linuxSnapshotSha256": "1b86677e6e8521eab46e82357e13d50da38f72bcd4b57ecdff43b8f2639a28b8",
+      "indexSha256": "1b86677e6e8521eab46e82357e13d50da38f72bcd4b57ecdff43b8f2639a28b8",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/032_prune_stale_profile_content_cards.sql",
+      "linuxSnapshotSha256": "a77c63926ab9bc2348497fe7c02c8788420d3845dcd2ea219a7a192bd2168121",
+      "indexSha256": "a77c63926ab9bc2348497fe7c02c8788420d3845dcd2ea219a7a192bd2168121",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/033_prune_noisy_profile_content_cards.sql",
+      "linuxSnapshotSha256": "da7442fb6c4b05829dd75b18bda04b872838ff5c16f0045ce60316a5892f62a9",
+      "indexSha256": "da7442fb6c4b05829dd75b18bda04b872838ff5c16f0045ce60316a5892f62a9",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/034_prune_more_noisy_profile_content_cards.sql",
+      "linuxSnapshotSha256": "da7442fb6c4b05829dd75b18bda04b872838ff5c16f0045ce60316a5892f62a9",
+      "indexSha256": "da7442fb6c4b05829dd75b18bda04b872838ff5c16f0045ce60316a5892f62a9",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/035_prune_remaining_sentence_profile_content_cards.sql",
+      "linuxSnapshotSha256": "c3e880260ff2f24ab955e5a808d73e0bbcff4a553bfc05103d50a66ba8360f74",
+      "indexSha256": "c3e880260ff2f24ab955e5a808d73e0bbcff4a553bfc05103d50a66ba8360f74",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/036_prune_procedural_profile_content_cards.sql",
+      "linuxSnapshotSha256": "99d8d74ec6cad5aabed61e0ff230a76d69a6582cb86944ce3950c48f75beab10",
+      "indexSha256": "99d8d74ec6cad5aabed61e0ff230a76d69a6582cb86944ce3950c48f75beab10",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/037_prune_layout_fragment_profile_content_cards.sql",
+      "linuxSnapshotSha256": "4aa90909bb0f76e503380d4699e6f848e7223323b10e3254b6c97c44606e35e6",
+      "indexSha256": "4aa90909bb0f76e503380d4699e6f848e7223323b10e3254b6c97c44606e35e6",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/038_prune_remaining_action_profile_content_cards.sql",
+      "linuxSnapshotSha256": "8b1288cb34c5e24b1e30bc50829bcf3eb4fd3abd55f7f5ddc76a4da707014f3c",
+      "indexSha256": "8b1288cb34c5e24b1e30bc50829bcf3eb4fd3abd55f7f5ddc76a4da707014f3c",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/039_backfill_compact_numeric_suffix_profile_cards.sql",
+      "linuxSnapshotSha256": "61cfa9d2b543f58c1b60fd747f38a92dac159efe4b432b2bab1e8ce7f2a1ff18",
+      "indexSha256": "61cfa9d2b543f58c1b60fd747f38a92dac159efe4b432b2bab1e8ce7f2a1ff18",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/040_prune_low_signal_profile_content_cards.sql",
+      "linuxSnapshotSha256": "880c684b5ab2c0b590c7eaca2a03dc3a1beaecabd690dd11f61df07ff8e09f36",
+      "indexSha256": "880c684b5ab2c0b590c7eaca2a03dc3a1beaecabd690dd11f61df07ff8e09f36",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/041_prune_action_sentence_profile_content_cards.sql",
+      "linuxSnapshotSha256": "da7442fb6c4b05829dd75b18bda04b872838ff5c16f0045ce60316a5892f62a9",
+      "indexSha256": "da7442fb6c4b05829dd75b18bda04b872838ff5c16f0045ce60316a5892f62a9",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/042_prune_ocr_noise_profile_content_cards.sql",
+      "linuxSnapshotSha256": "5b90d22190aad9e7135b249228e3414f95fbe9a69e064a7385bb4a2b9402d87d",
+      "indexSha256": "5b90d22190aad9e7135b249228e3414f95fbe9a69e064a7385bb4a2b9402d87d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/043_revision_aware_summary_source_hash.sql",
+      "linuxSnapshotSha256": "abbd0e31bcfddfe5b93ef1ce0e2b920463f7312fb49bbc6cb6d20baf9da60f1d",
+      "indexSha256": "abbd0e31bcfddfe5b93ef1ce0e2b920463f7312fb49bbc6cb6d20baf9da60f1d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/044_source_resolution_projection_indexes.sql",
+      "linuxSnapshotSha256": "e4380efe27d0b260cf696f23f8f7f0de05a61bdbad7f46cc5485e3640416f30e",
+      "indexSha256": "e4380efe27d0b260cf696f23f8f7f0de05a61bdbad7f46cc5485e3640416f30e",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/045_runtime_query_indexes.sql",
+      "linuxSnapshotSha256": "ba1874c9a394fe7c6e66e2f35eb272c5596bc3340e3a50a97333797a8b82ed54",
+      "indexSha256": "ba1874c9a394fe7c6e66e2f35eb272c5596bc3340e3a50a97333797a8b82ed54",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/046_compensate_profile_card_backfills.sql",
+      "linuxSnapshotSha256": "df41cc3878b0031a31093a50fb67b67d3f054d6cce4f386fa624fe0adfd3a975",
+      "indexSha256": "df41cc3878b0031a31093a50fb67b67d3f054d6cce4f386fa624fe0adfd3a975",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/047_allow_paused_admin_jobs.sql",
+      "linuxSnapshotSha256": "c47670037bc41ba2922fb2c7cb4dd6cac6d2c7d5b23256317991b1be714cd910",
+      "indexSha256": "c47670037bc41ba2922fb2c7cb4dd6cac6d2c7d5b23256317991b1be714cd910",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/048_content_card_evidence_indexes.sql",
+      "linuxSnapshotSha256": "57453963340c83d90a807d4513e95a65f920682e9e3155b3a2faf03bf53fdbcd",
+      "indexSha256": "57453963340c83d90a807d4513e95a65f920682e9e3155b3a2faf03bf53fdbcd",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/049_backfill_content_card_evidence_from_profile_metadata.sql",
+      "linuxSnapshotSha256": "2e8580a9d4715a922dabfe79dd20710a4a8d2806eba6e4cddfcb90ea06fb3df1",
+      "indexSha256": "2e8580a9d4715a922dabfe79dd20710a4a8d2806eba6e4cddfcb90ea06fb3df1",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/050_content_card_evidence_profile_schema_index.sql",
+      "linuxSnapshotSha256": "de03529267c9dbc5b70b37bece99aac8dd96a03cbc65c807bd771a54ce3c8cf8",
+      "indexSha256": "de03529267c9dbc5b70b37bece99aac8dd96a03cbc65c807bd771a54ce3c8cf8",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/051_backfill_capability_b_admin_job_doc_path.sql",
+      "linuxSnapshotSha256": "00480d3d51b7bbc1d5af3bffbfe0e1d546d06702b6876c40565d87f8144926fd",
+      "indexSha256": "00480d3d51b7bbc1d5af3bffbfe0e1d546d06702b6876c40565d87f8144926fd",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/052_backfill_content_card_page_ranges_from_evidence.sql",
+      "linuxSnapshotSha256": "ff88cc2ea4b166534c3565094e8a0ddab7a0b3995ae4c3beae146668d8a3b97c",
+      "indexSha256": "ff88cc2ea4b166534c3565094e8a0ddab7a0b3995ae4c3beae146668d8a3b97c",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/053_fix_profile_content_card_order_index.sql",
+      "linuxSnapshotSha256": "574c8f76e52eb2c8968fbac88083c6b984685f1d25a4f5de8ce94f07a315e9b7",
+      "indexSha256": "574c8f76e52eb2c8968fbac88083c6b984685f1d25a4f5de8ce94f07a315e9b7",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/054_document_title_navigation_anchors.sql",
+      "linuxSnapshotSha256": "6a1b1974c61ff83ca31b81dc2a8467e004b4f1c61769069c4b15631cd5556e8c",
+      "indexSha256": "6a1b1974c61ff83ca31b81dc2a8467e004b4f1c61769069c4b15631cd5556e8c",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/055_retrieval_chunk_folded_text_trigram_index.sql",
+      "linuxSnapshotSha256": "0c9f65c5d28cc3e4f626a27fbd4e4ef5c5b2cbfda59c8b4b8b012430931c3db6",
+      "indexSha256": "0c9f65c5d28cc3e4f626a27fbd4e4ef5c5b2cbfda59c8b4b8b012430931c3db6",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/056_contextual_text_search_tsv.sql",
+      "linuxSnapshotSha256": "c10cc316d40f8fb9a42ffaaf888cd2042e098306e08fac84431cf5cd66d902ab",
+      "indexSha256": "c10cc316d40f8fb9a42ffaaf888cd2042e098306e08fac84431cf5cd66d902ab",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/057_document_profile_search_entries.sql",
+      "linuxSnapshotSha256": "877bfe7b5443ae4391d2c37c4d04855d6bfc223bb38058e597f881d6956960bb",
+      "indexSha256": "877bfe7b5443ae4391d2c37c4d04855d6bfc223bb38058e597f881d6956960bb",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/058_exact_match_lookup_index_hardening.sql",
+      "linuxSnapshotSha256": "bdfe7df3376886b3937336c849c20567f49c8e204edc30a4824a246901aebc0a",
+      "indexSha256": "bdfe7df3376886b3937336c849c20567f49c8e204edc30a4824a246901aebc0a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/059_document_profile_search_entries_full_card_recall.sql",
+      "linuxSnapshotSha256": "f206f7fb929074fe97f8e4f3a3faebc3176b8eb26addf5ac9cb23a49f097c938",
+      "indexSha256": "f206f7fb929074fe97f8e4f3a3faebc3176b8eb26addf5ac9cb23a49f097c938",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/060_safe_profile_content_cards.sql",
+      "linuxSnapshotSha256": "4f9fbe09bc6fc05ec5284897e63113202493eb0d0da16d070bc2c559c91996d8",
+      "indexSha256": "4f9fbe09bc6fc05ec5284897e63113202493eb0d0da16d070bc2c559c91996d8",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/061_require_grounding_for_technical_profile_cards.sql",
+      "linuxSnapshotSha256": "8460e3427d096838f9f5fa540d05df3cf749cc90f5302b4320de21d8d55240c9",
+      "indexSha256": "8460e3427d096838f9f5fa540d05df3cf749cc90f5302b4320de21d8d55240c9",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/062_backfill_image_ocr_page_metadata.sql",
+      "linuxSnapshotSha256": "ac8a7e309a798bc41f82f5fdf20c190ce68331974b60d473c5bc259e6ab23c25",
+      "indexSha256": "ac8a7e309a798bc41f82f5fdf20c190ce68331974b60d473c5bc259e6ab23c25",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/063_filter_noisy_profile_content_card_titles.sql",
+      "linuxSnapshotSha256": "e218ba23374f53a7fbcde7d6c9cf99ef4943d728d3fe9d9e0aebef66eaf52aa5",
+      "indexSha256": "e218ba23374f53a7fbcde7d6c9cf99ef4943d728d3fe9d9e0aebef66eaf52aa5",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/064_canonical_ingestion_artifacts.sql",
+      "linuxSnapshotSha256": "3fd245fc9e2850447020a9c7b7c46b0e1d1eeb025f21a69a1aa79d8c4bf29f11",
+      "indexSha256": "3fd245fc9e2850447020a9c7b7c46b0e1d1eeb025f21a69a1aa79d8c4bf29f11",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/065_advanced_analysis_jobs.sql",
+      "linuxSnapshotSha256": "071732e8dd8ea0f61fc624c68df3ac22312b15d66efeaf965136f4c9e1a99543",
+      "indexSha256": "071732e8dd8ea0f61fc624c68df3ac22312b15d66efeaf965136f4c9e1a99543",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/066_advanced_analysis_tool_events.sql",
+      "linuxSnapshotSha256": "78e28b90f1462ee92a569650e0747d0e27e4c3007d19c425d8e98b51f1bef5f1",
+      "indexSha256": "78e28b90f1462ee92a569650e0747d0e27e4c3007d19c425d8e98b51f1bef5f1",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/067_advanced_analysis_provider_affinity.sql",
+      "linuxSnapshotSha256": "e34fae62ec1759cc19ace7107ea4d1fc6b84d926d68c0a2392681727264dd4a7",
+      "indexSha256": "e34fae62ec1759cc19ace7107ea4d1fc6b84d926d68c0a2392681727264dd4a7",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/068_advanced_analysis_research_checkpoint.sql",
+      "linuxSnapshotSha256": "df03c0f411609c77392f4d25ae86f21a6f539ae508d4bcef333021cf0260a588",
+      "indexSha256": "df03c0f411609c77392f4d25ae86f21a6f539ae508d4bcef333021cf0260a588",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/069_advanced_analysis_diagnostic_events.sql",
+      "linuxSnapshotSha256": "32f010135145a3d65a0357b7a9e710e20c8e07e7c59d41199fce268400907968",
+      "indexSha256": "32f010135145a3d65a0357b7a9e710e20c8e07e7c59d41199fce268400907968",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/070_documents_ingestion_pipeline_identity.sql",
+      "linuxSnapshotSha256": "24b43f6d17e3d3a534d04ad1ffbbcce741c7cbc093b3a44074f9b2758f5f1a71",
+      "indexSha256": "24b43f6d17e3d3a534d04ad1ffbbcce741c7cbc093b3a44074f9b2758f5f1a71",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/071_documents_active_vector_plan.sql",
+      "linuxSnapshotSha256": "485839248b49167a2100e61e64b0c76cdfc58b860bda7a2c17836dc297bac6f5",
+      "indexSha256": "485839248b49167a2100e61e64b0c76cdfc58b860bda7a2c17836dc297bac6f5",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/072_vector_lifecycle_registry.sql",
+      "linuxSnapshotSha256": "3ac394a9a78a3659ade68fd1f7db5e66d29c72e293fbe342fc5b4b9edef1e8ec",
+      "indexSha256": "3ac394a9a78a3659ade68fd1f7db5e66d29c72e293fbe342fc5b4b9edef1e8ec",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Dockerfile",
+      "linuxSnapshotSha256": "3bb0367128421c8fecf335d638f096ca9b4bfaea8d1de49bdae1e58ce4c89963",
+      "indexSha256": "3bb0367128421c8fecf335d638f096ca9b4bfaea8d1de49bdae1e58ce4c89963",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/CanonicalExtractionViewProjector.cs",
+      "linuxSnapshotSha256": "c25f053de712ff47a4182433f092315d9384b7fa6861d564ecfd2b827b296e76",
+      "indexSha256": "c25f053de712ff47a4182433f092315d9384b7fa6861d564ecfd2b827b296e76",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/CanonicalLiteralTextCoverage.cs",
+      "linuxSnapshotSha256": "89c579424081f5815cfbae975f4bf20f18b9e325aed9b2184b7c04804e1d9f05",
+      "indexSha256": "89c579424081f5815cfbae975f4bf20f18b9e325aed9b2184b7c04804e1d9f05",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/CanonicalNativeLayoutReconciler.cs",
+      "linuxSnapshotSha256": "f72f396223baca809f30f0e2a867c1b5309c38a3df75dc3af0122d1f3db30572",
+      "indexSha256": "f72f396223baca809f30f0e2a867c1b5309c38a3df75dc3af0122d1f3db30572",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/CanonicalNativePdfImageInventoryReconciler.cs",
+      "linuxSnapshotSha256": "352af7a7c97269f4eaf8c274d03aee086d56ddb8a6b94af917d609bff8fa10bb",
+      "indexSha256": "352af7a7c97269f4eaf8c274d03aee086d56ddb8a6b94af917d609bff8fa10bb",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/CanonicalNativeTableCellReconciler.cs",
+      "linuxSnapshotSha256": "07af8c61cca2957c825f68f991267d206ec7fad0f27adc21636c6ac7697cf0d9",
+      "indexSha256": "07af8c61cca2957c825f68f991267d206ec7fad0f27adc21636c6ac7697cf0d9",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/CanonicalNativeTextCoverageReconciler.cs",
+      "linuxSnapshotSha256": "25288e5390cfd0463b642e2d89026142bc67fcd1d19940b711304009f00445af",
+      "indexSha256": "25288e5390cfd0463b642e2d89026142bc67fcd1d19940b711304009f00445af",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/CanonicalProfileInputProjector.cs",
+      "linuxSnapshotSha256": "820ae5ca63ce4ec4fa8076cd79cfd2cf7ae2c4624fb8cbaba47642735fed5dd1",
+      "indexSha256": "820ae5ca63ce4ec4fa8076cd79cfd2cf7ae2c4624fb8cbaba47642735fed5dd1",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/CanonicalRepeatedPageFurnitureClassifier.cs",
+      "linuxSnapshotSha256": "e30abd3e47fefe65ff09c6e08b35bb9dde7453a1c64252a1a1c25acdfcb8b76b",
+      "indexSha256": "e30abd3e47fefe65ff09c6e08b35bb9dde7453a1c64252a1a1c25acdfcb8b76b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/CanonicalSourceAssociationPolicy.cs",
+      "linuxSnapshotSha256": "499866ba0d34fdd69d74053889d89cfd0cf252f6e2eee0f72e527e646f0bec5c",
+      "indexSha256": "499866ba0d34fdd69d74053889d89cfd0cf252f6e2eee0f72e527e646f0bec5c",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingCanonicalBundleFactory.cs",
+      "linuxSnapshotSha256": "faae662ef15583c7b762cf26686930fcb65e89ec33154e82d471d4ce52a7180d",
+      "indexSha256": "faae662ef15583c7b762cf26686930fcb65e89ec33154e82d471d4ce52a7180d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingCanonicalDocumentAdapter.cs",
+      "linuxSnapshotSha256": "eaf28c64ad006ab5aa4748256d2b62bb8cd8505b577fdb7e218f0d7b8a3561f9",
+      "indexSha256": "eaf28c64ad006ab5aa4748256d2b62bb8cd8505b577fdb7e218f0d7b8a3561f9",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingCanonicalRetrievalProjector.UncoveredHeadings.cs",
+      "linuxSnapshotSha256": "b8af0f9811eac02400f6addf0f6f6c1e16f634af371b802f31895b8d9f5b8e63",
+      "indexSha256": "b8af0f9811eac02400f6addf0f6f6c1e16f634af371b802f31895b8d9f5b8e63",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingCanonicalRetrievalProjector.cs",
+      "linuxSnapshotSha256": "6df03051c4052fc83dd263ff46ae38d65d5c421d71fc945d6b518af65434055f",
+      "indexSha256": "6df03051c4052fc83dd263ff46ae38d65d5c421d71fc945d6b518af65434055f",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingCanonicalSourceAnchorProjector.cs",
+      "linuxSnapshotSha256": "e77af27e6b017e933c830f2ba36b4889b88e3c2ba5f1d5058daf945472cb01be",
+      "indexSha256": "e77af27e6b017e933c830f2ba36b4889b88e3c2ba5f1d5058daf945472cb01be",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingClient.cs",
+      "linuxSnapshotSha256": "987432567179b8a9d16eb55c9cc622137d481251599da93f060748749f142dee",
+      "indexSha256": "987432567179b8a9d16eb55c9cc622137d481251599da93f060748749f142dee",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingDocumentTraversal.cs",
+      "linuxSnapshotSha256": "21cd88cde36db26392ba8e81831ec84bc2d6f8ed94eeec53daf1579fb66e1ca5",
+      "indexSha256": "21cd88cde36db26392ba8e81831ec84bc2d6f8ed94eeec53daf1579fb66e1ca5",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingExecutionMetadataPolicy.cs",
+      "linuxSnapshotSha256": "dcad6ad1b4bac6fc0195499cb074c635e481cbe06775ceba5b78e8d4f4d36d1a",
+      "indexSha256": "dcad6ad1b4bac6fc0195499cb074c635e481cbe06775ceba5b78e8d4f4d36d1a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingIngestionStageManifestFactory.cs",
+      "linuxSnapshotSha256": "35a3445e2fe9f62375e80a53f1fdc0345cfb8f7b6fd19b522361bbd9a8c0c166",
+      "indexSha256": "35a3445e2fe9f62375e80a53f1fdc0345cfb8f7b6fd19b522361bbd9a8c0c166",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingLegacyExtractionAdapter.cs",
+      "linuxSnapshotSha256": "3bdb7f6989e9c693f6f3b23a0fa99d940d54fcfd595024cc50a45e12075a1e9d",
+      "indexSha256": "3bdb7f6989e9c693f6f3b23a0fa99d940d54fcfd595024cc50a45e12075a1e9d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingModels.cs",
+      "linuxSnapshotSha256": "2d7c821768ec5496965f193ae2d0072fffb44038861f14bcb5cb7a3f775c502a",
+      "indexSha256": "2d7c821768ec5496965f193ae2d0072fffb44038861f14bcb5cb7a3f775c502a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingRetryPolicy.cs",
+      "linuxSnapshotSha256": "948260eca9a832d1e8cf7dd6b393ae0735c6ce9a338ac4438688732b16e061ec",
+      "indexSha256": "948260eca9a832d1e8cf7dd6b393ae0735c6ce9a338ac4438688732b16e061ec",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingTextRegionProjector.cs",
+      "linuxSnapshotSha256": "52e352503fb064cac6b21b3769ed65a37139aaad9ff9976dc20868d52cdf075d",
+      "indexSha256": "52e352503fb064cac6b21b3769ed65a37139aaad9ff9976dc20868d52cdf075d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/RetrievalTextHygiene.cs",
+      "linuxSnapshotSha256": "a0c1f9d4dbc9a538bc80b28db72172166409d39e092098c7a4a14675d3a6af99",
+      "indexSha256": "a0c1f9d4dbc9a538bc80b28db72172166409d39e092098c7a4a14675d3a6af99",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/AdminAuditEndpoints.cs",
+      "linuxSnapshotSha256": "3cd629bccb1e7e89a43f557cbc541614fda8023935b8315820920e87b64d199e",
+      "indexSha256": "3cd629bccb1e7e89a43f557cbc541614fda8023935b8315820920e87b64d199e",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/AdminCatalogEndpoints.cs",
+      "linuxSnapshotSha256": "91af34871ba3c36247ff0e0dc71b9b69fc935ffc5fc58913d2e88244f2e73f0d",
+      "indexSha256": "91af34871ba3c36247ff0e0dc71b9b69fc935ffc5fc58913d2e88244f2e73f0d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/AdminEndpoints.cs",
+      "linuxSnapshotSha256": "ba8d9d67a40968be1336f531c8547a6a1e6d712fb5f5382568e3142bc709396b",
+      "indexSha256": "ba8d9d67a40968be1336f531c8547a6a1e6d712fb5f5382568e3142bc709396b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/AdminJobsQuerySupport.cs",
+      "linuxSnapshotSha256": "07ccc4b97e6d2a5cf3afad2908abe91264ec3ef4ecc1efef46800451838208f6",
+      "indexSha256": "07ccc4b97e6d2a5cf3afad2908abe91264ec3ef4ecc1efef46800451838208f6",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/AdminKeysEndpoints.cs",
+      "linuxSnapshotSha256": "9a01967718e9216767319b8d7cf10a25f582d3bc509a1beacf62d4133b9ac104",
+      "indexSha256": "9a01967718e9216767319b8d7cf10a25f582d3bc509a1beacf62d4133b9ac104",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/AdminRuntimeEndpoints.cs",
+      "linuxSnapshotSha256": "d8024b768d03707ead30f1d2bbcba85a7daa5e88ccc7d795a175d4d7d9551e86",
+      "indexSha256": "d8024b768d03707ead30f1d2bbcba85a7daa5e88ccc7d795a175d4d7d9551e86",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/AdvancedAnalysisEndpoints.cs",
+      "linuxSnapshotSha256": "239f452ac50ad8443b1b088a3da4c1bd19819d1d4529f3b1047f891ce12e195a",
+      "indexSha256": "239f452ac50ad8443b1b088a3da4c1bd19819d1d4529f3b1047f891ce12e195a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/AuthCapabilitiesEndpoints.cs",
+      "linuxSnapshotSha256": "d135c555ed107f78155e610600a958de9342b07ec8e26e0b3e0b1560f55d4715",
+      "indexSha256": "d135c555ed107f78155e610600a958de9342b07ec8e26e0b3e0b1560f55d4715",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/ChatStoreEndpoints.cs",
+      "linuxSnapshotSha256": "e8eb63501a023af7e5a9adfccb03056b8e18a6bc911e443cabc161b97ae94357",
+      "indexSha256": "e8eb63501a023af7e5a9adfccb03056b8e18a6bc911e443cabc161b97ae94357",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.AdminLegacy.cs",
+      "linuxSnapshotSha256": "62cb3a731e49ae4daaf1ec99efe8b08fff27c1d10f7faaadbbad755bb6194086",
+      "indexSha256": "62cb3a731e49ae4daaf1ec99efe8b08fff27c1d10f7faaadbbad755bb6194086",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.CatalogSupport.cs",
+      "linuxSnapshotSha256": "2535965671874caafc1c22fa6cd2642fd81dfe8c6618732f7f45fd28c4b1f1a6",
+      "indexSha256": "2535965671874caafc1c22fa6cd2642fd81dfe8c6618732f7f45fd28c4b1f1a6",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.ContentCards.cs",
+      "linuxSnapshotSha256": "8c198d292d715c9b5978ed71f6073a096d68a640a1a23389fe52f00f48b58748",
+      "indexSha256": "8c198d292d715c9b5978ed71f6073a096d68a640a1a23389fe52f00f48b58748",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.ExtractionQualityPages.cs",
+      "linuxSnapshotSha256": "cfafd99570ebf5b21b55b56beeea9a1f516a67789a0f32729d96f1c3bf39f6c3",
+      "indexSha256": "cfafd99570ebf5b21b55b56beeea9a1f516a67789a0f32729d96f1c3bf39f6c3",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.ResolveCategory.cs",
+      "linuxSnapshotSha256": "566a17219589a28a3d45f7eb6a081ce3278eff9d6dda974c2477a43d39731962",
+      "indexSha256": "566a17219589a28a3d45f7eb6a081ce3278eff9d6dda974c2477a43d39731962",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.TreeSupport.cs",
+      "linuxSnapshotSha256": "fd59bb59f448cfc178d0be757d1f97e7986cf1e473e6217c31627be93e52b3db",
+      "indexSha256": "fd59bb59f448cfc178d0be757d1f97e7986cf1e473e6217c31627be93e52b3db",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.cs",
+      "linuxSnapshotSha256": "228746e431c964ff7917ad72d6ad1db28e03e3c8fee40d150b7298f8c23ec2db",
+      "indexSha256": "228746e431c964ff7917ad72d6ad1db28e03e3c8fee40d150b7298f8c23ec2db",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/HealthEndpoints.cs",
+      "linuxSnapshotSha256": "bc7a718e6f5588e5be65ccce31d07a187150a93c9d03dc68b7088c3f437d243b",
+      "indexSha256": "bc7a718e6f5588e5be65ccce31d07a187150a93c9d03dc68b7088c3f437d243b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/IngestionAdminEndpoints.cs",
+      "linuxSnapshotSha256": "405a43877b3190f81bd1cd25d792d1411f22998879f209bde4cf803aafe4738b",
+      "indexSha256": "405a43877b3190f81bd1cd25d792d1411f22998879f209bde4cf803aafe4738b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/IngestionEndpoints.cs",
+      "linuxSnapshotSha256": "17bd55aae1a10cdf377e8e615038fdde923fb445905f398061c594de1286079f",
+      "indexSha256": "17bd55aae1a10cdf377e8e615038fdde923fb445905f398061c594de1286079f",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/RagEndpoints.IndexPresence.cs",
+      "linuxSnapshotSha256": "40fbc70b1dd0ffcfb569ad6c20cce935d6d7cc3661a57e524728a2dce4d45fbe",
+      "indexSha256": "40fbc70b1dd0ffcfb569ad6c20cce935d6d7cc3661a57e524728a2dce4d45fbe",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/RagEndpoints.SearchExecution.cs",
+      "linuxSnapshotSha256": "3b008fe345407cd9fec4f3c86ccee49093cae9fd3b39f13446c1f066d3f61c73",
+      "indexSha256": "3b008fe345407cd9fec4f3c86ccee49093cae9fd3b39f13446c1f066d3f61c73",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/RagEndpoints.cs",
+      "linuxSnapshotSha256": "9f43d7864d45f2a7d2b276d99f9be8f1ea2ac77400443dfe06ba1ca884bf1f64",
+      "indexSha256": "9f43d7864d45f2a7d2b276d99f9be8f1ea2ac77400443dfe06ba1ca884bf1f64",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/ReadyEndpoints.cs",
+      "linuxSnapshotSha256": "afff5e3108619c5c3c018cddd82191083ce7afa4bf964ef0bf167db3f8351021",
+      "indexSha256": "afff5e3108619c5c3c018cddd82191083ce7afa4bf964ef0bf167db3f8351021",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/ResolvedSourceProjection.cs",
+      "linuxSnapshotSha256": "eb7c9909eea01eb0f19054f5c9c0667e0a0c59375dd57252dac6d7acf551ed12",
+      "indexSha256": "eb7c9909eea01eb0f19054f5c9c0667e0a0c59375dd57252dac6d7acf551ed12",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/SourcesEndpoints.cs",
+      "linuxSnapshotSha256": "e35da93403ef93c49f4753c72b63b2babd0ae1d78f87b37c786b8b92d2e1a7d4",
+      "indexSha256": "e35da93403ef93c49f4753c72b63b2babd0ae1d78f87b37c786b8b92d2e1a7d4",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/SummaryCategoryScopeResolver.cs",
+      "linuxSnapshotSha256": "7f237feb61a6fbea0a6fe24f06352a79c43c52cc50117ba0a97d0effd4e529a3",
+      "indexSha256": "7f237feb61a6fbea0a6fe24f06352a79c43c52cc50117ba0a97d0effd4e529a3",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/SummaryEndpoints.AdminJobs.Control.cs",
+      "linuxSnapshotSha256": "75a3f22d279bbafb38473a6a92266b6b48454c5039ae0a3fec75afd5ad65e269",
+      "indexSha256": "75a3f22d279bbafb38473a6a92266b6b48454c5039ae0a3fec75afd5ad65e269",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/SummaryEndpoints.AdminJobs.History.cs",
+      "linuxSnapshotSha256": "341a8233181b3eb903527af47161ecb59e8b15796a691560ebeee46d587cd215",
+      "indexSha256": "341a8233181b3eb903527af47161ecb59e8b15796a691560ebeee46d587cd215",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/SummaryEndpoints.AdminJobs.Query.cs",
+      "linuxSnapshotSha256": "d2dddd0103744dc209e8185e1222e3d9e2c21e002a3f03bd711c3ddd1bd33f9b",
+      "indexSha256": "d2dddd0103744dc209e8185e1222e3d9e2c21e002a3f03bd711c3ddd1bd33f9b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/SummaryEndpoints.AdminJobs.Reindex.cs",
+      "linuxSnapshotSha256": "157cca09267b31d5bc3ddf1062cdd04b7edea1690f0649a007e2777cc824b9e6",
+      "indexSha256": "157cca09267b31d5bc3ddf1062cdd04b7edea1690f0649a007e2777cc824b9e6",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/SummaryEndpoints.cs",
+      "linuxSnapshotSha256": "6cb6eaf501fbd99da29e60a63e6a4d3b018e89345c401b5bf25a0dd451f4d4ee",
+      "indexSha256": "6cb6eaf501fbd99da29e60a63e6a4d3b018e89345c401b5bf25a0dd451f4d4ee",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Extensions/OpenTelemetryServiceCollectionExtensions.cs",
+      "linuxSnapshotSha256": "2743a3ae092999c9edabc9cfbcf48391004809073b86b8260b49915375216527",
+      "indexSha256": "2743a3ae092999c9edabc9cfbcf48391004809073b86b8260b49915375216527",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Extensions/ServiceCollectionExtensions.cs",
+      "linuxSnapshotSha256": "da48f05abd161bfcb4978020b7c8549a9b9a8448e532fc9f97e46fcf5d0691a1",
+      "indexSha256": "da48f05abd161bfcb4978020b7c8549a9b9a8448e532fc9f97e46fcf5d0691a1",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Extensions/WebApplicationExtensions.cs",
+      "linuxSnapshotSha256": "689ae594f298ffed2c5a373ac8eae9f7ff6feadd666085a24bba19d7180bb57e",
+      "indexSha256": "689ae594f298ffed2c5a373ac8eae9f7ff6feadd666085a24bba19d7180bb57e",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/GlobalUsings.Retrieval.cs",
+      "linuxSnapshotSha256": "134f0982ba780610991eb701f6b73ae35951439a2fdb41320928852398939369",
+      "indexSha256": "134f0982ba780610991eb701f6b73ae35951439a2fdb41320928852398939369",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/CanonicalArtifactRepo.cs",
+      "linuxSnapshotSha256": "b284e4f82c3fe832a820d0e592919a581dfc645f1514b3eed10f933a0d5bbdb0",
+      "indexSha256": "b284e4f82c3fe832a820d0e592919a581dfc645f1514b3eed10f933a0d5bbdb0",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/DocumentExtractionPolicy.cs",
+      "linuxSnapshotSha256": "5d2321b791e1fb7cde1f6b3f4463e0f2b7eb5ee02a6cb3410f69b99f1e5f3db1",
+      "indexSha256": "5d2321b791e1fb7cde1f6b3f4463e0f2b7eb5ee02a6cb3410f69b99f1e5f3db1",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/DocumentFoundationRepo.cs",
+      "linuxSnapshotSha256": "b9fd18114579cd6556b9e301444370875544aec9f0570704c39949866bdc2562",
+      "indexSha256": "b9fd18114579cd6556b9e301444370875544aec9f0570704c39949866bdc2562",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/FileWatcherService.cs",
+      "linuxSnapshotSha256": "74cd42ce9e6f95b0bea933d3b56b031a7f28d3ec31d37dd19c04fefc54b67a32",
+      "indexSha256": "74cd42ce9e6f95b0bea933d3b56b031a7f28d3ec31d37dd19c04fefc54b67a32",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionAdminStatePolicies.cs",
+      "linuxSnapshotSha256": "847f845fa7c745125aefe8aa1d34a3d282fab2d3eff7c5ba68d489d4af01613d",
+      "indexSha256": "847f845fa7c745125aefe8aa1d34a3d282fab2d3eff7c5ba68d489d4af01613d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionAttemptDiagnostics.cs",
+      "linuxSnapshotSha256": "0bdd6e3bbc27437d094ae990ae1aca898820f1535ccfee4484c490f2befeccf5",
+      "indexSha256": "0bdd6e3bbc27437d094ae990ae1aca898820f1535ccfee4484c490f2befeccf5",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionAutoUpsertGuard.cs",
+      "linuxSnapshotSha256": "191d7a2c783e26194705bbf93cbe98796929f97be99060ef67042f4b45ccb507",
+      "indexSha256": "191d7a2c783e26194705bbf93cbe98796929f97be99060ef67042f4b45ccb507",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionBulkheads.cs",
+      "linuxSnapshotSha256": "502c97d8a6b7df80914304f392ceb93e35387da615f0e1d504717f42119af12f",
+      "indexSha256": "502c97d8a6b7df80914304f392ceb93e35387da615f0e1d504717f42119af12f",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionCategoryResolver.cs",
+      "linuxSnapshotSha256": "9ef306922692240b47f4913ea149888cc807ddb1a30e30fe9a8950c38c28c1b5",
+      "indexSha256": "9ef306922692240b47f4913ea149888cc807ddb1a30e30fe9a8950c38c28c1b5",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionDuplicateFilePlanner.cs",
+      "linuxSnapshotSha256": "0c7b30a2c6b1be1fc491b703238af7cce2c494959bdff9365db1e52933933ddd",
+      "indexSha256": "0c7b30a2c6b1be1fc491b703238af7cce2c494959bdff9365db1e52933933ddd",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionEnqueue.Delete.cs",
+      "linuxSnapshotSha256": "f9c1bb9eb890c36de95cdd371adceeede2904f2e64f0c4a3d90af909de6d93e5",
+      "indexSha256": "f9c1bb9eb890c36de95cdd371adceeede2904f2e64f0c4a3d90af909de6d93e5",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionEnqueue.StateTransitions.cs",
+      "linuxSnapshotSha256": "8a00ba5a9649a74072b0999e14793d3af27a3ba31be783f3d6e2a76aa2e56a02",
+      "indexSha256": "8a00ba5a9649a74072b0999e14793d3af27a3ba31be783f3d6e2a76aa2e56a02",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionEnqueue.cs",
+      "linuxSnapshotSha256": "8c65cd3c84bbb24aedcc58a3c38cf9c2f2645df8553fe4716adf97c1163cf50e",
+      "indexSha256": "8c65cd3c84bbb24aedcc58a3c38cf9c2f2645df8553fe4716adf97c1163cf50e",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionExtractionStage.cs",
+      "linuxSnapshotSha256": "939b3a0ce98ff4f77fdad7e266e74f7b2de380dae0c4088b94e29abac646bd9a",
+      "indexSha256": "939b3a0ce98ff4f77fdad7e266e74f7b2de380dae0c4088b94e29abac646bd9a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionFileContentHashCache.cs",
+      "linuxSnapshotSha256": "7162a92fe577ffc165b16e3749ebed921392b01896a74f8eeea3a13b4c78ba72",
+      "indexSha256": "7162a92fe577ffc165b16e3749ebed921392b01896a74f8eeea3a13b4c78ba72",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionFileInventory.cs",
+      "linuxSnapshotSha256": "ce0252b9709ccce4415ada555f0d5c400c55b35247d147da6db22b7bbc1bdb1c",
+      "indexSha256": "ce0252b9709ccce4415ada555f0d5c400c55b35247d147da6db22b7bbc1bdb1c",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionFilePresence.cs",
+      "linuxSnapshotSha256": "bcc859901f5cba5fa0837270cccff3132480b8e5938d32e7bca3403eabee8f52",
+      "indexSha256": "bcc859901f5cba5fa0837270cccff3132480b8e5938d32e7bca3403eabee8f52",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionFileSystemPathIdentity.cs",
+      "linuxSnapshotSha256": "758d2128134e10b8ad14b226a4066e323e41a932c3d6127aae00baa56734ea62",
+      "indexSha256": "758d2128134e10b8ad14b226a4066e323e41a932c3d6127aae00baa56734ea62",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionGenerationRegistry.cs",
+      "linuxSnapshotSha256": "aea0518dc788a92ffe02b74e3e2daee6ebfe7e2c3c3d15a11f1670c16895020a",
+      "indexSha256": "aea0518dc788a92ffe02b74e3e2daee6ebfe7e2c3c3d15a11f1670c16895020a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionHardwareProfiler.cs",
+      "linuxSnapshotSha256": "9e02ef2f65655672c0f2ce83c3e3700666a1d2463949a0b045dc5850d51ac96f",
+      "indexSha256": "9e02ef2f65655672c0f2ce83c3e3700666a1d2463949a0b045dc5850d51ac96f",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionJobCancellationRegistry.cs",
+      "linuxSnapshotSha256": "5fa53023c7f4187f63a497845a998b48dd79a977d3500e2d838cd2ccef2d4c33",
+      "indexSha256": "5fa53023c7f4187f63a497845a998b48dd79a977d3500e2d838cd2ccef2d4c33",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionJobPayloadJson.cs",
+      "linuxSnapshotSha256": "245abda5a16845a73c722caa6be191a0df97e8f730fd59da75ddfa2dfc88ec33",
+      "indexSha256": "245abda5a16845a73c722caa6be191a0df97e8f730fd59da75ddfa2dfc88ec33",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionJobSnapshotStore.cs",
+      "linuxSnapshotSha256": "2f61ac7c026d42df1c975b88f8bcf77a25e72f23a441b7b0307f5caeb0abd975",
+      "indexSha256": "2f61ac7c026d42df1c975b88f8bcf77a25e72f23a441b7b0307f5caeb0abd975",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionLeaseGuard.cs",
+      "linuxSnapshotSha256": "29969d4821cc19adeae5b526f6f2cef5c29b5a05f8b4dd331f1f529a56066943",
+      "indexSha256": "29969d4821cc19adeae5b526f6f2cef5c29b5a05f8b4dd331f1f529a56066943",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionPathFilter.cs",
+      "linuxSnapshotSha256": "6acc4aa8fdbd7587a1fb40e3d8ac54fd0177795db644573b44370f565e941fa5",
+      "indexSha256": "6acc4aa8fdbd7587a1fb40e3d8ac54fd0177795db644573b44370f565e941fa5",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionPipelineIdentity.cs",
+      "linuxSnapshotSha256": "a729fc8d652d47891f0d490f5c639e6c6bb52c4dc5063ac0c2c497eb17d59609",
+      "indexSha256": "a729fc8d652d47891f0d490f5c639e6c6bb52c4dc5063ac0c2c497eb17d59609",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionProjectionStage.cs",
+      "linuxSnapshotSha256": "de5ba9ed68d620b61ef480dd5cf28adb1c49a8864f513744c490a5e1ab1e1ebf",
+      "indexSha256": "de5ba9ed68d620b61ef480dd5cf28adb1c49a8864f513744c490a5e1ab1e1ebf",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionProvenanceConfiguration.cs",
+      "linuxSnapshotSha256": "d64eb574ac57a3bf21f96595d4e7cb93f9543501b2e6e4aa05160c2adffd7145",
+      "indexSha256": "d64eb574ac57a3bf21f96595d4e7cb93f9543501b2e6e4aa05160c2adffd7145",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionPublicationStage.cs",
+      "linuxSnapshotSha256": "93a3817101e613f56c785c3d7290ecc63236065f5e40c425e00d9ebb81f21445",
+      "indexSha256": "93a3817101e613f56c785c3d7290ecc63236065f5e40c425e00d9ebb81f21445",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionRetrievalChunkQualitySummary.cs",
+      "linuxSnapshotSha256": "55d9fb63267aea903e358bd7520fb584d3eef19cfa773cf5244f05770c7bb10b",
+      "indexSha256": "55d9fb63267aea903e358bd7520fb584d3eef19cfa773cf5244f05770c7bb10b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionSourceSnapshot.cs",
+      "linuxSnapshotSha256": "dd534baf10cd7158605a0d883fd1400dfe0f00a0a86f9bb69363ce02954b45af",
+      "indexSha256": "dd534baf10cd7158605a0d883fd1400dfe0f00a0a86f9bb69363ce02954b45af",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionVectorPlan.cs",
+      "linuxSnapshotSha256": "1550f57c3c3308f88fce829d9c1cadba479b8ff5281eac5ec63b43b01f171f01",
+      "indexSha256": "1550f57c3c3308f88fce829d9c1cadba479b8ff5281eac5ec63b43b01f171f01",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionVectorRegistry.cs",
+      "linuxSnapshotSha256": "0db3498791377dac52389b305e515f6d3771431ee71c832a953d9f654622e237",
+      "indexSha256": "0db3498791377dac52389b305e515f6d3771431ee71c832a953d9f654622e237",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionWorker.cs",
+      "linuxSnapshotSha256": "ed5001078a3606cfce8dc18830b51cd619509cc64f90893449a91fafe0910b39",
+      "indexSha256": "ed5001078a3606cfce8dc18830b51cd619509cc64f90893449a91fafe0910b39",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/JobRepo.Completion.cs",
+      "linuxSnapshotSha256": "90f0dd3880014232f88167974d3646bcc44dc489c9c6a3ca5a01b1ce8d5d614c",
+      "indexSha256": "90f0dd3880014232f88167974d3646bcc44dc489c9c6a3ca5a01b1ce8d5d614c",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/JobRepo.ConditionalDelete.cs",
+      "linuxSnapshotSha256": "730057708471371c96004bd4009da93b2f6dea63576de90115e7c257a1777519",
+      "indexSha256": "730057708471371c96004bd4009da93b2f6dea63576de90115e7c257a1777519",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/JobRepo.DocumentState.cs",
+      "linuxSnapshotSha256": "372344c59b7bf6140a69ad18724d613d847899e58958ea8c00c69990176198b6",
+      "indexSha256": "372344c59b7bf6140a69ad18724d613d847899e58958ea8c00c69990176198b6",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/JobRepo.cs",
+      "linuxSnapshotSha256": "15c1c254d15ca0d2d6eccdabad7b66457ae8814d51b6453cd7be448ad13eeffa",
+      "indexSha256": "15c1c254d15ca0d2d6eccdabad7b66457ae8814d51b6453cd7be448ad13eeffa",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/LegacyCanonicalBundleFactory.cs",
+      "linuxSnapshotSha256": "da936a208b610a29fd9f084083c4a31444f3fd3fbd14ba024015781042e593ab",
+      "indexSha256": "da936a208b610a29fd9f084083c4a31444f3fd3fbd14ba024015781042e593ab",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/LegacyIngestionStageManifestFactory.cs",
+      "linuxSnapshotSha256": "be84d43da20e2c38bab480e8ffb24c033d8b47c6e3e920503a13b7bc9514099f",
+      "indexSha256": "be84d43da20e2c38bab480e8ffb24c033d8b47c6e3e920503a13b7bc9514099f",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/RuntimeToolVersionProbe.cs",
+      "linuxSnapshotSha256": "2a39ba8c8d172d32064508e67ddf7c2f09ea3f31c4c95a3ee8cdb4a7dce29283",
+      "indexSha256": "2a39ba8c8d172d32064508e67ddf7c2f09ea3f31c4c95a3ee8cdb4a7dce29283",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/VectorGarbageCollector.cs",
+      "linuxSnapshotSha256": "6b6d245a827b7ef1d1897fe197ba8761295f9116362878470461d969a9ec8e17",
+      "indexSha256": "6b6d245a827b7ef1d1897fe197ba8761295f9116362878470461d969a9ec8e17",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/VectorGcModels.cs",
+      "linuxSnapshotSha256": "e77645b6ceb4f82994abdf8ba849d2c8a850011663962935daf8159e7c2aff8b",
+      "indexSha256": "e77645b6ceb4f82994abdf8ba849d2c8a850011663962935daf8159e7c2aff8b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/VectorGcQdrantTransport.cs",
+      "linuxSnapshotSha256": "8c33a2275f80b703e4a4d2554bb97e4002f53364cc988f9eccc572e0274619aa",
+      "indexSha256": "8c33a2275f80b703e4a4d2554bb97e4002f53364cc988f9eccc572e0274619aa",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/VectorGcQueue.cs",
+      "linuxSnapshotSha256": "876a082906679497f8f3971b259bef6b51ef5180e51df9982f5da109dc065574",
+      "indexSha256": "876a082906679497f8f3971b259bef6b51ef5180e51df9982f5da109dc065574",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/VectorGcRuntimeState.cs",
+      "linuxSnapshotSha256": "833641121dbf15a73a9ffc7bb2227a14499d60f87667b2a2cc1a5f3783f4d59c",
+      "indexSha256": "833641121dbf15a73a9ffc7bb2227a14499d60f87667b2a2cc1a5f3783f4d59c",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/IngestionScanner.cs",
+      "linuxSnapshotSha256": "bfb8e3dea4c24c7fbc117c83f818e297d0f3be7e2f8d761c02f4e9bfad1842ab",
+      "indexSha256": "bfb8e3dea4c24c7fbc117c83f818e297d0f3be7e2f8d761c02f4e9bfad1842ab",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Llm/CapabilityAHypotheticalQuestionService.cs",
+      "linuxSnapshotSha256": "8711a1e6c3c95445d8641d7ff8e47c4568d0ed6808cd455f212e9d6ab04312fb",
+      "indexSha256": "8711a1e6c3c95445d8641d7ff8e47c4568d0ed6808cd455f212e9d6ab04312fb",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Llm/CapabilityBBackofficeSummaryService.cs",
+      "linuxSnapshotSha256": "1407473169a4ede36bd41ba87dc05b32a42e8f8eb26c167f15f3f128b2d66ef1",
+      "indexSha256": "1407473169a4ede36bd41ba87dc05b32a42e8f8eb26c167f15f3f128b2d66ef1",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Llm/CapabilityBExtractionQualityPrompting.cs",
+      "linuxSnapshotSha256": "b5dd778bc43b384df7fe5e955b4e30491600ea47352b41a89814edffee44a38f",
+      "indexSha256": "b5dd778bc43b384df7fe5e955b4e30491600ea47352b41a89814edffee44a38f",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Llm/DocumentProfileEnrichmentService.cs",
+      "linuxSnapshotSha256": "0ce20ea13aca2f86248e2ed0ec4fb66b322654cf1c44043f078d2943cbdd0773",
+      "indexSha256": "0ce20ea13aca2f86248e2ed0ec4fb66b322654cf1c44043f078d2943cbdd0773",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Llm/LocalLlmChatClient.cs",
+      "linuxSnapshotSha256": "7f253217d9618e2fbb70c41278838b22129a01a33baf7011b9452d023b2f8f4a",
+      "indexSha256": "7f253217d9618e2fbb70c41278838b22129a01a33baf7011b9452d023b2f8f4a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Llm/LocalLlmRequestFactory.cs",
+      "linuxSnapshotSha256": "658f036d3a1d9524cd3b8ff3001eeaa5894ad72838e18ff6636c3057181139e7",
+      "indexSha256": "658f036d3a1d9524cd3b8ff3001eeaa5894ad72838e18ff6636c3057181139e7",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Middleware/ErrorHandlingMiddleware.cs",
+      "linuxSnapshotSha256": "fceb7683c1e1c18940a768847e95f6effd408fe14cd577781c1c24a4be8d2ce4",
+      "indexSha256": "fceb7683c1e1c18940a768847e95f6effd408fe14cd577781c1c24a4be8d2ce4",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Middleware/RequestIdMiddleware.cs",
+      "linuxSnapshotSha256": "2557d236bb32bae773bd09429af5f74978fb93ad1f8cfcef98c35acbf8ff9028",
+      "indexSha256": "2557d236bb32bae773bd09429af5f74978fb93ad1f8cfcef98c35acbf8ff9028",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Models/AdminRuntimeDto.cs",
+      "linuxSnapshotSha256": "6913c1e08129f0accca98c376ec373fd71959448d0abaec7e8e149f672a9a9d9",
+      "indexSha256": "6913c1e08129f0accca98c376ec373fd71959448d0abaec7e8e149f672a9a9d9",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Models/ChatStoreDto.cs",
+      "linuxSnapshotSha256": "664d44f16e152c1cee53de16afa579742ebd518965b5db86ea9a0d65b295ee1d",
+      "indexSha256": "664d44f16e152c1cee53de16afa579742ebd518965b5db86ea9a0d65b295ee1d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Models/ErrorResponse.cs",
+      "linuxSnapshotSha256": "342849af9d5722b691df0fc2342776d42048e52a92365e854ca3695ed7575c35",
+      "indexSha256": "342849af9d5722b691df0fc2342776d42048e52a92365e854ca3695ed7575c35",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Models/RagSearchDto.cs",
+      "linuxSnapshotSha256": "9673ffd1743a0c43e9c1e94b9271de83cadc09bd40e7a342352fedb034ff746f",
+      "indexSha256": "9673ffd1743a0c43e9c1e94b9271de83cadc09bd40e7a342352fedb034ff746f",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Models/RetrievalModels.cs",
+      "linuxSnapshotSha256": "280bd434de5727d8e9ce35a6518d1c83247cd690f1e68ff8b242e3910bf4dd97",
+      "indexSha256": "280bd434de5727d8e9ce35a6518d1c83247cd690f1e68ff8b242e3910bf4dd97",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Observability/BackendDiagnostics.cs",
+      "linuxSnapshotSha256": "91304d615beccd02fefdb4e2d57deb6cacb7cf39f5c5c2dc28b729629389f1cd",
+      "indexSha256": "91304d615beccd02fefdb4e2d57deb6cacb7cf39f5c5c2dc28b729629389f1cd",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Observability/DatabaseTextSearchDiagnostics.cs",
+      "linuxSnapshotSha256": "1c65a9242f47f6bb8c5b94d93d6561b6bcc6ac33a7e9ba104a90a06dbf0f4326",
+      "indexSha256": "1c65a9242f47f6bb8c5b94d93d6561b6bcc6ac33a7e9ba104a90a06dbf0f4326",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Observability/DiagnosticActivityScope.cs",
+      "linuxSnapshotSha256": "4551651257254343088f22ff0fcff548bc6e9a95ddf39eace13a758958cf9d1a",
+      "indexSha256": "4551651257254343088f22ff0fcff548bc6e9a95ddf39eace13a758958cf9d1a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Observability/DiagnosticLogScope.cs",
+      "linuxSnapshotSha256": "62735404449b1a855cac3b36fb2adf06b4c34f34ccb84de195c6241347d19567",
+      "indexSha256": "62735404449b1a855cac3b36fb2adf06b4c34f34ccb84de195c6241347d19567",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Observability/RetrievalTelemetry.cs",
+      "linuxSnapshotSha256": "84e00b8cb08fa876e7e9fc8ef7f13a5ecf6bc563e435ee7b11d312d9bf5f116f",
+      "indexSha256": "84e00b8cb08fa876e7e9fc8ef7f13a5ecf6bc563e435ee7b11d312d9bf5f116f",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Observability/RuntimeGovernanceTelemetry.cs",
+      "linuxSnapshotSha256": "a94a5f874cda23a9bd38810abe2e76dcb55b6debd169ae9b61c3201be36c0664",
+      "indexSha256": "a94a5f874cda23a9bd38810abe2e76dcb55b6debd169ae9b61c3201be36c0664",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Options/AdvancedAnalysisOptions.cs",
+      "linuxSnapshotSha256": "7433a448c709bc65640f13a44826482823dff6a6596372b2763e2e2963118a4b",
+      "indexSha256": "7433a448c709bc65640f13a44826482823dff6a6596372b2763e2e2963118a4b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Options/ChatOptions.cs",
+      "linuxSnapshotSha256": "d7d61ae4df80f6ffac03682ae0b77df29fe2cbe324acb750470b6b9a6d4ead90",
+      "indexSha256": "d7d61ae4df80f6ffac03682ae0b77df29fe2cbe324acb750470b6b9a6d4ead90",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Options/DatabaseOptions.cs",
+      "linuxSnapshotSha256": "1a62ce42c764bd468e0b4ede42b96e75d421fa0a665ba6f2c49b840c45ffe802",
+      "indexSha256": "1a62ce42c764bd468e0b4ede42b96e75d421fa0a665ba6f2c49b840c45ffe802",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Options/DocumentIntelligenceOptions.cs",
+      "linuxSnapshotSha256": "9e5f1770080bfc0fede1a3f5ef1fbf88f2efde114139f1a6b0274c1db247267a",
+      "indexSha256": "9e5f1770080bfc0fede1a3f5ef1fbf88f2efde114139f1a6b0274c1db247267a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Options/IngestionOptions.cs",
+      "linuxSnapshotSha256": "ebbb64b90c33fe4a1fd642f65926b22f4b5449551bdfa1c2f5ac96e168517431",
+      "indexSha256": "ebbb64b90c33fe4a1fd642f65926b22f4b5449551bdfa1c2f5ac96e168517431",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Options/LicenseOptions.cs",
+      "linuxSnapshotSha256": "3fa43cee74550d6083f23c04b40f8ca1c1403191da012bc93573c79402207ee4",
+      "indexSha256": "3fa43cee74550d6083f23c04b40f8ca1c1403191da012bc93573c79402207ee4",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Options/OpenTelemetryOptions.cs",
+      "linuxSnapshotSha256": "8a90bdbe03350ccd8e9d78e2337d90946a93bfa90c99edb80f8b7e11e0cd3cfa",
+      "indexSha256": "8a90bdbe03350ccd8e9d78e2337d90946a93bfa90c99edb80f8b7e11e0cd3cfa",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Options/RagOptions.cs",
+      "linuxSnapshotSha256": "5da8d0565c35bb93ebd63ec735e051d1264f715c2e610f7535c781096faa686f",
+      "indexSha256": "5da8d0565c35bb93ebd63ec735e051d1264f715c2e610f7535c781096faa686f",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Options/RateLimitOptions.cs",
+      "linuxSnapshotSha256": "bf9fd277efa74d572941554d5f15f47679cd4661cc1260fd45c099586590184b",
+      "indexSha256": "bf9fd277efa74d572941554d5f15f47679cd4661cc1260fd45c099586590184b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Options/RuntimeGovernanceOptions.cs",
+      "linuxSnapshotSha256": "a99c29a56b9df485a81aeebc0579ce984fd0b35c68ad24b0b1998adafe00c774",
+      "indexSha256": "a99c29a56b9df485a81aeebc0579ce984fd0b35c68ad24b0b1998adafe00c774",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Options/VectorGcOptions.cs",
+      "linuxSnapshotSha256": "f069c0fa726e92ddb371f47307df4c7dc8132e45e39c9896d5c3035b6e3436fb",
+      "indexSha256": "f069c0fa726e92ddb371f47307df4c7dc8132e45e39c9896d5c3035b6e3436fb",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/Canonical/CanonicalDocumentSectionProjector.cs",
+      "linuxSnapshotSha256": "3b82b20cf607b30fa1c3ac5744f9c8f141133e2e4f425b6ce4843af2f795a540",
+      "indexSha256": "3b82b20cf607b30fa1c3ac5744f9c8f141133e2e4f425b6ce4843af2f795a540",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/Canonical/LegacyCanonicalSourceAnchorProjector.cs",
+      "linuxSnapshotSha256": "525321473a526829ecb6e3a248e5b6754594fbeb7e92d362f27d334544643590",
+      "indexSha256": "525321473a526829ecb6e3a248e5b6754594fbeb7e92d362f27d334544643590",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/Canonical/LegacyOcrObservationProjector.cs",
+      "linuxSnapshotSha256": "907d6bc931a4612a1f2f06e083adf00613b10df847f9fdbf699c198cfb3d5198",
+      "indexSha256": "907d6bc931a4612a1f2f06e083adf00613b10df847f9fdbf699c198cfb3d5198",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/Canonical/LegacyPdfCanonicalDocumentAdapter.cs",
+      "linuxSnapshotSha256": "2642b47579c8b9a94b000bad47fc8b6278ab1c1ccd1e3073580bfda4ad355a3d",
+      "indexSha256": "2642b47579c8b9a94b000bad47fc8b6278ab1c1ccd1e3073580bfda4ad355a3d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/Chunker.cs",
+      "linuxSnapshotSha256": "deb337b7c26e4094d4606cc3ba930529a7886ee43b1bc9ca9b27850448afd52c",
+      "indexSha256": "deb337b7c26e4094d4606cc3ba930529a7886ee43b1bc9ca9b27850448afd52c",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/ContextualTextProjector.cs",
+      "linuxSnapshotSha256": "cff328ea8c0525db9715eb0c338216f2a0f6988b15528be4363f3f96b5ebc65a",
+      "indexSha256": "cff328ea8c0525db9715eb0c338216f2a0f6988b15528be4363f3f96b5ebc65a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/DocumentLanguageResolver.cs",
+      "linuxSnapshotSha256": "59e4beee57d8f6b553ea0868bdc58c1e0d5f937cb781672353cdaab2bf4451b9",
+      "indexSha256": "59e4beee57d8f6b553ea0868bdc58c1e0d5f937cb781672353cdaab2bf4451b9",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/DocumentProfileProjector.CanonicalContentCards.cs",
+      "linuxSnapshotSha256": "58cecc81497a9334cdfa9af7ecb0bf5912ee15d82884af3f8fa10ff9698c8042",
+      "indexSha256": "58cecc81497a9334cdfa9af7ecb0bf5912ee15d82884af3f8fa10ff9698c8042",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/DocumentProfileProjector.cs",
+      "linuxSnapshotSha256": "34d0c96ea616234ea6fa48988af657b5c5ddf632d3abeaeead7c2df34a93a299",
+      "indexSha256": "34d0c96ea616234ea6fa48988af657b5c5ddf632d3abeaeead7c2df34a93a299",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/DocumentSectionExtractor.cs",
+      "linuxSnapshotSha256": "fd9b6c16737163c2bb77d85bbeaed00fba615f2e51470738f869d81e930e4ed9",
+      "indexSha256": "fd9b6c16737163c2bb77d85bbeaed00fba615f2e51470738f869d81e930e4ed9",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/DocumentTitleNavigationProjector.cs",
+      "linuxSnapshotSha256": "2d06d9d53c68f847d34a56082bbe3bbe9c0b2adb28b07193b0c0a86b277c4632",
+      "indexSha256": "2d06d9d53c68f847d34a56082bbe3bbe9c0b2adb28b07193b0c0a86b277c4632",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/DocumentUnitExtractor.cs",
+      "linuxSnapshotSha256": "0fade001de8d0e1ccbe025b0257dfbdc486d445f889005f1d88ea3e2c587685d",
+      "indexSha256": "0fade001de8d0e1ccbe025b0257dfbdc486d445f889005f1d88ea3e2c587685d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/ExactMatchEntryExtractor.cs",
+      "linuxSnapshotSha256": "6099a7a50d1bec28d3a137b96e00d6c12967239a74ecb8fc443cce3c883b9973",
+      "indexSha256": "6099a7a50d1bec28d3a137b96e00d6c12967239a74ecb8fc443cce3c883b9973",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/ExtractionQualityDiagnostics.cs",
+      "linuxSnapshotSha256": "b36e27dde9f97e24273158fafca324051dca875e2bc6baf7d752797268e2a92e",
+      "indexSha256": "b36e27dde9f97e24273158fafca324051dca875e2bc6baf7d752797268e2a92e",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/ExtractionQualityPolicy.cs",
+      "linuxSnapshotSha256": "82315fab29da7c7f0644bfee20c87d1a30a7d916c881188e6eb33eb4ad170037",
+      "indexSha256": "82315fab29da7c7f0644bfee20c87d1a30a7d916c881188e6eb33eb4ad170037",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/OcrNoiseFilter.cs",
+      "linuxSnapshotSha256": "3d9e80c1c710c258bdbf8746599db7719ed8df48d87612cb7949db9145919cf0",
+      "indexSha256": "3d9e80c1c710c258bdbf8746599db7719ed8df48d87612cb7949db9145919cf0",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/OcrObservationParser.cs",
+      "linuxSnapshotSha256": "d9ee0e0cfdcc0acca76a4ba2a27531dc6be8617bdaf5ab21f84bfecd9a301749",
+      "indexSha256": "d9ee0e0cfdcc0acca76a4ba2a27531dc6be8617bdaf5ab21f84bfecd9a301749",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/OcrProcessRunner.cs",
+      "linuxSnapshotSha256": "3edc1c2e80a97e65585f5494eaf940871aeb782d96b0e1d8bd09683cc636792a",
+      "indexSha256": "3edc1c2e80a97e65585f5494eaf940871aeb782d96b0e1d8bd09683cc636792a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/OcrSourceReconciler.cs",
+      "linuxSnapshotSha256": "399f1d2014516a0d8692fd4f32a7a2311bc5b64bb0590c73e67de66fb016c65c",
+      "indexSha256": "399f1d2014516a0d8692fd4f32a7a2311bc5b64bb0590c73e67de66fb016c65c",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/PdfExtractionModels.cs",
+      "linuxSnapshotSha256": "65d0f9277560b7cb523949b89d9a19e37cde7c76b27fde1180488f52a149446d",
+      "indexSha256": "65d0f9277560b7cb523949b89d9a19e37cde7c76b27fde1180488f52a149446d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/PdfExtractor.cs",
+      "linuxSnapshotSha256": "d3afbb4e1053d01f85ff4a64d24b7a7e61f470630d7f0bf1a1593a7912756cae",
+      "indexSha256": "d3afbb4e1053d01f85ff4a64d24b7a7e61f470630d7f0bf1a1593a7912756cae",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/PdfNativeLayoutExtractor.cs",
+      "linuxSnapshotSha256": "f15bb8a57121d29c66e66d93ae6c5cbdb1266c4a43355f6025f2d8208392adb3",
+      "indexSha256": "f15bb8a57121d29c66e66d93ae6c5cbdb1266c4a43355f6025f2d8208392adb3",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/PdfOcrTextExtractor.cs",
+      "linuxSnapshotSha256": "5892b7d28dc5881a6857fef877796bbe15a8e3d58b772792bd17015c6550f3b5",
+      "indexSha256": "5892b7d28dc5881a6857fef877796bbe15a8e3d58b772792bd17015c6550f3b5",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/PdfTextSanitizer.cs",
+      "linuxSnapshotSha256": "d2b035aa1e872a7adf2f9a68ec95c373f417882310edfff9056c2322c4d85fa4",
+      "indexSha256": "d2b035aa1e872a7adf2f9a68ec95c373f417882310edfff9056c2322c4d85fa4",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/RetrievalChunkProjector.ContextPreservation.cs",
+      "linuxSnapshotSha256": "2fda3cd7a6f6764c865eea2f21490e8739a8f950fa353483b4b44864198a4699",
+      "indexSha256": "2fda3cd7a6f6764c865eea2f21490e8739a8f950fa353483b4b44864198a4699",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/RetrievalChunkProjector.PhysicalPageContext.cs",
+      "linuxSnapshotSha256": "0b632315c50082315ade0bda7844aa769438db9d8e920ca75db21a53251ebb96",
+      "indexSha256": "0b632315c50082315ade0bda7844aa769438db9d8e920ca75db21a53251ebb96",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/RetrievalChunkProjector.cs",
+      "linuxSnapshotSha256": "9d794bbd4af275417afe49c35c6902903aaa886d4afc29a46cc79962e5034d61",
+      "indexSha256": "9d794bbd4af275417afe49c35c6902903aaa886d4afc29a46cc79962e5034d61",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/StructuredContentLexicon.cs",
+      "linuxSnapshotSha256": "af4382339780e3428c155086553620e8504071b0bb72e99e00d0f671226fc7a3",
+      "indexSha256": "af4382339780e3428c155086553620e8504071b0bb72e99e00d0f671226fc7a3",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Program.cs",
+      "linuxSnapshotSha256": "e4798ca41569877893a1994883d0b5289726dfd170e704f8f79b7e9b36cdd330",
+      "indexSha256": "e4798ca41569877893a1994883d0b5289726dfd170e704f8f79b7e9b36cdd330",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Properties/AssemblyInfo.cs",
+      "linuxSnapshotSha256": "d5e41d5d5605afc136a4b7eb54ac3afe15c18b31a553cbb1a0d75321dd4a60f4",
+      "indexSha256": "d5e41d5d5605afc136a4b7eb54ac3afe15c18b31a553cbb1a0d75321dd4a60f4",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Properties/launchSettings.json",
+      "linuxSnapshotSha256": "9f1e6c5b739ace5001d08fa345134c92fb0d33da4b323b16c57c78672e8b7cda",
+      "indexSha256": "f1927e6b298a54b133abacf6b5c320d5d7feaf63c4c0b3531e6677d35cec6bf5",
+      "bytesExact": false,
+      "onlyGitDeclaredLineEndingNormalization": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Rag/QdrantClient.cs",
+      "linuxSnapshotSha256": "2307c169d8c99fda1dfaf71e373c22ab7aef94b8e9e3ada02e95d69f0beeb97d",
+      "indexSha256": "2307c169d8c99fda1dfaf71e373c22ab7aef94b8e9e3ada02e95d69f0beeb97d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Rag/RagSearchBulkhead.cs",
+      "linuxSnapshotSha256": "a746c4e51c3d35a034d6e3e82befc790efd3be64e4a6c4c95e122d9c794fe020",
+      "indexSha256": "a746c4e51c3d35a034d6e3e82befc790efd3be64e4a6c4c95e122d9c794fe020",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Rag/RetrievalContentClassifier.cs",
+      "linuxSnapshotSha256": "eced3d3244108da811c1c62ed6950cf3d851b6d207ed941642748d12b00219f7",
+      "indexSha256": "eced3d3244108da811c1c62ed6950cf3d851b6d207ed941642748d12b00219f7",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Rag/TeiClient.cs",
+      "linuxSnapshotSha256": "970d0b329ad5ce140a158f0366237aa7acee938df894d3af5f55140a1d239645",
+      "indexSha256": "970d0b329ad5ce140a158f0366237aa7acee938df894d3af5f55140a1d239645",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Rag/TeiEmbeddingResponse.cs",
+      "linuxSnapshotSha256": "084f92bb41bafb1dfa9fba00aaab755ca8aaacb2dfa3b9fdbf24fab1b1053a80",
+      "indexSha256": "084f92bb41bafb1dfa9fba00aaab755ca8aaacb2dfa3b9fdbf24fab1b1053a80",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Rag/TeiWorkloadGovernor.cs",
+      "linuxSnapshotSha256": "95a971adb72b00bd57b9a2f7746f09152a91bce9d69ba8f4f699ae26cb99c637",
+      "indexSha256": "95a971adb72b00bd57b9a2f7746f09152a91bce9d69ba8f4f699ae26cb99c637",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Rag/TitleAnchorNormalizer.cs",
+      "linuxSnapshotSha256": "ab076d95f40bffeb8aff0c613b69c540d0a9dff7282a5c35d0f3517e02cd8173",
+      "indexSha256": "ab076d95f40bffeb8aff0c613b69c540d0a9dff7282a5c35d0f3517e02cd8173",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/CanonicalIndexProbe.cs",
+      "linuxSnapshotSha256": "226e54ba72e3c7c1dc0418d8bd5276d1c0103a50e9575da62a569eb82fe5e125",
+      "indexSha256": "226e54ba72e3c7c1dc0418d8bd5276d1c0103a50e9575da62a569eb82fe5e125",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/CanonicalRetrieval.cs",
+      "linuxSnapshotSha256": "7fbe5616916e55bbe88252da2730516a04e81ae8f3c13308c0739054c33405ab",
+      "indexSha256": "7fbe5616916e55bbe88252da2730516a04e81ae8f3c13308c0739054c33405ab",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/DenseActiveCandidateSearch.cs",
+      "linuxSnapshotSha256": "a036f04a447239399999ef1d700410f0ec9688d5972f23940745458b2095e44a",
+      "indexSha256": "a036f04a447239399999ef1d700410f0ec9688d5972f23940745458b2095e44a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveAmbiguousSourceSuppression.cs",
+      "linuxSnapshotSha256": "b54897237e416d9024617dd2a31a5545c28f6c670b8ccde99b540624216f233e",
+      "indexSha256": "b54897237e416d9024617dd2a31a5545c28f6c670b8ccde99b540624216f233e",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveComparativeDiversityBackfill.cs",
+      "linuxSnapshotSha256": "3dc1ec3dacf742aace4743bd093e1b36bed30567361b5b6501b9e1f7285e0a36",
+      "indexSha256": "3dc1ec3dacf742aace4743bd093e1b36bed30567361b5b6501b9e1f7285e0a36",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveComparativeOperandProfiles.cs",
+      "linuxSnapshotSha256": "4a67d9928d01882158673cb5f9e67f0065336e88304349dcbf002562908c947e",
+      "indexSha256": "4a67d9928d01882158673cb5f9e67f0065336e88304349dcbf002562908c947e",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveComparativeSubjects.cs",
+      "linuxSnapshotSha256": "e94c00264ab37c5c1109cc03cae79538cc73acf8c1b8309afdc87b8eaeedf45c",
+      "indexSha256": "e94c00264ab37c5c1109cc03cae79538cc73acf8c1b8309afdc87b8eaeedf45c",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveComparativeTitles.cs",
+      "linuxSnapshotSha256": "fc575440c78d9f1494c8770de89ca26b841978fdc20302e0ec79e72c3f74a0e8",
+      "indexSha256": "fc575440c78d9f1494c8770de89ca26b841978fdc20302e0ec79e72c3f74a0e8",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveDeferredProfileSearch.cs",
+      "linuxSnapshotSha256": "60063f1db1b533e62fd06db97cb23620c5b4b172ae58dedb99a1648859ee71e4",
+      "indexSha256": "60063f1db1b533e62fd06db97cb23620c5b4b172ae58dedb99a1648859ee71e4",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveDirectTechnicalLinkedEvidence.cs",
+      "linuxSnapshotSha256": "82e4782cf70d658342e75d6b503eadbd3db54f43178c802d47776271e81b5ff9",
+      "indexSha256": "82e4782cf70d658342e75d6b503eadbd3db54f43178c802d47776271e81b5ff9",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveDirectTechnicalPhrase.cs",
+      "linuxSnapshotSha256": "8180ea05ca8c14fc5a98d103eaa3cc6e43b2befa7fe9ef56bae6c32bcc3bbc32",
+      "indexSha256": "8180ea05ca8c14fc5a98d103eaa3cc6e43b2befa7fe9ef56bae6c32bcc3bbc32",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveDiversityCoverageAndContinuation.cs",
+      "linuxSnapshotSha256": "b59d8d76ad19fcf3294524bc90467325615e1df0f030c3011b770fd5235cb53d",
+      "indexSha256": "b59d8d76ad19fcf3294524bc90467325615e1df0f030c3011b770fd5235cb53d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveDocumentHintBackfill.cs",
+      "linuxSnapshotSha256": "9570841e91889bf464ad599e333b2e5441cc49873c922096a26f4dab0769ef9e",
+      "indexSha256": "9570841e91889bf464ad599e333b2e5441cc49873c922096a26f4dab0769ef9e",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveDocumentStatusOperands.cs",
+      "linuxSnapshotSha256": "86b2f3f81abcbccfcb48cc7ae363981c2bb06841e0c66f45bfecb338a78183d3",
+      "indexSha256": "86b2f3f81abcbccfcb48cc7ae363981c2bb06841e0c66f45bfecb338a78183d3",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveEarlyCompactCodeRecovery.cs",
+      "linuxSnapshotSha256": "5df2540148029e91ce155fd4bc69a5c487a869c67590363e1544e787583ab39f",
+      "indexSha256": "5df2540148029e91ce155fd4bc69a5c487a869c67590363e1544e787583ab39f",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveEarlyDateTitleBackfill.cs",
+      "linuxSnapshotSha256": "769c6ba58dfa382c155bc0e2ae76492ad2befbadb617b8e7973dff9c34187b8e",
+      "indexSha256": "769c6ba58dfa382c155bc0e2ae76492ad2befbadb617b8e7973dff9c34187b8e",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveEarlyReferenceVersionBackfill.cs",
+      "linuxSnapshotSha256": "776b12cc496ac2b0953a0e2e03a00ff549fe234508ae7ad35a791fe982b9357d",
+      "indexSha256": "776b12cc496ac2b0953a0e2e03a00ff549fe234508ae7ad35a791fe982b9357d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveEmptyCatalogAndLexicalFallback.cs",
+      "linuxSnapshotSha256": "d1f67fce7f1e3f0f5fb7fa2875cb86133e65e3eff36e901a3086fe13ec885648",
+      "indexSha256": "d1f67fce7f1e3f0f5fb7fa2875cb86133e65e3eff36e901a3086fe13ec885648",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveEmptyTitleAndProfileRecovery.cs",
+      "linuxSnapshotSha256": "8968ec5e3126edb9c6f023ee931fc83dfe4223355ecd9c0e2ba44d1591468d82",
+      "indexSha256": "8968ec5e3126edb9c6f023ee931fc83dfe4223355ecd9c0e2ba44d1591468d82",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveEnumerativeLookup.cs",
+      "linuxSnapshotSha256": "55e37d4e2ebcb26ea509d604fa61dd4eaee718db84213ab743b05034c102e894",
+      "indexSha256": "55e37d4e2ebcb26ea509d604fa61dd4eaee718db84213ab743b05034c102e894",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFileAndCompanionRecovery.cs",
+      "linuxSnapshotSha256": "99b95f657137288c911acac166c43a8224887394af98a7745913f18a26a03622",
+      "indexSha256": "99b95f657137288c911acac166c43a8224887394af98a7745913f18a26a03622",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFinalCompactCodeProfiles.cs",
+      "linuxSnapshotSha256": "9be5596a6cfc233a69f48e31af0805f63f27d61bbc902e42c90724f9313742bb",
+      "indexSha256": "9be5596a6cfc233a69f48e31af0805f63f27d61bbc902e42c90724f9313742bb",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFinalCompactCodeRecovery.cs",
+      "linuxSnapshotSha256": "bdc3d075f7a1180dd4b86178973044da5d5e7f65e9243e1ed5f4002f069c0bf7",
+      "indexSha256": "bdc3d075f7a1180dd4b86178973044da5d5e7f65e9243e1ed5f4002f069c0bf7",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFinalDocumentHintEvidence.cs",
+      "linuxSnapshotSha256": "0279651099b752fea27834f43ac963a7cada3e4e49e12f41c65717592e49a4b7",
+      "indexSha256": "0279651099b752fea27834f43ac963a7cada3e4e49e12f41c65717592e49a4b7",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFinalLexicalProfiles.cs",
+      "linuxSnapshotSha256": "3a2f35226b06552037c8f04a725e660f9c06705260fb082f5fad656060e4c224",
+      "indexSha256": "3a2f35226b06552037c8f04a725e660f9c06705260fb082f5fad656060e4c224",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFinalPreciseTitleBackfill.cs",
+      "linuxSnapshotSha256": "c2ba95eb54caf55477556286802447d61c3ecfbddc06b7709edd4020d602b034",
+      "indexSha256": "c2ba95eb54caf55477556286802447d61c3ecfbddc06b7709edd4020d602b034",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFinalStandardReferenceProfiles.cs",
+      "linuxSnapshotSha256": "d04f26735b3244ed737fa78f2163680edcf9865a950841b626a11212dc7d4ce3",
+      "indexSha256": "d04f26735b3244ed737fa78f2163680edcf9865a950841b626a11212dc7d4ce3",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFocusedEmptyRecovery.cs",
+      "linuxSnapshotSha256": "c3a01378598ac0b4c74be0eca2355fdeae91b1b4889513f11fdd27a7a6e78ee0",
+      "indexSha256": "c3a01378598ac0b4c74be0eca2355fdeae91b1b4889513f11fdd27a7a6e78ee0",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFocusedOrdering.cs",
+      "linuxSnapshotSha256": "f591e1636c7d3126a5ba82f03ef2e9369622cdd20689968552457f3bfcec315a",
+      "indexSha256": "f591e1636c7d3126a5ba82f03ef2e9369622cdd20689968552457f3bfcec315a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFuzzyTitleLead.cs",
+      "linuxSnapshotSha256": "f6235ae6ba717be92f7af8074409d92166a3085eb3958c884a615ae07bead251",
+      "indexSha256": "f6235ae6ba717be92f7af8074409d92166a3085eb3958c884a615ae07bead251",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveInitialLinkedContext.cs",
+      "linuxSnapshotSha256": "f8e333aff5f59e4b8857a9ea6cc7e162fa1640549faf5c57de227c41b66c24d1",
+      "indexSha256": "f8e333aff5f59e4b8857a9ea6cc7e162fa1640549faf5c57de227c41b66c24d1",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveInitialSelection.cs",
+      "linuxSnapshotSha256": "f3d6f9c475c46cc2de2758d206c880eb3ab646c9b6701d76534bb0613ec7f52f",
+      "indexSha256": "f3d6f9c475c46cc2de2758d206c880eb3ab646c9b6701d76534bb0613ec7f52f",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveInitialSelectionCleanup.cs",
+      "linuxSnapshotSha256": "4c2b9329b7215c5f4b33685a58b579636a4645b1b9adbac3bab51f1ace849583",
+      "indexSha256": "4c2b9329b7215c5f4b33685a58b579636a4645b1b9adbac3bab51f1ace849583",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveLateDateTitleRecovery.cs",
+      "linuxSnapshotSha256": "e1c207761efac5a6083757123aad5eeae75bccbeb53a3c25dcfa4c0a9c4755be",
+      "indexSha256": "e1c207761efac5a6083757123aad5eeae75bccbeb53a3c25dcfa4c0a9c4755be",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveLateOrdering.cs",
+      "linuxSnapshotSha256": "4120cfc11b8ba768dcb68d581cc2dd865f29ee4486b41b3adc02add376b1fbd2",
+      "indexSha256": "4120cfc11b8ba768dcb68d581cc2dd865f29ee4486b41b3adc02add376b1fbd2",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveLateReferenceVersionRecovery.cs",
+      "linuxSnapshotSha256": "1b278ae3465bbabef20f17c853d392a2fd3c973ea7afe4fa0430cadfdc95e3bc",
+      "indexSha256": "1b278ae3465bbabef20f17c853d392a2fd3c973ea7afe4fa0430cadfdc95e3bc",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveLateStandardReferenceBackfill.cs",
+      "linuxSnapshotSha256": "4aade2eae385c28a933dce30c1740a37c470b06f6b989adcd06542a6af978277",
+      "indexSha256": "4aade2eae385c28a933dce30c1740a37c470b06f6b989adcd06542a6af978277",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveLookupRoutes.cs",
+      "linuxSnapshotSha256": "186de49cfc834c573fca90e4dc3e24e41248cb5c83c2bcd04cd9276653bd5986",
+      "indexSha256": "186de49cfc834c573fca90e4dc3e24e41248cb5c83c2bcd04cd9276653bd5986",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractivePreciseTitleContent.cs",
+      "linuxSnapshotSha256": "d6f0253ce5dac226e3e45ce4d3580276290590095b18bec261f1e3242db6920c",
+      "indexSha256": "d6f0253ce5dac226e3e45ce4d3580276290590095b18bec261f1e3242db6920c",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractivePrimaryFusion.cs",
+      "linuxSnapshotSha256": "89e581a3893cf9c65f44b426a8787b688744d5e3925c3606759f197856de6d1e",
+      "indexSha256": "89e581a3893cf9c65f44b426a8787b688744d5e3925c3606759f197856de6d1e",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractivePrimaryLookup.cs",
+      "linuxSnapshotSha256": "a7acf132b4a797321f4bc1ad993b3a121e9ad23ce538292e6a81a4959b15e785",
+      "indexSha256": "a7acf132b4a797321f4bc1ad993b3a121e9ad23ce538292e6a81a4959b15e785",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveRequestedPageWindow.cs",
+      "linuxSnapshotSha256": "5533a6b1f3c0b8f508cddcd229b4d1a364767df8e9c76985cb3b63b4a81e4d3f",
+      "indexSha256": "5533a6b1f3c0b8f508cddcd229b4d1a364767df8e9c76985cb3b63b4a81e4d3f",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveResponseProjection.cs",
+      "linuxSnapshotSha256": "8a3255a1c37af22bbd5c5f1f45cb9140bc2ea46085f9ece96c80918001c05869",
+      "indexSha256": "8a3255a1c37af22bbd5c5f1f45cb9140bc2ea46085f9ece96c80918001c05869",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveRetrievalModels.cs",
+      "linuxSnapshotSha256": "32a20187a77784a5ed1afeaa14ad6f898640408d7083b1178fd338e6d0b96b4e",
+      "indexSha256": "32a20187a77784a5ed1afeaa14ad6f898640408d7083b1178fd338e6d0b96b4e",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveRetrievalPlanner.cs",
+      "linuxSnapshotSha256": "6d199003bceab6bc9d693a579bad98895c1feb69b16f442f33a3579c17ff04b1",
+      "indexSha256": "6d199003bceab6bc9d693a579bad98895c1feb69b16f442f33a3579c17ff04b1",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveScopedProfileFallback.cs",
+      "linuxSnapshotSha256": "2012b76178a009090d0a4e102e2811ab54c091d5e8d9270dea82fc1fc69caea1",
+      "indexSha256": "2012b76178a009090d0a4e102e2811ab54c091d5e8d9270dea82fc1fc69caea1",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveSeedLookup.cs",
+      "linuxSnapshotSha256": "0e66ae4abacd2bb32583c23ef2dc31d1872d6ab7136200d0c9c903371e74f582",
+      "indexSha256": "0e66ae4abacd2bb32583c23ef2dc31d1872d6ab7136200d0c9c903371e74f582",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveStepDiagnostics.cs",
+      "linuxSnapshotSha256": "9c53100d8444c1cef94ede887df09a8cc0f7642bb6596d18f6faf2793354d5e3",
+      "indexSha256": "9c53100d8444c1cef94ede887df09a8cc0f7642bb6596d18f6faf2793354d5e3",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/RetrievalAnswerGuidance.cs",
+      "linuxSnapshotSha256": "4d4aaea9a9bf905ac3b58c64110501e7a3991d1e2bbf6158d6899e66d1dfc9fe",
+      "indexSha256": "4d4aaea9a9bf905ac3b58c64110501e7a3991d1e2bbf6158d6899e66d1dfc9fe",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/RetrievalCandidateSignals.cs",
+      "linuxSnapshotSha256": "5d681751ccb07584c7ab41a2ae8bf879120df584f09106005bb440060bf013ff",
+      "indexSha256": "5d681751ccb07584c7ab41a2ae8bf879120df584f09106005bb440060bf013ff",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/RetrievalChannels.cs",
+      "linuxSnapshotSha256": "b5bbae2bc1034d52e07fd3564296b3d7548308dc5bf4ae5803b28abd3e30e25a",
+      "indexSha256": "b5bbae2bc1034d52e07fd3564296b3d7548308dc5bf4ae5803b28abd3e30e25a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/RetrievalDiagnosticsBuilder.cs",
+      "linuxSnapshotSha256": "e12d96c39e65fcdf5e42b832c72046a7b367a08846528fe1e4052bf7ec157676",
+      "indexSha256": "e12d96c39e65fcdf5e42b832c72046a7b367a08846528fe1e4052bf7ec157676",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/RetrievalEngine.Entry.cs",
+      "linuxSnapshotSha256": "5b1ccfd897977ba68c287fc76c36e6424dcb43d1888cd29e7fb6e1634f3bbdd6",
+      "indexSha256": "5b1ccfd897977ba68c287fc76c36e6424dcb43d1888cd29e7fb6e1634f3bbdd6",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/RetrievalEngine.cs",
+      "linuxSnapshotSha256": "d4df5dac69d30cc5379a23ed1ff66be07a412a4c4eca26a2caebc6ae2deb1d74",
+      "indexSha256": "d4df5dac69d30cc5379a23ed1ff66be07a412a4c4eca26a2caebc6ae2deb1d74",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/RetrievalExecutionContext.cs",
+      "linuxSnapshotSha256": "bdb6a35e750d420459c6e472c585e9bb7044b87d9bd5ecf60607abdad4a4e0ee",
+      "indexSha256": "bdb6a35e750d420459c6e472c585e9bb7044b87d9bd5ecf60607abdad4a4e0ee",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/RetrievalLexicalExpansion.cs",
+      "linuxSnapshotSha256": "33350fb836ab42f04962faede372e61a2df7f2d31b7c34c343c986569304402b",
+      "indexSha256": "33350fb836ab42f04962faede372e61a2df7f2d31b7c34c343c986569304402b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/RetrievalMetadata.cs",
+      "linuxSnapshotSha256": "c4fdcc2fd48ede081aa4b3ba1ba9a9574b700139624ee1838dc2966d861c8064",
+      "indexSha256": "c4fdcc2fd48ede081aa4b3ba1ba9a9574b700139624ee1838dc2966d861c8064",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/RetrievalNavigation.cs",
+      "linuxSnapshotSha256": "cbe8681e5389fbdca3c184adb12dee6ae84add1d8355822b713ecb585b731420",
+      "indexSha256": "cbe8681e5389fbdca3c184adb12dee6ae84add1d8355822b713ecb585b731420",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/RetrievalPhaseDiagnostics.cs",
+      "linuxSnapshotSha256": "b0a63e0c9bb2625bc9a435e5f37aa2195180f0435cf52e9c8b0777736abd8d75",
+      "indexSha256": "b0a63e0c9bb2625bc9a435e5f37aa2195180f0435cf52e9c8b0777736abd8d75",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/RetrievalQueryPolicy.cs",
+      "linuxSnapshotSha256": "e721155498feb32bb6408058058cb421042496b059eb968a3ab896e77d0a2f8b",
+      "indexSha256": "e721155498feb32bb6408058058cb421042496b059eb968a3ab896e77d0a2f8b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/RetrievalResultProjector.cs",
+      "linuxSnapshotSha256": "b071b5652676def1cc5e3d8f5267e7f2b52290606393ed12e9f4ea87950ca121",
+      "indexSha256": "b071b5652676def1cc5e3d8f5267e7f2b52290606393ed12e9f4ea87950ca121",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/RetrievalRows.cs",
+      "linuxSnapshotSha256": "e2e042f135a6125e035f622654bd19c6dc7fb1ef8c3da66a5aad821003634411",
+      "indexSha256": "e2e042f135a6125e035f622654bd19c6dc7fb1ef8c3da66a5aad821003634411",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/RetrievalSelection.cs",
+      "linuxSnapshotSha256": "4b95972fd95ed92195478a5f9758d01512a70dfad3d5e88bf6a137162163693f",
+      "indexSha256": "4b95972fd95ed92195478a5f9758d01512a70dfad3d5e88bf6a137162163693f",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/RetrievalText.cs",
+      "linuxSnapshotSha256": "d9b0bc99fbacd05c6e1eb8ce1d05632c43ac61f00387df4ed3c49d2f7b9187b4",
+      "indexSha256": "d9b0bc99fbacd05c6e1eb8ce1d05632c43ac61f00387df4ed3c49d2f7b9187b4",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/RetrievalTitleSelection.cs",
+      "linuxSnapshotSha256": "d3cb8eb9a8441e3f7964722c93f46dc5b04c1efa2fefcdb49b797518d3c2712f",
+      "indexSha256": "d3cb8eb9a8441e3f7964722c93f46dc5b04c1efa2fefcdb49b797518d3c2712f",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/CapabilityBLiveRuntimeProbe.cs",
+      "linuxSnapshotSha256": "8d041d6c01358fe916f1eed28c49d21f7162e169b7fd90abb7dc59c99efb548b",
+      "indexSha256": "8d041d6c01358fe916f1eed28c49d21f7162e169b7fd90abb7dc59c99efb548b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityAEnrichmentCommandService.cs",
+      "linuxSnapshotSha256": "ff1167453b7e0a89801690e9b1622dd24a9e1f48f0966dbb6083e766605537cd",
+      "indexSha256": "ff1167453b7e0a89801690e9b1622dd24a9e1f48f0966dbb6083e766605537cd",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityAEnrichmentCoordinator.cs",
+      "linuxSnapshotSha256": "704b3419175d52afe1f4959c3bb13faa64fdbd7d4b767cedce06bbade1ad5365",
+      "indexSha256": "704b3419175d52afe1f4959c3bb13faa64fdbd7d4b767cedce06bbade1ad5365",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityAEnrichmentStore.cs",
+      "linuxSnapshotSha256": "1b0b2bc41852de84e0740a21e192656c48a3f19593b6bd1086ef72371e07406b",
+      "indexSha256": "1b0b2bc41852de84e0740a21e192656c48a3f19593b6bd1086ef72371e07406b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityAKpiService.cs",
+      "linuxSnapshotSha256": "9e79bf7f3cca56593765e1093ce1082490cbe48acb473a6460cf9c12d2e2ad1d",
+      "indexSha256": "9e79bf7f3cca56593765e1093ce1082490cbe48acb473a6460cf9c12d2e2ad1d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityAdminEvaluators.cs",
+      "linuxSnapshotSha256": "54d86e105f606e31038ce22356e69dfd0e9d8d642cda2e9781bb16b5c3f704f8",
+      "indexSha256": "54d86e105f606e31038ce22356e69dfd0e9d8d642cda2e9781bb16b5c3f704f8",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityAdminReadService.cs",
+      "linuxSnapshotSha256": "2de84fe3214fed45a77cfe81384b073abb609d354d50320e09b59ae5067ac24d",
+      "indexSha256": "2de84fe3214fed45a77cfe81384b073abb609d354d50320e09b59ae5067ac24d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityBBackofficeCommandService.cs",
+      "linuxSnapshotSha256": "8605318a017cec35a228e9813b89c08433ccc63671bec9606fbd3660b37e5d85",
+      "indexSha256": "8605318a017cec35a228e9813b89c08433ccc63671bec9606fbd3660b37e5d85",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityBBackofficeStore.cs",
+      "linuxSnapshotSha256": "32a4cb3d6a677532ae7e399f0606d796e294b7c0e20b5be65aeb2b6f750f135e",
+      "indexSha256": "32a4cb3d6a677532ae7e399f0606d796e294b7c0e20b5be65aeb2b6f750f135e",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityBExecutionCommandService.cs",
+      "linuxSnapshotSha256": "7bea30bcab36999d828172eda454d6f6afb585faa051eff2659d5162f8ff5159",
+      "indexSha256": "7bea30bcab36999d828172eda454d6f6afb585faa051eff2659d5162f8ff5159",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityBExecutionCoordinator.cs",
+      "linuxSnapshotSha256": "19328091952e339b61339f49f8f6721b95534b91785f8db881e11dd7a432655c",
+      "indexSha256": "19328091952e339b61339f49f8f6721b95534b91785f8db881e11dd7a432655c",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityBExecutionStore.cs",
+      "linuxSnapshotSha256": "3ece14df5060e04bedbef45da188a8d4b9b1c0b2e1193a6d61bdacdd4cc7a069",
+      "indexSha256": "3ece14df5060e04bedbef45da188a8d4b9b1c0b2e1193a6d61bdacdd4cc7a069",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityBIngestionIdleCoordinator.cs",
+      "linuxSnapshotSha256": "5e779663503ecccef6cebb5a8b8aefb67abf6a60b049f5dbefaf9dc167b95bff",
+      "indexSha256": "5e779663503ecccef6cebb5a8b8aefb67abf6a60b049f5dbefaf9dc167b95bff",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityBKpiService.cs",
+      "linuxSnapshotSha256": "edf16f889dd2e9d5fd16658bd91c28962ae6a6da1e1c5f4af2341e82bf308daf",
+      "indexSha256": "edf16f889dd2e9d5fd16658bd91c28962ae6a6da1e1c5f4af2341e82bf308daf",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityBQualityReviewStore.cs",
+      "linuxSnapshotSha256": "79882070bd0659259f1e498b1759123933de6aae5970bd1daf7d58a9489779f5",
+      "indexSha256": "79882070bd0659259f1e498b1759123933de6aae5970bd1daf7d58a9489779f5",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityBRagIdleCoordinator.cs",
+      "linuxSnapshotSha256": "483271e7241ea953c5fbbf9cb2252018c5effaac1c677045d78f346753b6b485",
+      "indexSha256": "483271e7241ea953c5fbbf9cb2252018c5effaac1c677045d78f346753b6b485",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityCampaignStore.cs",
+      "linuxSnapshotSha256": "75462ea7b67c1cc1e25fcd13ee0b74ccb50ccad521880c57fa2877ec57097f14",
+      "indexSha256": "75462ea7b67c1cc1e25fcd13ee0b74ccb50ccad521880c57fa2877ec57097f14",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityDiagnosticsBuilder.cs",
+      "linuxSnapshotSha256": "7aa399c431fe1e4e64552322a03f26ffd755f9ca8e38a58cc13318a1dbf4f349",
+      "indexSha256": "7aa399c431fe1e4e64552322a03f26ffd755f9ca8e38a58cc13318a1dbf4f349",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityGateService.cs",
+      "linuxSnapshotSha256": "57134e8115bbdf3fd55c9cffa26d850d56b0a4eeba4231ffad07ac983e80243b",
+      "indexSha256": "57134e8115bbdf3fd55c9cffa26d850d56b0a4eeba4231ffad07ac983e80243b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityHistoryStore.cs",
+      "linuxSnapshotSha256": "650f2cf06516fac6f1619e09f1bac96cf7400ba432874561a5e1fa22b7651452",
+      "indexSha256": "650f2cf06516fac6f1619e09f1bac96cf7400ba432874561a5e1fa22b7651452",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityLifecycleCoordinator.cs",
+      "linuxSnapshotSha256": "7a39d666c7d4959918fa779601635a5e0ce2de2206d3f8dc4f9f25322a1e0b32",
+      "indexSha256": "7a39d666c7d4959918fa779601635a5e0ce2de2206d3f8dc4f9f25322a1e0b32",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityPersistenceStore.cs",
+      "linuxSnapshotSha256": "35ae761e7355343d8895ad6a2e618fba841933cb417c4572294d071cf87f484f",
+      "indexSha256": "35ae761e7355343d8895ad6a2e618fba841933cb417c4572294d071cf87f484f",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityRegistry.cs",
+      "linuxSnapshotSha256": "10b754621d669d6c0169b186edde08a6b80a55d5ff6cc4893811c6e028be8255",
+      "indexSha256": "10b754621d669d6c0169b186edde08a6b80a55d5ff6cc4893811c6e028be8255",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilitySelectionCoordinator.cs",
+      "linuxSnapshotSha256": "2c2b8b5ba2b9a2f132978bddf2ef74ed3390fb2c454ae3fdd3cc3622c023e259",
+      "indexSha256": "2c2b8b5ba2b9a2f132978bddf2ef74ed3390fb2c454ae3fdd3cc3622c023e259",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilitySelectionOrchestrator.cs",
+      "linuxSnapshotSha256": "b5fc801183a66f36c27b7131d77e6247cb27faa64260c1103c239ab4f23e4574",
+      "indexSha256": "b5fc801183a66f36c27b7131d77e6247cb27faa64260c1103c239ab4f23e4574",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityStateProjector.cs",
+      "linuxSnapshotSha256": "50c94dd01ca35a9bdffcf0b0095abd96fbc7fddc0b90a8cb04ec37e5087121d0",
+      "indexSha256": "50c94dd01ca35a9bdffcf0b0095abd96fbc7fddc0b90a8cb04ec37e5087121d0",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityStateResolver.cs",
+      "linuxSnapshotSha256": "ca78fbe811401583011b3cc7c501982a69de1e3d1734eebf5ffc328777fbedd5",
+      "indexSha256": "ca78fbe811401583011b3cc7c501982a69de1e3d1734eebf5ffc328777fbedd5",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityStateStore.cs",
+      "linuxSnapshotSha256": "b949c5818973c4c15af45f2576170b76b0135b8f7c60b884c08cf8ddc5d04315",
+      "indexSha256": "b949c5818973c4c15af45f2576170b76b0135b8f7c60b884c08cf8ddc5d04315",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCatalogBuilder.cs",
+      "linuxSnapshotSha256": "ceff2d8977c5c9d5e8be6eea2140b85d601db0b8da323d5dd6f4f090493bc7a3",
+      "indexSha256": "ceff2d8977c5c9d5e8be6eea2140b85d601db0b8da323d5dd6f4f090493bc7a3",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCoreRetrievalWarmupEvaluator.cs",
+      "linuxSnapshotSha256": "c1bd6883dc379d8783e866cfb4030dab52106d3561659d68f525b327c063da3d",
+      "indexSha256": "c1bd6883dc379d8783e866cfb4030dab52106d3561659d68f525b327c063da3d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeDiagnosticsService.cs",
+      "linuxSnapshotSha256": "28279d615bf2d035765398e4036401d2cf1e11c0460134ebdd36181640e69e50",
+      "indexSha256": "28279d615bf2d035765398e4036401d2cf1e11c0460134ebdd36181640e69e50",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeGovernanceCatalogService.cs",
+      "linuxSnapshotSha256": "a1fff3c6a00baf1c8b0bc1b95654b8fecd80f215525e9569b40cd6778fb55659",
+      "indexSha256": "a1fff3c6a00baf1c8b0bc1b95654b8fecd80f215525e9569b40cd6778fb55659",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeGovernanceCommandService.cs",
+      "linuxSnapshotSha256": "0969e01c9bbe6bfb229545800afc640eb8a517614e937880986587eeb15e3031",
+      "indexSha256": "0969e01c9bbe6bfb229545800afc640eb8a517614e937880986587eeb15e3031",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeGovernanceGateModels.cs",
+      "linuxSnapshotSha256": "4078cbe52c975d5100a9aaa788f7f0ddcb7a5c59bf7b4bbf49c37bc988517c13",
+      "indexSha256": "4078cbe52c975d5100a9aaa788f7f0ddcb7a5c59bf7b4bbf49c37bc988517c13",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeGovernanceJson.cs",
+      "linuxSnapshotSha256": "39faeaa9f36e26f9395816614ad54970be1d4030053ffb3622c1af31352fd9e1",
+      "indexSha256": "39faeaa9f36e26f9395816614ad54970be1d4030053ffb3622c1af31352fd9e1",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeGovernanceOperationModels.cs",
+      "linuxSnapshotSha256": "d28a3705185c7999736f10b75c8094b7a6383963f2457d54ea419d94a6a107c9",
+      "indexSha256": "d28a3705185c7999736f10b75c8094b7a6383963f2457d54ea419d94a6a107c9",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeGovernanceReadService.cs",
+      "linuxSnapshotSha256": "f976252cab1ea4061eae431c5a887fa9a82b0e8303bc969969f881d22877709b",
+      "indexSha256": "f976252cab1ea4061eae431c5a887fa9a82b0e8303bc969969f881d22877709b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeGovernanceService.cs",
+      "linuxSnapshotSha256": "d15c26629695cc35797f85960eba0d2ac2cfddfa08b7be2d0d07e134f4dc4b7a",
+      "indexSha256": "d15c26629695cc35797f85960eba0d2ac2cfddfa08b7be2d0d07e134f4dc4b7a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeLlmCapacityPlanService.cs",
+      "linuxSnapshotSha256": "87012c082668e31fea0fa5e1e3519dd905066750acba4d79edf70b039cafd5f2",
+      "indexSha256": "87012c082668e31fea0fa5e1e3519dd905066750acba4d79edf70b039cafd5f2",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeLlmQueueManager.cs",
+      "linuxSnapshotSha256": "cd2ae178770e280b29a6aecd6dfd13c7c2ce9a883e9c610e1e34a19942d2c0a5",
+      "indexSha256": "cd2ae178770e280b29a6aecd6dfd13c7c2ce9a883e9c610e1e34a19942d2c0a5",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeRetrievalKpiService.cs",
+      "linuxSnapshotSha256": "45b85794dde4597f55eed2eaa3d2a403f4f1a6309ae2f09afbf317a138e1e2f4",
+      "indexSha256": "45b85794dde4597f55eed2eaa3d2a403f4f1a6309ae2f09afbf317a138e1e2f4",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/SAAIA.Backend.csproj",
+      "linuxSnapshotSha256": "f6525b694d54151286b19b94bafe8f8689fc345d240d5f2c859cd29ef8da679d",
+      "indexSha256": "f6525b694d54151286b19b94bafe8f8689fc345d240d5f2c859cd29ef8da679d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Security/ConfigSignatureOptions.cs",
+      "linuxSnapshotSha256": "3ca6c5f1bd91686160e19a5d7bf8cd49f0e2bb57b68213bb31ab1f94259bcab8",
+      "indexSha256": "3ca6c5f1bd91686160e19a5d7bf8cd49f0e2bb57b68213bb31ab1f94259bcab8",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Security/SecretRefResolver.cs",
+      "linuxSnapshotSha256": "4cda2dd21ccc50b4b93036757a1babf25eff8326e289ac3739923c407161624b",
+      "indexSha256": "4cda2dd21ccc50b4b93036757a1babf25eff8326e289ac3739923c407161624b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Security/SignedConfigLoader.cs",
+      "linuxSnapshotSha256": "def129ab17d36c511b304620de992add292ca779fd7394b14ba157998071c6c5",
+      "indexSha256": "def129ab17d36c511b304620de992add292ca779fd7394b14ba157998071c6c5",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Security/SignedConfigStatus.cs",
+      "linuxSnapshotSha256": "77e691dc65a8201e7b3d307923d43249581353bd5d523ad9b90d8cf09c093053",
+      "indexSha256": "77e691dc65a8201e7b3d307923d43249581353bd5d523ad9b90d8cf09c093053",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Security/TrustedKeyring.cs",
+      "linuxSnapshotSha256": "cffadbd772d584cbe10b9d49a0efdb419ebb7a68e39ff51e396030ccaf1b0f9e",
+      "indexSha256": "cffadbd772d584cbe10b9d49a0efdb419ebb7a68e39ff51e396030ccaf1b0f9e",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Shared/DocPathNormalizer.cs",
+      "linuxSnapshotSha256": "db128ef66c3d60e89305f671b15acfc8a0a635cd869218d0e41fa3b07ebde19d",
+      "indexSha256": "db128ef66c3d60e89305f671b15acfc8a0a635cd869218d0e41fa3b07ebde19d",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Shared/IdUtil.cs",
+      "linuxSnapshotSha256": "b16a9e4d33d32cefaeca22b663a99ce08fc7de283e218bd7e8bd9f67d418c4db",
+      "indexSha256": "b16a9e4d33d32cefaeca22b663a99ce08fc7de283e218bd7e8bd9f67d418c4db",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Shared/OpaqueCursor.cs",
+      "linuxSnapshotSha256": "a52b60e1e55d6c93075ee5c6b4ac0583a68dbc41a8ede14ffe7bc844f07dce25",
+      "indexSha256": "a52b60e1e55d6c93075ee5c6b4ac0583a68dbc41a8ede14ffe7bc844f07dce25",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Shared/PathUtil.cs",
+      "linuxSnapshotSha256": "3733f752f4bca43edba99bc554e9b7f9e26cf02393cf8698a9ca96e5bb566722",
+      "indexSha256": "3733f752f4bca43edba99bc554e9b7f9e26cf02393cf8698a9ca96e5bb566722",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Shared/PostgresTextSanitizer.cs",
+      "linuxSnapshotSha256": "a1aca590e8ce0a6d8ec1fe92d5c479ffd735a5cdaeb9fd2c80f36e0b55d5633a",
+      "indexSha256": "a1aca590e8ce0a6d8ec1fe92d5c479ffd735a5cdaeb9fd2c80f36e0b55d5633a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Shared/TextEncodingSanitizer.cs",
+      "linuxSnapshotSha256": "8bfd19072597535f1e57981fa79745a78621e8d5740eedd9b5f88100064155f0",
+      "indexSha256": "8bfd19072597535f1e57981fa79745a78621e8d5740eedd9b5f88100064155f0",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Tenancy/TenantResolver.cs",
+      "linuxSnapshotSha256": "830808bad96cd5a972a85a6e1785c6f30b1c66bd7b6ecaa5309e35ddb5af0f19",
+      "indexSha256": "830808bad96cd5a972a85a6e1785c6f30b1c66bd7b6ecaa5309e35ddb5af0f19",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/appsettings.Development.json",
+      "linuxSnapshotSha256": "808f809a0243507c6731d371940348486b36f338d5e920f30e64ead50189cbec",
+      "indexSha256": "808f809a0243507c6731d371940348486b36f338d5e920f30e64ead50189cbec",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/appsettings.json",
+      "linuxSnapshotSha256": "7bea5e9c118258b57992ca636c49f5c16c078a201aca017116660609e928a4cf",
+      "indexSha256": "7bea5e9c118258b57992ca636c49f5c16c078a201aca017116660609e928a4cf",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/deployment.config.template.json",
+      "linuxSnapshotSha256": "ec4150c9d74df8cad3c944bda20a8f4ca6f72c081adf3be3d6a3f33d5dd5b411",
+      "indexSha256": "ec4150c9d74df8cad3c944bda20a8f4ca6f72c081adf3be3d6a3f33d5dd5b411",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/wwwroot/index.html",
+      "linuxSnapshotSha256": "75e8a1778ddc2453d31ce6c6d739752721be909533bb0035421ce430b4650b41",
+      "indexSha256": "3be62b03a6ef6a90c0f7f7afe27de0b83de4ede9aa535d915b9e43b8a221c077",
+      "bytesExact": false,
+      "onlyGitDeclaredLineEndingNormalization": true
+    },
+    {
+      "path": "contracts/SAAIA.Contracts/AdvancedAnalysisClientLayoutLimits.cs",
+      "linuxSnapshotSha256": "3d5c8bca83ea0f49899f99cff77079fc3591438c8dfd18528de8c454d0b83685",
+      "indexSha256": "3d5c8bca83ea0f49899f99cff77079fc3591438c8dfd18528de8c454d0b83685",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "contracts/SAAIA.Contracts/AdvancedAnalysisContracts.cs",
+      "linuxSnapshotSha256": "fdfafa375219975704f0c63f3fb0dbf528a2684b1072847d5d3b4724fc3ad0d8",
+      "indexSha256": "fdfafa375219975704f0c63f3fb0dbf528a2684b1072847d5d3b4724fc3ad0d8",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "contracts/SAAIA.Contracts/AdvancedAnalysisConversationContext.cs",
+      "linuxSnapshotSha256": "247e91d85b2e3c82a973548bcc590704991686ce83cc830a3c6ad0274c1efe50",
+      "indexSha256": "247e91d85b2e3c82a973548bcc590704991686ce83cc830a3c6ad0274c1efe50",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "contracts/SAAIA.Contracts/ApiContracts.cs",
+      "linuxSnapshotSha256": "87c11c7bccce120bf69000a7ca25cd2dd31a9098a90d3ad80a872813e11bc8e2",
+      "indexSha256": "87c11c7bccce120bf69000a7ca25cd2dd31a9098a90d3ad80a872813e11bc8e2",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "contracts/SAAIA.Contracts/DocumentFoundationContracts.cs",
+      "linuxSnapshotSha256": "27407187130428497f32b41be7cddd6cdf192b3c6d0ffeef49f2c53717e0eb37",
+      "indexSha256": "27407187130428497f32b41be7cddd6cdf192b3c6d0ffeef49f2c53717e0eb37",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "contracts/SAAIA.Contracts/DocumentIntelligence/CanonicalContent.cs",
+      "linuxSnapshotSha256": "0e5b8875feac1651312a1fbe2f3ce3111b73b20e212819312cc2d005fcd7f754",
+      "indexSha256": "0e5b8875feac1651312a1fbe2f3ce3111b73b20e212819312cc2d005fcd7f754",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "contracts/SAAIA.Contracts/DocumentIntelligence/CanonicalContractJson.cs",
+      "linuxSnapshotSha256": "1e214fbc4fefac4ff6f24fc2ce05eaad7a5c0344cbff01af2490a76a3394c47b",
+      "indexSha256": "1e214fbc4fefac4ff6f24fc2ce05eaad7a5c0344cbff01af2490a76a3394c47b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "contracts/SAAIA.Contracts/DocumentIntelligence/CanonicalContractValidator.cs",
+      "linuxSnapshotSha256": "67559b5a836c376b146bc43349bb9df5e0cce8b697441ec4abb583adf36bff44",
+      "indexSha256": "67559b5a836c376b146bc43349bb9df5e0cce8b697441ec4abb583adf36bff44",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "contracts/SAAIA.Contracts/DocumentIntelligence/CanonicalDocument.cs",
+      "linuxSnapshotSha256": "a8a1ff236de4377276e1c99631599ff0f4c4e6c4fa1ea4ceac34c0c3646bd06b",
+      "indexSha256": "a8a1ff236de4377276e1c99631599ff0f4c4e6c4fa1ea4ceac34c0c3646bd06b",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "contracts/SAAIA.Contracts/DocumentIntelligence/CanonicalEvidenceResolver.cs",
+      "linuxSnapshotSha256": "3d5176d54b6d615a41e8efd3979e36f3e702eb88e3d3a751fe348dcdbf4ce0d9",
+      "indexSha256": "3d5176d54b6d615a41e8efd3979e36f3e702eb88e3d3a751fe348dcdbf4ce0d9",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "contracts/SAAIA.Contracts/DocumentIntelligence/CanonicalGeometry.cs",
+      "linuxSnapshotSha256": "1cc4cc953b3d87963bc44eaa02dbbc914f05f4f4214a3315ebeb6b268f2f36e4",
+      "indexSha256": "1cc4cc953b3d87963bc44eaa02dbbc914f05f4f4214a3315ebeb6b268f2f36e4",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "contracts/SAAIA.Contracts/DocumentIntelligence/CanonicalIngestionBundle.cs",
+      "linuxSnapshotSha256": "89261a42a1cbdb10e6f7a8e0132acea3b54c81d0190ab3ca99a2cd4e2b3446b2",
+      "indexSha256": "89261a42a1cbdb10e6f7a8e0132acea3b54c81d0190ab3ca99a2cd4e2b3446b2",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "contracts/SAAIA.Contracts/DocumentIntelligence/CanonicalStructuredContent.cs",
+      "linuxSnapshotSha256": "54a1792fd5dd481729da17b818210d9a644745b7ced1f1ad56078af1fe1afb33",
+      "indexSha256": "54a1792fd5dd481729da17b818210d9a644745b7ced1f1ad56078af1fe1afb33",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "contracts/SAAIA.Contracts/DocumentIntelligence/IngestionManifest.cs",
+      "linuxSnapshotSha256": "702a118e380280a42f7a4879a4aa65bfd0809f942d47fc66e2d3d19e100fd750",
+      "indexSha256": "702a118e380280a42f7a4879a4aa65bfd0809f942d47fc66e2d3d19e100fd750",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "contracts/SAAIA.Contracts/DocumentIntelligence/IngestionManifestValidator.cs",
+      "linuxSnapshotSha256": "3bafaf9653fde96af3b067341d66195e4f701ff32db0611717288c35f29d2e03",
+      "indexSha256": "3bafaf9653fde96af3b067341d66195e4f701ff32db0611717288c35f29d2e03",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "contracts/SAAIA.Contracts/DocumentIntelligence/SourceAnchor.cs",
+      "linuxSnapshotSha256": "ac528b8e4914345cc93bcf2df4af9b0554c40b0116460246becc64642aedb186",
+      "indexSha256": "ac528b8e4914345cc93bcf2df4af9b0554c40b0116460246becc64642aedb186",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "contracts/SAAIA.Contracts/SAAIA.Contracts.csproj",
+      "linuxSnapshotSha256": "753b6bae7cc0e384041d9c9d0284d8e75f9caa0568f74d170b3be9e743cf406a",
+      "indexSha256": "753b6bae7cc0e384041d9c9d0284d8e75f9caa0568f74d170b3be9e743cf406a",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    },
+    {
+      "path": "global.json",
+      "linuxSnapshotSha256": "d20455f046c5c80f14e9085a3ed7f7fee2ea81fffbfa7f07decf893372e1a355",
+      "indexSha256": "d20455f046c5c80f14e9085a3ed7f7fee2ea81fffbfa7f07decf893372e1a355",
+      "bytesExact": true,
+      "onlyGitDeclaredLineEndingNormalization": false
+    }
+  ]
+}

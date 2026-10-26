@@ -2,6 +2,9 @@
 # We keep Git in control of EOLs for text files.
 * text=auto
 .gitattributes text eol=lf
+.dockerignore text eol=lf
+Dockerfile text eol=lf
+.env.example text eol=lf
 
 # Common text formats -> LF
 *.md        text eol=lf
@@ -50,5 +53,6 @@ artifacts/winui-journey-completion-20261025/** -text
 artifacts/global-audit-paid-20261025/** -text
 artifacts/luna-live-20261025/** -text
 artifacts/ingestion-ocr-audit-20261025/** -text whitespace=cr-at-eol
+artifacts/ingestion-runtime-gc-20261026/** -text whitespace=cr-at-eol
 # This pinned corpus manifest is hashed as input; preserve its tested bytes.
 config/ingestion-acceptance-gold.v2.json -text whitespace=cr-at-eol

@@ -1,0 +1,41 @@
+{
+  "executed": true,
+  "passed": true,
+  "containerId": "5cddfeb7b24ec50ad94b8cc48beb45903727306b798b3e9b7f375d25118005c7",
+  "imageId": "sha256:306dea810850f2aea6d0c11e10fdf65f00f5bc9ecf5f960dd8d18cb1c4700d81",
+  "exitCode": 0,
+  "oomKilled": false,
+  "networkMode": "none",
+  "stopped": true,
+  "startedAtUnix": 1793011515.0716846,
+  "finishedAtUnix": 1793011547.6327848,
+  "testResult": {
+    "schemaVersion": "saaia-linux-ocr-e2e.v1",
+    "passed": true,
+    "checks": {
+      "vstestExitZero": true,
+      "exactlyOnePassedNoSkip": true,
+      "testBackendUnchanged": true,
+      "linuxImageBackendUnchanged": true,
+      "testAssemblyUnchanged": true,
+      "inventoryUnchanged": true,
+      "hostResolutionMentionsSnapshotBackend": true,
+      "hostResolutionMentionsSnapshotTestAssembly": true,
+      "engineDiagnosticsPresent": true
+    },
+    "counts": {
+      "total": 1,
+      "executed": 1,
+      "passed": 1,
+      "failed": 0,
+      "notExecuted": 0
+    },
+    "exactTest": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.Real_scanned_pdf_ocr_extracts_text_when_opted_in",
+    "testBackendSha256": "36d369a7ae567b73698324de1e76c078267edf386ecfd16f45a23c76513cf5a0",
+    "linuxImageBackendSha256": "f6825b8c36bc26a5da8308eb4d4a5ec87c62d6962f57f644c725e8e606eb18c4",
+    "testAssemblySha256": "583c9042fb813784d405311e0dacdd68ec04637c9c4f4e8ce7a44b057299523f",
+    "packageInventorySha256": "60d5f834a3526839991b1ec7c024cc1815541f993a8b895a0098835bd5482b72",
+    "scope": "existing_OCR_engine_test_plus_local_projections_not_full_worker_or_signed_production",
+    "assemblyLoadEvidence": "passed_test_exercises_backend_and_corehost_resolution_names_local_snapshot;not_profiler_module_attestation"
+  }
+}

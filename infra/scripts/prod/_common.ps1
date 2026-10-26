@@ -1,14 +1,13 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'DeploymentIdentity.ps1')
+. (Join-Path $PSScriptRoot 'DotEnvParser.ps1')
 
 function Escape-JsonString([string]$s) {
   if ($null -eq $s) { return '' }
-  # Minimal JSON string escaping (no dependencies, PowerShell 5.1 friendly)
-  $x = $s.Replace('\', '\\')
-  $x = $x.Replace('"', '\"')
-  $x = $x.Replace("`r", '')
-  $x = $x.Replace("`n", '\n')
-  return $x
+  # Built-in serialization preserves decoded control characters as JSON escapes.
+  $encoded=ConvertTo-Json -InputObject $s -Compress
+  return $encoded.Substring(1,$encoded.Length-2)
 }
 
 function Get-RepoRoot {
@@ -43,31 +42,6 @@ function Resolve-PathFromRepo([string]$RepoRoot, [string]$maybeRelOrAbs) {
 
   # Relative to repo root
   return [System.IO.Path]::GetFullPath((Join-Path $RepoRoot $v))
-}
-
-function Read-DotEnv {
-  param(
-    # Back-compat: some scripts call Read-DotEnv -Path ...
-    [Parameter(Mandatory=$true)][Alias('Path')][string]$EnvPath
-  )
-
-  if ([string]::IsNullOrWhiteSpace($EnvPath)) {
-    throw "Missing .env path (empty string)."
-  }
-
-  if (!(Test-Path $EnvPath)) { throw "Missing .env: $EnvPath" }
-
-  $map = @{}
-  Get-Content $EnvPath | ForEach-Object {
-    $line = $_.Trim()
-    if ($line -eq '' -or $line.StartsWith('#')) { return }
-    $idx = $line.IndexOf('=')
-    if ($idx -lt 1) { return }
-    $k = $line.Substring(0, $idx).Trim()
-    $v = $line.Substring($idx+1).Trim()
-    $map[$k] = $v
-  }
-  return $map
 }
 
 function Require([hashtable]$env, [string[]]$keys) {
@@ -218,13 +192,14 @@ function New-SignedConfig {
     [int]$minimum,
     [int]$maximum
   ) {
-    if (-not $env.ContainsKey($name) -or [string]::IsNullOrWhiteSpace([string]$env[$name])) {
+    $rawValue = Get-EffectiveDeploymentValue $env $name
+    if ([string]::IsNullOrWhiteSpace($rawValue)) {
       return $default
     }
 
     $parsed = 0
     $parsedOk = [int]::TryParse(
-        [string]$env[$name],
+        $rawValue,
         [Globalization.NumberStyles]::Integer,
         [Globalization.CultureInfo]::InvariantCulture,
         [ref]$parsed)
@@ -318,6 +293,10 @@ function New-SignedConfig {
   if ($env.ContainsKey('TEI_MODEL_ID') -and -not [string]::IsNullOrWhiteSpace($env['TEI_MODEL_ID'])) { $teiModel = $env['TEI_MODEL_ID'] }
   $teiModelRevision = 'd128750597153bb5987e10b1c3493a34e5a4502a'
   if ($env.ContainsKey('TEI_MODEL_REVISION') -and -not [string]::IsNullOrWhiteSpace($env['TEI_MODEL_REVISION'])) { $teiModelRevision = $env['TEI_MODEL_REVISION'] }
+  $teiModel = Get-EffectiveDeploymentValue $env 'TEI_MODEL_ID' $teiModel
+  $teiModelRevision = Get-EffectiveDeploymentValue $env 'TEI_MODEL_REVISION' $teiModelRevision
+  $teiRuntimeRevision = Resolve-DeploymentRuntimeRevision $env 'TEI_IMAGE' 'TEI_RUNTIME_REVISION' (Get-ComposeDefaultImage $RepoRoot 'TEI_IMAGE')
+  $qdrantRuntimeRevision = Resolve-DeploymentRuntimeRevision $env 'QDRANT_IMAGE' 'QDRANT_RUNTIME_REVISION' (Get-ComposeDefaultImage $RepoRoot 'QDRANT_IMAGE')
 
   $rerankEnabledBool = $true
   if ($env.ContainsKey('SAAIA_RERANK_ENABLED')) {
@@ -345,7 +324,7 @@ function New-SignedConfig {
     '__RAG_SEARCH_QUEUE_WAIT_TIMEOUT_SECONDS__' = Read-EnvInt 'SAAIA_RAG_SEARCH_QUEUE_WAIT_TIMEOUT_SECONDS' 25 1 3600
     '__RAG_SEARCH_RETRY_AFTER_SECONDS__' = Read-EnvInt 'SAAIA_RAG_SEARCH_RETRY_AFTER_SECONDS' 3 1 3600
     '__RERANK_MAX_CANDIDATES__' = Read-EnvInt 'SAAIA_RERANK_MAX_CANDIDATES' 12 2 128
-    '__INGESTION_CHUNK_MAX_WORDS__' = Read-EnvInt 'SAAIA_INGESTION_CHUNK_MAX_WORDS' 220 25 5000
+    '__INGESTION_CHUNK_MAX_WORDS__' = Read-EnvInt 'SAAIA_INGESTION_CHUNK_MAX_WORDS' 200 25 5000
     '__INGESTION_CHUNK_OVERLAP_WORDS__' = Read-EnvInt 'SAAIA_INGESTION_CHUNK_OVERLAP_WORDS' 0 0 5000
     '__INGESTION_CHUNK_MIN_WORDS__' = Read-EnvInt 'SAAIA_INGESTION_CHUNK_MIN_WORDS' 25 1 5000
     '__INGESTION_EMBEDDINGS_BATCH_SIZE__' = Read-EnvInt 'SAAIA_INGESTION_EMBEDDINGS_BATCH_SIZE' 16 1 256
@@ -359,6 +338,9 @@ function New-SignedConfig {
     '__INGESTION_OCR_BULKHEAD_QUEUE_WAIT_TIMEOUT_SECONDS__' = Read-EnvInt 'SAAIA_OCR_BULKHEAD_QUEUE_WAIT_TIMEOUT_SECONDS' 21600 1 86400
     '__INGESTION_HEAVY_COMPUTE_QUEUE_WAIT_TIMEOUT_SECONDS__' = Read-EnvInt 'SAAIA_INGESTION_HEAVY_COMPUTE_QUEUE_WAIT_TIMEOUT_SECONDS' 21600 1 86400
   }
+  $chunkMax = $operationalInts['__INGESTION_CHUNK_MAX_WORDS__']
+  if ($operationalInts['__INGESTION_CHUNK_MIN_WORDS__'] -gt $chunkMax) { throw 'ChunkMinWords must not exceed ChunkMaxWords.' }
+  if ($operationalInts['__INGESTION_CHUNK_OVERLAP_WORDS__'] -ge $chunkMax) { throw 'ChunkOverlapWords must be below ChunkMaxWords.' }
 
   $content = Get-Content $templatePath -Raw
   $content = $content.Replace('__AUTH_PEPPER__', (Escape-JsonString $env['SAAIA_AUTH_PEPPER']))
@@ -369,6 +351,8 @@ function New-SignedConfig {
   $content = $content.Replace('__POSTGRES_USER__', (Escape-JsonString $pgUser))
   $content = $content.Replace('__TEI_MODEL_ID__', (Escape-JsonString $teiModel))
   $content = $content.Replace('__TEI_MODEL_REVISION__', (Escape-JsonString $teiModelRevision))
+  $content = $content.Replace('__TEI_RUNTIME_REVISION__', (Escape-JsonString $teiRuntimeRevision))
+  $content = $content.Replace('__QDRANT_RUNTIME_REVISION__', (Escape-JsonString $qdrantRuntimeRevision))
   $content = $content.Replace('__RERANK_ENABLED__', $rerankEnabled)
   $content = $content.Replace('__RERANK_MODEL_ID__', (Escape-JsonString $rerankModel))
   $content = $content.Replace('__REQUIRE_QDRANT_AUTH__', $requireQdrantAuth)
@@ -386,6 +370,8 @@ function New-SignedConfig {
         [Globalization.CultureInfo]::InvariantCulture))
   }
 
+  if ($content -match '__[A-Z0-9_]+__') { throw 'Rendered deployment config contains unresolved placeholders.' }
+  $content | ConvertFrom-Json | Out-Null
   $content | Out-File -FilePath $outCfg -Encoding utf8
 
   # Sign
@@ -403,5 +389,5 @@ function New-SignedConfig {
 
   if ($LASTEXITCODE -ne 0) { throw "ConfigSigner failed ($LASTEXITCODE)" }
 
-  return [pscustomobject]@{ ConfigPath=$outCfg; SigPath=$outSig; DeployDir=$deployFull }
+  return [pscustomobject]@{ ConfigPath=$outCfg; SigPath=$outSig; DeployDir=$deployFull; EmbeddingsRuntimeRevision=$teiRuntimeRevision; QdrantRuntimeRevision=$qdrantRuntimeRevision }
 }

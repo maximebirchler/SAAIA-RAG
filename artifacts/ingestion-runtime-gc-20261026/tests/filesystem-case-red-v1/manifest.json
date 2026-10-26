@@ -1,0 +1,177 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "02276533c32d4cbea74bcc59d0db5191",
+  "startedAtUtc": "2026-10-26T07:34:38.3944231+00:00",
+  "finishedAtUtc": "2026-10-26T07:34:50.9432570+00:00",
+  "gitCommit": "eb0d47dcb1bb5e6d0038c81c78d95418a5e272c6",
+  "gitDirty": true,
+  "profile": "Unit",
+  "filter": "(Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid)&(FullyQualifiedName~IngestionDuplicateFileCaseIdentityTests|FullyQualifiedName~IngestionFileInventoryTests)",
+  "requestedProjects": [
+    "Backend"
+  ],
+  "configuration": "Release",
+  "buildRequested": true,
+  "restoreRequested": false,
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-26T07:34:39.3828001+00:00",
+    "sha256": "C214E76ECE67367D9451A150F0B6B647C3C9485FA62FB018C029728974D4091C",
+    "fileCount": 1812,
+    "inventory": "source-files-02276533c32d4cbea74bcc59d0db5191-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-26T07:34:51.6070579+00:00",
+    "sha256": "C214E76ECE67367D9451A150F0B6B647C3C9485FA62FB018C029728974D4091C",
+    "fileCount": 1812,
+    "inventory": "source-files-02276533c32d4cbea74bcc59d0db5191-after.json"
+  },
+  "sourceChangedDuringRun": false,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "state": "failed",
+  "prerequisites": [],
+  "environment": {
+    "clientDataIsolation": {
+      "requiredForClientTests": true,
+      "enabled": false,
+      "source": "not_selected",
+      "environmentRestored": null,
+      "ownedRelativePath": null,
+      "rootId": null
+    },
+    "neutralizedVariableNames": []
+  },
+  "results": [
+    {
+      "project": "Backend",
+      "path": "backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj",
+      "status": "failed",
+      "exitCode": 1,
+      "trx": "Backend-02276533c32d4cbea74bcc59d0db5191.trx",
+      "trxSha256": "214D6898DB2DBAE11E306028B08011C6A87C79663D23DEAB05D777E89B9A0A63",
+      "assemblies": [
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.AdvancedValidationJobGuard.dll",
+          "role": "local_product_dependency",
+          "sha256": "79B463A4B048D90378344D9F77B14172B88FC2429DD6D9C114949F551AB39F7B",
+          "sizeBytes": 62464,
+          "lastWriteTimeUtc": "2026-10-26T05:53:58.9639244Z",
+          "capturedAtUtc": "2026-10-26T07:34:50.9184888+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.dll",
+          "role": "local_product_dependency",
+          "sha256": "9786989C5FD1A242DF396EDA9B4D0B0B58D9D74D4579089A7D1CA3CD4348075D",
+          "sizeBytes": 7989760,
+          "lastWriteTimeUtc": "2026-10-26T07:34:45.9884819Z",
+          "capturedAtUtc": "2026-10-26T07:34:50.9260577+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "533F6C68BFDA8C967B18248C5151DE91136CDAF6530697EE7E77F831078E1519",
+          "sizeBytes": 5232640,
+          "lastWriteTimeUtc": "2026-10-26T07:34:49.6474485Z",
+          "capturedAtUtc": "2026-10-26T07:34:50.9312515+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "998E1CACA2D3AB343CD3F4D1F4771EB9E03F30AA59AAB84FF869254F3036C87B",
+          "sizeBytes": 154112,
+          "lastWriteTimeUtc": "2026-10-26T05:53:58.9869305Z",
+          "capturedAtUtc": "2026-10-26T07:34:50.9319837+00:00"
+        }
+      ],
+      "counts": {
+        "notExecuted": 1,
+        "failed": 4,
+        "adapterReportedExecuted": 12,
+        "total": 13,
+        "executed": 12,
+        "passed": 8
+      },
+      "cases": [
+        {
+          "duration": "00:00:00.0008536",
+          "outcome": "Failed",
+          "name": "SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_retain_only_does_not_keep_a_different_case_path_cache_entry"
+        },
+        {
+          "duration": "00:00:00.0001302",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.IngestionFileInventoryTests.Access_or_io_failure_is_unknown_not_absent(denied: True)"
+        },
+        {
+          "duration": "00:00:00.0010000",
+          "outcome": "NotExecuted",
+          "name": "SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Real_Linux_case_distinct_files_same_size_and_mtime_keep_their_distinct_hashes_and_publication_candidates"
+        },
+        {
+          "duration": "00:00:00.0007713",
+          "outcome": "Failed",
+          "name": "SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_cached_duplicate_chain_never_suppresses_distinct_case_file_with_different_content"
+        },
+        {
+          "duration": "00:00:00.0012265",
+          "outcome": "Failed",
+          "name": "SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_case_distinct_paths_do_not_share_cached_hash_for_same_size_and_mtime"
+        },
+        {
+          "duration": "00:00:00.0001501",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.IngestionFileInventoryTests.Missing_root_does_not_assert_absence_of_all_sources"
+        },
+        {
+          "duration": "00:00:00.0086796",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.IngestionFileInventoryTests.Enumeration_error_never_counts_as_complete_absence"
+        },
+        {
+          "duration": "00:00:00.0003275",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.IngestionFileInventoryTests.Bounded_cursor_visits_later_sources_and_restarts_only_after_complete_cycle"
+        },
+        {
+          "duration": "00:00:00.0010566",
+          "outcome": "Failed",
+          "name": "SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_identical_case_distinct_files_keep_one_canonical_and_one_duplicate"
+        },
+        {
+          "duration": "00:00:00.0096871",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Windows_case_aliases_keep_the_same_cached_identity_and_canonical_path"
+        },
+        {
+          "duration": "00:00:00.0016680",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.IngestionFileInventoryTests.Traversal_is_unknown_without_probing_outside_root"
+        },
+        {
+          "duration": "00:00:00.0001180",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.IngestionFileInventoryTests.Only_explicit_not_found_under_accessible_root_is_absence"
+        },
+        {
+          "duration": "00:00:00.0001427",
+          "outcome": "Passed",
+          "name": "SAAIA.Backend.Tests.IngestionFileInventoryTests.Access_or_io_failure_is_unknown_not_absent(denied: False)"
+        }
+      ]
+    }
+  ],
+  "model": {
+    "reason": "Unit and PostgreSQL profiles do not invoke a model.",
+    "state": "not_applicable"
+  },
+  "corpus": {
+    "reason": "IntegrationPg fixtures create isolated databases; no production corpus is assumed.",
+    "state": "synthetic_fixtures"
+  },
+  "validationProfilesSha256": "8E4B990BC0A828134E5FE0D8E7B2D82406B56D2A200D8D4D37516208E3D3201D",
+  "selectionPolicy": "TRX covers selected tests; excluded profiles were not executed.",
+  "excludedProfiles": [
+    "IntegrationPg",
+    "LiveLocal",
+    "LivePaid"
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "schema": "saaia.vector-gc-central-green-review.v1",
+  "reviewedAtUtc": "2026-10-26T06:52:00.282494+00:00",
+  "executedByAuthor": false,
+  "reviewMethod": "artifact_only_trx_counts_hashes_and_current_source_bytes",
+  "sourceFreezeAggregateSha256": "c5c5cf08f30a4f4d2febbae7e8dd390be3c51e1002152aafdf3c112181981732",
+  "sourceFilesVerified": 18,
+  "changedSinceFreeze": [],
+  "campaigns": [
+    {
+      "name": "unit-all-gc-final-v1",
+      "runId": "f43e20340bbf4e74b0dea3653089bc54",
+      "state": "passed",
+      "sourceChangedDuringRun": false,
+      "manifestPath": "artifacts/ingestion-runtime-gc-20261026/tests/unit-all-gc-final-v1/manifest.json",
+      "manifestSha256": "3162182b06f3892b8a7e17392897b06faf108a1c2b10783176c07a3c03237075",
+      "outcomes": {
+        "Passed": 5283,
+        "NotExecuted": 1
+      },
+      "gcSubsetOutcomes": {
+        "Passed": 28
+      },
+      "trx": [
+        {
+          "path": "artifacts/ingestion-runtime-gc-20261026/tests/unit-all-gc-final-v1/Backend-f43e20340bbf4e74b0dea3653089bc54.trx",
+          "sha256": "5c4a84a38c3d54a5c056ca32b6c485da9c10998b1b3a92986c4d0f6de5dd32af"
+        },
+        {
+          "path": "artifacts/ingestion-runtime-gc-20261026/tests/unit-all-gc-final-v1/Client-f43e20340bbf4e74b0dea3653089bc54.trx",
+          "sha256": "29289f382a933c8d0f58afdfe05ecc36e84c1a42557cde70cdc36f0f752ce434"
+        },
+        {
+          "path": "artifacts/ingestion-runtime-gc-20261026/tests/unit-all-gc-final-v1/ClientCore-f43e20340bbf4e74b0dea3653089bc54.trx",
+          "sha256": "838fcf50ddc083165bbd4fdd3a79a3e5c7a58e3b7bd72b51f40410bee0582fae"
+        },
+        {
+          "path": "artifacts/ingestion-runtime-gc-20261026/tests/unit-all-gc-final-v1/Contracts-f43e20340bbf4e74b0dea3653089bc54.trx",
+          "sha256": "de60f5008eaa18d977284313f45aaf106a5423bff64d6a28b095e1426a4d2953"
+        }
+      ]
+    },
+    {
+      "name": "postgres-all-gc-final-v1",
+      "runId": "a4e71dac7aa049e08cbc8a47f09f1eb5",
+      "state": "passed",
+      "sourceChangedDuringRun": false,
+      "manifestPath": "artifacts/ingestion-runtime-gc-20261026/tests/postgres-all-gc-final-v1/tests/manifest.json",
+      "manifestSha256": "1b8edefe72aace7d4d92ab6a737e3367bd056f29fec9f92ef7b07b62c8cfa079",
+      "outcomes": {
+        "Passed": 334,
+        "NotExecuted": 2
+      },
+      "gcSubsetOutcomes": {
+        "Passed": 24
+      },
+      "trx": [
+        {
+          "path": "artifacts/ingestion-runtime-gc-20261026/tests/postgres-all-gc-final-v1/tests/Backend-a4e71dac7aa049e08cbc8a47f09f1eb5.trx",
+          "sha256": "6823f98e0d332cb3d7b777835aac4be8fb2639580f87720b9e6ef8a6941fb903"
+        }
+      ]
+    }
+  ],
+  "productionSignedQualificationClaimed": false,
+  "liveVectorGcQualificationClaimed": false,
+  "passed": true
+}

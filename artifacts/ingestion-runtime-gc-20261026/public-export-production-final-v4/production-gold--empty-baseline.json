@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "saaia-linux-public-proof-projection.v3",
+  "campaignRole": "production-gold",
+  "campaignRunId": "84cf61ff-6fb9-4fd3-a1f6-8b4b559eecff",
+  "qualificationFamily": "production",
+  "sourceFile": "empty-baseline.json",
+  "sourceSha256": "44c7b8c8b04f18fc2f4770acf08665a5d6bb6f369d06dea2322cb18c764af023",
+  "sourceByteSize": 106,
+  "proof": {
+    "documents": 0,
+    "jobs": 0,
+    "revisions": 0,
+    "units": 0,
+    "chunks": 0,
+    "canonicalBundles": 0
+  },
+  "projectionOnly": true,
+  "independentRuntimeValidationPerformedByExporter": false
+}

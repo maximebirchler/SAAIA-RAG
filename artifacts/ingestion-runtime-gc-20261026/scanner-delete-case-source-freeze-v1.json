@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "saaia-scanner-delete-case-freeze.v1",
+  "frozenAtUtc": "2026-10-26T07:54:15.4983660Z",
+  "state": "SOURCE_FROZEN_PENDING_CENTRAL_GREEN",
+  "files": [
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/JobRepo.ConditionalDelete.cs",
+      "sha256": "f7950119e60302a0338d67f4b7e35b8a47e2382e64b03abf23c29c4696af4078"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/JobRepo.Completion.cs",
+      "sha256": "90f0dd3880014232f88167974d3646bcc44dc489c9c6a3ca5a01b1ce8d5d614c"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionWorker.cs",
+      "sha256": "98356d0b06ada6414d97567b6500bb71b19033a2b61fe135d1f6d49be5ccfb92"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionLeaseGuard.cs",
+      "sha256": "29969d4821cc19adeae5b526f6f2cef5c29b5a05f8b4dd331f1f529a56066943"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionEnqueue.Delete.cs",
+      "sha256": "f9c1bb9eb890c36de95cdd371adceeede2904f2e64f0c4a3d90af909de6d93e5"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/JobRepo.cs",
+      "sha256": "15c1c254d15ca0d2d6eccdabad7b66457ae8814d51b6453cd7be448ad13eeffa"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionJobPayloadJson.cs",
+      "sha256": "245abda5a16845a73c722caa6be191a0df97e8f730fd59da75ddfa2dfc88ec33"
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.ConditionalDeleteSafety.cs",
+      "sha256": "6df87d14d5cb6a8f44407b1b19012dfc88f7a93a2a5e6e50efb59a04d2ced38b"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionFileSystemPathIdentity.cs",
+      "sha256": "758d2128134e10b8ad14b226a4066e323e41a932c3d6127aae00baa56734ea62"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionFileContentHashCache.cs",
+      "sha256": "7162a92fe577ffc165b16e3749ebed921392b01896a74f8eeea3a13b4c78ba72"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionDuplicateFilePlanner.cs",
+      "sha256": "0c7b30a2c6b1be1fc491b703238af7cce2c494959bdff9365db1e52933933ddd"
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/IngestionDuplicateFileCaseIdentityTests.cs",
+      "sha256": "0f963a462a77790a44dd64ef06a5bd3b59fac07f38169e5b8bb5eb3862710d16"
+    }
+  ],
+  "testsExecutedByOwner": 0,
+  "filters": [
+    "FullyQualifiedName~Scanner_conditional_delete",
+    "FullyQualifiedName~Conditional_delete_commit",
+    "FullyQualifiedName~Superseded_running_delete_preserves_latest_versioned_conditional_intent",
+    "FullyQualifiedName~Returned_source_transition",
+    "FullyQualifiedName~IngestionDuplicateFileCaseIdentityTests",
+    "FullyQualifiedName~IngestionDuplicateFilePlannerTests"
+  ],
+  "legacyPolicy": "Unannotated historical delete requests remain unconditional; drain old queues before upgrade to qualify scanner provenance."
+}

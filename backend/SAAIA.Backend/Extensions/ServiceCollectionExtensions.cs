@@ -41,6 +41,7 @@ public static class ServiceCollectionExtensions
         services.Configure<DatabaseOptions>(config.GetSection("Database"));
         services.Configure<RagOptions>(config.GetSection("Rag"));
         services.Configure<IngestionOptions>(config.GetSection("Ingestion"));
+        services.Configure<VectorGcOptions>(config.GetSection("VectorGc"));
         services.Configure<DocumentIntelligenceOptions>(config.GetSection("DocumentIntelligence"));
         services.Configure<ChatOptions>(config.GetSection("Chat"));
         services.Configure<RateLimitOptions>(config.GetSection("RateLimiting"));
@@ -170,6 +171,8 @@ public static class ServiceCollectionExtensions
             }
         });
         services.AddHttpClient("tei", c => c.Timeout = TimeSpan.FromMinutes(5));
+        services.AddHttpClient("vector-gc", c => c.Timeout = TimeSpan.FromSeconds(30))
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false, UseProxy = false });
         services.AddHttpClient("advanced-analysis-llm", c =>
             c.Timeout = Timeout.InfiniteTimeSpan);
         services.AddHttpClient("docling", (sp, c) =>
@@ -198,7 +201,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IngestionJobCancellationRegistry>();
         services.AddSingleton(sp => new DoclingClient(
             sp.GetRequiredService<IHttpClientFactory>(),
-            sp.GetRequiredService<IOptions<DocumentIntelligenceOptions>>().Value));
+            sp.GetRequiredService<IOptions<DocumentIntelligenceOptions>>().Value,
+            sp.GetRequiredService<ILogger<DoclingClient>>()));
         services.AddSingleton<RuntimeLlmCapacityPlanService>();
         services.AddSingleton<RuntimeLlmQueueManager>();
         services.AddSingleton(sp => new LocalLlmChatClient(
@@ -262,6 +266,10 @@ public static class ServiceCollectionExtensions
         });
 
         // ---------- Worker ----------
+        services.AddSingleton<IVectorGcTransport, VectorGcQdrantTransport>();
+        services.AddSingleton<VectorGcRuntimeState>();
+        services.AddSingleton<VectorGarbageCollector>();
+        services.AddHostedService<VectorGcWorker>();
         services.AddHostedService<IngestionWorker>();
         services.AddHostedService<IngestionScanner>();
         services.AddHostedService<CapabilityBBackofficeWorker>();

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "saaia-staged-publication-safety-scan.v1",
+  "observedAtUtc": "2026-10-26T11:19:43.909018+00:00",
+  "passed": true,
+  "reviewedChangedFileCount": 413,
+  "selectionSha256": "0ac241930a7f381b9d5821f259d9a72abbd5320048950536f9ffff5d955adf9e",
+  "reviewedIndexContentSha256": "49c9c8e476c64ce7c4c924c2faa1f328df6456db10029947329411ff2a2f1a70",
+  "stagedFilesExactlySelected": true,
+  "workingBytesExactOrOnlyGitLineEndings": true,
+  "lineEndingOnlyPaths": [
+    ".gitignore",
+    "backend/SAAIA.Backend.Tests/Fixtures/ocr-realistic-raster-v1.manifest.json",
+    "infra/.env.example"
+  ],
+  "secretPatternKindsChecked": [
+    "known_authorized_ssh_password",
+    "openai_credential_format",
+    "telegram_bot_credential",
+    "private_pem",
+    "dpapi_blob"
+  ],
+  "secretPatternFindings": [],
+  "actualPrivateKeyOrSecretStoresRead": false,
+  "privateKeyBytesCompared": false,
+  "scanLimit": "Explicit allowlist, independent privacy review and recognizable credential formats; no claim of exhaustive arbitrary-secret detection.",
+  "archiveModelOrPrivateCaptureFilesSelected": false,
+  "gitDiffCachedCheckPassed": true,
+  "thisReportExcludedFromItsOwnScan": true
+}

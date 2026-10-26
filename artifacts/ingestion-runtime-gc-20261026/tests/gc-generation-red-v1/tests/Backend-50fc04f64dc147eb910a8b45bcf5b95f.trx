@@ -1,0 +1,258 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="c715a9e7-1a8d-4316-a3b4-1369a655bce0" name="maxim@MAXBI 2026-10-26 06:54:17" runUser="MAXBI\maxim" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-26T06:54:17.1942826+01:00" queuing="2026-10-26T06:54:17.1942828+01:00" start="2026-10-26T06:54:13.4428153+01:00" finish="2026-10-26T06:54:24.6635996+01:00" />
+  <TestSettings name="default" id="8ce456e1-2eda-4329-a6c8-2c716cedd838">
+    <Deployment runDeploymentRoot="maxim_MAXBI_2026-10-26_06_54_17" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="05c2e573-c989-4eeb-897f-9e382efaba82" testId="584f5bf3-0b5b-6955-8d49-b2e3bf677e53" testName="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: &quot;delete&quot;, nextAction: &quot;upsert&quot;, removeTenant: False)" computerName="MAXBI" duration="00:00:00.8034429" startTime="2026-10-26T06:54:22.2692038+01:00" endTime="2026-10-26T06:54:22.2692040+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="05c2e573-c989-4eeb-897f-9e382efaba82">
+      <Output>
+        <ErrorInfo>
+          <Message>A physical document removal must preserve the generation floor. Previous=1; next=1; chunkReused=True; planReused=True; pointReused=True. A delayed delete of a retired plan must never address the recreated publication.</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="1dc62ad0-5ac0-49cc-80b6-9b1e0ab57107" testId="e16764fe-2e23-bde5-a4c5-806e56a4263f" testName="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: &quot;upsert&quot;, nextAction: &quot;upsert&quot;, removeTenant: False)" computerName="MAXBI" duration="00:00:00.7962036" startTime="2026-10-26T06:54:21.4641934+01:00" endTime="2026-10-26T06:54:21.4641937+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1dc62ad0-5ac0-49cc-80b6-9b1e0ab57107">
+      <Output>
+        <ErrorInfo>
+          <Message>A physical document removal must preserve the generation floor. Previous=1; next=1; chunkReused=True; planReused=True; pointReused=True. A delayed delete of a retired plan must never address the recreated publication.</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="8c31569e-b1b7-4381-a05d-868915747fdd" testId="efae491f-e0c6-38c2-ebec-649377055bcc" testName="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: &quot;delete&quot;, nextAction: &quot;delete&quot;, removeTenant: True)" computerName="MAXBI" duration="00:00:01.3328097" startTime="2026-10-26T06:54:17.0019899+01:00" endTime="2026-10-26T06:54:17.0020002+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8c31569e-b1b7-4381-a05d-868915747fdd">
+      <Output>
+        <ErrorInfo>
+          <Message>A physical tenant removal must preserve the generation floor. Previous=1; next=1; chunkReused=True; planReused=True; pointReused=True. A delayed delete of a retired plan must never address the recreated publication.</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="730e5f6d-5321-4651-beef-f7946facfb4b" testId="a71b0653-a871-293c-8795-bf45e1f41d79" testName="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: &quot;upsert&quot;, nextAction: &quot;delete&quot;, removeTenant: True)" computerName="MAXBI" duration="00:00:00.8432681" startTime="2026-10-26T06:54:20.6664198+01:00" endTime="2026-10-26T06:54:20.6664199+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="730e5f6d-5321-4651-beef-f7946facfb4b">
+      <Output>
+        <ErrorInfo>
+          <Message>A physical tenant removal must preserve the generation floor. Previous=1; next=1; chunkReused=True; planReused=True; pointReused=True. A delayed delete of a retired plan must never address the recreated publication.</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="36e146c0-371a-40ad-9d67-49794c05fdec" testId="03e6953b-336b-b44e-e386-bd3065febc85" testName="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: &quot;upsert&quot;, nextAction: &quot;delete&quot;, removeTenant: False)" computerName="MAXBI" duration="00:00:01.0056162" startTime="2026-10-26T06:54:18.0083601+01:00" endTime="2026-10-26T06:54:18.0083603+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="36e146c0-371a-40ad-9d67-49794c05fdec">
+      <Output>
+        <ErrorInfo>
+          <Message>A physical document removal must preserve the generation floor. Previous=1; next=1; chunkReused=True; planReused=True; pointReused=True. A delayed delete of a retired plan must never address the recreated publication.</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="d5a31acd-940d-477b-a38a-a326a0d42de6" testId="f8de00df-b0ff-7cd2-28ed-5b9ba5241bbb" testName="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_current_generation_retry_preserves_generation_but_renews_lease" computerName="MAXBI" duration="00:00:00.7994709" startTime="2026-10-26T06:54:24.6228005+01:00" endTime="2026-10-26T06:54:24.6228007+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d5a31acd-940d-477b-a38a-a326a0d42de6" />
+    <UnitTestResult executionId="cee93c36-e2eb-4952-91ef-581ed793215c" testId="b54e0a0b-0a72-3122-fa06-538339f2080d" testName="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_generation_floor_isolated_by_tenant_and_document_identity" computerName="MAXBI" duration="00:00:00.7358908" startTime="2026-10-26T06:54:23.8232992+01:00" endTime="2026-10-26T06:54:23.8232995+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="cee93c36-e2eb-4952-91ef-581ed793215c" />
+    <UnitTestResult executionId="a26e3e2f-e474-40a4-834c-f7c085023fdd" testId="410a1af2-f99e-c0f2-bc34-efe5db840a65" testName="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: &quot;upsert&quot;, nextAction: &quot;upsert&quot;, removeTenant: True)" computerName="MAXBI" duration="00:00:00.8159552" startTime="2026-10-26T06:54:23.0863560+01:00" endTime="2026-10-26T06:54:23.0863562+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a26e3e2f-e474-40a4-834c-f7c085023fdd">
+      <Output>
+        <ErrorInfo>
+          <Message>A physical tenant removal must preserve the generation floor. Previous=1; next=1; chunkReused=True; planReused=True; pointReused=True. A delayed delete of a retired plan must never address the recreated publication.</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="b4710753-503d-4213-a5cc-ae0448213162" testId="993aa00e-deb8-c2ca-c68b-3210b47c26fe" testName="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: &quot;delete&quot;, nextAction: &quot;delete&quot;, removeTenant: False)" computerName="MAXBI" duration="00:00:00.9634877" startTime="2026-10-26T06:54:18.9732655+01:00" endTime="2026-10-26T06:54:18.9732657+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b4710753-503d-4213-a5cc-ae0448213162">
+      <Output>
+        <ErrorInfo>
+          <Message>A physical document removal must preserve the generation floor. Previous=1; next=1; chunkReused=True; planReused=True; pointReused=True. A delayed delete of a retired plan must never address the recreated publication.</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="e6bdcd31-bce9-47c0-af82-97ecd06634ec" testId="f5d7ac70-2450-c0f0-4b1c-bc33d42585dc" testName="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: &quot;delete&quot;, nextAction: &quot;upsert&quot;, removeTenant: True)" computerName="MAXBI" duration="00:00:00.8468009" startTime="2026-10-26T06:54:19.8217575+01:00" endTime="2026-10-26T06:54:19.8217576+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e6bdcd31-bce9-47c0-af82-97ecd06634ec">
+      <Output>
+        <ErrorInfo>
+          <Message>A physical tenant removal must preserve the generation floor. Previous=1; next=1; chunkReused=True; planReused=True; pointReused=True. A delayed delete of a retired plan must never address the recreated publication.</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs:line 62&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: &quot;delete&quot;, nextAction: &quot;upsert&quot;, removeTenant: True)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="f5d7ac70-2450-c0f0-4b1c-bc33d42585dc">
+      <Execution id="e6bdcd31-bce9-47c0-af82-97ecd06634ec" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests" name="Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: &quot;upsert&quot;, nextAction: &quot;upsert&quot;, removeTenant: False)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="e16764fe-2e23-bde5-a4c5-806e56a4263f">
+      <Execution id="1dc62ad0-5ac0-49cc-80b6-9b1e0ab57107" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests" name="Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_generation_floor_isolated_by_tenant_and_document_identity" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="b54e0a0b-0a72-3122-fa06-538339f2080d">
+      <Execution id="cee93c36-e2eb-4952-91ef-581ed793215c" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests" name="Vector_gc_generation_floor_isolated_by_tenant_and_document_identity" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: &quot;upsert&quot;, nextAction: &quot;delete&quot;, removeTenant: False)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="03e6953b-336b-b44e-e386-bd3065febc85">
+      <Execution id="36e146c0-371a-40ad-9d67-49794c05fdec" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests" name="Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: &quot;upsert&quot;, nextAction: &quot;delete&quot;, removeTenant: True)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="a71b0653-a871-293c-8795-bf45e1f41d79">
+      <Execution id="730e5f6d-5321-4651-beef-f7946facfb4b" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests" name="Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: &quot;delete&quot;, nextAction: &quot;delete&quot;, removeTenant: False)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="993aa00e-deb8-c2ca-c68b-3210b47c26fe">
+      <Execution id="b4710753-503d-4213-a5cc-ae0448213162" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests" name="Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: &quot;delete&quot;, nextAction: &quot;delete&quot;, removeTenant: True)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="efae491f-e0c6-38c2-ebec-649377055bcc">
+      <Execution id="8c31569e-b1b7-4381-a05d-868915747fdd" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests" name="Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_current_generation_retry_preserves_generation_but_renews_lease" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="f8de00df-b0ff-7cd2-28ed-5b9ba5241bbb">
+      <Execution id="d5a31acd-940d-477b-a38a-a326a0d42de6" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests" name="Vector_gc_current_generation_retry_preserves_generation_but_renews_lease" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: &quot;delete&quot;, nextAction: &quot;upsert&quot;, removeTenant: False)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="584f5bf3-0b5b-6955-8d49-b2e3bf677e53">
+      <Execution id="05c2e573-c989-4eeb-897f-9e382efaba82" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests" name="Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: &quot;upsert&quot;, nextAction: &quot;upsert&quot;, removeTenant: True)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="410a1af2-f99e-c0f2-bc34-efe5db840a65">
+      <Execution id="a26e3e2f-e474-40a4-834c-f7c085023fdd" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests" name="Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="584f5bf3-0b5b-6955-8d49-b2e3bf677e53" executionId="05c2e573-c989-4eeb-897f-9e382efaba82" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e16764fe-2e23-bde5-a4c5-806e56a4263f" executionId="1dc62ad0-5ac0-49cc-80b6-9b1e0ab57107" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="efae491f-e0c6-38c2-ebec-649377055bcc" executionId="8c31569e-b1b7-4381-a05d-868915747fdd" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a71b0653-a871-293c-8795-bf45e1f41d79" executionId="730e5f6d-5321-4651-beef-f7946facfb4b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="03e6953b-336b-b44e-e386-bd3065febc85" executionId="36e146c0-371a-40ad-9d67-49794c05fdec" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f8de00df-b0ff-7cd2-28ed-5b9ba5241bbb" executionId="d5a31acd-940d-477b-a38a-a326a0d42de6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b54e0a0b-0a72-3122-fa06-538339f2080d" executionId="cee93c36-e2eb-4952-91ef-581ed793215c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="410a1af2-f99e-c0f2-bc34-efe5db840a65" executionId="a26e3e2f-e474-40a4-834c-f7c085023fdd" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="993aa00e-deb8-c2ca-c68b-3210b47c26fe" executionId="b4710753-503d-4213-a5cc-ae0448213162" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f5d7ac70-2450-c0f0-4b1c-bc33d42585dc" executionId="e6bdcd31-bce9-47c0-af82-97ecd06634ec" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Les résultats ne figurent pas dans une liste" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="Tous les résultats chargés" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="10" executed="10" passed="2" failed="8" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 8.0.27)&#xD;
+[xUnit.net 00:00:01.31]   Discovering: SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:01.53]   Discovered:  SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:01.55]   Starting:    SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:02.91]       A physical tenant removal must preserve the generation floor. Previous=1; next=1; chunkReused=True; planReused=True; pointReused=True. A delayed delete of a retired plan must never address the recreated publication.&#xD;
+[xUnit.net 00:00:02.91]       Stack Trace:&#xD;
+[xUnit.net 00:00:02.91]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:02.91]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:02.91]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:02.91]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:02.91]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:03.92]       A physical document removal must preserve the generation floor. Previous=1; next=1; chunkReused=True; planReused=True; pointReused=True. A delayed delete of a retired plan must never address the recreated publication.&#xD;
+[xUnit.net 00:00:03.92]       Stack Trace:&#xD;
+[xUnit.net 00:00:03.92]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:03.92]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:03.92]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:03.92]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:03.92]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:04.88]       A physical document removal must preserve the generation floor. Previous=1; next=1; chunkReused=True; planReused=True; pointReused=True. A delayed delete of a retired plan must never address the recreated publication.&#xD;
+[xUnit.net 00:00:04.88]       Stack Trace:&#xD;
+[xUnit.net 00:00:04.88]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:04.88]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:04.88]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:04.88]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:04.88]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:05.73]       A physical tenant removal must preserve the generation floor. Previous=1; next=1; chunkReused=True; planReused=True; pointReused=True. A delayed delete of a retired plan must never address the recreated publication.&#xD;
+[xUnit.net 00:00:05.73]       Stack Trace:&#xD;
+[xUnit.net 00:00:05.73]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:05.73]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:05.73]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:05.73]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:05.73]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:06.57]       A physical tenant removal must preserve the generation floor. Previous=1; next=1; chunkReused=True; planReused=True; pointReused=True. A delayed delete of a retired plan must never address the recreated publication.&#xD;
+[xUnit.net 00:00:06.57]       Stack Trace:&#xD;
+[xUnit.net 00:00:06.57]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:06.57]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:06.57]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:06.57]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:06.57]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:07.37]       A physical document removal must preserve the generation floor. Previous=1; next=1; chunkReused=True; planReused=True; pointReused=True. A delayed delete of a retired plan must never address the recreated publication.&#xD;
+[xUnit.net 00:00:07.37]       Stack Trace:&#xD;
+[xUnit.net 00:00:07.37]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:07.37]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:07.37]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:07.37]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:07.37]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:08.18]       A physical document removal must preserve the generation floor. Previous=1; next=1; chunkReused=True; planReused=True; pointReused=True. A delayed delete of a retired plan must never address the recreated publication.&#xD;
+[xUnit.net 00:00:08.18]       Stack Trace:&#xD;
+[xUnit.net 00:00:08.18]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:08.18]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:08.18]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:08.18]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:08.18]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:08.99]       A physical tenant removal must preserve the generation floor. Previous=1; next=1; chunkReused=True; planReused=True; pointReused=True. A delayed delete of a retired plan must never address the recreated publication.&#xD;
+[xUnit.net 00:00:08.99]       Stack Trace:&#xD;
+[xUnit.net 00:00:08.99]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:08.99]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:08.99]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:08.99]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcLifecycle.cs(62,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(String firstAction, String nextAction, Boolean removeTenant)&#xD;
+[xUnit.net 00:00:08.99]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:10.53]   Finished:    SAAIA.Backend.Tests&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T06:54:17.0009604+01:00">
+        <Text>[xUnit.net 00:00:02.91]     SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: "delete", nextAction: "delete", removeTenant: True) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T06:54:18.0083347+01:00">
+        <Text>[xUnit.net 00:00:03.92]     SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: "upsert", nextAction: "delete", removeTenant: False) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T06:54:18.9732405+01:00">
+        <Text>[xUnit.net 00:00:04.88]     SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: "delete", nextAction: "delete", removeTenant: False) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T06:54:19.8217579+01:00">
+        <Text>[xUnit.net 00:00:05.73]     SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: "delete", nextAction: "upsert", removeTenant: True) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T06:54:20.6664346+01:00">
+        <Text>[xUnit.net 00:00:06.57]     SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: "upsert", nextAction: "delete", removeTenant: True) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T06:54:21.4641503+01:00">
+        <Text>[xUnit.net 00:00:07.37]     SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: "upsert", nextAction: "upsert", removeTenant: False) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T06:54:22.2690012+01:00">
+        <Text>[xUnit.net 00:00:08.18]     SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: "delete", nextAction: "upsert", removeTenant: False) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T06:54:23.0863372+01:00">
+        <Text>[xUnit.net 00:00:08.99]     SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: "upsert", nextAction: "upsert", removeTenant: True) [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

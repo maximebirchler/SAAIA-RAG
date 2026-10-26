@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "saaia-linux-public-proof-projection.v3",
+  "campaignRole": "production-gold",
+  "campaignRunId": "84cf61ff-6fb9-4fd3-a1f6-8b4b559eecff",
+  "qualificationFamily": "production",
+  "sourceFile": "backend-binary-identity.json",
+  "sourceSha256": "af06325c97890cb1a4fe43079c54c8c7696e50b79f85e298ffd32ae210efbce6",
+  "sourceByteSize": 340,
+  "proof": {
+    "windowsAssemblyIdentityReused": false,
+    "imageId": "sha256:d272895b502e7cd902afa7c197eac34b1227ffacfde80204c02f4b444b3587cd",
+    "codeRevisionObservedByReadiness": "source-sha256:dca75ae2906275ab1120aa316aab0c4d5d492fa74a5853dcd5eeb56bb3111a5a",
+    "assemblySha256": "f6825b8c36bc26a5da8308eb4d4a5ec87c62d6962f57f644c725e8e606eb18c4"
+  },
+  "projectionOnly": true,
+  "independentRuntimeValidationPerformedByExporter": false
+}

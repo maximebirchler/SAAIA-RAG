@@ -1,0 +1,646 @@
+{
+  "schemaVersion": "saaia-independent-public-final-review.v1",
+  "reviewedAtUtc": "2026-10-26T11:13:54.573439+00:00",
+  "verdict": "NO_MATERIAL_INCONSISTENCY_WITH_EXPLICIT_LIMITS",
+  "issues": [],
+  "scope": "Read-only public exports, local manifests/TRX and allowlisted source hashes; no network/service/dotnet/Git or secret stores",
+  "seals": [
+    {
+      "directory": "public-export-production-final-v4",
+      "sealedFiles": 54,
+      "sealSha256": "c43d581287694cd6a43bcf278205699422d12db4603dc18303cdd0c5c9f789a7",
+      "fileHashesAndSizesExact": true,
+      "noUnsealedFiles": true
+    },
+    {
+      "directory": "public-supplement-final-v4",
+      "sealedFiles": 16,
+      "sealSha256": "ae1eed5d0f1b10aa702d9afbb2a4e65eb57b99f35a1512b3400582b9ef24ff43",
+      "fileHashesAndSizesExact": true,
+      "noUnsealedFiles": true
+    }
+  ],
+  "signedRuntimeBindings": [
+    {
+      "role": "production-gold",
+      "runId": "84cf61ff-6fb9-4fd3-a1f6-8b4b559eecff",
+      "configurationSha256": "ab0763fce1ce378061d9f7143646e8d5e5b8485473bf9571b46f738730711898",
+      "signedProductionAndImageConsistent": true
+    },
+    {
+      "role": "production-recipe",
+      "runId": "5f40863a-7030-4593-b6b4-efc5bae0dae0",
+      "configurationSha256": "71182643f89dca532f1930a6693cefe110d58bb7136185baa984b54b1691c2c2",
+      "signedProductionAndImageConsistent": true
+    },
+    {
+      "role": "production-auto-scanner",
+      "runId": "678433d1-fb2a-4c9c-b3a9-04ba93800095",
+      "configurationSha256": "2d3e3fd932632743622874391b05f297929787b83cc687f0fabff1991ddf9701",
+      "signedProductionAndImageConsistent": true
+    },
+    {
+      "role": "production-auto-watcher",
+      "runId": "72dca7da-254d-40de-8f91-84b2c6a94a4e",
+      "configurationSha256": "19179616cfcb67dfcd7ea6b579a95c5acf3de8c424732c2783cbbd3c63d20752",
+      "signedProductionAndImageConsistent": true
+    },
+    {
+      "role": "production-auto-defaults",
+      "runId": "624c1c62-019d-4262-b347-3512bbf4b7ab",
+      "configurationSha256": "a862c0ae441375c744a67f6a26c73a8ad53e369a54c4b5f292dfff0a7758804d",
+      "signedProductionAndImageConsistent": true
+    }
+  ],
+  "dependencyHealthBindings": [
+    {
+      "role": "gold-production",
+      "runId": "84cf61ff-6fb9-4fd3-a1f6-8b4b559eecff",
+      "passed": true,
+      "attempts": 11,
+      "backendCreatedAfterHealth": true
+    },
+    {
+      "role": "recipe-production",
+      "runId": "5f40863a-7030-4593-b6b4-efc5bae0dae0",
+      "passed": true,
+      "attempts": 11,
+      "backendCreatedAfterHealth": true
+    },
+    {
+      "role": "scanner",
+      "runId": "678433d1-fb2a-4c9c-b3a9-04ba93800095",
+      "passed": true,
+      "attempts": 9,
+      "backendCreatedAfterHealth": true
+    },
+    {
+      "role": "watcher",
+      "runId": "72dca7da-254d-40de-8f91-84b2c6a94a4e",
+      "passed": true,
+      "attempts": 9,
+      "backendCreatedAfterHealth": true
+    },
+    {
+      "role": "defaults",
+      "runId": "624c1c62-019d-4262-b347-3512bbf4b7ab",
+      "passed": true,
+      "attempts": 11,
+      "backendCreatedAfterHealth": true
+    }
+  ],
+  "buildBinding": {
+    "fileCount": 445,
+    "computedCodeRevision": "source-sha256:dca75ae2906275ab1120aa316aab0c4d5d492fa74a5853dcd5eeb56bb3111a5a",
+    "linuxImageId": "sha256:d272895b502e7cd902afa7c197eac34b1227ffacfde80204c02f4b444b3587cd",
+    "linuxAssemblySha256": "f6825b8c36bc26a5da8308eb4d4a5ec87c62d6962f57f644c725e8e606eb18c4",
+    "windowsAnyCpuBackendSha256": "36d369a7ae567b73698324de1e76c078267edf386ecfd16f45a23c76513cf5a0",
+    "windowsAnyCpuTestSha256": "583c9042fb813784d405311e0dacdd68ec04637c9c4f4e8ce7a44b057299523f",
+    "allCurrentAllowlistedSourceBytesMatchBuild": true,
+    "unitSourceOverlap": 436,
+    "unitSourceOverlapMatching": 436,
+    "buildFilesOutsideUnitInventory": [
+      ".dockerignore",
+      "backend/SAAIA.Backend/.dockerignore",
+      "backend/SAAIA.Backend/Dockerfile",
+      "backend/SAAIA.Backend/Properties/launchSettings.json",
+      "backend/SAAIA.Backend/appsettings.Development.json",
+      "backend/SAAIA.Backend/appsettings.json",
+      "backend/SAAIA.Backend/deployment.config.template.json",
+      "backend/SAAIA.Backend/wwwroot/index.html",
+      "global.json"
+    ],
+    "indexReportInternallyConsistent": true,
+    "indexObservedByRootAtUtc": "2026-10-26T10:50:15.140176+00:00",
+    "indexByteExact": 443,
+    "indexLineEndingsOnly": 2,
+    "gitIndexIndependentlyRead": false,
+    "windowsAndLinuxDllByteEquivalenceClaimed": false,
+    "compileBeforeNoBuildSuites": {
+      "manifest": "tests/docling-source-handle-green-v2/manifest.json",
+      "runId": "d1efa9e875324fd8b0a00838dcdadbd8",
+      "sourceStable": true
+    }
+  },
+  "testSuites": [
+    {
+      "manifest": "tests/unit-all-docling-final-v1/manifest.json",
+      "runId": "4e87ad51184f4572966e89a099f9b221",
+      "passed": 5323,
+      "failed": 0,
+      "notExecuted": 2,
+      "notExecutedCases": [
+        "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.Real_scanned_pdf_ocr_extracts_text_when_opted_in",
+        "SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Real_Linux_case_distinct_files_same_size_and_mtime_keep_their_distinct_hashes_and_publication_candidates"
+      ],
+      "sourceStable": true,
+      "manifestTrxHashesAndPerCaseOutcomesExact": true,
+      "buildRequested": false
+    },
+    {
+      "manifest": "tests/postgres-all-docling-final-v1/tests/manifest.json",
+      "runId": "bc44cc73f4214458bc9e1e52c86e501a",
+      "passed": 350,
+      "failed": 0,
+      "notExecuted": 2,
+      "notExecutedCases": [
+        "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_runtime_ready_v5_cases_match_expected_behavior_and_primary_document",
+        "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_runtime_ready_writer_cases_keep_prudent_guidance_shape"
+      ],
+      "sourceStable": true,
+      "manifestTrxHashesAndPerCaseOutcomesExact": true,
+      "buildRequested": false
+    }
+  ],
+  "postgresCleanup": {
+    "state": "passed",
+    "environmentRestored": true,
+    "clusterRemoved": true,
+    "bootstrapPasswordRemoved": true,
+    "remainingListener": false,
+    "existingClusterModified": false,
+    "externalCorpusAccess": false
+  },
+  "acceptance": {
+    "productionRoles": 9,
+    "distinctProductionNamespaces": 5,
+    "goldDocuments": 12,
+    "goldChunksAndPoints": 40,
+    "goldPhysicalFacts": 90,
+    "recipeDocuments": 1,
+    "recipeChunksAndPoints": 158,
+    "recipePhysicalFacts": 16,
+    "retrievalFacts": {
+      "gold": {
+        "passed": 90,
+        "failed": 0,
+        "exported": 90,
+        "qualificationInherited": true,
+        "readinessRequeried": false
+      },
+      "recipe": {
+        "passed": 16,
+        "failed": 0,
+        "exported": 16,
+        "qualificationInherited": true,
+        "readinessRequeried": false
+      }
+    },
+    "vectorValidatedLegacyFlag": false,
+    "embeddingsReal": true,
+    "vectorStorePublicationValidated": true,
+    "semanticDenseOnlyAcceptanceClaimed": false,
+    "llmPlanningAcceptanceClaimed": false,
+    "lifecycleCancel": {
+      "apiAcknowledged": true,
+      "previousPublicationPreserved": true,
+      "upstreamEngineCancellationVerified": false,
+      "currentSourceFreshnessReverified": false,
+      "abandonedGeneration": 5,
+      "status": "PASS",
+      "jobId": "4afc8dcd-c2d9-43d6-9857-012a0b821826",
+      "observedBeforeCancel": "running"
+    },
+    "watcherAndDefaultsTwoConsumers": {
+      "watcher": {
+        "sameSqlSnapshot": true,
+        "parallelOcrComputeProven": false,
+        "status": "PASS",
+        "jobIds": [
+          "7786cc59-f59d-4ae5-aed7-b4a07b216102",
+          "09c3ba59-036a-4308-942c-bb2f3a999b1c"
+        ],
+        "ownerSha256": [
+          "588ce64826dd420a525193eb6ba66b888a5fc69f7b4723fc7f6edae2135e65a8",
+          "740d8fac1a0d979b1080e8725c73d6678acedff39b30cb6ac825fae9bf5046e7"
+        ],
+        "consumerIndexes": [
+          0,
+          1
+        ]
+      },
+      "defaults": {
+        "sameSqlSnapshot": true,
+        "parallelOcrComputeProven": false,
+        "status": "PASS",
+        "jobIds": [
+          "b5bb01c3-74aa-43bf-bb87-1370e97a94de",
+          "fc05b0bf-7e29-4b6a-ab54-911d583b1b14"
+        ],
+        "ownerSha256": [
+          "eb758a364c0f3f2ecc61916632a6f59b5872fdd5caa5baa1028c8daa0074839e",
+          "849b9230b14081e7f321bd51c3a7b469ed36a7e86f011cafbef962ab7ab41c90"
+        ],
+        "consumerIndexes": [
+          0,
+          1
+        ]
+      }
+    },
+    "scannerTwoWorkers": {
+      "status": "NON_EXECUTED",
+      "reason": "two_simultaneous_running_consumers_not_observed"
+    },
+    "defaultsConditionalDeleteReturn": {
+      "status": "NON_EXECUTED",
+      "reason": "delete_completion_won_before_queued_window_observation"
+    },
+    "runtimeClosure": {
+      "baselineContainerCount": 22,
+      "baselineUnchanged": true,
+      "allRecordedOwnedContainersStopped": true,
+      "allRunningContainersBelongToBaseline": true,
+      "nonBaselineRunningContainerCount": 0,
+      "productionMutations": 0
+    },
+    "signatureNegativeControl": {
+      "startupRejected": true,
+      "signatureVerificationFailedDiagnosticObserved": true,
+      "safeDiagnosticMatchesOriginalResultCidAndImage": true,
+      "diagnosticEvidence": "signature-rejection-safe-diagnostic-final-v2.json",
+      "diagnosticSha256": "0ffe9caf914606e293d357cf2c27ac7ad8d65b43a7f77c637045ee8644289d87",
+      "exitCode": 139,
+      "oomKilled": false,
+      "privateRawLogsReadByReviewer": false
+    }
+  },
+  "privacy": {
+    "publicJsonFilesScanned": 72,
+    "knownFormatSecretMarkers": [],
+    "sensitiveContentFieldNames": [],
+    "hostPaths": [],
+    "knownActualSecretValueCounterScanPerformed": false,
+    "actualSecretStoresRead": false,
+    "rawOriginalsOpened": false,
+    "limit": "Only public structures and recognizable formats inspected; exact private-value counter-scan remains responsibility of final root/export review."
+  },
+  "limits": [
+    "vectorValidated=false is preserved: no standalone vector semantic quality/ranking approval",
+    "Hybrid source-bound search/read and 106 annotated facts do not prove exhaustive recall or planning/LLM quality",
+    "Two IntegrationPg runtime-ready legacy tests remain NotExecuted, not passed",
+    "The two platform/opt-in Unit skips have separate real Linux OCR and filesystem gate passes on exact packaged AnyCPU assemblies",
+    "Linux Docling retry26 is a protocol test with fake HTTP inside networknone, not a live fault injected into the real Docling service",
+    "Public source fingerprints and root index-equivalence report do not constitute independent reproducible-build or live Git-index certification",
+    "Runtime retrieval qualification is inherited from prior signed corpus and does not requery readiness",
+    "Scanner two simultaneous consumers and defaults conditional-delete-return race were not observed in the final AUTO captures; do not relabel them PASS",
+    "Lifecycle API ACK and retained prior publication do not prove upstream engine cancellation or reverified freshness",
+    "Controlled stale-vector reappearance is a GC proof, not proof of interrupting a real stale worker HTTP write",
+    "Final dedicated Docker bridge snapshots explicitly do not attest external egress blocking; networknone component checks are distinct",
+    "Exact synthetic cases and selected recipe annotations do not qualify all document languages/layouts/engines or a universal installed deployment",
+    "Signature rejection reason is confirmed by a separately hashed safe diagnostic tied to original result/CID/image, without re-opening its private raw log or re-performing cryptography in this review."
+  ],
+  "inputs": {
+    "public-export-production-final-v4/public-export-seal.json": {
+      "sha256": "c43d581287694cd6a43bcf278205699422d12db4603dc18303cdd0c5c9f789a7",
+      "bytes": 25713
+    },
+    "public-export-production-final-v4/production-gold--execution-result.json": {
+      "sha256": "849be8161b4ce8a894638160b03b7905a95e004a861f6dcd8a59fea5a4d622b5",
+      "bytes": 3189
+    },
+    "public-export-production-final-v4/production-gold--publication-verification.json": {
+      "sha256": "ed67465382a9bf99fd4b645a5b882b9233ca48dda0c69312fccf1b59bce59590",
+      "bytes": 16175
+    },
+    "public-export-production-final-v4/production-gold--backend-binary-identity.json": {
+      "sha256": "68ce7662151c12ab3bcee8b6915dd7bb6575a2376f26bfee375ffbf641ae5f30",
+      "bytes": 806
+    },
+    "public-export-production-final-v4/production-gold--bound-runtime-provenance.json": {
+      "sha256": "08c9059f3b94d54ba6e8b4803c99bcca743bff388f4b12cd1e0652b18bdada80",
+      "bytes": 791
+    },
+    "public-export-production-final-v4/production-gold--empty-baseline.json": {
+      "sha256": "630998757e7147b223ea5c53a34874bc81b70fcb5a0e649184ba56c114d68c80",
+      "bytes": 567
+    },
+    "public-export-production-final-v4/production-gold--text-parser-conformance.json": {
+      "sha256": "7f7a237078f4ef3363adaad1a43c3bf588af845df5826fbb99a3f205f8e0e16c",
+      "bytes": 575
+    },
+    "public-export-production-final-v4/production-gold--sql-text-conformance.json": {
+      "sha256": "463244a829a0ea97ebd5dfa7b9e29d31301888fd2ab6efea3215c74ecdf871e4",
+      "bytes": 882
+    },
+    "public-export-production-final-v4/production-gold--tei-attestation.json": {
+      "sha256": "138cea5448d1c924b9ca4c263f08b5d95b606cc4e9a7c9085f264beb36ad2422",
+      "bytes": 1964
+    },
+    "public-export-production-final-v4/production-recipe--execution-result.json": {
+      "sha256": "14cd8266d9847c9e8f734b36b1a7393e56cff1618fb47ad9e877c6abb49ad7fd",
+      "bytes": 2818
+    },
+    "public-export-production-final-v4/production-recipe--publication-verification.json": {
+      "sha256": "261127b295c515cab5af38988c66446a1d2cfb62442e68483813f8de40cde491",
+      "bytes": 2242
+    },
+    "public-export-production-final-v4/production-recipe--backend-binary-identity.json": {
+      "sha256": "458596fc5a2d4d74d7c07f0e5c66ba4c788ebd9adb17d8b3e27d961569de6093",
+      "bytes": 808
+    },
+    "public-export-production-final-v4/production-recipe--bound-runtime-provenance.json": {
+      "sha256": "a31303d0d66d29efd71a9feb49b6e8472b01286ddef43df36e4594b0edff1534",
+      "bytes": 793
+    },
+    "public-export-production-final-v4/production-recipe--empty-baseline.json": {
+      "sha256": "14dab14885f4b54f091b581e2ca50548e34fe8f66443af735706b3173a0e74bd",
+      "bytes": 569
+    },
+    "public-export-production-final-v4/production-recipe--text-parser-conformance.json": {
+      "sha256": "5009cd7e3fd8279abd9eb0a7ebd61c5d0caea511929a12415ef3246a02b596d6",
+      "bytes": 577
+    },
+    "public-export-production-final-v4/production-recipe--sql-text-conformance.json": {
+      "sha256": "7c11a3ca4eee463ddc0bd70ee1ea68509d7809728ef1471e37ba078f62e2b76b",
+      "bytes": 888
+    },
+    "public-export-production-final-v4/production-recipe--tei-attestation.json": {
+      "sha256": "d6038dd888905f8b87f795ec39d74b4074b5809e8659982e89c17eedd523cb58",
+      "bytes": 1966
+    },
+    "public-export-production-final-v4/production-lifecycle--lifecycle-result.json": {
+      "sha256": "782042fbeaf19a34def1f092e4e47f3b347f6a7d89ea6b1dc192aa96885b334c",
+      "bytes": 8566
+    },
+    "public-export-production-final-v4/production-lifecycle--runtime-identity.json": {
+      "sha256": "4e3845cfe535ac9dd962f325d1611f98dd47066f8c63cf1cb41e82a1500838c6",
+      "bytes": 2814
+    },
+    "public-export-production-final-v4/production-failed-replacement--failed-replacement-result.json": {
+      "sha256": "8fdfc42bd6a576be094512ad1d9d08cad2b2f4ab0a729099f15f1f9eee86d45d",
+      "bytes": 6436
+    },
+    "public-export-production-final-v4/production-failed-replacement--runtime-identity.json": {
+      "sha256": "d06a50da97a5d5de8a89913215bb1550238ef4a12077aa261dc536cbd2d7de5a",
+      "bytes": 2823
+    },
+    "public-export-production-final-v4/production-retrieval-gold--retrieval-facts-result.json": {
+      "sha256": "16562134acba499886d2707f5f492370e82d9b8fa281070a1e942f5f05e64f15",
+      "bytes": 92956
+    },
+    "public-export-production-final-v4/production-retrieval-gold--runtime-identity.json": {
+      "sha256": "d7c5f9cced36bd7969b8d330de5a87590229d1385f176eec449f684abd4b4a71",
+      "bytes": 2819
+    },
+    "public-export-production-final-v4/production-retrieval-gold--sql-text-conformance.json": {
+      "sha256": "2d00e1dbac3c68352cb073811867c0325a10918c45c2e689874225b8a27e752c",
+      "bytes": 892
+    },
+    "public-export-production-final-v4/production-retrieval-recipe--retrieval-facts-result.json": {
+      "sha256": "8171e8e334bc5d4a736e30179987db7f992bb735cfbf8b5da23751da0cf0c987",
+      "bytes": 18466
+    },
+    "public-export-production-final-v4/production-retrieval-recipe--runtime-identity.json": {
+      "sha256": "994b7745aa91a2fca23f70669d5cb7356ac44c7527bdd2b391fdb580fec4c854",
+      "bytes": 2821
+    },
+    "public-export-production-final-v4/production-retrieval-recipe--sql-text-conformance.json": {
+      "sha256": "f5a138ce4a5f70e4884edd2adef55c80888e6b27dbc55f13e18ec7a09d0e1ad9",
+      "bytes": 898
+    },
+    "public-export-production-final-v4/production-auto-scanner--automatic-ingestion-result.json": {
+      "sha256": "1a84efb7e5ee54bd101ec0ec17c9c9234733c1c757e4321e85683f9b8b5192a4",
+      "bytes": 10247
+    },
+    "public-export-production-final-v4/production-auto-scanner--backend-binary-identity.json": {
+      "sha256": "875563a063131468b396dba445ce3db0bdcfd765267e4c019e94b366a59e3ec5",
+      "bytes": 649
+    },
+    "public-export-production-final-v4/production-auto-scanner--bound-runtime-provenance.json": {
+      "sha256": "b58d94a98cb536a24f4a38161ef4532c8fb9f08850446a1b9f69bd5b371813ef",
+      "bytes": 799
+    },
+    "public-export-production-final-v4/production-auto-scanner--text-parser-conformance.json": {
+      "sha256": "3ad4a284280f921025cc0c8b8afa6520e1cb300e7b833cecf35bfda749acb887",
+      "bytes": 583
+    },
+    "public-export-production-final-v4/production-auto-scanner--sql-text-conformance.json": {
+      "sha256": "d26e3e00c2a18ba968672c0c5b02ffa9e51280e2c4daa7ba235745f589ff5a7d",
+      "bytes": 890
+    },
+    "public-export-production-final-v4/production-auto-scanner--tei-attestation.json": {
+      "sha256": "3ed47600051aa586a3876ac661f68b35e9656e31df6c6da676d48fa03018c416",
+      "bytes": 1924
+    },
+    "public-export-production-final-v4/production-auto-watcher--automatic-ingestion-result.json": {
+      "sha256": "5b3e283ead881eec935f0a58489bc4abbe3bd8f1a76991bed7a54b751fe3fc6f",
+      "bytes": 10394
+    },
+    "public-export-production-final-v4/production-auto-watcher--backend-binary-identity.json": {
+      "sha256": "5f1e0e6c3137207cfb00b02b126f30a445c1afa1b69cb340aa53f94d1dcfb710",
+      "bytes": 649
+    },
+    "public-export-production-final-v4/production-auto-watcher--bound-runtime-provenance.json": {
+      "sha256": "f181344ccedcebd343117457d7989b345194d00ad3d42cec4190b64ba724a324",
+      "bytes": 799
+    },
+    "public-export-production-final-v4/production-auto-watcher--text-parser-conformance.json": {
+      "sha256": "ef81c078800c3ae68bbbe3a12dbe9aa404df9fb3afe16472a3d7ea677c300aa2",
+      "bytes": 583
+    },
+    "public-export-production-final-v4/production-auto-watcher--sql-text-conformance.json": {
+      "sha256": "8d055b4b8524dfb0ec3709631a0dcc937b326ca7556941c5e8dadb23671c323b",
+      "bytes": 890
+    },
+    "public-export-production-final-v4/production-auto-watcher--tei-attestation.json": {
+      "sha256": "3b6c301d86d8b2f7b0dbe606a7faa460be846e5e9140f263a90fcbe594f35b28",
+      "bytes": 1924
+    },
+    "public-export-production-final-v4/production-auto-defaults--automatic-ingestion-result.json": {
+      "sha256": "33cea68c5e20ec408f698b3f4ec9150d842567f9d721f46e0fb2859e60e88466",
+      "bytes": 11605
+    },
+    "public-export-production-final-v4/production-auto-defaults--backend-binary-identity.json": {
+      "sha256": "7276496d44f878dbb182f2532ff0058adf49835ee1db9c7b5d33f0f78e7735a7",
+      "bytes": 650
+    },
+    "public-export-production-final-v4/production-auto-defaults--bound-runtime-provenance.json": {
+      "sha256": "0a312d06b43221cf02f478f665ae4c96004c86d04fb12ed70eb561cf169c79a0",
+      "bytes": 800
+    },
+    "public-export-production-final-v4/production-auto-defaults--text-parser-conformance.json": {
+      "sha256": "db3506d611e8934237ec47b0279b5fba8f7de05d4091dd3b7285949c949b205a",
+      "bytes": 584
+    },
+    "public-export-production-final-v4/production-auto-defaults--sql-text-conformance.json": {
+      "sha256": "07a6ce043375309cbeb2255ab7320288327f35e7171e8f17095caa574b208d22",
+      "bytes": 891
+    },
+    "public-export-production-final-v4/production-auto-defaults--tei-attestation.json": {
+      "sha256": "0137145f3089890fb63e0f8302800e5cee918dce1021a4934cdb64109abf0c0a",
+      "bytes": 1925
+    },
+    "public-export-production-final-v4/signature-control--signature-rejection-result.json": {
+      "sha256": "225587684800beca09d75503a425520944798d786b4228ecee10e376bca1ebbb",
+      "bytes": 1617
+    },
+    "public-export-production-final-v4/production-gold--runtime-container-attestation.json": {
+      "sha256": "3b0e8e2fda59390d4c521a6f01183cdc53ba23f39508197c8bef330aabe2790a",
+      "bytes": 3310
+    },
+    "public-export-production-final-v4/production-recipe--runtime-container-attestation.json": {
+      "sha256": "3552025f5b15bf83a46777e92024502858fda58ce721e1036f2ddc01826f21b3",
+      "bytes": 3312
+    },
+    "public-export-production-final-v4/production-lifecycle--runtime-container-attestation.json": {
+      "sha256": "0818c2ab3c42af72c3cbc903be37a985d73f21586ec78f71456500db371979e3",
+      "bytes": 3315
+    },
+    "public-export-production-final-v4/production-failed-replacement--runtime-container-attestation.json": {
+      "sha256": "2f30718446d0206ec50b89cec2ac137f37d4a7e05c78906a6dece54441a3b481",
+      "bytes": 3324
+    },
+    "public-export-production-final-v4/production-retrieval-gold--runtime-container-attestation.json": {
+      "sha256": "dffbf9b4f6d0576024ca306638479dc330e3f5b4028023649b2498446a85031f",
+      "bytes": 3319
+    },
+    "public-export-production-final-v4/production-retrieval-recipe--runtime-container-attestation.json": {
+      "sha256": "f777cb83cb3c03528ebfe03292933b6e579d96b58be2c9bb5e4e5f8de71028dc",
+      "bytes": 3321
+    },
+    "public-export-production-final-v4/production-auto-scanner--runtime-container-attestation.json": {
+      "sha256": "b9aedc31964b9a93f1a6c730e92dba14b49d4be2ece21816b94ee38e75f34650",
+      "bytes": 3318
+    },
+    "public-export-production-final-v4/production-auto-watcher--runtime-container-attestation.json": {
+      "sha256": "60d7e5b42b6b9340c7a0ff2ec07771a95686cf44317b44d4ecdf0fc2442f75ca",
+      "bytes": 3318
+    },
+    "public-export-production-final-v4/production-auto-defaults--runtime-container-attestation.json": {
+      "sha256": "72cad4144234b43c13ecbb0b79cb24c0941c8b77bfd10461e2b6d40c6f9f3595",
+      "bytes": 3319
+    },
+    "public-supplement-final-v4/supplement-seal.json": {
+      "sha256": "ae1eed5d0f1b10aa702d9afbb2a4e65eb57b99f35a1512b3400582b9ef24ff43",
+      "bytes": 3225
+    },
+    "public-supplement-final-v4/runtime-final-closure.json": {
+      "sha256": "bb6bbb582bf14ef753bb58a2efd49e7765436feb63f53e8b2a8e612f5fccb2c6",
+      "bytes": 5898
+    },
+    "public-supplement-final-v4/backend-binary-preflight.json": {
+      "sha256": "0a3c3621424d113991662dc0c7113b1d443b98c20af31fe0631768a23e600f20",
+      "bytes": 530
+    },
+    "public-supplement-final-v4/dependency-health/gold-production/dependency-readiness-pre-backend.json": {
+      "sha256": "f429a06b9cdca288973c5608dee43c8465dd29c7e04e58792803378307448f3c",
+      "bytes": 7390
+    },
+    "public-supplement-final-v4/dependency-health/gold-production/dependency-readiness-backend-chronology.json": {
+      "sha256": "e71b1bfcee5cbcd518dbba9b403312128cef67b9681b0513de8d437a0b52db1f",
+      "bytes": 524
+    },
+    "public-supplement-final-v4/dependency-health/recipe-production/dependency-readiness-pre-backend.json": {
+      "sha256": "39821917c3e74290e002b44da7ff6a9c2e488074fb8ac0b646d43d2e4a104272",
+      "bytes": 7390
+    },
+    "public-supplement-final-v4/dependency-health/recipe-production/dependency-readiness-backend-chronology.json": {
+      "sha256": "d4e40198fa65e5e70fceacd58f0dc2468b0ccb0014442599f1fd01e4ab7aebcf",
+      "bytes": 524
+    },
+    "public-supplement-final-v4/dependency-health/scanner/dependency-readiness-pre-backend.json": {
+      "sha256": "de51efb665402a7b4db7834b94cc4dc46a0e73d0c65be4febfc601401dddcf33",
+      "bytes": 6302
+    },
+    "public-supplement-final-v4/dependency-health/scanner/dependency-readiness-backend-chronology.json": {
+      "sha256": "3e9bcfe0df01221fca61374418cc56d2103781a7b6fb0b53c6be813889f162a1",
+      "bytes": 523
+    },
+    "public-supplement-final-v4/dependency-health/watcher/dependency-readiness-pre-backend.json": {
+      "sha256": "24620520011e4caf2611febec3f5c73bfbb9209a4bde67abe6d991c285aaceba",
+      "bytes": 6302
+    },
+    "public-supplement-final-v4/dependency-health/watcher/dependency-readiness-backend-chronology.json": {
+      "sha256": "73a37877268de7f8642856c91e5effd6c18d8f86d02a2fe7a86f31c6ce75b33c",
+      "bytes": 524
+    },
+    "public-supplement-final-v4/dependency-health/defaults/dependency-readiness-pre-backend.json": {
+      "sha256": "9cd5c24e7a2f15096cec616230c7ad743954b6351c1ff21b3b7321292feaf901",
+      "bytes": 7390
+    },
+    "public-supplement-final-v4/dependency-health/defaults/dependency-readiness-backend-chronology.json": {
+      "sha256": "558fea359d43fe6a32b68fa4e5d4355c9259f44c6359b660be278301977f4d2b",
+      "bytes": 524
+    },
+    "public-supplement-final-v4/ocr-real-result.json": {
+      "sha256": "5dc60903810d3f09d45379b1bbd911d0e5c3c8d5d40a77ad75e15357dc21fd7d",
+      "bytes": 1715
+    },
+    "public-supplement-final-v4/linux-case-result.json": {
+      "sha256": "5ccb0cbb3e432460ee97328e296d26d0a8c3a66ce63ebd5311a0f19a86f37857",
+      "bytes": 1043
+    },
+    "public-supplement-final-v4/linux-docling-retry-result.json": {
+      "sha256": "ed61a334320fbc690873b1ba0b05c14d9be2a7df45eb79e6cd07d694e2611f77",
+      "bytes": 2065
+    },
+    "public-supplement-final-v4/startup-race-causal-observation.json": {
+      "sha256": "97b8000ca569c661af6397bbcc008c0158aab5f7da6d4627f862843b20441eb9",
+      "bytes": 1471
+    },
+    "build-final-v4/manifest.json": {
+      "sha256": "93153eb817f6cdd4f7603c2b78d3edc32d6ab737d717bffad8f8f4bcbf1da4c4",
+      "bytes": 92237
+    },
+    "build-final-v4/index-source-comparison-v1.json": {
+      "sha256": "327b93ac1635e70d9bb139479c66dd599962a7e25257f0c80cb0a5182bb060d3",
+      "bytes": 165268
+    },
+    "tests/unit-all-docling-final-v1/manifest.json": {
+      "sha256": "bcf7bb298b2c1ff03d4b93d88c9f84bcea283f1fd8aa585b560091c5fcfb04c4",
+      "bytes": 1463168
+    },
+    "tests/unit-all-docling-final-v1/Backend-4e87ad51184f4572966e89a099f9b221.trx": {
+      "sha256": "72620aefa47ac788300e83ac388440b543b93e3d99ac88af40801b90552e88e8",
+      "bytes": 4345119
+    },
+    "tests/unit-all-docling-final-v1/Contracts-4e87ad51184f4572966e89a099f9b221.trx": {
+      "sha256": "dbdd4cce6efb9b5182a7afc5a818622ead6006a5955111531adf245d55de2322",
+      "bytes": 31009
+    },
+    "tests/unit-all-docling-final-v1/ClientCore-4e87ad51184f4572966e89a099f9b221.trx": {
+      "sha256": "84dc7a224d8e92ebeb776eda31703d7a85689e98acb214ab2c8ba1229b636e15",
+      "bytes": 128343
+    },
+    "tests/unit-all-docling-final-v1/Client-4e87ad51184f4572966e89a099f9b221.trx": {
+      "sha256": "0e226f224250c24f3e887e6551817656041853caa662e4c44fbae6897e4125c5",
+      "bytes": 3992731
+    },
+    "tests/unit-all-docling-final-v1/source-files-4e87ad51184f4572966e89a099f9b221-before.json": {
+      "sha256": "b0bcdc6124f2a566c0c3a2406da17472df55939ca599ba454cfb779356ba85d5",
+      "bytes": 333244
+    },
+    "tests/unit-all-docling-final-v1/source-files-4e87ad51184f4572966e89a099f9b221-after.json": {
+      "sha256": "b0bcdc6124f2a566c0c3a2406da17472df55939ca599ba454cfb779356ba85d5",
+      "bytes": 333244
+    },
+    "tests/postgres-all-docling-final-v1/tests/manifest.json": {
+      "sha256": "6ef8cc37e582394eaa2ea866d9dad4a0235690dbecbf2c31eeda1ef2fea63e87",
+      "bytes": 95973
+    },
+    "tests/postgres-all-docling-final-v1/tests/Backend-bc44cc73f4214458bc9e1e52c86e501a.trx": {
+      "sha256": "a79937e8611a52f8214a055f901c663f7e1a3cfd29d396d5804c389270bbb95e",
+      "bytes": 541823
+    },
+    "tests/postgres-all-docling-final-v1/tests/source-files-bc44cc73f4214458bc9e1e52c86e501a-before.json": {
+      "sha256": "b0bcdc6124f2a566c0c3a2406da17472df55939ca599ba454cfb779356ba85d5",
+      "bytes": 333244
+    },
+    "tests/postgres-all-docling-final-v1/tests/source-files-bc44cc73f4214458bc9e1e52c86e501a-after.json": {
+      "sha256": "b0bcdc6124f2a566c0c3a2406da17472df55939ca599ba454cfb779356ba85d5",
+      "bytes": 333244
+    },
+    "tests/postgres-all-docling-final-v1/manifest.json": {
+      "sha256": "305652c24ea148a35f6ed89062bd587ebaf5fccc286f07e738e72a2c29a47bfc",
+      "bytes": 913
+    },
+    "tests/docling-source-handle-green-v2/manifest.json": {
+      "sha256": "d529778a34dedea30eeaaf48a97c97cec2e5cc0304b6b7eeb83a3f8305e805fe",
+      "bytes": 4775
+    },
+    "signature-rejection-safe-diagnostic-final-v2.json": {
+      "sha256": "0ffe9caf914606e293d357cf2c27ac7ad8d65b43a7f77c637045ee8644289d87",
+      "bytes": 811
+    }
+  }
+}

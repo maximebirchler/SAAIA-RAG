@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "saaia-linux-public-proof-projection.v3",
+  "campaignRole": "production-recipe",
+  "campaignRunId": "5f40863a-7030-4593-b6b4-efc5bae0dae0",
+  "qualificationFamily": "production",
+  "sourceFile": "bound-runtime-provenance.json",
+  "sourceSha256": "964d9a8d9a34e6a028fcf53fcbe780f8898bf4bcc70e40159c95f13eb4315216",
+  "sourceByteSize": 322,
+  "proof": {
+    "embeddingsBoundRevisionMatches": true,
+    "qdrantBoundRevisionMatches": true,
+    "qdrantRevisionType": "image_config_id",
+    "qdrantImageId": "sha256:6a34a799bed69c7c25c4e87ab04092005e4579062a9bf0e82a75d0b21f030006",
+    "qdrantRuntimeRevision": "sha256:6a34a799bed69c7c25c4e87ab04092005e4579062a9bf0e82a75d0b21f030006"
+  },
+  "projectionOnly": true,
+  "independentRuntimeValidationPerformedByExporter": false
+}

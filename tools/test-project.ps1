@@ -49,7 +49,8 @@ function Get-WorkingTreeFingerprint([string]$Phase) {
     $files = @(& git -C $repo ls-files --cached --others --exclude-standard | Sort-Object -Unique | Where-Object {
         $_ -notmatch '(^|/)(artifacts|bin|obj|node_modules|packages)/' -and
         ($_ -match '\.(cs|xaml|csproj|fsproj|sln|props|targets|ps1|psm1|psd1|py|js|ts|sql)$' -or
-            $_ -match '^config/.*\.json$' -or $_ -match '^\.github/workflows/.*\.ya?ml$' -or $_ -eq '.editorconfig')
+            $_ -match '^config/.*\.json$' -or $_ -match '(^|/)Fixtures/' -or
+            $_ -match '^\.github/workflows/.*\.ya?ml$' -or $_ -eq '.editorconfig')
     })
     $inventory = @($files | ForEach-Object {
         $sourcePath = Join-Path $repo $_

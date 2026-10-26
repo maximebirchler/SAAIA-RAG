@@ -1,0 +1,68 @@
+{
+  "schema": "saaia-deployment-offline-tests.v1",
+  "transportMocked": true,
+  "cryptographicSignatureValidated": false,
+  "servicesStarted": 0,
+  "networkCalls": 0,
+  "dotnetBuilds": 0,
+  "passed": false,
+  "total": 11,
+  "failed": 9,
+  "tests": [
+    {
+      "name": "signed_default_chunking_matches_compose_200_0_25",
+      "passed": false,
+      "error": "signed_chunking_differs_from_compose"
+    },
+    {
+      "name": "signed_runtime_revisions_follow_effective_images",
+      "passed": false,
+      "error": "signed_runtime_does_not_match_effective_image"
+    },
+    {
+      "name": "image_digest_runtime_mismatch_rejected_before_signing",
+      "passed": false,
+      "error": "mismatched_runtime_was_signed"
+    },
+    {
+      "name": "mutable_image_without_attested_revision_is_rejected",
+      "passed": false,
+      "error": "mutable_image_inherited_unrelated_runtime_identity"
+    },
+    {
+      "name": "chunk_min_above_max_rejected",
+      "passed": false,
+      "error": "incoherent_chunk_min_was_signed"
+    },
+    {
+      "name": "chunk_overlap_at_max_rejected",
+      "passed": false,
+      "error": "incoherent_chunk_overlap_was_signed"
+    },
+    {
+      "name": "valid_overrides_and_disabled_paid_capability_preserved",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "installer_unready_is_failure",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "installer_ready_supplies_content_revision_to_build",
+      "passed": false,
+      "error": "The variable '$script:signerCalls' cannot be retrieved because it has not been set."
+    },
+    {
+      "name": "docker_build_uses_checkout_sdk_and_common_properties",
+      "passed": false,
+      "error": "docker_restore_missing_checkout_build_contract"
+    },
+    {
+      "name": "docker_rejects_unknown_build_identity",
+      "passed": false,
+      "error": "compose_accepts_missing_code_revision"
+    }
+  ]
+}

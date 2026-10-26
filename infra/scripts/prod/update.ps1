@@ -15,6 +15,8 @@ $env = Read-DotEnv $envPath
 # Ensure docker uses the right bind-mount root
 $installRoot = Get-InstallRoot -RepoRoot $repo -Env $env
 $env:SAAIA_INSTALL_ROOT = Convert-ToDockerPath $installRoot
+$env:SAAIA_CODE_REVISION = Get-DeploymentSourceRevision -RepoRoot $repo -Kind backend
+$env:SAAIA_DOCLING_SOURCE_REVISION = Get-DeploymentSourceRevision -RepoRoot $repo -Kind docling
 
 Write-Host "== Update stack ==" -ForegroundColor Cyan
 Write-Host "InstallRoot: $installRoot"

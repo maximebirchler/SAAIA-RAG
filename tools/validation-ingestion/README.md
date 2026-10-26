@@ -140,7 +140,7 @@ manifestes de cette campagne à quatre rôles.
 ```powershell
 & tools/validation-ingestion/Test-OwnedIngestionGuards.ps1 `
   -OutputDirectory artifacts/mon-nouveau-test-offline
-python -B -m unittest discover -s tools/ingestion_gold/tests -v
+python -B -m unittest discover -s tools/ingestion_gold/tests -t . -v
 ```
 
 Les données du vérificateur Python sont explicitement des captures synthétiques

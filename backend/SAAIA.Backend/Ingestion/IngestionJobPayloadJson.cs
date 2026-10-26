@@ -13,7 +13,8 @@ internal static class IngestionJobPayloadJson
         int version,
         string? source = null,
         int? indexedVersionBefore = null,
-        IngestionCapabilityAProfileSeed? capabilityAProfileSeed = null)
+        IngestionCapabilityAProfileSeed? capabilityAProfileSeed = null,
+        bool requiresSourceAbsence = false)
     {
         var payload = new IngestionJobPayloadData
         {
@@ -21,7 +22,8 @@ internal static class IngestionJobPayloadJson
             Version = version,
             Source = NormalizeSource(source),
             IndexedVersionBefore = indexedVersionBefore,
-            CapabilityAProfileSeed = NormalizeCapabilityAProfileSeed(capabilityAProfileSeed)
+            CapabilityAProfileSeed = NormalizeCapabilityAProfileSeed(capabilityAProfileSeed),
+            RequiresSourceAbsence = requiresSourceAbsence
         };
 
         return JsonSerializer.Serialize(payload, SerializerOptions);
@@ -90,7 +92,8 @@ internal static class IngestionJobPayloadJson
             Version = payload.Version,
             Source = NormalizeSource(payload.Source),
             IndexedVersionBefore = payload.IndexedVersionBefore,
-            CapabilityAProfileSeed = NormalizeCapabilityAProfileSeed(payload.CapabilityAProfileSeed)
+            CapabilityAProfileSeed = NormalizeCapabilityAProfileSeed(payload.CapabilityAProfileSeed),
+            RequiresSourceAbsence = payload.RequiresSourceAbsence
         };
     }
 
@@ -139,6 +142,10 @@ internal static class IngestionJobPayloadJson
 
         [JsonPropertyName("capabilityAProfileSeed")]
         public IngestionCapabilityAProfileSeed? CapabilityAProfileSeed { get; init; }
+
+        [JsonPropertyName("requiresSourceAbsence")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public bool RequiresSourceAbsence { get; init; }
     }
 }
 

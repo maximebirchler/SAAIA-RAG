@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "saaia-offline-retrieval-facts-tests.v1",
+  "observedAtUtc": "2026-10-26T07:45:28.498349+00:00",
+  "status": "PASS",
+  "testsRun": 83,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "sourceChangedDuringRun": false,
+  "modules": [
+    "tools.ingestion_gold.tests.test_linux_lifecycle",
+    "tools.ingestion_gold.tests.test_linux_ingestion_plan",
+    "tools.ingestion_gold.tests.test_linux_runtime_guards",
+    "tools.ingestion_gold.tests.test_tei_runtime_contracts",
+    "tools.ingestion_gold.tests.test_linux_failed_replacement",
+    "tools.ingestion_gold.tests.test_linux_retrieval_facts"
+  ],
+  "pythonVersion": "3.12.14",
+  "mockedTransport": true,
+  "liveWorkerExecuted": false,
+  "dockerCalls": 0,
+  "httpCalls": 0,
+  "sqlCalls": 0,
+  "paidProviderCalls": 0,
+  "limits": [
+    "18 retrieval tests plus 65 prior pure protocol tests; no live fact search or runtime qualification.",
+    "New causal guards reject an ownership inspection that consumes the deadline before HTTP, and reject HTTP/final SQL completing outside the window."
+  ]
+}

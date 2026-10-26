@@ -1,0 +1,253 @@
+{
+  "schemaVersion": "saaia-linux-public-proof-projection.v3",
+  "campaignRole": "production-auto-scanner",
+  "campaignRunId": "678433d1-fb2a-4c9c-b3a9-04ba93800095",
+  "qualificationFamily": "production",
+  "sourceFile": "automatic-ingestion-result.json",
+  "sourceSha256": "a50801b5215b883ccd5f8e6121e1dc8cd93766379493974af197d4db87192948",
+  "sourceByteSize": 9828,
+  "proof": {
+    "executed": true,
+    "passed": true,
+    "canonicalRowsSeeded": false,
+    "deploymentQualificationEligible": true,
+    "deploymentQualificationPassed": true,
+    "configurationSignatureVerified": true,
+    "paidProviderCalls": 0,
+    "schemaVersion": "saaia-linux-automatic-ingestion-execution.v1",
+    "qualificationMode": "production",
+    "environmentObservedFromContainer": "Production",
+    "configurationSignatureMode": "signed",
+    "stage": "completed",
+    "startedAtUtc": "2026-10-26T10:48:53.701091+00:00",
+    "finishedAtUtc": "2026-10-26T10:49:59.046640+00:00",
+    "cleanup": {
+      "zeroActiveJobs": true,
+      "ownedContainersStopped": true,
+      "dockerPublishedPortBindingsAbsent": true,
+      "volumesDeleted": false,
+      "imagesDeleted": false,
+      "containerCount": 5,
+      "producerStoppedBeforeFinalJobObservation": true,
+      "cancelRequests": 0,
+      "activeJobsAfterBackendStopped": 0
+    },
+    "plan": {
+      "executeRequested": true,
+      "canonicalRowsSeeded": false,
+      "paidProviderEnabled": false,
+      "sqlReadOnly": true,
+      "schemaVersion": "saaia-linux-automatic-ingestion-plan.v1",
+      "runId": "678433d1-fb2a-4c9c-b3a9-04ba93800095",
+      "productStatus": "TESTE_NON_APPROUVE",
+      "ownerManifestSha256": "f2ee9ed0c7fb47fc56d1837143793d0173a5540835450d62392fd525ae1de8ad",
+      "corpusManifestSha256": "2aafffedd4c2d736d0ee02d06482a0f76c9eb11c3160cffae062911f50aea505",
+      "apiJobEnqueueAllowed": false,
+      "acceleratedTimingsAreDeploymentSla": false,
+      "maximumCampaignSeconds": 1800,
+      "maximumPhaseSeconds": 300,
+      "admissionProfile": "scanner",
+      "sourceCaseIds": [
+        "fr-native-critical-v2",
+        "native-two-column-v1",
+        "fr-scan-critical-v2"
+      ],
+      "sourceSha256": [
+        "5bb9e63e5dd3b5a8a32bedc5c1d81d1598fd765032066d6548faf6a7a71fb3c0",
+        "0630e326a1c116fdd946f87c5ae951448b10786d7fdca35949b08e89fa36316c",
+        "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2"
+      ],
+      "targetDocPathCount": 3
+    },
+    "functionalPassed": true,
+    "otherPublicationsAndFullVectorsPreserved": true,
+    "apiIngestionEnqueueCount": 0,
+    "sqlMutations": 0,
+    "maximumActiveJobsObserved": 1,
+    "quietObservationSeconds": 6,
+    "qualificationFinishedAtUtc": "2026-10-26T10:49:57.018260+00:00",
+    "steps": [
+      {
+        "searchToReadPassed": true,
+        "canonicalPhysicalFactsVerified": true,
+        "ingestionVersion": 1,
+        "indexedVersion": 1,
+        "pointCount": 4,
+        "doneJobCount": 1,
+        "phase": "initial-a",
+        "docId": "bcb42d78-76bc-daf4-c78d-1d4f13268754",
+        "revisionId": "86d7ec85-1915-5f71-1ba2-d6bdab73289c",
+        "sourceCaseId": "fr-native-critical-v2",
+        "planFingerprint": "d7c921db1faf256a5b60a36f7887337b0f84d06ec37b9af5ae2c72c889a803a5",
+        "sourceSha256": "5bb9e63e5dd3b5a8a32bedc5c1d81d1598fd765032066d6548faf6a7a71fb3c0",
+        "pointIdsSha256": "61a6ad82533bd7fb1d00f8127d5799c53331c497af29cf881979fff4cb1d2cd4",
+        "vectorsAndPayloadSha256": "4f0fd6412370cea1bbec11d0fb3aa0fa3a282e62c21ba38e9b055741dfc605cd",
+        "sources": [
+          "scanner"
+        ]
+      },
+      {
+        "searchToReadPassed": true,
+        "canonicalPhysicalFactsVerified": true,
+        "ingestionVersion": 2,
+        "indexedVersion": 2,
+        "pointCount": 2,
+        "doneJobCount": 2,
+        "phase": "changed-a-source2",
+        "docId": "bcb42d78-76bc-daf4-c78d-1d4f13268754",
+        "revisionId": "e79478a8-355f-e414-5112-7c98f8dad2fe",
+        "sourceCaseId": "native-two-column-v1",
+        "planFingerprint": "64cf85233fed6f4b781ef622e35775c13424b3d983791314fdee3054184047dd",
+        "sourceSha256": "0630e326a1c116fdd946f87c5ae951448b10786d7fdca35949b08e89fa36316c",
+        "pointIdsSha256": "665e091ba53bf4960d054c8d855bd8f2590e577fcf671a3671be1c9fd8320461",
+        "vectorsAndPayloadSha256": "b6185b435af3b82f82c931b9fe94bc5b36f13b6122d87f62e20c97cd700f023e",
+        "sources": [
+          "scanner"
+        ]
+      },
+      {
+        "searchToReadPassed": true,
+        "canonicalPhysicalFactsVerified": true,
+        "ingestionVersion": 3,
+        "indexedVersion": 3,
+        "pointCount": 4,
+        "doneJobCount": 3,
+        "phase": "restored-a-source1",
+        "docId": "bcb42d78-76bc-daf4-c78d-1d4f13268754",
+        "revisionId": "a11e3297-4b3e-4222-856a-93045780092a",
+        "sourceCaseId": "fr-native-critical-v2",
+        "planFingerprint": "6ab8f59bf824c1cf8d428e0a107e7a41468fde7414e8c7c65edafc14fc6a7f86",
+        "sourceSha256": "5bb9e63e5dd3b5a8a32bedc5c1d81d1598fd765032066d6548faf6a7a71fb3c0",
+        "pointIdsSha256": "2b5c1167867d922f45f31776b4d7b57183ece86d07b7f8e405d25e32d4bd4156",
+        "vectorsAndPayloadSha256": "0e31ec4285690f137e9080314078d77c13cd4bc8b4612053f35dd7c011868f25",
+        "sources": [
+          "scanner"
+        ]
+      },
+      {
+        "searchToReadPassed": true,
+        "canonicalPhysicalFactsVerified": true,
+        "ingestionVersion": 1,
+        "indexedVersion": 1,
+        "pointCount": 2,
+        "doneJobCount": 1,
+        "phase": "beyond-first-batch-b",
+        "docId": "2f73320d-024d-25c4-6739-d7ea01ebb1e8",
+        "revisionId": "45bc09f5-8ca0-c89f-bb92-4c7786aa436a",
+        "sourceCaseId": "native-two-column-v1",
+        "planFingerprint": "1e7360b92d9d32ab8da93c748f3911af0a002db97caaa7fa9ea1362ba6be6300",
+        "sourceSha256": "0630e326a1c116fdd946f87c5ae951448b10786d7fdca35949b08e89fa36316c",
+        "pointIdsSha256": "30901b3c40df4ecfe74bf6822ce2c2945922d63d1499240a3e83f49c3d8f2b1a",
+        "vectorsAndPayloadSha256": "a4953f90dc4fd625dceb6e31fdcff7d54cfc44299a1b32c3a9152f03f917fb87",
+        "sources": [
+          "scanner"
+        ]
+      },
+      {
+        "searchToReadPassed": true,
+        "canonicalPhysicalFactsVerified": true,
+        "ingestionVersion": 1,
+        "indexedVersion": 1,
+        "pointCount": 1,
+        "doneJobCount": 1,
+        "phase": "beyond-first-batch-c",
+        "docId": "24ff9cc6-d1cd-1c13-8352-72e365d1538d",
+        "revisionId": "73105d20-d1c4-bdc6-a44a-fbb27b1b19ad",
+        "sourceCaseId": "fr-scan-critical-v2",
+        "planFingerprint": "2fe52522d13393f200e0627041c9780e4dc6146ed6a06c639d4d12f22f366655",
+        "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2",
+        "pointIdsSha256": "fd442835ab9e4896760d44b40559f27a2c063737c38bc3b6a032b7b18d8cff97",
+        "vectorsAndPayloadSha256": "3b46c80c4fba6bee1d4c0ce580585a10792d76ac85afe43901b42dce8a79b0a6",
+        "sources": [
+          "scanner"
+        ]
+      },
+      {
+        "searchToReadPassed": true,
+        "canonicalPhysicalFactsVerified": true,
+        "ingestionVersion": 3,
+        "indexedVersion": 3,
+        "pointCount": 4,
+        "doneJobCount": 3,
+        "phase": "present-a-not-missing",
+        "docId": "bcb42d78-76bc-daf4-c78d-1d4f13268754",
+        "revisionId": "a11e3297-4b3e-4222-856a-93045780092a",
+        "sourceCaseId": "fr-native-critical-v2",
+        "planFingerprint": "6ab8f59bf824c1cf8d428e0a107e7a41468fde7414e8c7c65edafc14fc6a7f86",
+        "sourceSha256": "5bb9e63e5dd3b5a8a32bedc5c1d81d1598fd765032066d6548faf6a7a71fb3c0",
+        "pointIdsSha256": "2b5c1167867d922f45f31776b4d7b57183ece86d07b7f8e405d25e32d4bd4156",
+        "vectorsAndPayloadSha256": "0e31ec4285690f137e9080314078d77c13cd4bc8b4612053f35dd7c011868f25",
+        "sources": [
+          "scanner"
+        ]
+      },
+      {
+        "exactOldPointsAbsent": true,
+        "pointCount": 4,
+        "phase": "retired-exact-plan-gc",
+        "planId": "b5b399c1-ba08-4d1d-a5cc-2576ca517e94",
+        "lastSweep": "2026-10-26T10:49:39.506006+00:00"
+      },
+      {
+        "indexedVersionZero": true,
+        "activePlanNull": true,
+        "currentSearchEmpty": true,
+        "phase": "scanner-deleted"
+      },
+      {
+        "searchToReadPassed": true,
+        "canonicalPhysicalFactsVerified": true,
+        "ingestionVersion": 5,
+        "indexedVersion": 5,
+        "pointCount": 4,
+        "doneJobCount": 4,
+        "phase": "durable-recreated-a",
+        "docId": "bcb42d78-76bc-daf4-c78d-1d4f13268754",
+        "revisionId": "f61242f2-6abb-296c-0e83-5bd531b60a4d",
+        "sourceCaseId": "fr-native-critical-v2",
+        "planFingerprint": "5a3b8338b056815bea88df92a523a5f058439592a84d59d88ccf18af8afd216a",
+        "sourceSha256": "5bb9e63e5dd3b5a8a32bedc5c1d81d1598fd765032066d6548faf6a7a71fb3c0",
+        "pointIdsSha256": "0f3f50431c313efac95f121381ff0d288e0d1728990a7d0f607b8ca310871ab8",
+        "vectorsAndPayloadSha256": "f54a5dbc3160d8753fa011f16c4905e5c5e3b9920fed73935dc382738708aa1e",
+        "sources": [
+          "scanner"
+        ]
+      }
+    ],
+    "twoWorkers": {
+      "status": "NON_EXECUTED",
+      "reason": "two_simultaneous_running_consumers_not_observed"
+    },
+    "conditionalDeleteReturn": {
+      "status": "NON_EXECUTED",
+      "reason": "not_a_combined_profile"
+    },
+    "observedAdmissionConfiguration": {
+      "scannerEnabled": true,
+      "watcherEnabled": false,
+      "llmWorkersDisabled": true,
+      "workerConcurrency": 2,
+      "acceleratedOptions": {
+        "MaxFilesPerScan": 1,
+        "MinFileAgeSeconds": 1,
+        "ScanIntervalSeconds": 2,
+        "MissingGraceSeconds": 5,
+        "WatcherDebounceMs": 250,
+        "WorkerConcurrency": 2
+      }
+    },
+    "boundIngestionReadiness": {
+      "boundWorkerConcurrency": 2
+    }
+  },
+  "projectionOnly": true,
+  "independentRuntimeValidationPerformedByExporter": false,
+  "qualificationSeparation": {
+    "selectedFamily": "production",
+    "expectedQualificationMode": "production",
+    "observedQualificationMode": "production",
+    "observedQualificationModePresent": true,
+    "signatureEvidenceInheritedFromPriorCorpus": false,
+    "runtimeQualificationInferredByExporter": false
+  }
+}

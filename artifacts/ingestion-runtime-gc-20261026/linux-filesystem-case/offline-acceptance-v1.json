@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "saaia-linux-case-operator-offline.v1",
+  "executed": true,
+  "scope": "pure_protocol_tests_only_no_Docker_dotnet_service_network",
+  "passed": true,
+  "executedTests": 14,
+  "passedTests": 14,
+  "failedTests": 0,
+  "skippedTests": 0,
+  "exitCode": 0,
+  "sourceChangedDuringRun": false,
+  "files": [
+    {
+      "path": "run-owned-linux-case.py",
+      "sha256": "160c78eb6f0640238cd9b6f7fd25954204176b14d06cf1694196a99b204f2b7a",
+      "sizeBytes": 13452
+    },
+    {
+      "path": "test-operator.py",
+      "sha256": "ee8977c403c70fa7a951a3c4771a854c4f1c993ca33521f96cce907c64978e1c",
+      "sizeBytes": 9743
+    },
+    {
+      "path": "README.md",
+      "sha256": "1e334045f206791448c00b97d68bec994455bef803708536ae7956918b719794",
+      "sizeBytes": 3491
+    }
+  ],
+  "independentReadOnlyReview": "no_material_finding",
+  "realLinuxCaseTestStatus": "NON_EXECUTED_BY_THIS_AGENT",
+  "mockOperatorResultsAreSynthetic": true
+}

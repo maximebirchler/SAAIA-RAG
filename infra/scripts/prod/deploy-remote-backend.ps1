@@ -100,79 +100,11 @@ function Get-DoclingSourceRevisionFromInspect([object[]]$InspectOutput) {
 }
 
 function Get-BackendSourceRevision([string]$RepoRoot) {
-  $head = (& git -C $RepoRoot rev-parse HEAD).Trim()
-  if ($LASTEXITCODE -ne 0 -or $head -notmatch '^[0-9a-fA-F]{40}$') {
-    throw 'Unable to resolve the Git HEAD used by the backend build.'
-  }
-
-  $files = New-Object System.Collections.Generic.List[System.IO.FileInfo]
-  $relativeFiles = @(& git -C $RepoRoot ls-files --cached --others --exclude-standard -- `
-    'contracts/SAAIA.Contracts' `
-    'backend/SAAIA.Backend' `
-    '.dockerignore' `
-    'infra/docker-compose.prod.yml' `
-    'infra/docling-sidecar' `
-    'RAG.sln' `
-    'global.json')
-  if ($LASTEXITCODE -ne 0) {
-    throw 'Unable to enumerate the backend Docker source files.'
-  }
-  foreach ($relativeFile in $relativeFiles) {
-    $path = Join-Path $RepoRoot $relativeFile
-    if (Test-Path -LiteralPath $path -PathType Leaf) {
-      $files.Add((Get-Item -LiteralPath $path))
-    }
-  }
-  if ($files.Count -eq 0) {
-    throw 'The backend Docker source inventory is empty.'
-  }
-
-  $lines = foreach ($file in $files | Sort-Object FullName) {
-    $relative = $file.FullName.Substring($RepoRoot.TrimEnd('\', '/').Length).TrimStart('\', '/').Replace('\', '/')
-    $fileHash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-    "$relative|$($file.Length)|$fileHash"
-  }
-  $bytes = [Text.Encoding]::UTF8.GetBytes(($lines -join "`n"))
-  $sha256 = [Security.Cryptography.SHA256]::Create()
-  try {
-    $sourceHash = -join ($sha256.ComputeHash($bytes) | ForEach-Object { $_.ToString('x2') })
-  }
-  finally {
-    $sha256.Dispose()
-  }
-
-  return "$($head.ToLowerInvariant())-source-$sourceHash"
+  return Get-DeploymentSourceRevision -RepoRoot $RepoRoot -Kind backend
 }
 
 function Get-DoclingSidecarSourceRevision([string]$RepoRoot) {
-  $relativeFiles = @(& git -C $RepoRoot ls-files --cached --others --exclude-standard -- `
-    'infra/docling-sidecar/Dockerfile' `
-    'infra/docling-sidecar/entrypoint.sh' `
-    'infra/docling-sidecar/saaia_docling')
-  if ($LASTEXITCODE -ne 0) {
-    throw 'Unable to enumerate the Docling sidecar source files.'
-  }
-
-  $lines = foreach ($relativeFile in $relativeFiles | Sort-Object) {
-    $path = Join-Path $RepoRoot $relativeFile
-    if (Test-Path -LiteralPath $path -PathType Leaf) {
-      $file = Get-Item -LiteralPath $path
-      $fileHash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-      "$($relativeFile.Replace('\', '/'))|$($file.Length)|$fileHash"
-    }
-  }
-  if (-not $lines) {
-    throw 'The Docling sidecar source inventory is empty.'
-  }
-
-  $bytes = [Text.Encoding]::UTF8.GetBytes(($lines -join "`n"))
-  $sha256 = [Security.Cryptography.SHA256]::Create()
-  try {
-    return -join ($sha256.ComputeHash($bytes) | ForEach-Object { $_.ToString('x2') })
-  }
-  finally {
-    $sha256.Dispose()
-  }
+  return Get-DeploymentSourceRevision -RepoRoot $RepoRoot -Kind docling
 }
 
 function Ensure-DockerContext([string]$Name, [string]$ServerSpec) {
@@ -200,8 +132,7 @@ function Wait-BackendReady([string]$ServerSpec, [string]$Port, [int]$MaxTries = 
     }
     Start-Sleep -Seconds $DelaySeconds
   }
-  Write-Warning "Backend /ready did not become healthy in time. Check remote logs:"
-  Write-Warning "docker --context $ContextName compose -f $ComposeFile --env-file $EnvFile logs -f backend"
+  throw "Backend /ready did not become healthy in time. Inspect the owned deployment logs."
 }
 
 $repo = Get-RepoRoot
@@ -330,26 +261,7 @@ if ($useRemoteSourceBuild) {
   $localArchive = Join-Path $localArchiveDir "backend-source-$timestamp.tar"
 
   Write-Host "== Package backend source for remote Docker build ==" -ForegroundColor Cyan
-  & tar -cf $localArchive `
-    --exclude='*/bin' `
-    --exclude='*/bin-codex*' `
-    --exclude='*/obj' `
-    --exclude='*/obj-codex*' `
-    --exclude='*/.vs' `
-    --exclude='*.local.json' `
-    --exclude='deployment.config.json' `
-    --exclude='deployment.config.sig' `
-    -C $repo `
-    RAG.sln `
-    global.json `
-    .dockerignore `
-    contracts/SAAIA.Contracts `
-    backend/SAAIA.Backend `
-    infra/docker-compose.prod.yml `
-    infra/docling-sidecar
-  if ($LASTEXITCODE -ne 0) {
-    throw "Backend source archive failed ($LASTEXITCODE)."
-  }
+  New-BackendSourceArchive -RepoRoot $repo -ArchivePath $localArchive
 
   try {
     $qBuildDir = Quote-RemoteShellArg $remoteBuildDir

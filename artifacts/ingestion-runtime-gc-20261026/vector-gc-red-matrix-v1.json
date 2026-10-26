@@ -1,0 +1,156 @@
+{
+  "schema": "saaia.vector-gc-red-matrix.v1",
+  "status": "PREPARED_NOT_EXECUTED",
+  "scope": "managed_exact_manifests_strictly_older_generation_only",
+  "productModified": false,
+  "servicesStartedByAuthor": false,
+  "testsExecutedByAuthor": false,
+  "readyForCentralCapture": {
+    "file": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.VectorGcLifecycle.cs",
+    "filter": "FullyQualifiedName~Vector_gc_",
+    "cases": 10,
+    "expectedRed": 8,
+    "expectedWitnessPass": 2,
+    "proves": "existing_generation_barrier_is_lost_after_physical_fixture_document_or_tenant_removal",
+    "doesNotProve": "a_vector_gc_delete_was_executed_or_qualified"
+  },
+  "cases": [
+    {
+      "id": "GC-GEN-01",
+      "test": "Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal",
+      "variants": 8,
+      "dimensions": { "firstAction": ["upsert", "delete"], "nextAction": ["upsert", "delete"], "removeTenant": [false, true] },
+      "level": "IntegrationPg",
+      "state": "TEST_READY_NOT_EXECUTED",
+      "expectedBaseline": "FAIL",
+      "assertion": "same_doc_identity_but_strictly_greater_generation_and_distinct_chunk_plan_point_ids",
+      "target": "fresh_isolated_test_database_only"
+    },
+    {
+      "id": "GC-GEN-02",
+      "test": "Vector_gc_current_generation_retry_preserves_generation_but_renews_lease",
+      "variants": 1,
+      "level": "IntegrationPg",
+      "state": "TEST_READY_NOT_EXECUTED",
+      "expectedBaseline": "PASS",
+      "assertion": "retry_same_job_doc_generation_fresh_lease"
+    },
+    {
+      "id": "GC-GEN-03",
+      "test": "Vector_gc_generation_floor_isolated_by_tenant_and_document_identity",
+      "variants": 1,
+      "level": "IntegrationPg",
+      "state": "TEST_READY_NOT_EXECUTED",
+      "expectedBaseline": "PASS",
+      "assertion": "same_path_in_two_new_tenants_has_independent_floor_and_distinct_chunk_identity"
+    },
+    {
+      "id": "GC-REG-01",
+      "level": ["Unit", "IntegrationPg"],
+      "state": "SPECIFIED_NOT_IMPLEMENTED",
+      "scenario": "register_complete_manifest_before_first_upsert",
+      "assertion": "no_http_write_without_durable_manifest_and_exact_target",
+      "negativeControls": ["partial_manifest_rollback", "identity_collision", "wrong_lease", "retired_plan"]
+    },
+    {
+      "id": "GC-PUB-01",
+      "level": "IntegrationPg",
+      "state": "SPECIFIED_NOT_IMPLEMENTED",
+      "scenario": "B_publication_replaces_older_A_then_rollback_or_commit",
+      "assertion": "retirement_atomic_with_active_publication_and_no_gc_on_rollback"
+    },
+    {
+      "id": "GC-PUB-02",
+      "level": "IntegrationPg",
+      "state": "SPECIFIED_NOT_IMPLEMENTED",
+      "scenario": "new_generation_failed_canceled_or_paused_while_older_A_is_active",
+      "assertion": "active_A_and_current_generation_all_plans_protected"
+    },
+    {
+      "id": "GC-PUB-03",
+      "level": "IntegrationPg",
+      "state": "SPECIFIED_NOT_IMPLEMENTED",
+      "scenario": "registered_same_generation_alternative_plan_then_retry",
+      "assertion": "nonactive_current_plan_deferred_not_retired"
+    },
+    {
+      "id": "GC-PUB-04",
+      "level": "IntegrationPg",
+      "state": "SPECIFIED_NOT_IMPLEMENTED",
+      "scenario": "retired_old_plan_begin_resume_or_publication_attempt",
+      "assertion": "all_reactivation_rejected_and_active_publication_preserved"
+    },
+    {
+      "id": "GC-HTTP-01",
+      "level": "Unit",
+      "state": "SPECIFIED_NOT_IMPLEMENTED",
+      "scenario": "registered_target_A_then_current_configuration_B",
+      "assertion": "only_target_A_exact_id_batches_no_broad_filter_no_B_credentials_on_A",
+      "negativeControls": ["target_unapproved", "old_secret_unavailable", "redirect", "namespace_unattested"]
+    },
+    {
+      "id": "GC-HTTP-02",
+      "level": "Unit",
+      "state": "SPECIFIED_NOT_IMPLEMENTED",
+      "scenario": "point_absent_or_payload_mismatched",
+      "assertion": "absence_observed_or_quarantine_never_widen_delete_scope",
+      "negativeControls": ["tenant", "doc", "version", "plan", "canonical_chunk", "malformed_response"]
+    },
+    {
+      "id": "GC-HTTP-03",
+      "level": ["Unit", "IntegrationPg"],
+      "state": "SPECIFIED_NOT_IMPLEMENTED",
+      "scenario": "delete_timeout_nonterminal_ack_partial_read_or_crash_before_sql_checkpoint",
+      "assertion": "no_false_absence_retry_same_exact_ids_and_only_current_gc_lease_can_checkpoint"
+    },
+    {
+      "id": "GC-LATE-01",
+      "level": ["Unit", "IntegrationPg", "OwnedQdrant"],
+      "state": "SPECIFIED_NOT_IMPLEMENTED",
+      "scenario": "old_upsert_arrives_after_first_absence_observed",
+      "assertion": "retired_plan_stays_inactive_is_rechecked_and_recollected_active_points_unchanged"
+    },
+    {
+      "id": "GC-LATE-02",
+      "level": ["IntegrationPg", "OwnedQdrant"],
+      "state": "SPECIFIED_NOT_IMPLEMENTED",
+      "scenario": "old_delete_is_delayed_until_after_physical_document_recreate_and_new_publication",
+      "assertion": "new_generation_distinct_ids_and_current_points_survive_delayed_old_batch"
+    },
+    {
+      "id": "GC-LEASE-01",
+      "level": "IntegrationPg",
+      "state": "SPECIFIED_NOT_IMPLEMENTED",
+      "scenario": "two_collectors_reclaim_same_ticket_and_old_checkpoint_arrives_late",
+      "assertion": "opaque_lease_atomic_claim_no_old_owner_checkpoint_no_http_under_document_lock"
+    },
+    {
+      "id": "GC-BOUND-01",
+      "level": "Unit",
+      "state": "SPECIFIED_NOT_IMPLEMENTED",
+      "scenario": "large_backlog_and_unavailable_target_cancellation_or_time_limit",
+      "assertion": "bounded_ids_calls_response_bytes_elapsed_time_and_next_targets_not_starved"
+    },
+    {
+      "id": "GC-LEGACY-01",
+      "level": ["Unit", "IntegrationPg"],
+      "state": "SPECIFIED_NOT_IMPLEMENTED",
+      "scenario": "legacy_active_null_plan_or_unknown_old_target_manifest",
+      "assertion": "no_delete_legacy_quarantine_and_publication_still_readable"
+    },
+    {
+      "id": "GC-MIGRATION-01",
+      "level": "IntegrationPg",
+      "state": "SPECIFIED_NOT_IMPLEMENTED",
+      "scenario": "backfill_maxima_from_docs_revisions_runs_jobs_then_ordinary_cascade_delete",
+      "assertion": "floor_and_tombstones_preserved_never_lowered_invalid_payload_not_trusted"
+    }
+  ],
+  "acceptanceLimits": [
+    "No claim of collecting all legacy vectors without exact manifests and historical targets.",
+    "Same-current-generation alternatives remain deferred.",
+    "Absence is observed at a timestamp and retired manifests are rechecked; no eternal done state.",
+    "Whole database or namespace reset and restoration require a separate suspended-GC protocol.",
+    "Real Qdrant lifecycle qualification remains required before enabling managed cleanup."
+  ]
+}

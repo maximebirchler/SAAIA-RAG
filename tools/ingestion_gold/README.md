@@ -46,7 +46,7 @@ HTTP n'importe pas Docling : son moteur et ses modèles sont gérés séparémen
 Les tests purs ne lancent aucun service, OCR, téléchargement ou modèle :
 
 ```powershell
-python -B -m unittest discover -s tools/ingestion_gold/tests -v
+python -B -m unittest discover -s tools/ingestion_gold/tests -t . -v
 ```
 
 Générer seulement les sources locales dans un dossier neuf :

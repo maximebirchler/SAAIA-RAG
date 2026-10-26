@@ -1,0 +1,168 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "50fc04f64dc147eb910a8b45bcf5b95f",
+  "startedAtUtc": "2026-10-26T05:53:37.6216746+00:00",
+  "finishedAtUtc": "2026-10-26T05:54:24.8391146+00:00",
+  "gitCommit": "eb0d47dcb1bb5e6d0038c81c78d95418a5e272c6",
+  "gitDirty": true,
+  "profile": "IntegrationPg",
+  "filter": "(Profile=IntegrationPg)&(FullyQualifiedName~Vector_gc_)",
+  "requestedProjects": [
+    "Backend"
+  ],
+  "configuration": "Release",
+  "buildRequested": true,
+  "restoreRequested": false,
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-26T05:53:56.8501446+00:00",
+    "sha256": "4C424668CE1D5C17C384360C5F044D5F52E76D7702EE2CACF1611676DCAD06ED",
+    "fileCount": 1784,
+    "inventory": "source-files-50fc04f64dc147eb910a8b45bcf5b95f-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-26T05:54:25.3434079+00:00",
+    "sha256": "2454DDA4156993D254B09EF6ED9F9B3296B091436F545E711B56A2B6FB8539BF",
+    "fileCount": 1785,
+    "inventory": "source-files-50fc04f64dc147eb910a8b45bcf5b95f-after.json"
+  },
+  "sourceChangedDuringRun": true,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "state": "failed",
+  "prerequisites": [
+    {
+      "state": "configured",
+      "connectionStringRecorded": false,
+      "name": "isolated_postgresql"
+    }
+  ],
+  "environment": {
+    "neutralizedVariableNames": [],
+    "clientDataIsolation": {
+      "rootId": null,
+      "requiredForClientTests": true,
+      "source": "not_selected",
+      "environmentRestored": null,
+      "ownedRelativePath": null,
+      "enabled": false
+    }
+  },
+  "results": [
+    {
+      "project": "Backend",
+      "path": "backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj",
+      "status": "failed",
+      "exitCode": 1,
+      "trx": "Backend-50fc04f64dc147eb910a8b45bcf5b95f.trx",
+      "trxSha256": "3FB8EEB5A91A767F37B53B4CD557A044034D145F48BFC4305C788ABBEDD46B6E",
+      "assemblies": [
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.AdvancedValidationJobGuard.dll",
+          "role": "local_product_dependency",
+          "sha256": "79B463A4B048D90378344D9F77B14172B88FC2429DD6D9C114949F551AB39F7B",
+          "sizeBytes": 62464,
+          "lastWriteTimeUtc": "2026-10-26T05:53:58.9639244Z",
+          "capturedAtUtc": "2026-10-26T05:54:24.7715194+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.dll",
+          "role": "local_product_dependency",
+          "sha256": "7B11DED96B2E78D338C3D50FAB7020F4AF5C806B9DC830DFECF0C5B677C16060",
+          "sizeBytes": 7882752,
+          "lastWriteTimeUtc": "2026-10-26T05:54:07.3209068Z",
+          "capturedAtUtc": "2026-10-26T05:54:24.7790615+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "730C8C4EB008BBD755558E7448EC25FFBF8C9786252C57F523D7A014E7852CDF",
+          "sizeBytes": 5097472,
+          "lastWriteTimeUtc": "2026-10-26T05:54:13.2639289Z",
+          "capturedAtUtc": "2026-10-26T05:54:24.7841065+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "998E1CACA2D3AB343CD3F4D1F4771EB9E03F30AA59AAB84FF869254F3036C87B",
+          "sizeBytes": 154112,
+          "lastWriteTimeUtc": "2026-10-26T05:53:58.9869305Z",
+          "capturedAtUtc": "2026-10-26T05:54:24.8201928+00:00"
+        }
+      ],
+      "counts": {
+        "notExecuted": 0,
+        "total": 10,
+        "failed": 8,
+        "passed": 2,
+        "executed": 10,
+        "adapterReportedExecuted": 10
+      },
+      "cases": [
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: \"delete\", nextAction: \"upsert\", removeTenant: False)",
+          "outcome": "Failed",
+          "duration": "00:00:00.8034429"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: \"upsert\", nextAction: \"upsert\", removeTenant: False)",
+          "outcome": "Failed",
+          "duration": "00:00:00.7962036"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: \"delete\", nextAction: \"delete\", removeTenant: True)",
+          "outcome": "Failed",
+          "duration": "00:00:01.3328097"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: \"upsert\", nextAction: \"delete\", removeTenant: True)",
+          "outcome": "Failed",
+          "duration": "00:00:00.8432681"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: \"upsert\", nextAction: \"delete\", removeTenant: False)",
+          "outcome": "Failed",
+          "duration": "00:00:01.0056162"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_current_generation_retry_preserves_generation_but_renews_lease",
+          "outcome": "Passed",
+          "duration": "00:00:00.7994709"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_generation_floor_isolated_by_tenant_and_document_identity",
+          "outcome": "Passed",
+          "duration": "00:00:00.7358908"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: \"upsert\", nextAction: \"upsert\", removeTenant: True)",
+          "outcome": "Failed",
+          "duration": "00:00:00.8159552"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: \"delete\", nextAction: \"delete\", removeTenant: False)",
+          "outcome": "Failed",
+          "duration": "00:00:00.9634877"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_recreation_never_reuses_a_generation_or_point_identity_after_physical_removal(firstAction: \"delete\", nextAction: \"upsert\", removeTenant: True)",
+          "outcome": "Failed",
+          "duration": "00:00:00.8468009"
+        }
+      ]
+    }
+  ],
+  "model": {
+    "state": "not_applicable",
+    "reason": "Unit and PostgreSQL profiles do not invoke a model."
+  },
+  "corpus": {
+    "state": "synthetic_fixtures",
+    "reason": "IntegrationPg fixtures create isolated databases; no production corpus is assumed."
+  },
+  "validationProfilesSha256": "8E4B990BC0A828134E5FE0D8E7B2D82406B56D2A200D8D4D37516208E3D3201D",
+  "selectionPolicy": "TRX covers selected tests; excluded profiles were not executed.",
+  "excludedProfiles": [
+    "Unit",
+    "LiveLocal",
+    "LivePaid"
+  ]
+}

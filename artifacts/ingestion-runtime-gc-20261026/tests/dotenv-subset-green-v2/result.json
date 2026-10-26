@@ -1,0 +1,93 @@
+{
+  "schema": "saaia-dotenv-subset-tests.v1",
+  "syntheticInputsOnly": true,
+  "actualSecretsRead": false,
+  "dotnetBuilds": 0,
+  "networkCalls": 0,
+  "cryptographicSignatureValidated": false,
+  "passed": true,
+  "total": 16,
+  "failed": 0,
+  "tests": [
+    {
+      "error": null,
+      "name": "single_and_double_quoted_values_are_decoded",
+      "passed": true
+    },
+    {
+      "error": null,
+      "name": "comments_whitespace_equals_and_literal_hash_are_distinguished",
+      "passed": true
+    },
+    {
+      "error": null,
+      "name": "unquoted_and_single_quoted_windows_paths_keep_backslashes",
+      "passed": true
+    },
+    {
+      "error": null,
+      "name": "double_quoted_backslashes_and_escaped_quotes_follow_compose_subset",
+      "passed": true
+    },
+    {
+      "error": null,
+      "name": "colon_export_empty_and_duplicate_last_value_are_explicit",
+      "passed": true
+    },
+    {
+      "error": null,
+      "name": "plain_unquoted_value_keeps_all_equals",
+      "passed": true
+    },
+    {
+      "error": null,
+      "name": "unquoted_variable_interpolation_is_rejected",
+      "passed": true
+    },
+    {
+      "error": null,
+      "name": "double_quoted_variable_interpolation_is_rejected",
+      "passed": true
+    },
+    {
+      "error": null,
+      "name": "single_quoted_variable_expression_is_literal",
+      "passed": true
+    },
+    {
+      "error": null,
+      "name": "inherited_bare_key_is_rejected",
+      "passed": true
+    },
+    {
+      "error": null,
+      "name": "unterminated_quote_is_rejected",
+      "passed": true
+    },
+    {
+      "error": null,
+      "name": "quoted_trailing_junk_is_rejected",
+      "passed": true
+    },
+    {
+      "error": null,
+      "name": "multiline_value_is_explicitly_unsupported",
+      "passed": true
+    },
+    {
+      "error": null,
+      "name": "invalid_assignment_does_not_disappear_silently",
+      "passed": true
+    },
+    {
+      "error": null,
+      "name": "decoded_credential_is_the_one_rendered_for_signing",
+      "passed": true
+    },
+    {
+      "error": null,
+      "name": "decoded_control_escapes_survive_json_rendering",
+      "passed": true
+    }
+  ]
+}

@@ -1,0 +1,98 @@
+{
+  "schema": "saaia-deployment-offline-tests.v1",
+  "transportMocked": true,
+  "cryptographicSignatureValidated": false,
+  "servicesStarted": 0,
+  "networkCalls": 0,
+  "dotnetBuilds": 0,
+  "passed": true,
+  "total": 17,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "signed_default_chunking_matches_compose_200_0_25",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "signed_runtime_revisions_follow_effective_images",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "image_digest_runtime_mismatch_rejected_before_signing",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "mutable_image_without_attested_revision_is_rejected",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "chunk_min_above_max_rejected",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "chunk_overlap_at_max_rejected",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "valid_overrides_and_disabled_paid_capability_preserved",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "installer_unready_is_failure",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "installer_ready_supplies_content_revision_to_build",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "docker_build_uses_checkout_sdk_and_common_properties",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "docker_rejects_unknown_build_identity",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "compose_inspection_does_not_require_a_build_identity",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "source_revision_changes_with_source_and_shared_build_properties_not_generated_files",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "process_image_override_has_same_priority_as_compose",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "remote_source_archive_contains_the_checkout_build_properties",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "remote_archive_has_only_explicit_source_files_no_recursive_directory_transfer",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "archive_selection_excludes_synthetic_private_and_generated_files_without_hashing_them",
+      "passed": true,
+      "error": null
+    }
+  ]
+}

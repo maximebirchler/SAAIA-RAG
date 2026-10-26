@@ -1,0 +1,316 @@
+{
+  "schemaVersion": "saaia-linux-ocr-package.v1",
+  "linuxRid": "linux-x64",
+  "exactTest": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.Real_scanned_pdf_ocr_extracts_text_when_opted_in",
+  "unitRunId": "f43e20340bbf4e74b0dea3653089bc54",
+  "unitManifestSha256": "3162182b06f3892b8a7e17392897b06faf108a1c2b10783176c07a3c03237075",
+  "unitSourceChangedDuringRun": false,
+  "assemblyAnchors": [
+    {
+      "name": "SAAIA.AdvancedValidationJobGuard.dll",
+      "sha256": "79b463a4b048d90378344d9f77b14172b88fc2429dd6d9c114949f551ab39f7b"
+    },
+    {
+      "name": "SAAIA.Backend.dll",
+      "sha256": "ee4e1a2b4e1c8aea30c6391a1bdaee768bccb94aa71c1086a95a7c8e2e593a3c"
+    },
+    {
+      "name": "SAAIA.Backend.Tests.dll",
+      "sha256": "d41f5f4b8f02971af535ba93a5e30f3c399ca3b437fe0bb0462ded823ab9af3e"
+    },
+    {
+      "name": "SAAIA.Contracts.dll",
+      "sha256": "998e1caca2d3ab343cd3f4d1f4771eb9e03f30aa59aab84ff869254f3036c87b"
+    }
+  ],
+  "backendTestSnapshotSha256": "ee4e1a2b4e1c8aea30c6391a1bdaee768bccb94aa71c1086a95a7c8e2e593a3c",
+  "sdkDeclaredTag": "mcr.microsoft.com/dotnet/sdk:8.0.420",
+  "files": [
+    {
+      "path": "tests/Dapper.dll",
+      "sizeBytes": 245760,
+      "sha256": "784d15ba9fc95cdf049c927416486b15eb4ffca707195ef1ab32413b7f22f97c"
+    },
+    {
+      "path": "tests/Microsoft.Extensions.Configuration.Binder.dll",
+      "sizeBytes": 42784,
+      "sha256": "beac12f7bba4e22cda2acd9ddfe944a4ed56abec414e084edd147bd5dad3c032"
+    },
+    {
+      "path": "tests/Microsoft.OpenApi.dll",
+      "sizeBytes": 233408,
+      "sha256": "aeecfa60db32dbcfac06bceb835745951c88fcac194a84b2d0fe61893d1b7c07"
+    },
+    {
+      "path": "tests/Microsoft.TestPlatform.CommunicationUtilities.dll",
+      "sizeBytes": 137248,
+      "sha256": "4af79cd0ad77cee8821a19bb27126be6d60ff7e6ddfce75f33036a02945c7214"
+    },
+    {
+      "path": "tests/Microsoft.TestPlatform.CoreUtilities.dll",
+      "sizeBytes": 97824,
+      "sha256": "24c64fa3c37d613f91ff5d700144b718292e926e70dfed71aa8d2f7455d2d38a"
+    },
+    {
+      "path": "tests/Microsoft.TestPlatform.CrossPlatEngine.dll",
+      "sizeBytes": 315424,
+      "sha256": "5d82805edda54ff20990f0b875566d4b667b6b3287152fda3c9c1630f373d56a"
+    },
+    {
+      "path": "tests/Microsoft.TestPlatform.PlatformAbstractions.dll",
+      "sizeBytes": 53296,
+      "sha256": "dc94115de32657885b7d2e719cf0c1396be76268842e49118fe544632973ae05"
+    },
+    {
+      "path": "tests/Microsoft.TestPlatform.Utilities.dll",
+      "sizeBytes": 67120,
+      "sha256": "a4d547b17a1caa7f447968b048c7e81219ab7cca1f51b2c70c0bf89df3ece194"
+    },
+    {
+      "path": "tests/Microsoft.VisualStudio.CodeCoverage.Shim.dll",
+      "sizeBytes": 17344,
+      "sha256": "6aac89994cb9e4a7d528191fdd5b679a2fc8de05bfe61175c9f869c9cf7753ab"
+    },
+    {
+      "path": "tests/Microsoft.VisualStudio.TestPlatform.Common.dll",
+      "sizeBytes": 247856,
+      "sha256": "dd0a26502c57b1f889173dbbdf9d256ab085a92477f6b51845f075058e33f192"
+    },
+    {
+      "path": "tests/Microsoft.VisualStudio.TestPlatform.ObjectModel.dll",
+      "sizeBytes": 334896,
+      "sha256": "35c38d49f9f1535550507eea8e3499b549a8dd8fbd757f8a2335a1b430001937"
+    },
+    {
+      "path": "tests/NSec.Cryptography.dll",
+      "sizeBytes": 107520,
+      "sha256": "7998184a844208e485a5e908b44c24db0c14762dbce5e3f28466c682c3c2e181"
+    },
+    {
+      "path": "tests/Newtonsoft.Json.dll",
+      "sizeBytes": 695336,
+      "sha256": "72cf291d4bab0edd08a9b07c6173e1e7ad1abb7ab727fd7044bf6305d7515661"
+    },
+    {
+      "path": "tests/Npgsql.dll",
+      "sizeBytes": 1404928,
+      "sha256": "65278cba2673c5ed0088049d883f81e365c438e1ced19d02439efbeeb0b7edac"
+    },
+    {
+      "path": "tests/OpenTelemetry.Api.ProviderBuilderExtensions.dll",
+      "sizeBytes": 23552,
+      "sha256": "7fe16d7f27ca3017cc0d53985a64b80115de767e264da14b9eca44dff14f832b"
+    },
+    {
+      "path": "tests/OpenTelemetry.Api.dll",
+      "sizeBytes": 68608,
+      "sha256": "fdd275be14052eb7036bc4628db4aa905b3108e9f1072a338d2016286a9f6979"
+    },
+    {
+      "path": "tests/OpenTelemetry.Exporter.OpenTelemetryProtocol.dll",
+      "sizeBytes": 159232,
+      "sha256": "e3c505ed0b9dc80081b12e008a32dc14717fc54b0d703cc5bd61c1f8da6b7adb"
+    },
+    {
+      "path": "tests/OpenTelemetry.Extensions.Hosting.dll",
+      "sizeBytes": 10752,
+      "sha256": "0115813198b7b19c4d92161162dd9827824ce17adfe00a8593d1dd613a9ea71b"
+    },
+    {
+      "path": "tests/OpenTelemetry.Instrumentation.AspNetCore.dll",
+      "sizeBytes": 65024,
+      "sha256": "edbf573be9fbaba8e3368f9094736bbe751cedf0ae65c674f34ab0a84816e579"
+    },
+    {
+      "path": "tests/OpenTelemetry.Instrumentation.Http.dll",
+      "sizeBytes": 59904,
+      "sha256": "3fee5624a51edc78333a784a270234bd5b3ece532d67aac81e291b6af907ba99"
+    },
+    {
+      "path": "tests/OpenTelemetry.Instrumentation.Runtime.dll",
+      "sizeBytes": 25600,
+      "sha256": "161bb3067b9318af58d2e778e31b0818233cedf0a74e88dc75c9c873154d7798"
+    },
+    {
+      "path": "tests/OpenTelemetry.dll",
+      "sizeBytes": 251904,
+      "sha256": "c7bc6ea49fa2acd9a427e7e4ea30e65c2eba5f81605e310fa1fffe2306871be8"
+    },
+    {
+      "path": "tests/SAAIA.AdvancedValidationJobGuard.deps.json",
+      "sizeBytes": 2631,
+      "sha256": "87ce54abe5c50f016fa6d4d45e32fd160069fd86a0ccf8a6dd7da3655e1d2dca"
+    },
+    {
+      "path": "tests/SAAIA.AdvancedValidationJobGuard.dll",
+      "sizeBytes": 62464,
+      "sha256": "79b463a4b048d90378344d9f77b14172b88fc2429dd6d9c114949f551ab39f7b"
+    },
+    {
+      "path": "tests/SAAIA.AdvancedValidationJobGuard.runtimeconfig.json",
+      "sizeBytes": 268,
+      "sha256": "162d81f468bec570ec15e527433f4de5d5729ffe338ab79b22671f38760d34bd"
+    },
+    {
+      "path": "tests/SAAIA.Backend.Tests.deps.json",
+      "sizeBytes": 46230,
+      "sha256": "05b335fa3f7ff8fedb70821fa5a610eb76b96e5f5a9e9e561f7842012a890359"
+    },
+    {
+      "path": "tests/SAAIA.Backend.Tests.dll",
+      "sizeBytes": 5198336,
+      "sha256": "d41f5f4b8f02971af535ba93a5e30f3c399ca3b437fe0bb0462ded823ab9af3e"
+    },
+    {
+      "path": "tests/SAAIA.Backend.Tests.runtimeconfig.json",
+      "sizeBytes": 455,
+      "sha256": "9fd574d18b66ff801e2934adf8397e67d2f237ef284452251177a05dd3236350"
+    },
+    {
+      "path": "tests/SAAIA.Backend.deps.json",
+      "sizeBytes": 27103,
+      "sha256": "aa2441fdc412c573dd504edb7c7ac5c7d248f12ce5f8cbd305fecee4b1554994"
+    },
+    {
+      "path": "tests/SAAIA.Backend.dll",
+      "sizeBytes": 7983104,
+      "sha256": "ee4e1a2b4e1c8aea30c6391a1bdaee768bccb94aa71c1086a95a7c8e2e593a3c"
+    },
+    {
+      "path": "tests/SAAIA.Backend.runtimeconfig.json",
+      "sizeBytes": 488,
+      "sha256": "2927e7d9a65748a82c4f265a0c9c1876a5ee233d9f5283881e0966e81ca94e14"
+    },
+    {
+      "path": "tests/SAAIA.Contracts.dll",
+      "sizeBytes": 154112,
+      "sha256": "998e1caca2d3ab343cd3f4d1f4771eb9e03f30aa59aab84ff869254f3036c87b"
+    },
+    {
+      "path": "tests/Swashbuckle.AspNetCore.Swagger.dll",
+      "sizeBytes": 17408,
+      "sha256": "5c5f8b453b40c37a13656fc7ea0641553b9fa72e80fc07046bd012c0334350ac"
+    },
+    {
+      "path": "tests/Swashbuckle.AspNetCore.SwaggerGen.dll",
+      "sizeBytes": 118784,
+      "sha256": "b3dd86d15e24f75b5246f69cf8cfff5038352ededd178979c7fcd7519cc201cc"
+    },
+    {
+      "path": "tests/Swashbuckle.AspNetCore.SwaggerUI.dll",
+      "sizeBytes": 2270720,
+      "sha256": "d83f7e15a8c6c34e7bc4319e1b81e69f3856e692a076894a6e0efd7f27f34d1f"
+    },
+    {
+      "path": "tests/System.Diagnostics.DiagnosticSource.dll",
+      "sizeBytes": 192272,
+      "sha256": "27da0b8683f7539c4b57ce08000dec4242b0e3be23bf4822836080da0ebda971"
+    },
+    {
+      "path": "tests/UglyToad.PdfPig.Core.dll",
+      "sizeBytes": 49152,
+      "sha256": "4291afe4fdc9ea170df119087df52e66ee3fd9fec5564411fa778aa74a25981b"
+    },
+    {
+      "path": "tests/UglyToad.PdfPig.DocumentLayoutAnalysis.dll",
+      "sizeBytes": 249344,
+      "sha256": "c0dc094c0ab03b841566c4d25594dc19fb9a4b21255db54caa05ec1386c83ca5"
+    },
+    {
+      "path": "tests/UglyToad.PdfPig.Fonts.dll",
+      "sizeBytes": 1089024,
+      "sha256": "87ced0f06cd9e2ec813b731fd3e3189fc94a59d2f40d538320b99c2e5b81ebba"
+    },
+    {
+      "path": "tests/UglyToad.PdfPig.Package.dll",
+      "sizeBytes": 4608,
+      "sha256": "3d650e1876d677124308c2db41b271738c1a16a57e5ec0ec4c079ec515dc9743"
+    },
+    {
+      "path": "tests/UglyToad.PdfPig.Tokenization.dll",
+      "sizeBytes": 22528,
+      "sha256": "fddb876804cd048a9a1c9f066062c1e597d3608a11d15add18eb978c8d63e493"
+    },
+    {
+      "path": "tests/UglyToad.PdfPig.Tokens.dll",
+      "sizeBytes": 44032,
+      "sha256": "add274383826300ffb44f38e7fe06fc48de32051fccbbce0fa946cc16de7d627"
+    },
+    {
+      "path": "tests/UglyToad.PdfPig.dll",
+      "sizeBytes": 4220416,
+      "sha256": "9956e3adc676e2817d32e2126d6ea077de1d5a87593c3eae8b886fc44981f16f"
+    },
+    {
+      "path": "tests/runtimes/linux-x64/native/libsodium.so",
+      "sizeBytes": 476568,
+      "sha256": "f874411fe112f303037e97bc8377d7ec565e79fe09c53e85d114b577a81d108b"
+    },
+    {
+      "path": "tests/testhost.dll",
+      "sizeBytes": 48672,
+      "sha256": "d3817a1f17e00b7f7b1040ab01e7aae73378f80c32aa4f62cb99c2aeed3cd5ad"
+    },
+    {
+      "path": "tests/xunit.abstractions.dll",
+      "sizeBytes": 21928,
+      "sha256": "3166dc70323fb30ccf1cedb0fe86f2ad122c46d254542342d90386efc4c9285c"
+    },
+    {
+      "path": "tests/xunit.assert.dll",
+      "sizeBytes": 185552,
+      "sha256": "50694822851cd81c29adcd0f33e4041d1605befcdc9384c02eadd62218b643b1"
+    },
+    {
+      "path": "tests/xunit.core.dll",
+      "sizeBytes": 70352,
+      "sha256": "0ed5297c796b0225aab35564319ebb6600738e14e868fddb21c317e35b99513b"
+    },
+    {
+      "path": "tests/xunit.execution.dotnet.dll",
+      "sizeBytes": 279760,
+      "sha256": "d112327a738f816894cdd314b27b141a07d5550bc2a747c08d9cab0659a76887"
+    },
+    {
+      "path": "tests/xunit.runner.reporters.netcoreapp10.dll",
+      "sizeBytes": 84176,
+      "sha256": "194458c816e0ea9ff0c5eac8896c52133fe9205661833b3d0f57e85a4e66936b"
+    },
+    {
+      "path": "tests/xunit.runner.utility.netcoreapp10.dll",
+      "sizeBytes": 255184,
+      "sha256": "ec705ad62e33f31fc46ad5800c9b1694c02d0ec4e1ee704712da9f24ebbea22e"
+    },
+    {
+      "path": "tests/xunit.runner.visualstudio.testadapter.dll",
+      "sizeBytes": 180944,
+      "sha256": "c5ac41b36fac0fcef9714fb80fea0175913530fb53dd7bb8e5e1470339667100"
+    },
+    {
+      "path": "Dockerfile",
+      "sizeBytes": 821,
+      "sha256": "7f061a6f2962df9bd5ab29bcfe5897d3c909a68a22c9172b05fbb32296c86772"
+    },
+    {
+      "path": "run-ocr-e2e.sh",
+      "sizeBytes": 1519,
+      "sha256": "38cff9e66a94043646ac3a6d3b7d0db98067077e576010d80e7e35ae483bf030"
+    },
+    {
+      "path": "verify-evidence.py",
+      "sizeBytes": 6838,
+      "sha256": "08c047f217eafdf52ab66bfdc166fd995c519f56f735c897dbee89705fb55790"
+    }
+  ],
+  "excludedByDesign": [
+    "appsettings*.json",
+    "deployment.config*.json",
+    "*.exe",
+    "Fixtures/**",
+    "Db/**",
+    "logs/**",
+    "other_native_rids",
+    "localized_resources"
+  ],
+  "executionStatus": "NOT_EXECUTED"
+}

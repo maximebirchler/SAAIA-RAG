@@ -218,6 +218,8 @@ WHERE job_id=@job_id AND status='running';";
 
         var docId = currentDocState?.DocId ?? IdUtil.DeterministicGuid($"{tenantId}:{docPath}");
         var indexedVersionBefore = Math.Max(0, currentDocState?.IndexedVersion ?? 0);
+        if (!await IngestionVectorRegistry.CanPublishAsync(conn, tx, tenantId, docId, version, ingestionVectorPlanFingerprint, ct))
+            return false;
         var nextIndexedVersion = version;
         var retrievalChunkQuality = IngestionWorker.BuildRetrievalChunkQualitySummary(retrievalChunks);
         if (retrievalChunkQuality.SearchableChunkCount == 0)
@@ -289,6 +291,7 @@ SET status='done',
     locked_by=NULL,
     locked_at=NULL
 WHERE job_id=@job_id AND status='running';";
+        await IngestionVectorRegistry.RetireEligibleAsync(conn, tx, 1024, ct, tenantId, docId);
         await conn.ExecuteAsync(new CommandDefinition(doneSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
         await DocumentFoundationRepo.PublishUpsertCompletionAsync(
             conn,
@@ -333,7 +336,8 @@ WHERE job_id=@job_id AND status='running';";
         string docPath,
         int version,
         CancellationToken ct,
-        string? leaseOwner = null)
+        string? leaseOwner = null,
+        Func<IngestionSourcePresence>? conditionalSourcePresence = null)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
@@ -410,6 +414,15 @@ WHERE job_id=@job_id AND status='running';";
         var docId = currentDocState?.DocId ?? IdUtil.DeterministicGuid($"{tenantId}:{docPath}");
         var indexedVersionBefore = Math.Max(0, currentDocState?.IndexedVersion ?? 0);
 
+        // Re-observe after database lock waits. The filesystem is not part of the
+        // SQL transaction; never treat the earlier queue/execution observation as current.
+        if (conditionalSourcePresence is not null)
+        {
+            var presence = conditionalSourcePresence();
+            if (presence == IngestionSourcePresence.Present) throw new IngestionSourceReturnedBeforeCommitException();
+            if (presence != IngestionSourcePresence.Absent) throw new IngestionSourcePresenceUnknownException();
+        }
+
         const string docSql = @"UPDATE documents
 SET status='deleted',
     updated_at=now(),
@@ -444,6 +457,7 @@ WHERE job_id=@job_id AND status='running';";
             ingestionVersion: version,
             indexedVersionBefore,
             ct);
+        await IngestionVectorRegistry.RetireEligibleAsync(conn, tx, 1024, ct, tenantId, docId);
         await FreezeTerminalSnapshotAsync(conn, jobId, tx, ct);
 
         await tx.CommitAsync(ct);
@@ -570,11 +584,14 @@ FOR UPDATE;
             return null;
         }
 
+        var requiresSourceAbsence = string.Equals(action, "delete", StringComparison.OrdinalIgnoreCase)
+            && await CurrentDeleteRequiresSourceAbsenceAsync(conn, tx, tenantId, docPath, currentVersion, ct);
         var payload = IngestionJobPayloadJson.Serialize(
             docId,
             currentVersion,
             source: "superseded",
-            indexedVersionBefore: indexedVersionBefore);
+            indexedVersionBefore: indexedVersionBefore,
+            requiresSourceAbsence: requiresSourceAbsence);
         var nextJobId = Guid.NewGuid();
         var normalizedPriority = Math.Max(0, priority);
         var category = string.Equals(action, "upsert", StringComparison.OrdinalIgnoreCase)

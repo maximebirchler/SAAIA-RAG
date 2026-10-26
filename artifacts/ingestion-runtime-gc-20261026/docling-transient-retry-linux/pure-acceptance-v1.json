@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "saaia-artifact-operator-pure-acceptance-v1",
+  "operator": "run-owned-docling-retry-linux-v1.py",
+  "startedAtUtc": "2026-10-26T10:56:52.465851+00:00",
+  "finishedAtUtc": "2026-10-26T10:56:52.695645+00:00",
+  "status": "PASS",
+  "exitCode": 0,
+  "passedPureTests": 19,
+  "sourceChangedDuringRun": false,
+  "files": {
+    "run-owned-docling-retry-linux-v1.py": "767f59ba5e6cf36dd256139103cdcea5749129aabdb26190c970b94ec746b0ad",
+    "test-operator.py": "4d1dcba14e279ca239c35253c2e42ca2b750bbf679b61fc2a875f8a9b236b04a",
+    "README.md": "d57b24be2768f954148750eca0e48d7c22220a46dc6a9e2934973d3989191d61"
+  },
+  "log": "pure-tests-v1.log",
+  "logSha256": "0f35c4245a650adb9c888dec4f239d5b12f04a4d6ad167e204dfadaa4aaf4484",
+  "actualDotnetTestsExecuted": 0,
+  "actualDockerCommandsExecuted": 0,
+  "actualSshCommandsExecuted": 0,
+  "paidCalls": 0,
+  "mockProtocolNotRuntimeEvidence": true,
+  "expectedActualLinuxTests": 26,
+  "runtimeQualification": "NON_EXECUTED_BY_ARTIFACT_AUTHOR",
+  "fixtureDelta": {
+    "change": "File.Move(overwrite) replaced by File.Replace in test only",
+    "sourceSha256": "b31a58b5ace870429b82d0063889fb4e9c876426053eb12567b4d3f2321c01d6",
+    "firstWindowsGreenAttempt": "25PASS_1FAIL_NOT_ACCEPTED"
+  }
+}

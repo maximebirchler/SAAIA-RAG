@@ -1,0 +1,253 @@
+{
+  "schemaVersion": "saaia-dependency-readiness-pre-backend.v1",
+  "runId": "72dca7da-254d-40de-8f91-84b2c6a94a4e",
+  "startedAtUtc": "2026-10-26T10:50:00.815573+00:00",
+  "passed": true,
+  "backendCreated": false,
+  "paidProviderCalls": 0,
+  "dependencyIdentities": [
+    {
+      "role": "docling",
+      "id": "6960bec59cf077a1178094e0990e5b5f8a45a84b199abdb8b45ae13d229aa63b",
+      "imageId": "sha256:7238422c78fd648dabbc25a4e0f4f1c8a1aec673e84109231d3da3ebaa7e8e69"
+    },
+    {
+      "role": "postgres",
+      "id": "1c00693690fbe1e01fb8c5b7cbb3a435095c89714c18d4580fe786f22d1c5798",
+      "imageId": "sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51"
+    },
+    {
+      "role": "qdrant",
+      "id": "ca75074b2854134204c90315d43cf923ae7c62ce9d74ec7389ad61052e563751",
+      "imageId": "sha256:6a34a799bed69c7c25c4e87ab04092005e4579062a9bf0e82a75d0b21f030006"
+    },
+    {
+      "role": "tei",
+      "id": "b78ccc3153a4b429ec6a102da428f818fa6416f01496d33b6f270951f893a17e",
+      "imageId": "sha256:66db77d7856c9319bbfaf2c5b80a6d0e0ac9ff128ade09eaca1d9c20213617a4"
+    }
+  ],
+  "attempts": [
+    {
+      "observedAtUtc": "2026-10-26T10:50:01.065050+00:00",
+      "dependencies": {
+        "postgres": {
+          "ready": true,
+          "code": "accepting_connections"
+        },
+        "qdrant": {
+          "ready": true,
+          "httpStatus": 200,
+          "code": "ready"
+        },
+        "tei": {
+          "ready": false,
+          "httpStatus": null,
+          "code": "transport_not_ready"
+        },
+        "docling": {
+          "ready": false,
+          "httpStatus": null,
+          "code": "transport_not_ready"
+        }
+      }
+    },
+    {
+      "observedAtUtc": "2026-10-26T10:50:02.322225+00:00",
+      "dependencies": {
+        "postgres": {
+          "ready": true,
+          "code": "accepting_connections"
+        },
+        "qdrant": {
+          "ready": true,
+          "httpStatus": 200,
+          "code": "ready"
+        },
+        "tei": {
+          "ready": false,
+          "httpStatus": null,
+          "code": "transport_not_ready"
+        },
+        "docling": {
+          "ready": false,
+          "httpStatus": 503,
+          "code": "http_not_ready"
+        }
+      }
+    },
+    {
+      "observedAtUtc": "2026-10-26T10:50:03.536077+00:00",
+      "dependencies": {
+        "postgres": {
+          "ready": true,
+          "code": "accepting_connections"
+        },
+        "qdrant": {
+          "ready": true,
+          "httpStatus": 200,
+          "code": "ready"
+        },
+        "tei": {
+          "ready": false,
+          "httpStatus": null,
+          "code": "transport_not_ready"
+        },
+        "docling": {
+          "ready": false,
+          "httpStatus": 503,
+          "code": "http_not_ready"
+        }
+      }
+    },
+    {
+      "observedAtUtc": "2026-10-26T10:50:04.746377+00:00",
+      "dependencies": {
+        "postgres": {
+          "ready": true,
+          "code": "accepting_connections"
+        },
+        "qdrant": {
+          "ready": true,
+          "httpStatus": 200,
+          "code": "ready"
+        },
+        "tei": {
+          "ready": true,
+          "httpStatus": 200,
+          "code": "ready"
+        },
+        "docling": {
+          "ready": false,
+          "httpStatus": 503,
+          "code": "http_not_ready"
+        }
+      }
+    },
+    {
+      "observedAtUtc": "2026-10-26T10:50:05.960378+00:00",
+      "dependencies": {
+        "postgres": {
+          "ready": true,
+          "code": "accepting_connections"
+        },
+        "qdrant": {
+          "ready": true,
+          "httpStatus": 200,
+          "code": "ready"
+        },
+        "tei": {
+          "ready": true,
+          "httpStatus": 200,
+          "code": "ready"
+        },
+        "docling": {
+          "ready": false,
+          "httpStatus": 503,
+          "code": "http_not_ready"
+        }
+      }
+    },
+    {
+      "observedAtUtc": "2026-10-26T10:50:07.181723+00:00",
+      "dependencies": {
+        "postgres": {
+          "ready": true,
+          "code": "accepting_connections"
+        },
+        "qdrant": {
+          "ready": true,
+          "httpStatus": 200,
+          "code": "ready"
+        },
+        "tei": {
+          "ready": true,
+          "httpStatus": 200,
+          "code": "ready"
+        },
+        "docling": {
+          "ready": false,
+          "httpStatus": 503,
+          "code": "http_not_ready"
+        }
+      }
+    },
+    {
+      "observedAtUtc": "2026-10-26T10:50:08.393867+00:00",
+      "dependencies": {
+        "postgres": {
+          "ready": true,
+          "code": "accepting_connections"
+        },
+        "qdrant": {
+          "ready": true,
+          "httpStatus": 200,
+          "code": "ready"
+        },
+        "tei": {
+          "ready": true,
+          "httpStatus": 200,
+          "code": "ready"
+        },
+        "docling": {
+          "ready": false,
+          "httpStatus": 503,
+          "code": "http_not_ready"
+        }
+      }
+    },
+    {
+      "observedAtUtc": "2026-10-26T10:50:09.605351+00:00",
+      "dependencies": {
+        "postgres": {
+          "ready": true,
+          "code": "accepting_connections"
+        },
+        "qdrant": {
+          "ready": true,
+          "httpStatus": 200,
+          "code": "ready"
+        },
+        "tei": {
+          "ready": true,
+          "httpStatus": 200,
+          "code": "ready"
+        },
+        "docling": {
+          "ready": false,
+          "httpStatus": 503,
+          "code": "http_not_ready"
+        }
+      }
+    },
+    {
+      "observedAtUtc": "2026-10-26T10:50:10.885244+00:00",
+      "dependencies": {
+        "postgres": {
+          "ready": true,
+          "code": "accepting_connections"
+        },
+        "qdrant": {
+          "ready": true,
+          "httpStatus": 200,
+          "code": "ready"
+        },
+        "tei": {
+          "ready": true,
+          "httpStatus": 200,
+          "code": "ready"
+        },
+        "docling": {
+          "ready": true,
+          "httpStatus": 200,
+          "code": "ready"
+        }
+      }
+    }
+  ],
+  "timeoutSeconds": 300,
+  "proxyDisabled": true,
+  "redirectsAllowed": false,
+  "scope": "dependency_health_before_backend_creation_not_full_conversion_or_runtime_qualification",
+  "finishedAtUtc": "2026-10-26T10:50:10.885262+00:00"
+}

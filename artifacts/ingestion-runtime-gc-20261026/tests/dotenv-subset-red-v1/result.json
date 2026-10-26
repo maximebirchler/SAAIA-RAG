@@ -1,0 +1,88 @@
+{
+  "schema": "saaia-dotenv-subset-tests.v1",
+  "syntheticInputsOnly": true,
+  "actualSecretsRead": false,
+  "dotnetBuilds": 0,
+  "networkCalls": 0,
+  "cryptographicSignatureValidated": false,
+  "passed": false,
+  "total": 15,
+  "failed": 14,
+  "tests": [
+    {
+      "passed": false,
+      "name": "single_and_double_quoted_values_are_decoded",
+      "error": "quoted_value_differs_from_compose"
+    },
+    {
+      "passed": false,
+      "name": "comments_whitespace_equals_and_literal_hash_are_distinguished",
+      "error": "comment_or_separator_changed_literal_value"
+    },
+    {
+      "passed": false,
+      "name": "unquoted_and_single_quoted_windows_paths_keep_backslashes",
+      "error": "windows_backslashes_changed"
+    },
+    {
+      "passed": false,
+      "name": "double_quoted_backslashes_and_escaped_quotes_follow_compose_subset",
+      "error": "double_quoted_backslashes_not_decoded"
+    },
+    {
+      "passed": true,
+      "name": "colon_export_empty_and_duplicate_last_value_are_explicit",
+      "error": null
+    },
+    {
+      "passed": false,
+      "name": "unquoted_variable_interpolation_is_rejected",
+      "error": "unsupported_env_form_was_silently_accepted"
+    },
+    {
+      "passed": false,
+      "name": "double_quoted_variable_interpolation_is_rejected",
+      "error": "unsupported_env_form_was_silently_accepted"
+    },
+    {
+      "passed": false,
+      "name": "single_quoted_variable_expression_is_literal",
+      "error": "literal_single_quoted_expression_changed"
+    },
+    {
+      "passed": false,
+      "name": "inherited_bare_key_is_rejected",
+      "error": "unsupported_env_form_was_silently_accepted"
+    },
+    {
+      "passed": false,
+      "name": "unterminated_quote_is_rejected",
+      "error": "unsupported_env_form_was_silently_accepted"
+    },
+    {
+      "passed": false,
+      "name": "quoted_trailing_junk_is_rejected",
+      "error": "unsupported_env_form_was_silently_accepted"
+    },
+    {
+      "passed": false,
+      "name": "multiline_value_is_explicitly_unsupported",
+      "error": "unsupported_env_form_was_silently_accepted"
+    },
+    {
+      "passed": false,
+      "name": "invalid_assignment_does_not_disappear_silently",
+      "error": "unsupported_env_form_was_silently_accepted"
+    },
+    {
+      "passed": false,
+      "name": "decoded_credential_is_the_one_rendered_for_signing",
+      "error": "SAAIA_BOOTSTRAP_ENABLED=true but SAAIA_BOOTSTRAP_API_KEY is empty. Set SAAIA_BOOTSTRAP_API_KEY in infra/.env."
+    },
+    {
+      "passed": false,
+      "name": "decoded_control_escapes_survive_json_rendering",
+      "error": "json_escaping_dropped_decoded_characters"
+    }
+  ]
+}

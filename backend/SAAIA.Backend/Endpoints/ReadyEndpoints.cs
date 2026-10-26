@@ -54,6 +54,7 @@ public static class ReadyEndpoints
         {
             var freshPayload = WithFreshRagSearchReadiness(cached.Payload, ragOpt.Value, ingestionOpt.Value, ragSearchBulkhead, teiGovernor,
                 requestId, advancedOpt.Value, advancedState, cached.Ok);
+            VectorGcReadiness.Apply(freshPayload.Details, ctx.RequestServices);
             return freshPayload.Ok
                 ? Results.Ok(freshPayload)
                 : Results.Json(freshPayload, statusCode: 503);
@@ -67,12 +68,14 @@ public static class ReadyEndpoints
             {
                 var freshPayload = WithFreshRagSearchReadiness(cached.Payload, ragOpt.Value, ingestionOpt.Value, ragSearchBulkhead, teiGovernor,
                     requestId, advancedOpt.Value, advancedState, cached.Ok);
+                VectorGcReadiness.Apply(freshPayload.Details, ctx.RequestServices);
                 return freshPayload.Ok
                     ? Results.Ok(freshPayload)
                     : Results.Json(freshPayload, statusCode: 503);
             }
 
             var details = new Dictionary<string, object?>();
+            VectorGcReadiness.Apply(details, ctx.RequestServices);
             details["diagnostic_schema"] = "operation.v1";
             details["diagnostic_structured_logs_enabled"] = true;
             details["diagnostic_otlp_export_enabled"] = telemetryOpt.Value.Enabled;

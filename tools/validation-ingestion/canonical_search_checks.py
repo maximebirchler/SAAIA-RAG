@@ -7,6 +7,21 @@ import uuid
 from tools.ingestion_gold.critical_facts import exact_text
 
 
+def retrieval_metrics_healthy(response: dict) -> bool:
+    """Honor the real nullable DTO; falsey wrong types are not healthy data.
+
+    Empty diagnostics are serialized as null and normally omitted. Retriever
+    names are a JSON array, whereas retriever errors are a JSON object.
+    """
+    if not isinstance(response, dict) or not isinstance(response.get("metrics"), dict):
+        return False
+    metrics = response["metrics"]
+    retrievers = metrics.get("degradedRetrievers")
+    errors = metrics.get("degradedRetrieverErrors")
+    return ((retrievers is None or type(retrievers) is list and len(retrievers) == 0)
+            and (errors is None or type(errors) is dict and len(errors) == 0))
+
+
 def search_fact(case: dict) -> dict:
     """Use an independent physical-source annotation, never a projected chunk."""
     facts = case["expectations"]["criticalFacts"]
@@ -111,8 +126,7 @@ def check_search_capture(case: dict, row: dict, capture: dict | None) -> dict:
     result["absentQueryDenseNeighborCount"] = len(controls.get("absent_query", {}).get("response", {}).get("items", []))
     result["absentDocumentEmpty"] = document_empty
     result["negativeControlsPassed"] = len(controls) == 2 and lexical_zero and dense_current and document_empty
-    result["noDegradedRetrievers"] = all(
-        isinstance(resp.get("metrics"), dict) and not resp["metrics"].get("degradedRetrievers")
+    result["noDegradedRetrievers"] = all(retrieval_metrics_healthy(resp)
         for resp in [response] + [item.get("response", {}) for item in negative])
     read = capture.get("read", {})
     read_response, read_request = read.get("response", {}), read.get("request", {})

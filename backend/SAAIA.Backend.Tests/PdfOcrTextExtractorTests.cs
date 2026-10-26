@@ -1,7 +1,5 @@
 using System.Diagnostics;
 using System.Globalization;
-using System.IO.Compression;
-using System.Text;
 using SAAIA.Backend;
 using Xunit;
 
@@ -73,8 +71,8 @@ public sealed class PdfOcrTextExtractorTests
                 CancellationToken.None,
                 languagesOverride: languages);
 
-            Assert.NotNull(full);
-            Assert.NotNull(full!.Extraction);
+            Assert.True(full is not null, "The explicitly enabled full-document OCR operation returned no result.");
+            Assert.True(full!.Extraction is not null, DescribeOcrFailure("full-document", full.Diagnostics));
             Assert.Equal(0, full.Diagnostics.ExitCode);
             Assert.False(full.Diagnostics.TimedOut);
             Assert.Null(full.Diagnostics.FailureReason);
@@ -87,8 +85,8 @@ public sealed class PdfOcrTextExtractorTests
                 CancellationToken.None,
                 languagesOverride: languages);
 
-            Assert.NotNull(imagePage);
-            Assert.NotNull(imagePage!.Extraction);
+            Assert.True(imagePage is not null, "The explicitly enabled image-page OCR operation returned no result.");
+            Assert.True(imagePage!.Extraction is not null, DescribeOcrFailure("image-page", imagePage.Diagnostics));
             Assert.Contains(1, imagePage.Diagnostics.AttemptedPages);
             Assert.Contains(1, imagePage.Diagnostics.PagesWithOcrText);
             AssertOcrTokens(imagePage.Extraction!);
@@ -105,6 +103,33 @@ public sealed class PdfOcrTextExtractorTests
         {
             TryDeleteDirectory(tempDir);
         }
+    }
+
+    [Fact]
+    public void Raster_ocr_fixture_is_hash_pinned_and_contains_only_a_scanned_page()
+    {
+        var temporary = Path.Combine(Path.GetTempPath(), $"saaia-ocr-fixture-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(temporary);
+        try
+        {
+            var path = Path.Combine(temporary, "scanned-smoke.pdf");
+            WriteRasterTextPdf(path);
+            var native = PdfExtractor.Extract(path);
+            Assert.Single(native.Pages);
+            Assert.Empty(native.Tokens);
+            Assert.Equal(1, native.Pages[0].ImageCount);
+            Assert.True(native.Quality.OcrRecommended);
+        }
+        finally { TryDeleteDirectory(temporary); }
+    }
+
+    [Fact]
+    public void Ocr_fixture_oracle_rejects_a_corrupted_identifier_even_when_all_other_operational_words_are_present()
+    {
+        AssertOcrTokens(PdfOcrTextExtractor.BuildExtractionFromSidecarText("PUMP RESET PANEL BATCH CODE XQ42"));
+        var wrongIdentifier = PdfOcrTextExtractor.BuildExtractionFromSidecarText("PUMP RESET PANEL BATCH CODE X042");
+        var failure = Assert.Throws<Xunit.Sdk.TrueException>(() => AssertOcrTokens(wrongIdentifier));
+        Assert.Contains("xq42", failure.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1666,121 +1691,15 @@ level	page_num	block_num	par_num	line_num	word_num	left	top	width	height	conf	te
 
     private static void WriteRasterTextPdf(string path)
     {
-        const int width = 1700;
-        const int height = 2200;
-        const int scale = 14;
-        const int x = 110;
-        const int y = 170;
-        const int lineGap = 170;
-
-        var pixels = Enumerable.Repeat((byte)255, width * height).ToArray();
-        DrawRasterText(pixels, width, height, x, y, scale, "SAAIA OCR REAL SCAN");
-        DrawRasterText(pixels, width, height, x, y + lineGap, scale, "PUMP RESET PANEL");
-        DrawRasterText(pixels, width, height, x, y + lineGap * 2, scale, "BATCH CODE XQ42");
-
-        var compressedImage = Deflate(pixels);
-        var contents = Encoding.ASCII.GetBytes("q\n612 0 0 792 0 0 cm\n/Im0 Do\nQ\n");
-        var objects = new List<byte[]>
-        {
-            Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
-            Ascii("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
-            Ascii("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>"),
-            StreamObject(
-                $"<< /Type /XObject /Subtype /Image /Width {width} /Height {height} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode /Length {compressedImage.Length} >>",
-                compressedImage),
-            StreamObject($"<< /Length {contents.Length} >>", contents)
-        };
-
-        using var output = File.Create(path);
-        WriteAscii(output, "%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
-        var offsets = new List<long> { 0 };
-        for (var i = 0; i < objects.Count; i++)
-        {
-            offsets.Add(output.Position);
-            WriteAscii(output, $"{i + 1} 0 obj\n");
-            output.Write(objects[i]);
-            WriteAscii(output, "\nendobj\n");
-        }
-
-        var xrefOffset = output.Position;
-        WriteAscii(output, $"xref\n0 {objects.Count + 1}\n");
-        WriteAscii(output, "0000000000 65535 f \n");
-        foreach (var offset in offsets.Skip(1))
-            WriteAscii(output, offset.ToString("D10", CultureInfo.InvariantCulture) + " 00000 n \n");
-        WriteAscii(output, $"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R >>\nstartxref\n{xrefOffset}\n%%EOF\n");
-    }
-
-    private static void DrawRasterText(byte[] pixels, int width, int height, int x, int y, int scale, string text)
-    {
-        var cursor = x;
-        foreach (var ch in text)
-        {
-            if (ch == ' ')
-            {
-                cursor += scale * 4;
-                continue;
-            }
-
-            if (!Glyphs.TryGetValue(char.ToUpperInvariant(ch), out var glyph))
-            {
-                cursor += scale * 6;
-                continue;
-            }
-
-            for (var gy = 0; gy < glyph.Length; gy++)
-            {
-                var row = glyph[gy];
-                for (var gx = 0; gx < row.Length; gx++)
-                {
-                    if (row[gx] != '1')
-                        continue;
-
-                    FillRect(pixels, width, height, cursor + gx * scale, y + gy * scale, scale, scale);
-                }
-            }
-
-            cursor += scale * 7;
-        }
-    }
-
-    private static void FillRect(byte[] pixels, int width, int height, int x, int y, int w, int h)
-    {
-        var x0 = Math.Clamp(x, 0, width);
-        var y0 = Math.Clamp(y, 0, height);
-        var x1 = Math.Clamp(x + w, 0, width);
-        var y1 = Math.Clamp(y + h, 0, height);
-        for (var yy = y0; yy < y1; yy++)
-        {
-            var offset = yy * width;
-            for (var xx = x0; xx < x1; xx++)
-                pixels[offset + xx] = 0;
-        }
-    }
-
-    private static byte[] Deflate(byte[] data)
-    {
+        const string resourceName = "SAAIA.Backend.Tests.OcrRealisticRasterV1.pdf";
+        const string expectedSha256 = "69441AAB874DFB04AC8D015431FF3746564BB8D88B6A6B022327B7F2C37C60C6";
+        using var source = typeof(PdfOcrTextExtractorTests).Assembly.GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException("The hash-pinned synthetic OCR PDF is not embedded in the test assembly.");
         using var output = new MemoryStream();
-        using (var deflate = new DeflateStream(output, CompressionLevel.SmallestSize, leaveOpen: true))
-            deflate.Write(data, 0, data.Length);
-        return output.ToArray();
-    }
-
-    private static byte[] StreamObject(string dictionary, byte[] stream)
-    {
-        using var output = new MemoryStream();
-        WriteAscii(output, dictionary + "\nstream\n");
-        output.Write(stream);
-        WriteAscii(output, "\nendstream");
-        return output.ToArray();
-    }
-
-    private static byte[] Ascii(string value)
-        => Encoding.ASCII.GetBytes(value);
-
-    private static void WriteAscii(Stream stream, string value)
-    {
-        var bytes = Encoding.ASCII.GetBytes(value);
-        stream.Write(bytes, 0, bytes.Length);
+        source.CopyTo(output);
+        var bytes = output.ToArray();
+        Assert.Equal(expectedSha256, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)));
+        File.WriteAllBytes(path, bytes);
     }
 
     private static async Task AssertCommandAvailableAsync(string command, string arguments)
@@ -1824,12 +1743,19 @@ level	page_num	block_num	par_num	line_num	word_num	left	top	width	height	conf	te
             .Where(static token => token.Length > 0)
             .ToHashSet(StringComparer.Ordinal);
 
-        var expected = new[] { "saaia", "ocr", "real", "scan", "pump", "reset", "panel", "batch", "code", "xq42" };
-        var hits = expected.Count(normalized.Contains);
+        // These are the two operational lines and their identifier; the decorative header is not the oracle.
+        var expected = new[] { "pump", "reset", "panel", "batch", "code", "xq42" };
+        var missing = expected.Where(token => !normalized.Contains(token)).ToArray();
         Assert.True(
-            hits >= 4,
-            $"OCR text did not contain enough expected tokens. Expected at least 4 hits from [{string.Join(", ", expected)}], got {hits}. Text: {string.Join(' ', extraction.Pages.Select(static page => page.Text))}");
+            missing.Length == 0,
+            $"OCR fixture operational tokens are missing: [{string.Join(", ", missing)}]. Recognized tokens: [{string.Join(", ", normalized.Order(StringComparer.Ordinal))}].");
     }
+
+    private static string DescribeOcrFailure(string stage, PdfOcrDiagnostics diagnostics)
+        => $"OCR fixture {stage} produced no extraction: reason={diagnostics.FailureReason ?? "none"}; " +
+           $"exit={diagnostics.ExitCode?.ToString(CultureInfo.InvariantCulture) ?? "unknown"}; " +
+           $"timedOut={diagnostics.TimedOut}; attempted={diagnostics.AttemptedPageCount}; " +
+           $"stderr={new string((diagnostics.Stderr ?? "").Where(static ch => !char.IsControl(ch) || ch is '\n' or '\t').Take(2048).ToArray())}";
 
     private static void TryDeleteDirectory(string path)
     {
@@ -1847,27 +1773,4 @@ level	page_num	block_num	par_num	line_num	word_num	left	top	width	height	conf	te
     private static string ResolveDotNetCommand()
         => Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet";
 
-    private static readonly IReadOnlyDictionary<char, string[]> Glyphs = new Dictionary<char, string[]>
-    {
-        ['A'] = ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
-        ['B'] = ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
-        ['C'] = ["01111", "10000", "10000", "10000", "10000", "10000", "01111"],
-        ['D'] = ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
-        ['E'] = ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
-        ['H'] = ["10001", "10001", "10001", "11111", "10001", "10001", "10001"],
-        ['I'] = ["11111", "00100", "00100", "00100", "00100", "00100", "11111"],
-        ['L'] = ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
-        ['M'] = ["10001", "11011", "10101", "10101", "10001", "10001", "10001"],
-        ['N'] = ["10001", "11001", "10101", "10011", "10001", "10001", "10001"],
-        ['O'] = ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
-        ['P'] = ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
-        ['Q'] = ["01110", "10001", "10001", "10001", "10101", "10010", "01101"],
-        ['R'] = ["11110", "10001", "10001", "11110", "10100", "10010", "10001"],
-        ['S'] = ["01111", "10000", "10000", "01110", "00001", "00001", "11110"],
-        ['T'] = ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
-        ['U'] = ["10001", "10001", "10001", "10001", "10001", "10001", "01110"],
-        ['X'] = ["10001", "10001", "01010", "00100", "01010", "10001", "10001"],
-        ['2'] = ["01110", "10001", "00001", "00010", "00100", "01000", "11111"],
-        ['4'] = ["00010", "00110", "01010", "10010", "11111", "00010", "00010"]
-    };
 }

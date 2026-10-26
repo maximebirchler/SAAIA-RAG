@@ -3,8 +3,19 @@ sealed record IngestionFileContentHashResolution(string HashHex, bool CacheHit);
 sealed class IngestionFileContentHashCache
 {
     private readonly object _gate = new();
-    private readonly Dictionary<string, Entry> _entries =
-        new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Entry> _entries;
+    private readonly StringComparer _pathComparer;
+    private readonly Func<IngestionDuplicateFileCandidate, CancellationToken, Task<string>> _hashResolver;
+
+    internal IngestionFileContentHashCache(
+        bool? windowsFileSystem = null,
+        Func<IngestionDuplicateFileCandidate, CancellationToken, Task<string>>? hashResolver = null)
+    {
+        _pathComparer = IngestionFileSystemPathIdentity.Comparer(windowsFileSystem ?? OperatingSystem.IsWindows());
+        _entries = new(_pathComparer);
+        _hashResolver = hashResolver ?? ((candidate, ct) =>
+            IngestionDuplicateFilePlanner.ComputeSha256HexAsync(candidate.AbsolutePath, ct));
+    }
 
     public async Task<IngestionFileContentHashResolution> ResolveAsync(
         IngestionDuplicateFileCandidate candidate,
@@ -24,9 +35,7 @@ sealed class IngestionFileContentHashCache
             }
         }
 
-        var hash = await IngestionDuplicateFilePlanner.ComputeSha256HexAsync(
-            candidate.AbsolutePath,
-            ct).ConfigureAwait(false);
+        var hash = await _hashResolver(candidate, ct).ConfigureAwait(false);
 
         lock (_gate)
         {
@@ -42,7 +51,7 @@ sealed class IngestionFileContentHashCache
         var retained = absolutePaths
             .Where(static path => !string.IsNullOrWhiteSpace(path))
             .Select(NormalizePath)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            .ToHashSet(_pathComparer);
 
         lock (_gate)
         {

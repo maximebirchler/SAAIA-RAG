@@ -1,0 +1,231 @@
+{
+  "schemaVersion": "saaia-pure-python-validation.v1",
+  "startedAtUtc": "2026-10-26T09:32:19.454675+00:00",
+  "finishedAtUtc": "2026-10-26T09:32:19.634285+00:00",
+  "testsRun": 49,
+  "passedCount": 49,
+  "failureCount": 0,
+  "errorCount": 0,
+  "skipCount": 0,
+  "passed": true,
+  "sourceChangedDuringRun": false,
+  "mockedTransport": true,
+  "dockerExecuted": false,
+  "httpExecuted": false,
+  "paidProviderCalls": 0,
+  "liveRuntimeQualified": false,
+  "sourceInventoryBefore": [
+    {
+      "path": "tools/validation-ingestion/invoke-linux-automatic-ingestion.py",
+      "sizeBytes": 34250,
+      "sha256": "c33367838178ba05ed86a1803414a4b5bd5ac2727340dd4b40cb5a0ef90883e5"
+    },
+    {
+      "path": "tools/validation-ingestion/linux_automatic_ingestion_checks.py",
+      "sizeBytes": 16994,
+      "sha256": "36d88a9643b6bf134cbf5eab752aced70c21cb5dbff41b006c1a3f63f9ba7dc0"
+    },
+    {
+      "path": "tools/validation-ingestion/README-linux-automatic-ingestion.md",
+      "sizeBytes": 8783,
+      "sha256": "1c153b9aecc95a43c4b06929fbf19303a13a2611851d19dc5994e549bd9cc92d"
+    },
+    {
+      "path": "tools/validation-ingestion/invoke-linux-ingestion.py",
+      "sizeBytes": 29702,
+      "sha256": "eda60c2c8ff2dadfdb19e7f7f9afc4838cf3b59a6bdbdc1b055f83aa45115969"
+    },
+    {
+      "path": "tools/validation-ingestion/invoke-linux-lifecycle.py",
+      "sizeBytes": 29335,
+      "sha256": "ef1fe8dde00c5e6182d45fa9612cd8606518ea7e4a6a89d033f4d660dd8c2662"
+    },
+    {
+      "path": "tools/validation-ingestion/linux_lifecycle_checks.py",
+      "sizeBytes": 17465,
+      "sha256": "b592022ed7873a7f9693df9c9f5ea827701bd2178343206988af038a0b3f6606"
+    },
+    {
+      "path": "tools/validation-ingestion/linux_owned_runtime.py",
+      "sizeBytes": 14187,
+      "sha256": "013df6c287e0249002cb80154622b17a164f882fb37a13c47f863173f8fcb54d"
+    },
+    {
+      "path": "tools/validation-ingestion/linux_runtime_queries.py",
+      "sizeBytes": 4065,
+      "sha256": "be1aff6d2733294dc8727ad9c3a30eba2c939c21567075be3d71c8d49f2b27b9"
+    },
+    {
+      "path": "tools/validation-ingestion/linux_retrieval_fact_checks.py",
+      "sizeBytes": 10936,
+      "sha256": "27db744c45b58fae5b04bec412132bb1e129642576437dd81157edb736640b5f"
+    },
+    {
+      "path": "tools/validation-ingestion/canonical_search_checks.py",
+      "sizeBytes": 7715,
+      "sha256": "00be4bb0ead9f0ab56276a95b869ea2a479169bdec21819a0303fdf5c4a769c6"
+    },
+    {
+      "path": "tools/validation-ingestion/embedding_attestation.py",
+      "sizeBytes": 7733,
+      "sha256": "57ced0573825fcc2a17f019930123e9864256f8b40c90867db35401d8580f294"
+    },
+    {
+      "path": "tools/validation-ingestion/vector_point_identity.py",
+      "sizeBytes": 2804,
+      "sha256": "f744100e57ba0788a9829c0be93d982168ba46a14ba8db6c1ae83402519be9c3"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_linux_automatic_ingestion.py",
+      "sizeBytes": 31730,
+      "sha256": "3c928cab782985cbee3917b943980998ddfb975d07a3ad97854d9f08937d3d0d"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_linux_retrieval_facts.py",
+      "sizeBytes": 14894,
+      "sha256": "39a0208725c7f57be4537abbba0c4cffa4fbf99d944188a0f5c1338f15ef7b0c"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_worker_verifier.py",
+      "sizeBytes": 14846,
+      "sha256": "968583551cc1e1f716c443b54a346b535f2b8b50678d8c4d01767c85d7ccb6d8"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_linux_ingestion_plan.py",
+      "sizeBytes": 10429,
+      "sha256": "1de533f28c209fb4bbb15673d1ad3e44dd5823ffe310ccf82c62095a98427e1e"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_linux_runtime_guards.py",
+      "sizeBytes": 8715,
+      "sha256": "3d816e61076a3bb5a3555f005e45fb44a0334c4a4724bdbe0efd095e4f7a3041"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_tei_runtime_contracts.py",
+      "sizeBytes": 6548,
+      "sha256": "6370505cd79686035c3fbfcc32f01ea7c2f622dcedadd764da2a6ece10115598"
+    },
+    {
+      "path": "tools/ingestion_gold/contracts.py",
+      "sizeBytes": 6303,
+      "sha256": "2e4de685b377d063adf32b3842e7af94717e46f65473a0c31e4573ce887ef6ca"
+    },
+    {
+      "path": "tools/ingestion_gold/critical_facts.py",
+      "sizeBytes": 1848,
+      "sha256": "2a106e8ee4a6ee80edd5039dda1158117506bc9a84a2b4361ce35d254f308823"
+    },
+    {
+      "path": "tools/ingestion_gold/canonical_evaluator.py",
+      "sizeBytes": 24543,
+      "sha256": "8a2af0806a8327fd703a6d05918066882f6d539a2ded9eb302534fee272c38f0"
+    }
+  ],
+  "sourceInventoryAfter": [
+    {
+      "path": "tools/validation-ingestion/invoke-linux-automatic-ingestion.py",
+      "sizeBytes": 34250,
+      "sha256": "c33367838178ba05ed86a1803414a4b5bd5ac2727340dd4b40cb5a0ef90883e5"
+    },
+    {
+      "path": "tools/validation-ingestion/linux_automatic_ingestion_checks.py",
+      "sizeBytes": 16994,
+      "sha256": "36d88a9643b6bf134cbf5eab752aced70c21cb5dbff41b006c1a3f63f9ba7dc0"
+    },
+    {
+      "path": "tools/validation-ingestion/README-linux-automatic-ingestion.md",
+      "sizeBytes": 8783,
+      "sha256": "1c153b9aecc95a43c4b06929fbf19303a13a2611851d19dc5994e549bd9cc92d"
+    },
+    {
+      "path": "tools/validation-ingestion/invoke-linux-ingestion.py",
+      "sizeBytes": 29702,
+      "sha256": "eda60c2c8ff2dadfdb19e7f7f9afc4838cf3b59a6bdbdc1b055f83aa45115969"
+    },
+    {
+      "path": "tools/validation-ingestion/invoke-linux-lifecycle.py",
+      "sizeBytes": 29335,
+      "sha256": "ef1fe8dde00c5e6182d45fa9612cd8606518ea7e4a6a89d033f4d660dd8c2662"
+    },
+    {
+      "path": "tools/validation-ingestion/linux_lifecycle_checks.py",
+      "sizeBytes": 17465,
+      "sha256": "b592022ed7873a7f9693df9c9f5ea827701bd2178343206988af038a0b3f6606"
+    },
+    {
+      "path": "tools/validation-ingestion/linux_owned_runtime.py",
+      "sizeBytes": 14187,
+      "sha256": "013df6c287e0249002cb80154622b17a164f882fb37a13c47f863173f8fcb54d"
+    },
+    {
+      "path": "tools/validation-ingestion/linux_runtime_queries.py",
+      "sizeBytes": 4065,
+      "sha256": "be1aff6d2733294dc8727ad9c3a30eba2c939c21567075be3d71c8d49f2b27b9"
+    },
+    {
+      "path": "tools/validation-ingestion/linux_retrieval_fact_checks.py",
+      "sizeBytes": 10936,
+      "sha256": "27db744c45b58fae5b04bec412132bb1e129642576437dd81157edb736640b5f"
+    },
+    {
+      "path": "tools/validation-ingestion/canonical_search_checks.py",
+      "sizeBytes": 7715,
+      "sha256": "00be4bb0ead9f0ab56276a95b869ea2a479169bdec21819a0303fdf5c4a769c6"
+    },
+    {
+      "path": "tools/validation-ingestion/embedding_attestation.py",
+      "sizeBytes": 7733,
+      "sha256": "57ced0573825fcc2a17f019930123e9864256f8b40c90867db35401d8580f294"
+    },
+    {
+      "path": "tools/validation-ingestion/vector_point_identity.py",
+      "sizeBytes": 2804,
+      "sha256": "f744100e57ba0788a9829c0be93d982168ba46a14ba8db6c1ae83402519be9c3"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_linux_automatic_ingestion.py",
+      "sizeBytes": 31730,
+      "sha256": "3c928cab782985cbee3917b943980998ddfb975d07a3ad97854d9f08937d3d0d"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_linux_retrieval_facts.py",
+      "sizeBytes": 14894,
+      "sha256": "39a0208725c7f57be4537abbba0c4cffa4fbf99d944188a0f5c1338f15ef7b0c"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_worker_verifier.py",
+      "sizeBytes": 14846,
+      "sha256": "968583551cc1e1f716c443b54a346b535f2b8b50678d8c4d01767c85d7ccb6d8"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_linux_ingestion_plan.py",
+      "sizeBytes": 10429,
+      "sha256": "1de533f28c209fb4bbb15673d1ad3e44dd5823ffe310ccf82c62095a98427e1e"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_linux_runtime_guards.py",
+      "sizeBytes": 8715,
+      "sha256": "3d816e61076a3bb5a3555f005e45fb44a0334c4a4724bdbe0efd095e4f7a3041"
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_tei_runtime_contracts.py",
+      "sizeBytes": 6548,
+      "sha256": "6370505cd79686035c3fbfcc32f01ea7c2f622dcedadd764da2a6ece10115598"
+    },
+    {
+      "path": "tools/ingestion_gold/contracts.py",
+      "sizeBytes": 6303,
+      "sha256": "2e4de685b377d063adf32b3842e7af94717e46f65473a0c31e4573ce887ef6ca"
+    },
+    {
+      "path": "tools/ingestion_gold/critical_facts.py",
+      "sizeBytes": 1848,
+      "sha256": "2a106e8ee4a6ee80edd5039dda1158117506bc9a84a2b4361ce35d254f308823"
+    },
+    {
+      "path": "tools/ingestion_gold/canonical_evaluator.py",
+      "sizeBytes": 24543,
+      "sha256": "8a2af0806a8327fd703a6d05918066882f6d539a2ded9eb302534fee272c38f0"
+    }
+  ]
+}

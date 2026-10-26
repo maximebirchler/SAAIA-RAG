@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "saaia-scanner-delete-outcome-freeze.v2",
+  "status": "SOURCE_FROZEN_PENDING_CENTRAL_BACKEND_AND_PG",
+  "review": "The stopped owner had already completed the narrow enum and diagnostic delta; no additional C# change was necessary during takeover.",
+  "files": [
+    {"path": "backend/SAAIA.Backend/Ingestion/JobRepo.ConditionalDelete.cs", "sha256": "730057708471371c96004bd4009da93b2f6dea63576de90115e7c257a1777519"},
+    {"path": "backend/SAAIA.Backend/Ingestion/IngestionWorker.cs", "sha256": "ed5001078a3606cfce8dc18830b51cd619509cc64f90893449a91fafe0910b39"},
+    {"path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.ConditionalDeleteSafety.cs", "sha256": "f4f061ee81f6cc8dccc00f843b20a502ff36d097a04db290b99d1d550ad2254a"}
+  ],
+  "outcomeContract": ["FreshGenerationQueued", "Superseded"],
+  "workerDeletePublicationResultRemainsFalse": true,
+  "diagnosticReasons": ["source_returned_fresh_generation_queued", "conditional_delete_superseded"],
+  "causalPgTest": "Returned_source_reports_superseded_without_claiming_another_fresh_generation",
+  "testsExecutedByReviewer": 0,
+  "dotnetOrServicesOrGitExecutedByReviewer": false,
+  "previousFullUnitSnapshotRemainsHistorical": true
+}

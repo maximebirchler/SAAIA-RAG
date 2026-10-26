@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "saaia-docling-startup-race-observation.v1",
+  "runId": "0f2bf739-3b9c-4d43-bd68-39da03553960",
+  "backendImageId": "sha256:a5e6adb233621b4694d19a798905f220d59154783500a45742264ab5011484f1",
+  "upstreamListeningAtUtc": "2026-10-26T10:20:46.382177702Z",
+  "connectionRefusedObserved": true,
+  "allThreeFailuresBeforeUpstreamListening": true,
+  "failedJobs": [
+    {
+      "jobId": "6483a120-9a37-440a-b9f2-01a00bc553fb",
+      "createdAt": "2026-10-26T10:20:41.01692+00:00",
+      "startedAt": "2026-10-26T10:20:41.413425+00:00",
+      "finishedAt": "2026-10-26T10:20:41.458703+00:00",
+      "status": "failed",
+      "httpStatus": 502,
+      "failureCode": "docling_conversion_http_error"
+    },
+    {
+      "jobId": "786d74f0-d1fc-4271-8059-8cc2fbdc4278",
+      "createdAt": "2026-10-26T10:20:43.039258+00:00",
+      "startedAt": "2026-10-26T10:20:43.435493+00:00",
+      "finishedAt": "2026-10-26T10:20:43.486921+00:00",
+      "status": "failed",
+      "httpStatus": 502,
+      "failureCode": "docling_conversion_http_error"
+    },
+    {
+      "jobId": "807b6743-4f9c-4830-88b0-d738f9a020e8",
+      "createdAt": "2026-10-26T10:20:38.989298+00:00",
+      "startedAt": "2026-10-26T10:20:39.409533+00:00",
+      "finishedAt": "2026-10-26T10:20:39.918983+00:00",
+      "status": "failed",
+      "httpStatus": 502,
+      "failureCode": "docling_conversion_http_error"
+    }
+  ],
+  "publicDerivationOnly": true,
+  "oldRuntimeVerdict": "FAIL_PRESERVED"
+}

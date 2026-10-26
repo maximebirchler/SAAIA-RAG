@@ -1,0 +1,115 @@
+{
+  "schemaVersion": "vector-gc-static-counter-review.v1",
+  "observedAtUtc": "2026-10-26T06:30:58.753778+00:00",
+  "status": "POINT_IN_TIME_REVIEW_NOT_RUNTIME_APPROVAL",
+  "scope": "Read-only source/design/matrix review while the owner is implementing and testing corrections. No service/API/SSH/.NET/Git or product/test modification by reviewer.",
+  "files": [
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/072_vector_lifecycle_registry.sql",
+      "sha256": "3ac394a9a78a3659ade68fd1f7db5e66d29c72e293fbe342fc5b4b9edef1e8ec"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionGenerationRegistry.cs",
+      "sha256": "aea0518dc788a92ffe02b74e3e2daee6ebfe7e2c3c3d15a11f1670c16895020a"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionEnqueue.cs",
+      "sha256": "d6bcdf9521a79d8c39f31ab41b80aab38419eac3f59c710ec8c3fb1b39155bf4"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionEnqueue.Delete.cs",
+      "sha256": "d449299b136dedd409853504c420cc4356e947b85a9f6746610135988b618485"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionVectorRegistry.cs",
+      "sha256": "0db3498791377dac52389b305e515f6d3771431ee71c832a953d9f654622e237"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/VectorGcModels.cs",
+      "sha256": "e77645b6ceb4f82994abdf8ba849d2c8a850011663962935daf8159e7c2aff8b"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/VectorGcQueue.cs",
+      "sha256": "876a082906679497f8f3971b259bef6b51ef5180e51df9982f5da109dc065574"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/VectorGarbageCollector.cs",
+      "sha256": "e527ffaf173793d54e188a9290d2c8b630a3a1338c288c239debea14154d85af"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/VectorGcQdrantTransport.cs",
+      "sha256": "8c33a2275f80b703e4a4d2554bb97e4002f53364cc988f9eccc572e0274619aa"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/VectorGcRuntimeState.cs",
+      "sha256": "833641121dbf15a73a9ffc7bb2227a14499d60f87667b2a2cc1a5f3783f4d59c"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Options/VectorGcOptions.cs",
+      "sha256": "f069c0fa726e92ddb371f47307df4c7dc8132e45e39c9896d5c3035b6e3436fb"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/JobRepo.Completion.cs",
+      "sha256": "e3a417f367ac9b9b32516ad129beecec1cd772ec428f25f70076052346adcfb5"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionWorker.cs",
+      "sha256": "c6462439b8a71c05b00bb15bb7773558813cc6129fbf02d2eac421f129c19e0c"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionLeaseGuard.cs",
+      "sha256": "2d0e7a7273786c957f76b1208171436d7a603af93742b95dfc7c6cf6614d65c0"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Extensions/ServiceCollectionExtensions.cs",
+      "sha256": "170cdfc1d22e16ce30c86585eb16b10c48fd83d5368a131683b4d854f38ca1ce"
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.VectorGcRegistry.cs",
+      "sha256": "a9cb60429d2e7c7c206cb89981dd11f5dc6c743e7385758c4032d2fbbbf69719"
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.VectorGcLifecycle.cs",
+      "sha256": "50c785e6673b243cbc1a06bd717acdca5812c37ad117e3c1a8e9ad9e19863247"
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/VectorGcTransportTests.cs",
+      "sha256": "c021c5c0bdecf51b1874521a06f1721f5003108332080427424d0e5ff9533b0c"
+    }
+  ],
+  "findings": [
+    {
+      "id": "GC-IDENTITY-CAS",
+      "severity": "boundary_safety",
+      "state": "SOURCE_CORRECTION_OBSERVED_TESTS_PENDING_OWNER",
+      "basis": "Conflict could return a different custom doc_id from the one whose watermark was reserved. Current source adds doc_id equality and re-resolves each retry.",
+      "limit": "No normal UI path changing IDs was established; schema and existing-ID resolver permit non-deterministic imported/fixture identities."
+    },
+    {
+      "id": "GC-HTTP-CLASSIFICATION",
+      "severity": "diagnostic",
+      "state": "SOURCE_CORRECTION_OBSERVED_TESTS_PENDING_OWNER",
+      "basis": "Original non2xx reads became identity quarantine. Current owner code returns read_http_N and distinct identity/response codes."
+    },
+    {
+      "id": "GC-HTTP-PARTIAL-RESPONSE",
+      "severity": "absence_proof",
+      "state": "OWNER_REVIEW_FOUND_AND_PREPARING_RED",
+      "basis": "Latest read snapshot still used IsSuccessStatusCode; peer reviewer established that206 must not attest full absence.",
+      "attribution": "Independent reviewer finding, not a new test executed here."
+    },
+    {
+      "id": "GC-MANIFEST-APPEND",
+      "severity": "registry_integrity_hardening",
+      "state": "OWNER_PREPARING_SEAL_TEST",
+      "basis": "Point trigger protected UPDATE/DELETE but allowed a later INSERT; owner plans a one-time sealed manifest.",
+      "limit": "No deletion of an active point was established from this append possibility; exact identity/generation/payload guards still constrain deletion."
+    }
+  ],
+  "limits": [
+    "Code owner was actively changing sources; hashes anchor only the observed point in time.",
+    "No Unit, PostgreSQL or real Qdrant test was executed by this reviewer.",
+    "Restored/cloned namespaces and legacy unknown points are not universally qualified by this GC.",
+    "The first Linux ingestion preflight uses an older code checkpoint and cannot qualify the new GC."
+  ]
+}

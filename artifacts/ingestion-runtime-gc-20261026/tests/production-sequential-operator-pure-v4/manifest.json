@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "saaia-pure-operator-test.v1",
+  "capturedAtUtc": "2026-10-26T10:36:40.518838+00:00",
+  "exitCode": 0,
+  "target": "run-production-sequential-v4.py",
+  "sourceSha256": "d07ebca03bb998a0b0654344bed5b96b93a8735d2938284a877a22de6b87ca37",
+  "sourceChangedDuringRun": false,
+  "testSha256": "bd25c41b350b6edb56bc504530ae6dd6b06621eebf1078b8c5345a8c25cf2e7b",
+  "executed": 12,
+  "networkCalls": 0,
+  "dockerCalls": 0,
+  "logSha256": "77079accf2faab098042bc34b518cf6ec7f0e6613679b5f7377c91beeb2fe5e1"
+}

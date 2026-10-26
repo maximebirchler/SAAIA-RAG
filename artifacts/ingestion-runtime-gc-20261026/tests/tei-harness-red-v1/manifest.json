@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "saaia-offline-python-test.v1",
+  "exitCode": 1,
+  "expectedRed": true,
+  "networkExecuted": false,
+  "servicesExecuted": false,
+  "command": "python -B -m unittest tools.ingestion_gold.tests.test_tei_runtime_contracts -v"
+}

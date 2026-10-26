@@ -1,0 +1,161 @@
+{
+  "schema": "saaia-gc-independent-source-review.v1",
+  "reviewedAtUtc": "2026-10-26T06:39:11.3586465Z",
+  "readOnly": true,
+  "sourceFreeze": "gc-source-freeze-v1.json",
+  "expectedAggregateSha256": "c5c5cf08f30a4f4d2febbae7e8dd390be3c51e1002152aafdf3c112181981732",
+  "checkedFiles": 18,
+  "matchingFiles": 18,
+  "sourceChecks": [
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/072_vector_lifecycle_registry.sql",
+      "expectedSha256": "3ac394a9a78a3659ade68fd1f7db5e66d29c72e293fbe342fc5b4b9edef1e8ec",
+      "observedSha256": "3ac394a9a78a3659ade68fd1f7db5e66d29c72e293fbe342fc5b4b9edef1e8ec",
+      "match": true,
+      "bytes": 5516
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionGenerationRegistry.cs",
+      "expectedSha256": "aea0518dc788a92ffe02b74e3e2daee6ebfe7e2c3c3d15a11f1670c16895020a",
+      "observedSha256": "aea0518dc788a92ffe02b74e3e2daee6ebfe7e2c3c3d15a11f1670c16895020a",
+      "match": true,
+      "bytes": 1960
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionVectorRegistry.cs",
+      "expectedSha256": "0db3498791377dac52389b305e515f6d3771431ee71c832a953d9f654622e237",
+      "observedSha256": "0db3498791377dac52389b305e515f6d3771431ee71c832a953d9f654622e237",
+      "match": true,
+      "bytes": 8119
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/VectorGcModels.cs",
+      "expectedSha256": "e77645b6ceb4f82994abdf8ba849d2c8a850011663962935daf8159e7c2aff8b",
+      "observedSha256": "e77645b6ceb4f82994abdf8ba849d2c8a850011663962935daf8159e7c2aff8b",
+      "match": true,
+      "bytes": 2301
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/VectorGcQueue.cs",
+      "expectedSha256": "876a082906679497f8f3971b259bef6b51ef5180e51df9982f5da109dc065574",
+      "observedSha256": "876a082906679497f8f3971b259bef6b51ef5180e51df9982f5da109dc065574",
+      "match": true,
+      "bytes": 4440
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/VectorGcQdrantTransport.cs",
+      "expectedSha256": "8c33a2275f80b703e4a4d2554bb97e4002f53364cc988f9eccc572e0274619aa",
+      "observedSha256": "8c33a2275f80b703e4a4d2554bb97e4002f53364cc988f9eccc572e0274619aa",
+      "match": true,
+      "bytes": 8562
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/VectorGarbageCollector.cs",
+      "expectedSha256": "6b6d245a827b7ef1d1897fe197ba8761295f9116362878470461d969a9ec8e17",
+      "observedSha256": "6b6d245a827b7ef1d1897fe197ba8761295f9116362878470461d969a9ec8e17",
+      "match": true,
+      "bytes": 6703
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/VectorGcRuntimeState.cs",
+      "expectedSha256": "833641121dbf15a73a9ffc7bb2227a14499d60f87667b2a2cc1a5f3783f4d59c",
+      "observedSha256": "833641121dbf15a73a9ffc7bb2227a14499d60f87667b2a2cc1a5f3783f4d59c",
+      "match": true,
+      "bytes": 4394
+    },
+    {
+      "path": "backend/SAAIA.Backend/Options/VectorGcOptions.cs",
+      "expectedSha256": "f069c0fa726e92ddb371f47307df4c7dc8132e45e39c9896d5c3035b6e3436fb",
+      "observedSha256": "f069c0fa726e92ddb371f47307df4c7dc8132e45e39c9896d5c3035b6e3436fb",
+      "match": true,
+      "bytes": 986
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionEnqueue.cs",
+      "expectedSha256": "8c65cd3c84bbb24aedcc58a3c38cf9c2f2645df8553fe4716adf97c1163cf50e",
+      "observedSha256": "8c65cd3c84bbb24aedcc58a3c38cf9c2f2645df8553fe4716adf97c1163cf50e",
+      "match": true,
+      "bytes": 8143
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionEnqueue.Delete.cs",
+      "expectedSha256": "acfde5a3f5f967b8d8ad2a75d3c91be5b7637135268739a93725895d4c4c7a3a",
+      "observedSha256": "acfde5a3f5f967b8d8ad2a75d3c91be5b7637135268739a93725895d4c4c7a3a",
+      "match": true,
+      "bytes": 5355
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionWorker.cs",
+      "expectedSha256": "c6462439b8a71c05b00bb15bb7773558813cc6129fbf02d2eac421f129c19e0c",
+      "observedSha256": "c6462439b8a71c05b00bb15bb7773558813cc6129fbf02d2eac421f129c19e0c",
+      "match": true,
+      "bytes": 97522
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/JobRepo.Completion.cs",
+      "expectedSha256": "e3a417f367ac9b9b32516ad129beecec1cd772ec428f25f70076052346adcfb5",
+      "observedSha256": "e3a417f367ac9b9b32516ad129beecec1cd772ec428f25f70076052346adcfb5",
+      "match": true,
+      "bytes": 25915
+    },
+    {
+      "path": "backend/SAAIA.Backend/Extensions/ServiceCollectionExtensions.cs",
+      "expectedSha256": "170cdfc1d22e16ce30c86585eb16b10c48fd83d5368a131683b4d854f38ca1ce",
+      "observedSha256": "170cdfc1d22e16ce30c86585eb16b10c48fd83d5368a131683b4d854f38ca1ce",
+      "match": true,
+      "bytes": 13642
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/ReadyEndpoints.cs",
+      "expectedSha256": "afff5e3108619c5c3c018cddd82191083ce7afa4bf964ef0bf167db3f8351021",
+      "observedSha256": "afff5e3108619c5c3c018cddd82191083ce7afa4bf964ef0bf167db3f8351021",
+      "match": true,
+      "bytes": 33397
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.VectorGcLifecycle.cs",
+      "expectedSha256": "a5c39a66d974238a6c6e2fe2ed4a5fb0327250a6da8b990a60f49ffba8b6b504",
+      "observedSha256": "a5c39a66d974238a6c6e2fe2ed4a5fb0327250a6da8b990a60f49ffba8b6b504",
+      "match": true,
+      "bytes": 17459
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.VectorGcRegistry.cs",
+      "expectedSha256": "e2d81980d641113edf27804518875fce41d3d62a8edfefba79d676ffe4c53159",
+      "observedSha256": "e2d81980d641113edf27804518875fce41d3d62a8edfefba79d676ffe4c53159",
+      "match": true,
+      "bytes": 20661
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/VectorGcTransportTests.cs",
+      "expectedSha256": "042f5c6421d5837c8514d92a8a21cfeaa51b80bbdb7ec18ef88ee636e1ffe474",
+      "observedSha256": "042f5c6421d5837c8514d92a8a21cfeaa51b80bbdb7ec18ef88ee636e1ffe474",
+      "match": true,
+      "bytes": 14213
+    }
+  ],
+  "status": "STATIC_FINDINGS_CLOSED_PENDING_CENTRAL_GREEN",
+  "findings": [
+    {
+      "id": "R01",
+      "status": "STATIC_CORRECTED",
+      "causalRed": "tests/gc-partial-http-red-v1/manifest.json",
+      "causalRedFailed": 4,
+      "centralGreenReviewed": false
+    },
+    {
+      "id": "R02",
+      "status": "STATIC_CORRECTED",
+      "centralGreenReviewed": false
+    },
+    {
+      "id": "R03",
+      "status": "STATIC_CORRECTED",
+      "centralGreenReviewed": false
+    }
+  ],
+  "dotnetTestsExecutedByReviewer": 0,
+  "apiCalls": 0,
+  "servicesStarted": 0,
+  "gitCommands": 0
+}

@@ -72,6 +72,7 @@ infra/**/*.tar.gz
 **/*.zip
 **/*.7z
 **/*.pdf
+!backend/SAAIA.Backend.Tests/Fixtures/ocr-realistic-raster-v1.pdf
 
 # Local overrides (backend)
 backend/SAAIA.Backend/appsettings.Local.json

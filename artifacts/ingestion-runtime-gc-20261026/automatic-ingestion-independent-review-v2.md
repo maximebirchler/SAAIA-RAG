@@ -1,0 +1,9 @@
+# Complément de contre-revue du harnais automatique
+
+Le delta ajouté après la revue v1 ne révèle aucun défaut matériel dans sa portée. `validate_job_profile` est appelé après le contrôle de scope à chaque snapshot fonctionnel : un profil scanner seul refuse les jobs watcher et inversement ; les intentions conditionnelles du scanner restent admises dans leur profil. `validate_bound_readiness` impose le champ effectif `ingestion_worker_concurrency` entier égal à 2, et refuse booléen, chaîne, flottant, valeur absente ou différente. L'identité DLL/image est vérifiée séparément avec les formats SHA attendus.
+
+Les témoins distinguent un vrai environnement Production avec signature vérifiée d'un Development explicitement non signé. Le contrôle ne force plus une qualification à rester Development et ne convertit pas l'unsigned en Production. L'éligibilité de signature reste une condition observée de `/ready`, pas une propriété déduite du nom d'un profil.
+
+Le manifeste `tests/automatic-ingestion-profile-green-v1/manifest.json` rapporte **49/49 tests purs PASS**, zéro erreur/skip, avec transports simulés et `liveRuntimeQualified=false`. Les 21 fichiers sont identiques avant/après et leurs octets actuels correspondent à ce snapshot. Runner `c33367838178ba05ed86a1803414a4b5bd5ac2727340dd4b40cb5a0ef90883e5`, helper `36d88a9643b6bf134cbf5eab752aced70c21cb5dbff41b006c1a3f63f9ba7dc0`.
+
+Cette lecture ne relance aucun test ni service et ne modifie aucune source. La revue v1 reste une preuve historique du protocole précédent ; les limites d'échantillonnage, de concurrence et de Production signée y restent applicables. L'exécution réelle des trois profils est encore à produire. Les empreintes et le verdict de ce complément sont enregistrés dans `automatic-ingestion-independent-review-v2.json`.

@@ -125,7 +125,9 @@ services:
       context: ..
       dockerfile: backend/SAAIA.Backend/Dockerfile
       args:
-        SAAIA_CODE_REVISION: ${SAAIA_CODE_REVISION:-unknown}
+        # Empty permits inspection/stop without build inputs; Dockerfile rejects
+        # it before restore/build. Install/update calculate the content identity.
+        SAAIA_CODE_REVISION: ${SAAIA_CODE_REVISION:-}
     restart: unless-stopped
     ports:
       - "${SAAIA_BIND_ADDR:-127.0.0.1}:${BACKEND_HOST_PORT:-5122}:5122"

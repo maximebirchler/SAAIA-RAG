@@ -3,11 +3,14 @@
 # ================================
 
 # Build stage
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0.420 AS build
 WORKDIR /src
+ARG SAAIA_CODE_REVISION
+RUN test -n "$SAAIA_CODE_REVISION" && test "$SAAIA_CODE_REVISION" != "unknown"
 
 # Copy solution + csproj first (better layer caching)
 COPY RAG.sln ./
+COPY global.json Directory.Build.props ./
 COPY contracts/SAAIA.Contracts/SAAIA.Contracts.csproj contracts/SAAIA.Contracts/
 COPY backend/SAAIA.Backend/SAAIA.Backend.csproj backend/SAAIA.Backend/
 
@@ -33,8 +36,9 @@ RUN apt-get update \
         tesseract-ocr-all \
     && rm -rf /var/lib/apt/lists/*
 
-ARG SAAIA_CODE_REVISION=unknown
+ARG SAAIA_CODE_REVISION
 ENV SAAIA_CODE_REVISION=${SAAIA_CODE_REVISION}
+LABEL com.saaia.backend.source-revision="${SAAIA_CODE_REVISION}"
 
 # Kestrel
 ENV ASPNETCORE_URLS=http://0.0.0.0:5122

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "saaia-offline-failed-replacement-tests.v1",
+  "observedAtUtc": "2026-10-26T07:24:25.3018663Z",
+  "status": "PASS",
+  "testsRun": 65,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "sourceChangedDuringRun": false,
+  "modules": [
+    "tools.ingestion_gold.tests.test_linux_lifecycle",
+    "tools.ingestion_gold.tests.test_linux_ingestion_plan",
+    "tools.ingestion_gold.tests.test_linux_runtime_guards",
+    "tools.ingestion_gold.tests.test_tei_runtime_contracts",
+    "tools.ingestion_gold.tests.test_linux_failed_replacement"
+  ],
+  "mockedTransport": true,
+  "liveWorkerExecuted": false,
+  "dockerCalls": 0,
+  "httpCalls": 0,
+  "sqlCalls": 0,
+  "paidProviderCalls": 0,
+  "limits": [
+    "Pure protocol transports, synthetic vectors and temporary byte files only; not a live invalid-PDF worker qualification.",
+    "The 14 new cases supplement the prior 51 pure lifecycle/runtime protocol tests."
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "saaia-linux-public-proof-projection.v3",
+  "campaignRole": "production-recipe",
+  "campaignRunId": "5f40863a-7030-4593-b6b4-efc5bae0dae0",
+  "qualificationFamily": "production",
+  "sourceFile": "publication-verification.json",
+  "sourceSha256": "f4d4e2a0dcbc55e464c09c02e4b589f71407d43286e13d6fb343fa76c9b63a8d",
+  "sourceByteSize": 2120,
+  "proof": {
+    "passed": true,
+    "caseCoverageComplete": true,
+    "completedJobsObserved": true,
+    "workerExecutionAndNoSeedingRequireRunnerProof": true,
+    "sqlPublicationValidated": true,
+    "vectorStorePublicationValidated": true,
+    "canonicalSearchExecuted": true,
+    "canonicalSearchValidated": true,
+    "embeddingsReal": true,
+    "vectorValidated": false,
+    "caseCount": 1,
+    "schemaVersion": "saaia-owned-worker-publication-verification.v1",
+    "embeddingAdapter": "tei_cpu",
+    "results": [
+      {
+        "ok": true,
+        "canonicalBundleChecksumExact": true,
+        "canonicalChecksPassed": true,
+        "readApiFactsPassed": true,
+        "qdrantPointIdsAndPlanExact": true,
+        "chunkCount": 158,
+        "chunkChecksumFailures": 0,
+        "sourceAnchorCount": 158,
+        "criticalPhysicalFactCount": 16,
+        "qdrantPointCount": 158,
+        "caseId": "recipe-real-v1",
+        "documentId": "81594a45-c76a-3818-af8c-53810b0b32a0",
+        "revisionId": "bf8b035b-64a8-8f06-3f57-eb98d18f6081",
+        "sourceSha256": "aa11e234fb3336ee76644958e888d83565e25ba875264ba75f7ce22b32d25c18",
+        "issues": [],
+        "canonicalSearch": {
+          "passed": true,
+          "requestsSourceBound": true,
+          "searchIdentityExact": true,
+          "positiveFactFound": true,
+          "negativeControlsPassed": true,
+          "searchToReadExact": true,
+          "noDegradedRetrievers": true,
+          "absentQueryLexicalMatchesZero": true,
+          "absentQueryDenseNeighborsCurrent": true,
+          "absentDocumentEmpty": true,
+          "physicalPage": 5,
+          "positiveHitCount": 2,
+          "negativeControlCount": 2,
+          "absentQueryDenseNeighborCount": 2,
+          "factId": "p5-servings"
+        }
+      }
+    ]
+  },
+  "projectionOnly": true,
+  "independentRuntimeValidationPerformedByExporter": false
+}

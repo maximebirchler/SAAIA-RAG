@@ -116,9 +116,19 @@ RAG_SEARCH_MAX_CONCURRENCY="$(read_env_int SAAIA_RAG_SEARCH_MAX_CONCURRENCY 4 1 
 RAG_SEARCH_QUEUE_LIMIT="$(read_env_int SAAIA_RAG_SEARCH_QUEUE_LIMIT 16 0 4096)"
 RAG_SEARCH_QUEUE_WAIT_TIMEOUT_SECONDS="$(read_env_int SAAIA_RAG_SEARCH_QUEUE_WAIT_TIMEOUT_SECONDS 25 1 3600)"
 RAG_SEARCH_RETRY_AFTER_SECONDS="$(read_env_int SAAIA_RAG_SEARCH_RETRY_AFTER_SECONDS 3 1 3600)"
-INGESTION_CHUNK_MAX_WORDS="$(read_env_int SAAIA_INGESTION_CHUNK_MAX_WORDS 220 25 5000)"
+INGESTION_CHUNK_MAX_WORDS="$(read_env_int SAAIA_INGESTION_CHUNK_MAX_WORDS 200 25 5000)"
 INGESTION_CHUNK_OVERLAP_WORDS="$(read_env_int SAAIA_INGESTION_CHUNK_OVERLAP_WORDS 0 0 5000)"
 INGESTION_CHUNK_MIN_WORDS="$(read_env_int SAAIA_INGESTION_CHUNK_MIN_WORDS 25 1 5000)"
+if (( INGESTION_CHUNK_MIN_WORDS > INGESTION_CHUNK_MAX_WORDS || INGESTION_CHUNK_OVERLAP_WORDS >= INGESTION_CHUNK_MAX_WORDS )); then
+  echo "ChunkMinWords must not exceed max; overlap must be below max." >&2
+  exit 2
+fi
+command -v python3 >/dev/null || { echo "Python 3 is required for offline deployment identity." >&2; exit 2; }
+IDENTITY_HELPER="$ROOT/infra/scripts/prod/deployment_identity.py"
+export TEI_RUNTIME_REVISION="$(python3 "$IDENTITY_HELPER" --repo-root "$ROOT" runtime TEI_IMAGE TEI_RUNTIME_REVISION)"
+export QDRANT_RUNTIME_REVISION="$(python3 "$IDENTITY_HELPER" --repo-root "$ROOT" runtime QDRANT_IMAGE QDRANT_RUNTIME_REVISION)"
+# export alone can mask a failed command substitution: validate both results too.
+[[ "$TEI_RUNTIME_REVISION" =~ ^sha256:[0-9a-f]{64}$ && "$QDRANT_RUNTIME_REVISION" =~ ^sha256:[0-9a-f]{64}$ ]] || exit 2
 INGESTION_EMBEDDINGS_BATCH_SIZE="$(read_env_int SAAIA_INGESTION_EMBEDDINGS_BATCH_SIZE 16 1 256)"
 INGESTION_WORKER_CONCURRENCY="$(read_env_int SAAIA_INGESTION_WORKER_CONCURRENCY 2 1 32)"
 INGESTION_TEI_MAX_CONCURRENCY="$(read_env_int SAAIA_INGESTION_TEI_MAX_CONCURRENCY 1 1 16)"
@@ -200,6 +210,8 @@ sed \
   -e "s/__POSTGRES_USER__/${POSTGRES_USER:-saaia}/g" \
   -e "s#__TEI_MODEL_ID__#${TEI_MODEL_ID:-intfloat/multilingual-e5-base}#g" \
   -e "s/__TEI_MODEL_REVISION__/${TEI_MODEL_REVISION:-d128750597153bb5987e10b1c3493a34e5a4502a}/g" \
+  -e "s/__TEI_RUNTIME_REVISION__/${TEI_RUNTIME_REVISION}/g" \
+  -e "s/__QDRANT_RUNTIME_REVISION__/${QDRANT_RUNTIME_REVISION}/g" \
   -e "s/__RERANK_ENABLED__/${RERANK_ENABLED}/g" \
   -e "s#__RERANK_MODEL_ID__#${SAAIA_RERANK_MODEL_ID:-Alibaba-NLP/gte-multilingual-reranker-base}#g" \
   -e "s/__RERANK_MAX_CANDIDATES__/${RERANK_MAX_CANDIDATES}/g" \
@@ -248,6 +260,9 @@ if [[ -n "$EXTRA_DEPLOY" && "$EXTRA_DEPLOY" != "$DEPLOY_EXPECTED" ]]; then
 fi
 
 export SAAIA_INSTALL_ROOT="$INSTALL_ROOT"
+SAAIA_CODE_REVISION="$(python3 "$IDENTITY_HELPER" --repo-root "$ROOT" source backend)"
+SAAIA_DOCLING_SOURCE_REVISION="$(python3 "$IDENTITY_HELPER" --repo-root "$ROOT" source docling)"
+export SAAIA_CODE_REVISION SAAIA_DOCLING_SOURCE_REVISION
 
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --build
 
@@ -262,4 +277,5 @@ for i in {1..40}; do
   sleep 1.5
 done
 
-echo "WARNING: Could not reach backend /ready. Check logs: docker compose -f infra/docker-compose.prod.yml --env-file infra/.env logs -f backend" >&2
+echo "ERROR: Backend /ready never became healthy. Inspect deployment logs." >&2
+exit 1

@@ -1,0 +1,212 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "2696658f65ad40a18b2afbd39896f791",
+  "startedAtUtc": "2026-10-26T10:28:39.2217187+00:00",
+  "finishedAtUtc": "2026-10-26T10:29:02.9828057+00:00",
+  "gitCommit": "eb0d47dcb1bb5e6d0038c81c78d95418a5e272c6",
+  "gitDirty": true,
+  "profile": "Unit",
+  "filter": "(Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid)&(FullyQualifiedName~DoclingClientTests.ConvertPdfAsync_transient_retry)",
+  "requestedProjects": [
+    "Backend"
+  ],
+  "configuration": "Release",
+  "buildRequested": true,
+  "restoreRequested": false,
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-26T10:28:40.2609133+00:00",
+    "sha256": "876AB61B9340F6ACA241ED8375300DBAA50B8B0AB70B7B91CB02E08668E7EE73",
+    "fileCount": 1846,
+    "inventory": "source-files-2696658f65ad40a18b2afbd39896f791-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-26T10:29:03.6019212+00:00",
+    "sha256": "876AB61B9340F6ACA241ED8375300DBAA50B8B0AB70B7B91CB02E08668E7EE73",
+    "fileCount": 1846,
+    "inventory": "source-files-2696658f65ad40a18b2afbd39896f791-after.json"
+  },
+  "sourceChangedDuringRun": false,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "state": "failed",
+  "prerequisites": [],
+  "environment": {
+    "clientDataIsolation": {
+      "source": "not_selected",
+      "requiredForClientTests": true,
+      "enabled": false,
+      "environmentRestored": null,
+      "rootId": null,
+      "ownedRelativePath": null
+    },
+    "neutralizedVariableNames": []
+  },
+  "results": [
+    {
+      "project": "Backend",
+      "path": "backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj",
+      "status": "failed",
+      "exitCode": 1,
+      "trx": "Backend-2696658f65ad40a18b2afbd39896f791.trx",
+      "trxSha256": "A7C6298EE631D83BF11EE8C444D21AEEFCA96BDA1376A54998E4CA39C345A9E3",
+      "assemblies": [
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.AdvancedValidationJobGuard.dll",
+          "role": "local_product_dependency",
+          "sha256": "79B463A4B048D90378344D9F77B14172B88FC2429DD6D9C114949F551AB39F7B",
+          "sizeBytes": 62464,
+          "lastWriteTimeUtc": "2026-10-26T05:53:58.9639244Z",
+          "capturedAtUtc": "2026-10-26T10:29:02.9448477+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.dll",
+          "role": "local_product_dependency",
+          "sha256": "AFE4D78EF471DA577AF31EFF35C6B1D42700DA0D5FBE8358DC7EA74F9838371B",
+          "sizeBytes": 8010752,
+          "lastWriteTimeUtc": "2026-10-26T08:01:47.8798745Z",
+          "capturedAtUtc": "2026-10-26T10:29:02.9588061+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "38E23E005A3908F9B9FE496A1892378BFBD3D63EDFF4EDD68FA96603E12EF112",
+          "sizeBytes": 5360128,
+          "lastWriteTimeUtc": "2026-10-26T10:28:45.7687433Z",
+          "capturedAtUtc": "2026-10-26T10:29:02.9642506+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "998E1CACA2D3AB343CD3F4D1F4771EB9E03F30AA59AAB84FF869254F3036C87B",
+          "sizeBytes": 154112,
+          "lastWriteTimeUtc": "2026-10-26T05:53:58.9869305Z",
+          "capturedAtUtc": "2026-10-26T10:29:02.9650267+00:00"
+        }
+      ],
+      "counts": {
+        "failed": 8,
+        "passed": 12,
+        "adapterReportedExecuted": 20,
+        "executed": 20,
+        "total": 20,
+        "notExecuted": 0
+      },
+      "cases": [
+        {
+          "name": "DoclingClientTests.ConvertPdfAsync_transient_retry_recovers_from_network_failure_without_publishing_exception_details",
+          "outcome": "Failed",
+          "duration": "00:00:00.0018818"
+        },
+        {
+          "name": "DoclingClientTests.ConvertPdfAsync_transient_retry_does_not_retry_invalid_success_responses(kind: \"json\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0024115"
+        },
+        {
+          "name": "DoclingClientTests.ConvertPdfAsync_transient_retry_has_four_retries_and_bounded_backoff_when_dependency_stays_unavailable",
+          "outcome": "Failed",
+          "duration": "00:00:00.0185774"
+        },
+        {
+          "name": "DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 502, body: \"{\\\"detail\\\":\\\"Docling returned an invalid response\"···)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0017771"
+        },
+        {
+          "name": "DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 409, body: \"{\\\"detail\\\":\\\"Docling upstream conversion failed.\\\"···)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0009562"
+        },
+        {
+          "name": "DoclingClientTests.ConvertPdfAsync_transient_retry_uses_one_global_options_deadline_including_previous_attempts",
+          "outcome": "Failed",
+          "duration": "00:00:16.0119734"
+        },
+        {
+          "name": "DoclingClientTests.ConvertPdfAsync_transient_retry_preserves_caller_cancellation_during_backoff",
+          "outcome": "Failed",
+          "duration": "00:00:00.0019050"
+        },
+        {
+          "name": "DoclingClientTests.ConvertPdfAsync_transient_retry_does_not_retry_invalid_success_responses(kind: \"envelope\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0011421"
+        },
+        {
+          "name": "DoclingClientTests.ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response(status: 503)",
+          "outcome": "Failed",
+          "duration": "00:00:00.0065768"
+        },
+        {
+          "name": "DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 502, body: \"{\\\"detail\\\":[\\\"Docling upstream conversion failed.\"···)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0009902"
+        },
+        {
+          "name": "DoclingClientTests.ConvertPdfAsync_transient_retry_preserves_cancellation_during_a_replayed_http_request",
+          "outcome": "Failed",
+          "duration": "00:00:00.0041973"
+        },
+        {
+          "name": "DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 400, body: \"{\\\"detail\\\":\\\"Docling upstream conversion failed.\\\"···)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0009777"
+        },
+        {
+          "name": "DoclingClientTests.ConvertPdfAsync_transient_retry_does_not_retry_invalid_success_responses(kind: \"schema\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0325547"
+        },
+        {
+          "name": "DoclingClientTests.ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response(status: 504)",
+          "outcome": "Failed",
+          "duration": "00:00:00.0045547"
+        },
+        {
+          "name": "DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 401, body: \"{\\\"detail\\\":\\\"Docling upstream conversion failed.\\\"···)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0012135"
+        },
+        {
+          "name": "DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 502, body: \"{\\\"detail\\\":\\\"Docling upstream conversion failed. \"···)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0010880"
+        },
+        {
+          "name": "DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 502, body: \"not JSON\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0014574"
+        },
+        {
+          "name": "DoclingClientTests.ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response(status: 502)",
+          "outcome": "Failed",
+          "duration": "00:00:00.0020766"
+        },
+        {
+          "name": "DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 413, body: \"{\\\"detail\\\":\\\"Docling upstream conversion failed.\\\"···)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0009631"
+        },
+        {
+          "name": "DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 502, body: \"{\\\"detail\\\":\\\"Docling returned invalid JSON.\\\"}\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0020416"
+        }
+      ]
+    }
+  ],
+  "model": {
+    "reason": "Unit and PostgreSQL profiles do not invoke a model.",
+    "state": "not_applicable"
+  },
+  "corpus": {
+    "reason": "IntegrationPg fixtures create isolated databases; no production corpus is assumed.",
+    "state": "synthetic_fixtures"
+  },
+  "validationProfilesSha256": "8E4B990BC0A828134E5FE0D8E7B2D82406B56D2A200D8D4D37516208E3D3201D",
+  "selectionPolicy": "TRX covers selected tests; excluded profiles were not executed.",
+  "excludedProfiles": [
+    "IntegrationPg",
+    "LiveLocal",
+    "LivePaid"
+  ]
+}

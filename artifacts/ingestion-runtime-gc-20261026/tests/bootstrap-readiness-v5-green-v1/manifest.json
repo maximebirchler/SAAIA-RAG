@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "saaia-pure-operator-test.v1",
+  "startedAtUtc": "2026-10-26T10:35:13.221540+00:00",
+  "exitCode": 0,
+  "target": "bootstrap-owned-linux-v5.py",
+  "sourceSha256": "2b81ed965b4cff463baadc6b8894ed05a813efd83f5d8d8c22dfb7aeb81cc714",
+  "sourceChangedDuringRun": false,
+  "testSha256": "9818914d78c69f54aeca0e1befa8a139ab0cfb6731e24c573d70ec2f89d758be",
+  "networkCalls": 0,
+  "dockerCalls": 0,
+  "logSha256": "757544d10d6793a926c84297334fdff7687bf007fdd2d312ae9a53d784e4c3f9"
+}

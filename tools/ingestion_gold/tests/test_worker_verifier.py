@@ -92,6 +92,26 @@ def hybrid_nonce_capture(values):
 
 
 class WorkerVerifierTests(unittest.TestCase):
+    def test_nullable_empty_degradation_diagnostics_match_the_real_canonical_dto(self):
+        for shape in ("omitted","null","empty"):
+            values=captured();searches=search_capture(values);cap=next(iter(searches.values()))
+            for response in [cap["positive"]["response"]]+[item["response"] for item in cap["negative"]]:
+                metrics=response["metrics"]
+                if shape=="omitted":metrics.pop("degradedRetrievers",None)
+                elif shape=="null":metrics.update(degradedRetrievers=None,degradedRetrieverErrors=None)
+                else:metrics.update(degradedRetrievers=[],degradedRetrieverErrors={})
+            with self.subTest(shape=shape):
+                self.assertTrue(MODULE.verify(*values,searches=searches,require_search=True)["canonicalSearchValidated"])
+
+    def test_degradation_wrong_types_and_explicit_errors_never_pass_as_falsey_healthy_values(self):
+        for field,value in (("degradedRetrievers",False),("degradedRetrievers",""),("degradedRetrievers",{}),
+            ("degradedRetrieverErrors",False),("degradedRetrieverErrors",""),("degradedRetrieverErrors",[]),
+            ("degradedRetrieverErrors",{"sparse":"unavailable"}),("degradedRetrievers",["sparse"])):
+            values=captured();searches=search_capture(values);cap=next(iter(searches.values()))
+            cap["positive"]["response"]["metrics"][field]=value
+            with self.subTest(field=field,value=value):
+                self.assertFalse(MODULE.verify(*values,searches=searches,require_search=True)["canonicalSearchValidated"])
+
     def test_absent_nonce_allows_current_dense_neighbors_without_literal_matches(self):
         # CanonicalRetrieval intentionally fuses exact+sparse+dense with default
         # minScore=0. Dense neighbors for an absent nonce are not literal hits.

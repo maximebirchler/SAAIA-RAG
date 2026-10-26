@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "saaia-linux-public-proof-projection.v3",
+  "campaignRole": "production-auto-watcher",
+  "campaignRunId": "72dca7da-254d-40de-8f91-84b2c6a94a4e",
+  "qualificationFamily": "production",
+  "sourceFile": "sql-text-conformance.json",
+  "sourceSha256": "28f6c508e2479f9fbb9285448ea98d487d447b55217fb9bc599ef209ad708451",
+  "sourceByteSize": 383,
+  "proof": {
+    "tables": [
+      {
+        "rows": 104,
+        "mismatches": 0,
+        "table": "document_units"
+      },
+      {
+        "rows": 13,
+        "mismatches": 0,
+        "table": "retrieval_chunks"
+      },
+      {
+        "rows": 13,
+        "mismatches": 0,
+        "table": "contextual_text_entries"
+      },
+      {
+        "rows": 163,
+        "mismatches": 0,
+        "table": "exact_match_entries"
+      }
+    ]
+  },
+  "projectionOnly": true,
+  "independentRuntimeValidationPerformedByExporter": false
+}

@@ -1,0 +1,164 @@
+{
+  "schemaVersion": "saaia-linux-lifecycle-independent-review.v1",
+  "observedAtUtc": "2026-10-26T07:07:24.6365649Z",
+  "reviewMode": "READ_ONLY_STATIC_AND_RECORDED_TEST_EVIDENCE",
+  "status": "NO_NEW_MATERIAL_FINDING_ON_FROZEN_HARNESS",
+  "findingClosures": [
+    {
+      "id": "LCR01",
+      "issue": "Mounted configuration was not bound to prior corpus PASS",
+      "resolution": "Exact SHA256 comparison to prior runtime-ownership evidence before any lifecycle mutation",
+      "verification": "STATIC_CLOSED_AND_PURE_REGRESSION_RECORDED"
+    },
+    {
+      "id": "LCR02",
+      "issue": "Unrelated document preservation did not cover physical vectors",
+      "resolution": "Exact full vector and payload snapshots compared by ordered digest with canonical identities",
+      "verification": "STATIC_CLOSED_AND_PURE_REGRESSION_RECORDED"
+    },
+    {
+      "id": "LCR03",
+      "issue": "Cleanup depended on source bytes remaining valid",
+      "resolution": "Ownership and non-symlink path guards remain; cleanup no longer requires documentary hash and cancels only admitted scoped job IDs",
+      "verification": "STATIC_CLOSED_AND_PURE_REGRESSION_RECORDED"
+    }
+  ],
+  "recordedSuite": {
+    "manifestPath": "artifacts/ingestion-runtime-gc-20261026/tests/linux-lifecycle-offline-v1/manifest.json",
+    "manifestSha256": "4c49ebb217cbd1991624ad93235a374d89b6c13848f9c605ea822662b518076d",
+    "testsRun": 51,
+    "passed": 51,
+    "failures": 0,
+    "skipped": 0,
+    "sourceChangedDuringRun": false,
+    "rerunByReviewer": false,
+    "mockedTransport": true,
+    "liveWorkerExecuted": false
+  },
+  "files": [
+    {
+      "path": "tools/validation-ingestion/invoke-linux-lifecycle.py",
+      "recordedBeforeSha256": "ef1fe8dde00c5e6182d45fa9612cd8606518ea7e4a6a89d033f4d660dd8c2662",
+      "recordedAfterSha256": "ef1fe8dde00c5e6182d45fa9612cd8606518ea7e4a6a89d033f4d660dd8c2662",
+      "currentSha256": "ef1fe8dde00c5e6182d45fa9612cd8606518ea7e4a6a89d033f4d660dd8c2662",
+      "stableAcrossRunAndReview": true
+    },
+    {
+      "path": "tools/validation-ingestion/linux_lifecycle_checks.py",
+      "recordedBeforeSha256": "b592022ed7873a7f9693df9c9f5ea827701bd2178343206988af038a0b3f6606",
+      "recordedAfterSha256": "b592022ed7873a7f9693df9c9f5ea827701bd2178343206988af038a0b3f6606",
+      "currentSha256": "b592022ed7873a7f9693df9c9f5ea827701bd2178343206988af038a0b3f6606",
+      "stableAcrossRunAndReview": true
+    },
+    {
+      "path": "tools/validation-ingestion/README-linux-lifecycle.md",
+      "recordedBeforeSha256": "796ea83394440389ebdfd6664b805e5231720e01aeed9fe9d16a32ec3047a086",
+      "recordedAfterSha256": "796ea83394440389ebdfd6664b805e5231720e01aeed9fe9d16a32ec3047a086",
+      "currentSha256": "796ea83394440389ebdfd6664b805e5231720e01aeed9fe9d16a32ec3047a086",
+      "stableAcrossRunAndReview": true
+    },
+    {
+      "path": "tools/validation-ingestion/invoke-linux-ingestion.py",
+      "recordedBeforeSha256": "eda60c2c8ff2dadfdb19e7f7f9afc4838cf3b59a6bdbdc1b055f83aa45115969",
+      "recordedAfterSha256": "eda60c2c8ff2dadfdb19e7f7f9afc4838cf3b59a6bdbdc1b055f83aa45115969",
+      "currentSha256": "eda60c2c8ff2dadfdb19e7f7f9afc4838cf3b59a6bdbdc1b055f83aa45115969",
+      "stableAcrossRunAndReview": true
+    },
+    {
+      "path": "tools/validation-ingestion/linux_owned_runtime.py",
+      "recordedBeforeSha256": "013df6c287e0249002cb80154622b17a164f882fb37a13c47f863173f8fcb54d",
+      "recordedAfterSha256": "013df6c287e0249002cb80154622b17a164f882fb37a13c47f863173f8fcb54d",
+      "currentSha256": "013df6c287e0249002cb80154622b17a164f882fb37a13c47f863173f8fcb54d",
+      "stableAcrossRunAndReview": true
+    },
+    {
+      "path": "tools/validation-ingestion/embedding_attestation.py",
+      "recordedBeforeSha256": "57ced0573825fcc2a17f019930123e9864256f8b40c90867db35401d8580f294",
+      "recordedAfterSha256": "57ced0573825fcc2a17f019930123e9864256f8b40c90867db35401d8580f294",
+      "currentSha256": "57ced0573825fcc2a17f019930123e9864256f8b40c90867db35401d8580f294",
+      "stableAcrossRunAndReview": true
+    },
+    {
+      "path": "tools/validation-ingestion/vector_point_identity.py",
+      "recordedBeforeSha256": "f744100e57ba0788a9829c0be93d982168ba46a14ba8db6c1ae83402519be9c3",
+      "recordedAfterSha256": "f744100e57ba0788a9829c0be93d982168ba46a14ba8db6c1ae83402519be9c3",
+      "currentSha256": "f744100e57ba0788a9829c0be93d982168ba46a14ba8db6c1ae83402519be9c3",
+      "stableAcrossRunAndReview": true
+    },
+    {
+      "path": "tools/validation-ingestion/canonical_search_checks.py",
+      "recordedBeforeSha256": "00be4bb0ead9f0ab56276a95b869ea2a479169bdec21819a0303fdf5c4a769c6",
+      "recordedAfterSha256": "00be4bb0ead9f0ab56276a95b869ea2a479169bdec21819a0303fdf5c4a769c6",
+      "currentSha256": "00be4bb0ead9f0ab56276a95b869ea2a479169bdec21819a0303fdf5c4a769c6",
+      "stableAcrossRunAndReview": true
+    },
+    {
+      "path": "tools/validation-ingestion/probe-local-vectors.py",
+      "recordedBeforeSha256": "9765e845b53adcb2637ceb72e2db54922ae095dae307169bef0b6d90de5f1c9f",
+      "recordedAfterSha256": "9765e845b53adcb2637ceb72e2db54922ae095dae307169bef0b6d90de5f1c9f",
+      "currentSha256": "9765e845b53adcb2637ceb72e2db54922ae095dae307169bef0b6d90de5f1c9f",
+      "stableAcrossRunAndReview": true
+    },
+    {
+      "path": "tools/ingestion_gold/contracts.py",
+      "recordedBeforeSha256": "2e4de685b377d063adf32b3842e7af94717e46f65473a0c31e4573ce887ef6ca",
+      "recordedAfterSha256": "2e4de685b377d063adf32b3842e7af94717e46f65473a0c31e4573ce887ef6ca",
+      "currentSha256": "2e4de685b377d063adf32b3842e7af94717e46f65473a0c31e4573ce887ef6ca",
+      "stableAcrossRunAndReview": true
+    },
+    {
+      "path": "tools/ingestion_gold/critical_facts.py",
+      "recordedBeforeSha256": "2a106e8ee4a6ee80edd5039dda1158117506bc9a84a2b4361ce35d254f308823",
+      "recordedAfterSha256": "2a106e8ee4a6ee80edd5039dda1158117506bc9a84a2b4361ce35d254f308823",
+      "currentSha256": "2a106e8ee4a6ee80edd5039dda1158117506bc9a84a2b4361ce35d254f308823",
+      "stableAcrossRunAndReview": true
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_linux_lifecycle.py",
+      "recordedBeforeSha256": "41f9261d00e5eeb188b790822c003ff645b5d43bc19ea5eef83bd05384264e98",
+      "recordedAfterSha256": "41f9261d00e5eeb188b790822c003ff645b5d43bc19ea5eef83bd05384264e98",
+      "currentSha256": "41f9261d00e5eeb188b790822c003ff645b5d43bc19ea5eef83bd05384264e98",
+      "stableAcrossRunAndReview": true
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_linux_ingestion_plan.py",
+      "recordedBeforeSha256": "1de533f28c209fb4bbb15673d1ad3e44dd5823ffe310ccf82c62095a98427e1e",
+      "recordedAfterSha256": "1de533f28c209fb4bbb15673d1ad3e44dd5823ffe310ccf82c62095a98427e1e",
+      "currentSha256": "1de533f28c209fb4bbb15673d1ad3e44dd5823ffe310ccf82c62095a98427e1e",
+      "stableAcrossRunAndReview": true
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_linux_runtime_guards.py",
+      "recordedBeforeSha256": "3d816e61076a3bb5a3555f005e45fb44a0334c4a4724bdbe0efd095e4f7a3041",
+      "recordedAfterSha256": "3d816e61076a3bb5a3555f005e45fb44a0334c4a4724bdbe0efd095e4f7a3041",
+      "currentSha256": "3d816e61076a3bb5a3555f005e45fb44a0334c4a4724bdbe0efd095e4f7a3041",
+      "stableAcrossRunAndReview": true
+    },
+    {
+      "path": "tools/ingestion_gold/tests/test_tei_runtime_contracts.py",
+      "recordedBeforeSha256": "6370505cd79686035c3fbfcc32f01ea7c2f622dcedadd764da2a6ece10115598",
+      "recordedAfterSha256": "6370505cd79686035c3fbfcc32f01ea7c2f622dcedadd764da2a6ece10115598",
+      "currentSha256": "6370505cd79686035c3fbfcc32f01ea7c2f622dcedadd764da2a6ece10115598",
+      "stableAcrossRunAndReview": true
+    }
+  ],
+  "allRecordedSourceHashesStillExact": true,
+  "reviewerActions": {
+    "productMutations": 0,
+    "toolMutations": 0,
+    "testsExecuted": 0,
+    "dockerCalls": 0,
+    "httpCalls": 0,
+    "sqlCalls": 0,
+    "gitCalls": 0,
+    "paidProviderCalls": 0
+  },
+  "limits": [
+    "Recorded pure protocol tests do not qualify live runtime, OCR, embeddings, SQL, Qdrant or GC execution.",
+    "Controlled replay of an exact captured old point is not proof of cancellation of a worker HTTP request in flight.",
+    "Completion winning the optional cancellation race must remain NON_EXECUTED, never cancellation PASS.",
+    "Development unsigned remains ineligible for Production deployment qualification.",
+    "The reappearance_removed last-code observation can be overwritten by the next periodic sweep before sampling; this can produce a bounded false failure, not a false pass.",
+    "This bounded campaign covers one generated PDF and preserves other current publications; it does not qualify failed replacement or universal historic-target GC."
+  ]
+}

@@ -1,0 +1,151 @@
+{
+  "schemaVersion": "saaia-linux-public-proof-projection.v3",
+  "campaignRole": "production-failed-replacement",
+  "campaignRunId": "84cf61ff-6fb9-4fd3-a1f6-8b4b559eecff",
+  "qualificationFamily": "production",
+  "sourceFile": "failed-replacement-result.json",
+  "sourceSha256": "b1756f4906e83e993cde2e1b306fa9ead4667dc32993d4f2655702d4aca2f767",
+  "sourceByteSize": 5986,
+  "proof": {
+    "executed": true,
+    "passed": true,
+    "canonicalRowsSeeded": false,
+    "deploymentQualificationEligible": true,
+    "deploymentQualificationPassed": true,
+    "configurationSignatureVerified": true,
+    "paidProviderCalls": 0,
+    "schemaVersion": "saaia-linux-failed-replacement-execution.v1",
+    "qualificationMode": "production",
+    "environmentObservedFromContainer": "Production",
+    "configurationSignatureMode": "signed",
+    "stage": "completed",
+    "startedAtUtc": "2026-10-26T10:54:31.372403+00:00",
+    "finishedAtUtc": "2026-10-26T10:54:54.642084+00:00",
+    "cleanup": {
+      "zeroActiveJobs": true,
+      "ownedContainersStopped": true,
+      "dockerPublishedPortBindingsAbsent": true,
+      "onlyNewScopedJobsCanceled": true,
+      "workingSourceRestored": true,
+      "volumesDeleted": false,
+      "imagesDeleted": false,
+      "activeJobsBeforeStop": 0,
+      "containerCount": 5
+    },
+    "plan": {
+      "executeRequested": true,
+      "canonicalRowsSeeded": false,
+      "bootstrapPerformedByRunner": false,
+      "paidProviderEnabled": false,
+      "sqlReadOnly": true,
+      "controlledLateWriteIsWorkerCancellationProof": false,
+      "maximumWaitSeconds": 300,
+      "schemaVersion": "saaia-linux-failed-replacement-plan.v1",
+      "runId": "84cf61ff-6fb9-4fd3-a1f6-8b4b559eecff",
+      "caseId": "fr-scan-critical-v2",
+      "tenantId": "77777777-7777-4777-8777-777777777777",
+      "productStatus": "TESTE_NON_APPROUVE",
+      "ownerManifestSha256": "f424ca963af67fbb87a4df9d05eab11b91d5a92f6e849983f5264c378f03f603",
+      "corpusManifestSha256": "2aafffedd4c2d736d0ee02d06482a0f76c9eb11c3160cffae062911f50aea505",
+      "corpusProofSha256": "6065588c17fbd214cad47b2055e319e75c6ed6b2768208880770c0d898d42e0c",
+      "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2",
+      "terminalStabilitySeconds": 10,
+      "lifecycleProofSha256": "c1a3e6accaeac50fcb1ce98f2a7b2f52866670bc6fe33095731dbfd0c011f57e"
+    },
+    "steps": [
+      {
+        "searchToReadPassed": true,
+        "ingestionVersion": 5,
+        "indexedVersion": 4,
+        "chunkCount": 1,
+        "pointCount": 1,
+        "phase": "prior-lifecycle-publication",
+        "docId": "b2f9aee2-f0fb-1431-9647-a6cd9b7b73b1",
+        "revisionId": "3dc7075d-a27d-263e-a322-0bba516a0ad8",
+        "planFingerprint": "e0cea87dde0dfe3ae4de39200049cf8473e9e439f5aa3fbde13425bdcc0282e1",
+        "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2",
+        "pointIdsSha256": "7d7dd70652d75078ef33ab7ffd4c96eed00ded6677069037dfe371b873ffb3ed",
+        "vectorsAndPayloadSha256": "e600738374d3e4f0f944c9df38cae486b5fd96df5b0ebd14e78da56193976f42"
+      },
+      {
+        "previousPublicationPreserved": true,
+        "physicalVectorsAndPayloadsUnchanged": true,
+        "currentSourceFreshnessClaimed": false,
+        "unboundedRetryObserved": false,
+        "retryObservationIsTimeBounded": true,
+        "generation": 6,
+        "attempts": 1,
+        "terminalStableSeconds": 10,
+        "phase": "invalid-replacement",
+        "status": "PASS",
+        "terminal": "failed",
+        "jobId": "bc72425a-de9a-4fde-8f34-1b2f4ff91414",
+        "fault": {
+          "prefixOnly": true,
+          "originalByteCount": 45932,
+          "truncatedByteCount": 16,
+          "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2",
+          "truncatedSha256": "d13eda0be6d4cb5f9fc68a2ddb688c35c9717e6f9e833032b265d831d2a13ba6"
+        }
+      },
+      {
+        "searchToReadPassed": true,
+        "ingestionVersion": 7,
+        "indexedVersion": 7,
+        "chunkCount": 1,
+        "pointCount": 1,
+        "phase": "restored-source-fresh-publication",
+        "docId": "b2f9aee2-f0fb-1431-9647-a6cd9b7b73b1",
+        "revisionId": "2e5c64bb-97c2-fde0-567c-eda77ea62483",
+        "planFingerprint": "97e1afa6232510c03354d1447873c17a4d7c6323cb8d575035b363cc3f27767e",
+        "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2",
+        "pointIdsSha256": "afab9f3e4445ed78525fdf2e13523b2c10c60be56152ccf77a69ffc8b149c45f",
+        "vectorsAndPayloadSha256": "17cdfb2833b9ee4f89fabc2b40f625d65493bc1d2b75e595115ab3afc9da87fb"
+      }
+    ],
+    "failedReplacement": {
+      "previousPublicationPreserved": true,
+      "physicalVectorsAndPayloadsUnchanged": true,
+      "currentSourceFreshnessClaimed": false,
+      "unboundedRetryObserved": false,
+      "retryObservationIsTimeBounded": true,
+      "generation": 6,
+      "attempts": 1,
+      "terminalStableSeconds": 10,
+      "phase": "invalid-replacement",
+      "status": "PASS",
+      "terminal": "failed",
+      "jobId": "bc72425a-de9a-4fde-8f34-1b2f4ff91414",
+      "fault": {
+        "prefixOnly": true,
+        "originalByteCount": 45932,
+        "truncatedByteCount": 16,
+        "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2",
+        "truncatedSha256": "d13eda0be6d4cb5f9fc68a2ddb688c35c9717e6f9e833032b265d831d2a13ba6"
+      }
+    },
+    "recovery": {
+      "generation": 7,
+      "status": "PASS",
+      "revisionId": "2e5c64bb-97c2-fde0-567c-eda77ea62483",
+      "planFingerprint": "97e1afa6232510c03354d1447873c17a4d7c6323cb8d575035b363cc3f27767e",
+      "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2"
+    },
+    "unrelatedPublicationPreservation": {
+      "sqlStateAndChunkChecksumsUnchanged": true,
+      "currentPhysicalVectorsAndPayloadsUnchanged": true,
+      "pointCount": 39,
+      "vectorsAndPayloadSha256": "4305390c8d496f4aa5de13588aa0159d775e7c757ddb62066ead414a8463fbd6"
+    }
+  },
+  "projectionOnly": true,
+  "independentRuntimeValidationPerformedByExporter": false,
+  "qualificationSeparation": {
+    "selectedFamily": "production",
+    "expectedQualificationMode": "production",
+    "observedQualificationMode": "production",
+    "observedQualificationModePresent": true,
+    "signatureEvidenceInheritedFromPriorCorpus": false,
+    "runtimeQualificationInferredByExporter": false
+  }
+}

@@ -1,0 +1,259 @@
+{
+  "schemaVersion": "saaia-linux-public-proof-projection.v3",
+  "campaignRole": "production-auto-watcher",
+  "campaignRunId": "72dca7da-254d-40de-8f91-84b2c6a94a4e",
+  "qualificationFamily": "production",
+  "sourceFile": "automatic-ingestion-result.json",
+  "sourceSha256": "f3997d9ad54166bc782d18f84f1571a76c570a14595848a0527e3a669734afc3",
+  "sourceByteSize": 9963,
+  "proof": {
+    "executed": true,
+    "passed": true,
+    "canonicalRowsSeeded": false,
+    "deploymentQualificationEligible": true,
+    "deploymentQualificationPassed": true,
+    "configurationSignatureVerified": true,
+    "paidProviderCalls": 0,
+    "schemaVersion": "saaia-linux-automatic-ingestion-execution.v1",
+    "qualificationMode": "production",
+    "environmentObservedFromContainer": "Production",
+    "configurationSignatureMode": "signed",
+    "stage": "completed",
+    "startedAtUtc": "2026-10-26T10:50:13.829573+00:00",
+    "finishedAtUtc": "2026-10-26T10:51:00.636753+00:00",
+    "cleanup": {
+      "zeroActiveJobs": true,
+      "ownedContainersStopped": true,
+      "dockerPublishedPortBindingsAbsent": true,
+      "volumesDeleted": false,
+      "imagesDeleted": false,
+      "containerCount": 5,
+      "producerStoppedBeforeFinalJobObservation": true,
+      "cancelRequests": 0,
+      "activeJobsAfterBackendStopped": 0
+    },
+    "plan": {
+      "executeRequested": true,
+      "canonicalRowsSeeded": false,
+      "paidProviderEnabled": false,
+      "sqlReadOnly": true,
+      "schemaVersion": "saaia-linux-automatic-ingestion-plan.v1",
+      "runId": "72dca7da-254d-40de-8f91-84b2c6a94a4e",
+      "productStatus": "TESTE_NON_APPROUVE",
+      "ownerManifestSha256": "1d7a3d731fde546636b2ac1bde53cbd368fb06f1fb00cb8910f75e1adb542096",
+      "corpusManifestSha256": "2aafffedd4c2d736d0ee02d06482a0f76c9eb11c3160cffae062911f50aea505",
+      "apiJobEnqueueAllowed": false,
+      "acceleratedTimingsAreDeploymentSla": false,
+      "maximumCampaignSeconds": 1800,
+      "maximumPhaseSeconds": 300,
+      "admissionProfile": "watcher",
+      "sourceCaseIds": [
+        "fr-native-critical-v2",
+        "native-two-column-v1",
+        "fr-scan-critical-v2"
+      ],
+      "sourceSha256": [
+        "5bb9e63e5dd3b5a8a32bedc5c1d81d1598fd765032066d6548faf6a7a71fb3c0",
+        "0630e326a1c116fdd946f87c5ae951448b10786d7fdca35949b08e89fa36316c",
+        "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2"
+      ],
+      "targetDocPathCount": 3
+    },
+    "functionalPassed": true,
+    "otherPublicationsAndFullVectorsPreserved": true,
+    "apiIngestionEnqueueCount": 0,
+    "sqlMutations": 0,
+    "maximumActiveJobsObserved": 2,
+    "quietObservationSeconds": 6,
+    "qualificationFinishedAtUtc": "2026-10-26T10:50:58.628819+00:00",
+    "steps": [
+      {
+        "searchToReadPassed": true,
+        "canonicalPhysicalFactsVerified": true,
+        "ingestionVersion": 1,
+        "indexedVersion": 1,
+        "pointCount": 4,
+        "doneJobCount": 1,
+        "phase": "initial-a",
+        "docId": "bcb42d78-76bc-daf4-c78d-1d4f13268754",
+        "revisionId": "86d7ec85-1915-5f71-1ba2-d6bdab73289c",
+        "sourceCaseId": "fr-native-critical-v2",
+        "planFingerprint": "2306baf3659ee376a79548347d56c84a677c362ce76e84a391508bc69d287c9a",
+        "sourceSha256": "5bb9e63e5dd3b5a8a32bedc5c1d81d1598fd765032066d6548faf6a7a71fb3c0",
+        "pointIdsSha256": "4ae70bb9c3c1d0193188e14bfdde2189bd00497810a16a3152429731a4ae4f6d",
+        "vectorsAndPayloadSha256": "90893cd708e7c18cd149f0aa050349fb69cc9d67409a90f0715680e3f9416263",
+        "sources": [
+          "watcher"
+        ]
+      },
+      {
+        "searchToReadPassed": true,
+        "canonicalPhysicalFactsVerified": true,
+        "ingestionVersion": 2,
+        "indexedVersion": 2,
+        "pointCount": 2,
+        "doneJobCount": 2,
+        "phase": "changed-a-source2",
+        "docId": "bcb42d78-76bc-daf4-c78d-1d4f13268754",
+        "revisionId": "e79478a8-355f-e414-5112-7c98f8dad2fe",
+        "sourceCaseId": "native-two-column-v1",
+        "planFingerprint": "2a22aa3afc4efcdb3c3de996f0c0a6e903562777cb5f69086eeb9416a3b7d6de",
+        "sourceSha256": "0630e326a1c116fdd946f87c5ae951448b10786d7fdca35949b08e89fa36316c",
+        "pointIdsSha256": "b3e2e40382aee43c7cab774da0491c5982a8cc1c3a94d2627047ff05631985f0",
+        "vectorsAndPayloadSha256": "73e26ff7264dc339c282bd0b464c8f754a244489000cc37320f282548dc80fad",
+        "sources": [
+          "watcher"
+        ]
+      },
+      {
+        "searchToReadPassed": true,
+        "canonicalPhysicalFactsVerified": true,
+        "ingestionVersion": 3,
+        "indexedVersion": 3,
+        "pointCount": 4,
+        "doneJobCount": 3,
+        "phase": "restored-a-source1",
+        "docId": "bcb42d78-76bc-daf4-c78d-1d4f13268754",
+        "revisionId": "a11e3297-4b3e-4222-856a-93045780092a",
+        "sourceCaseId": "fr-native-critical-v2",
+        "planFingerprint": "6b7d1a291ca498d4ec69ddcbebe0675b305b0ac977ba07e191d8ed257316d9db",
+        "sourceSha256": "5bb9e63e5dd3b5a8a32bedc5c1d81d1598fd765032066d6548faf6a7a71fb3c0",
+        "pointIdsSha256": "11e07feba963a2483093ab84e7a89c6bab3abe9f2f1b57cd848769d4ee2c3f4e",
+        "vectorsAndPayloadSha256": "8f8bcb57f1e85c43a1cf9d839a47ec9e3d5ecaef608cccc74855b2806f156159",
+        "sources": [
+          "watcher"
+        ]
+      },
+      {
+        "searchToReadPassed": true,
+        "canonicalPhysicalFactsVerified": true,
+        "ingestionVersion": 1,
+        "indexedVersion": 1,
+        "pointCount": 2,
+        "doneJobCount": 1,
+        "phase": "beyond-first-batch-b",
+        "docId": "2f73320d-024d-25c4-6739-d7ea01ebb1e8",
+        "revisionId": "45bc09f5-8ca0-c89f-bb92-4c7786aa436a",
+        "sourceCaseId": "native-two-column-v1",
+        "planFingerprint": "5ad21e225e85f45ae501db52a69e0bd8fce91f04dea85a6ad702ca354fccea8d",
+        "sourceSha256": "0630e326a1c116fdd946f87c5ae951448b10786d7fdca35949b08e89fa36316c",
+        "pointIdsSha256": "dacbaf0b0cb1625eedca9aa7508cb67d30653e9263fc41fb2559d95d1db4c9eb",
+        "vectorsAndPayloadSha256": "10592ac28096f6e25926f32df92670240f3f1632510fdea3c67bccfd9f7a3362",
+        "sources": [
+          "watcher"
+        ]
+      },
+      {
+        "searchToReadPassed": true,
+        "canonicalPhysicalFactsVerified": true,
+        "ingestionVersion": 1,
+        "indexedVersion": 1,
+        "pointCount": 1,
+        "doneJobCount": 1,
+        "phase": "beyond-first-batch-c",
+        "docId": "24ff9cc6-d1cd-1c13-8352-72e365d1538d",
+        "revisionId": "73105d20-d1c4-bdc6-a44a-fbb27b1b19ad",
+        "sourceCaseId": "fr-scan-critical-v2",
+        "planFingerprint": "d05f3c224aacd13b5fc0da5cbf7ab930df367e069ac70f909288a03cace6192c",
+        "sourceSha256": "0fa56fe1b40bc0493fe293dd75c15df683c6975315fc0179a38f5745030ac4c2",
+        "pointIdsSha256": "f0fb604f052b8ec3bf51b5a3d94083f2d31fddc88c1ccd9586a305dc03d90005",
+        "vectorsAndPayloadSha256": "2781a6b1dc7aadb052ecb8995b7212ccb9988656cae2627b8cf1a008eb0aff2e",
+        "sources": [
+          "watcher"
+        ]
+      },
+      {
+        "searchToReadPassed": true,
+        "canonicalPhysicalFactsVerified": true,
+        "ingestionVersion": 3,
+        "indexedVersion": 3,
+        "pointCount": 4,
+        "doneJobCount": 3,
+        "phase": "present-a-not-missing",
+        "docId": "bcb42d78-76bc-daf4-c78d-1d4f13268754",
+        "revisionId": "a11e3297-4b3e-4222-856a-93045780092a",
+        "sourceCaseId": "fr-native-critical-v2",
+        "planFingerprint": "6b7d1a291ca498d4ec69ddcbebe0675b305b0ac977ba07e191d8ed257316d9db",
+        "sourceSha256": "5bb9e63e5dd3b5a8a32bedc5c1d81d1598fd765032066d6548faf6a7a71fb3c0",
+        "pointIdsSha256": "11e07feba963a2483093ab84e7a89c6bab3abe9f2f1b57cd848769d4ee2c3f4e",
+        "vectorsAndPayloadSha256": "8f8bcb57f1e85c43a1cf9d839a47ec9e3d5ecaef608cccc74855b2806f156159",
+        "sources": [
+          "watcher"
+        ]
+      },
+      {
+        "previousPublicationPreserved": true,
+        "previousVectorsPreserved": true,
+        "finalDeletionExecuted": false,
+        "phase": "watcher-missing"
+      },
+      {
+        "searchToReadPassed": true,
+        "canonicalPhysicalFactsVerified": true,
+        "ingestionVersion": 3,
+        "indexedVersion": 3,
+        "pointCount": 4,
+        "doneJobCount": 3,
+        "phase": "durable-recreated-a",
+        "docId": "bcb42d78-76bc-daf4-c78d-1d4f13268754",
+        "revisionId": "a11e3297-4b3e-4222-856a-93045780092a",
+        "sourceCaseId": "fr-native-critical-v2",
+        "planFingerprint": "6b7d1a291ca498d4ec69ddcbebe0675b305b0ac977ba07e191d8ed257316d9db",
+        "sourceSha256": "5bb9e63e5dd3b5a8a32bedc5c1d81d1598fd765032066d6548faf6a7a71fb3c0",
+        "pointIdsSha256": "11e07feba963a2483093ab84e7a89c6bab3abe9f2f1b57cd848769d4ee2c3f4e",
+        "vectorsAndPayloadSha256": "8f8bcb57f1e85c43a1cf9d839a47ec9e3d5ecaef608cccc74855b2806f156159",
+        "sources": [
+          "watcher"
+        ]
+      }
+    ],
+    "twoWorkers": {
+      "sameSqlSnapshot": true,
+      "parallelOcrComputeProven": false,
+      "status": "PASS",
+      "jobIds": [
+        "7786cc59-f59d-4ae5-aed7-b4a07b216102",
+        "09c3ba59-036a-4308-942c-bb2f3a999b1c"
+      ],
+      "ownerSha256": [
+        "588ce64826dd420a525193eb6ba66b888a5fc69f7b4723fc7f6edae2135e65a8",
+        "740d8fac1a0d979b1080e8725c73d6678acedff39b30cb6ac825fae9bf5046e7"
+      ],
+      "consumerIndexes": [
+        0,
+        1
+      ]
+    },
+    "conditionalDeleteReturn": {
+      "status": "NON_EXECUTED",
+      "reason": "not_a_combined_profile"
+    },
+    "observedAdmissionConfiguration": {
+      "scannerEnabled": false,
+      "watcherEnabled": true,
+      "llmWorkersDisabled": true,
+      "workerConcurrency": 2,
+      "acceleratedOptions": {
+        "MaxFilesPerScan": 1,
+        "MinFileAgeSeconds": 1,
+        "ScanIntervalSeconds": 2,
+        "MissingGraceSeconds": 5,
+        "WatcherDebounceMs": 250,
+        "WorkerConcurrency": 2
+      }
+    },
+    "boundIngestionReadiness": {
+      "boundWorkerConcurrency": 2
+    }
+  },
+  "projectionOnly": true,
+  "independentRuntimeValidationPerformedByExporter": false,
+  "qualificationSeparation": {
+    "selectedFamily": "production",
+    "expectedQualificationMode": "production",
+    "observedQualificationMode": "production",
+    "observedQualificationModePresent": true,
+    "signatureEvidenceInheritedFromPriorCorpus": false,
+    "runtimeQualificationInferredByExporter": false
+  }
+}

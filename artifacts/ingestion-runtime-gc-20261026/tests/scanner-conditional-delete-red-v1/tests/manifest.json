@@ -1,0 +1,163 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "0a44118f1a9c4abf8ea363f94bb2480e",
+  "startedAtUtc": "2026-10-26T07:42:26.7793076+00:00",
+  "finishedAtUtc": "2026-10-26T07:42:45.0981350+00:00",
+  "gitCommit": "eb0d47dcb1bb5e6d0038c81c78d95418a5e272c6",
+  "gitDirty": true,
+  "profile": "IntegrationPg",
+  "filter": "(Profile=IntegrationPg)&(FullyQualifiedName~Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication|FullyQualifiedName~Scanner_bounded_inventory|FullyQualifiedName~Scanner_complete_inventory|FullyQualifiedName~Scanner_rotating_batches)",
+  "requestedProjects": [
+    "Backend"
+  ],
+  "configuration": "Release",
+  "buildRequested": true,
+  "restoreRequested": false,
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-26T07:42:27.7768073+00:00",
+    "sha256": "EDE0541808C7A50F2811A4DF629362BC6F8A8AAFD467897F6DA6FF211EC18201",
+    "fileCount": 1816,
+    "inventory": "source-files-0a44118f1a9c4abf8ea363f94bb2480e-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-26T07:42:45.7735443+00:00",
+    "sha256": "EDE0541808C7A50F2811A4DF629362BC6F8A8AAFD467897F6DA6FF211EC18201",
+    "fileCount": 1816,
+    "inventory": "source-files-0a44118f1a9c4abf8ea363f94bb2480e-after.json"
+  },
+  "sourceChangedDuringRun": false,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "state": "failed",
+  "prerequisites": [
+    {
+      "name": "isolated_postgresql",
+      "state": "configured",
+      "connectionStringRecorded": false
+    }
+  ],
+  "environment": {
+    "neutralizedVariableNames": [],
+    "clientDataIsolation": {
+      "rootId": null,
+      "environmentRestored": null,
+      "requiredForClientTests": true,
+      "source": "not_selected",
+      "enabled": false,
+      "ownedRelativePath": null
+    }
+  },
+  "results": [
+    {
+      "project": "Backend",
+      "path": "backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj",
+      "status": "failed",
+      "exitCode": 1,
+      "trx": "Backend-0a44118f1a9c4abf8ea363f94bb2480e.trx",
+      "trxSha256": "43DCD6F1F4AAD5E2DCA47BE144C11B09C0FD91A3375F594E4C6550D3B165A270",
+      "assemblies": [
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.AdvancedValidationJobGuard.dll",
+          "role": "local_product_dependency",
+          "sha256": "79B463A4B048D90378344D9F77B14172B88FC2429DD6D9C114949F551AB39F7B",
+          "sizeBytes": 62464,
+          "lastWriteTimeUtc": "2026-10-26T05:53:58.9639244Z",
+          "capturedAtUtc": "2026-10-26T07:42:45.0691225+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.dll",
+          "role": "local_product_dependency",
+          "sha256": "DA1131F7106939154DA452B0CE62078DEDD1CFFE7A67FB6087404758B5C1997D",
+          "sizeBytes": 7990784,
+          "lastWriteTimeUtc": "2026-10-26T07:42:32.5929240Z",
+          "capturedAtUtc": "2026-10-26T07:42:45.0767507+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "E611BE1DF3D0BABD9C255F8C9FF195412E0B99AEE147E727C173C66F34930697",
+          "sizeBytes": 5242880,
+          "lastWriteTimeUtc": "2026-10-26T07:42:35.1187542Z",
+          "capturedAtUtc": "2026-10-26T07:42:45.0877117+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "998E1CACA2D3AB343CD3F4D1F4771EB9E03F30AA59AAB84FF869254F3036C87B",
+          "sizeBytes": 154112,
+          "lastWriteTimeUtc": "2026-10-26T05:53:58.9869305Z",
+          "capturedAtUtc": "2026-10-26T07:42:45.0885573+00:00"
+        }
+      ],
+      "counts": {
+        "adapterReportedExecuted": 9,
+        "executed": 9,
+        "failed": 1,
+        "passed": 8,
+        "notExecuted": 0,
+        "total": 9
+      },
+      "cases": [
+        {
+          "duration": "00:00:01.0034573",
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(requiresSourceAbsence: True, sourceReturns: True)",
+          "outcome": "Failed"
+        },
+        {
+          "duration": "00:00:00.8656671",
+          "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_bounded_inventory_never_infers_absence_of_a_present_pdf(maximumFiles: 1, initialStatus: \"missing\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.8687598",
+          "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_bounded_inventory_never_infers_absence_of_a_present_pdf(maximumFiles: 3, initialStatus: \"missing\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:01.1817269",
+          "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_rotating_batches_eventually_admit_both_distinct_sources",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:01.1902696",
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(requiresSourceAbsence: False, sourceReturns: True)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.8704166",
+          "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_bounded_inventory_never_infers_absence_of_a_present_pdf(maximumFiles: 1, initialStatus: \"indexed\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.9398654",
+          "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_bounded_inventory_never_infers_absence_of_a_present_pdf(maximumFiles: 3, initialStatus: \"indexed\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.8443263",
+          "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_complete_inventory_still_admits_a_proven_absent_pdf_after_grace",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:01.0145430",
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(requiresSourceAbsence: True, sourceReturns: False)",
+          "outcome": "Passed"
+        }
+      ]
+    }
+  ],
+  "model": {
+    "reason": "Unit and PostgreSQL profiles do not invoke a model.",
+    "state": "not_applicable"
+  },
+  "corpus": {
+    "reason": "IntegrationPg fixtures create isolated databases; no production corpus is assumed.",
+    "state": "synthetic_fixtures"
+  },
+  "validationProfilesSha256": "8E4B990BC0A828134E5FE0D8E7B2D82406B56D2A200D8D4D37516208E3D3201D",
+  "selectionPolicy": "TRX covers selected tests; excluded profiles were not executed.",
+  "excludedProfiles": [
+    "Unit",
+    "LiveLocal",
+    "LivePaid"
+  ]
+}

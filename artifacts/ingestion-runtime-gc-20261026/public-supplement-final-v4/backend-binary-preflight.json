@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "saaia-exact-image-binary-preflight.v1",
+  "imageId": "sha256:d272895b502e7cd902afa7c197eac34b1227ffacfde80204c02f4b444b3587cd",
+  "assemblySha256": "f6825b8c36bc26a5da8308eb4d4a5ec87c62d6962f57f644c725e8e606eb18c4",
+  "codeRevisionObservedFromImageLabel": "source-sha256:dca75ae2906275ab1120aa316aab0c4d5d492fa74a5853dcd5eeb56bb3111a5a",
+  "containerId": "7310610724ba81a1b10363b7a22fbc4ab82970940f68a9228eda65aaaa1a04a9",
+  "networkMode": "none",
+  "ownedContainerStopped": true,
+  "paidProviderCalls": 0
+}

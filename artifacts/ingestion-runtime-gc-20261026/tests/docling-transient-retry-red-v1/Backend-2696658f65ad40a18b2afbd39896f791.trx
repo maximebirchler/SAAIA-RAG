@@ -1,0 +1,328 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="92fc4367-04fc-485f-92b0-efdafe3c0c36" name="maxim@MAXBI 2026-10-26 11:28:46" runUser="MAXBI\maxim" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-26T11:28:46.7599776+01:00" queuing="2026-10-26T11:28:46.7599778+01:00" start="2026-10-26T11:28:45.9710839+01:00" finish="2026-10-26T11:29:02.8465707+01:00" />
+  <TestSettings name="default" id="de86b360-b4f4-4389-82ed-e982cea1ec88">
+    <Deployment runDeploymentRoot="maxim_MAXBI_2026-10-26_11_28_46" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="44307dcd-3ec6-4a8a-8a3a-f2fcb9985203" testId="4d853e76-5a03-b585-42e6-14d745f9d393" testName="DoclingClientTests.ConvertPdfAsync_transient_retry_recovers_from_network_failure_without_publishing_exception_details" computerName="MAXBI" duration="00:00:00.0018818" startTime="2026-10-26T11:29:02.8106216+01:00" endTime="2026-10-26T11:29:02.8106218+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="44307dcd-3ec6-4a8a-8a3a-f2fcb9985203">
+      <Output>
+        <ErrorInfo>
+          <Message>System.Net.Http.HttpRequestException : PRIVATE_URI_AND_DOCUMENT_SENTINEL</Message>
+          <StackTrace>   at System.Net.Http.HttpClient.&lt;SendAsync&gt;g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)&#xD;
+   at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs:line 88&#xD;
+   at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs:line 127&#xD;
+   at DoclingClientTests.ConvertPdfAsync_transient_retry_recovers_from_network_failure_without_publishing_exception_details() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DoclingClientTests.TransientRetry.cs:line 61&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="6595b084-aa8a-4db4-972b-cf212d715ee4" testId="1e459396-7887-4610-9915-e7ec90f5e37d" testName="DoclingClientTests.ConvertPdfAsync_transient_retry_does_not_retry_invalid_success_responses(kind: &quot;json&quot;)" computerName="MAXBI" duration="00:00:00.0024115" startTime="2026-10-26T11:28:46.7849764+01:00" endTime="2026-10-26T11:28:46.7849765+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6595b084-aa8a-4db4-972b-cf212d715ee4" />
+    <UnitTestResult executionId="7899327c-6d81-4e16-a171-1f4d67ad1bd5" testId="7e8bfc08-0af5-ee69-936e-5c5127296eb0" testName="DoclingClientTests.ConvertPdfAsync_transient_retry_has_four_retries_and_bounded_backoff_when_dependency_stays_unavailable" computerName="MAXBI" duration="00:00:00.0185774" startTime="2026-10-26T11:28:46.7209618+01:00" endTime="2026-10-26T11:28:46.7209887+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7899327c-6d81-4e16-a171-1f4d67ad1bd5">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Values differ&#xD;
+Expected: 5&#xD;
+Actual:   1</Message>
+          <StackTrace>   at DoclingClientTests.ConvertPdfAsync_transient_retry_has_four_retries_and_bounded_backoff_when_dependency_stays_unavailable() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DoclingClientTests.TransientRetry.cs:line 137&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="99af4a3b-2e59-4e64-965d-0f243968de33" testId="5e31501f-24e2-dcea-034a-45716be0f9f6" testName="DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 502, body: &quot;{\&quot;detail\&quot;:\&quot;Docling returned an invalid response&quot;···)" computerName="MAXBI" duration="00:00:00.0017771" startTime="2026-10-26T11:28:46.7241344+01:00" endTime="2026-10-26T11:28:46.7241345+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="99af4a3b-2e59-4e64-965d-0f243968de33" />
+    <UnitTestResult executionId="be58e38a-a492-47b5-af00-3a6e70b2e777" testId="2ccdf241-fe2d-b907-1ddd-b51bfe9a5cbc" testName="DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 409, body: &quot;{\&quot;detail\&quot;:\&quot;Docling upstream conversion failed.\&quot;···)" computerName="MAXBI" duration="00:00:00.0009562" startTime="2026-10-26T11:28:46.7434967+01:00" endTime="2026-10-26T11:28:46.7434968+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="be58e38a-a492-47b5-af00-3a6e70b2e777" />
+    <UnitTestResult executionId="870ebdc0-2a95-478e-937e-543361f160fc" testId="3d384d5f-9ee6-2a36-a782-45c4f7082706" testName="DoclingClientTests.ConvertPdfAsync_transient_retry_uses_one_global_options_deadline_including_previous_attempts" computerName="MAXBI" duration="00:00:16.0119734" startTime="2026-10-26T11:29:02.8033116+01:00" endTime="2026-10-26T11:29:02.8033118+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="870ebdc0-2a95-478e-937e-543361f160fc">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.ThrowsAny() Failure: Exception type was not compatible&#xD;
+Expected: typeof(System.OperationCanceledException)&#xD;
+Actual:   typeof(System.Net.Http.HttpRequestException)&#xD;
+---- System.Net.Http.HttpRequestException : Docling conversion failed with HTTP 503 (docling_conversion_http_error).</Message>
+          <StackTrace>   at DoclingClientTests.ConvertPdfAsync_transient_retry_uses_one_global_options_deadline_including_previous_attempts() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DoclingClientTests.TransientRetry.cs:line 205&#xD;
+--- End of stack trace from previous location ---&#xD;
+----- Inner Stack Trace -----&#xD;
+   at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs:line 98&#xD;
+   at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs:line 127</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="d65bcd13-32fa-492b-a63e-aff9f76afc30" testId="a67aa695-68d3-f0e8-885a-392fe8452853" testName="DoclingClientTests.ConvertPdfAsync_transient_retry_preserves_caller_cancellation_during_backoff" computerName="MAXBI" duration="00:00:00.0019050" startTime="2026-10-26T11:28:46.7890266+01:00" endTime="2026-10-26T11:28:46.7890266+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d65bcd13-32fa-492b-a63e-aff9f76afc30">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.ThrowsAny() Failure: Exception type was not compatible&#xD;
+Expected: typeof(System.OperationCanceledException)&#xD;
+Actual:   typeof(System.Net.Http.HttpRequestException)&#xD;
+---- System.Net.Http.HttpRequestException : Docling conversion failed with HTTP 502 (docling_conversion_http_error).</Message>
+          <StackTrace>   at DoclingClientTests.ConvertPdfAsync_transient_retry_preserves_caller_cancellation_during_backoff() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DoclingClientTests.TransientRetry.cs:line 160&#xD;
+--- End of stack trace from previous location ---&#xD;
+----- Inner Stack Trace -----&#xD;
+   at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs:line 98&#xD;
+   at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs:line 127</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="edce7b8f-cf28-48b0-b717-50e49ffa72af" testId="4a871b7c-04d0-af9f-13ae-3eaa3b8b4250" testName="DoclingClientTests.ConvertPdfAsync_transient_retry_does_not_retry_invalid_success_responses(kind: &quot;envelope&quot;)" computerName="MAXBI" duration="00:00:00.0011421" startTime="2026-10-26T11:28:46.7861537+01:00" endTime="2026-10-26T11:28:46.7861538+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="edce7b8f-cf28-48b0-b717-50e49ffa72af" />
+    <UnitTestResult executionId="815b1bd4-8749-47a7-bf17-a3e3770a993e" testId="bff2268b-8d89-313e-c1a6-f8a93b6d86af" testName="DoclingClientTests.ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response(status: 503)" computerName="MAXBI" duration="00:00:00.0065768" startTime="2026-10-26T11:28:46.7438190+01:00" endTime="2026-10-26T11:28:46.7438191+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="815b1bd4-8749-47a7-bf17-a3e3770a993e">
+      <Output>
+        <ErrorInfo>
+          <Message>System.Net.Http.HttpRequestException : Docling conversion failed with HTTP 503 (docling_conversion_http_error).</Message>
+          <StackTrace>   at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs:line 98&#xD;
+   at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs:line 127&#xD;
+   at DoclingClientTests.ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response(Int32 status) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DoclingClientTests.TransientRetry.cs:line 40&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="e922b61b-e689-4d08-a5dd-c8d912f03769" testId="4f578e13-d21e-8cd5-cf8c-9c0a716f95d3" testName="DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 502, body: &quot;{\&quot;detail\&quot;:[\&quot;Docling upstream conversion failed.&quot;···)" computerName="MAXBI" duration="00:00:00.0009902" startTime="2026-10-26T11:28:46.7275925+01:00" endTime="2026-10-26T11:28:46.7275926+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e922b61b-e689-4d08-a5dd-c8d912f03769" />
+    <UnitTestResult executionId="cf55c14c-5616-4f1b-bd9f-8b25500dc553" testId="ae625dc1-366a-da71-01a6-92a363d7b84e" testName="DoclingClientTests.ConvertPdfAsync_transient_retry_preserves_cancellation_during_a_replayed_http_request" computerName="MAXBI" duration="00:00:00.0041973" startTime="2026-10-26T11:29:02.8078679+01:00" endTime="2026-10-26T11:29:02.8078681+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="cf55c14c-5616-4f1b-bd9f-8b25500dc553">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.ThrowsAny() Failure: Exception type was not compatible&#xD;
+Expected: typeof(System.OperationCanceledException)&#xD;
+Actual:   typeof(System.Net.Http.HttpRequestException)&#xD;
+---- System.Net.Http.HttpRequestException : Docling conversion failed with HTTP 503 (docling_conversion_http_error).</Message>
+          <StackTrace>   at DoclingClientTests.ConvertPdfAsync_transient_retry_preserves_cancellation_during_a_replayed_http_request() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DoclingClientTests.TransientRetry.cs:line 180&#xD;
+--- End of stack trace from previous location ---&#xD;
+----- Inner Stack Trace -----&#xD;
+   at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs:line 98&#xD;
+   at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs:line 127</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="5778247d-de45-4b4b-ab3f-b7d940e0af9a" testId="bf8c0736-17b4-c65b-2f28-38bd7446bcf7" testName="DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 400, body: &quot;{\&quot;detail\&quot;:\&quot;Docling upstream conversion failed.\&quot;···)" computerName="MAXBI" duration="00:00:00.0009777" startTime="2026-10-26T11:28:46.7295871+01:00" endTime="2026-10-26T11:28:46.7295872+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5778247d-de45-4b4b-ab3f-b7d940e0af9a" />
+    <UnitTestResult executionId="042c5f03-2ca0-4f9c-a86a-530320fe97d2" testId="af09b3d0-06af-096b-6ad2-324645b3ad91" testName="DoclingClientTests.ConvertPdfAsync_transient_retry_does_not_retry_invalid_success_responses(kind: &quot;schema&quot;)" computerName="MAXBI" duration="00:00:00.0325547" startTime="2026-10-26T11:28:46.7824932+01:00" endTime="2026-10-26T11:28:46.7824934+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="042c5f03-2ca0-4f9c-a86a-530320fe97d2" />
+    <UnitTestResult executionId="745f1911-b3c6-4e17-a3d8-d46d3b567520" testId="ed385450-6954-7bc3-ac95-b285e999f95e" testName="DoclingClientTests.ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response(status: 504)" computerName="MAXBI" duration="00:00:00.0045547" startTime="2026-10-26T11:28:46.7468618+01:00" endTime="2026-10-26T11:28:46.7468619+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="745f1911-b3c6-4e17-a3d8-d46d3b567520">
+      <Output>
+        <ErrorInfo>
+          <Message>System.Net.Http.HttpRequestException : Docling conversion failed with HTTP 504 (docling_conversion_http_error).</Message>
+          <StackTrace>   at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs:line 98&#xD;
+   at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs:line 127&#xD;
+   at DoclingClientTests.ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response(Int32 status) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DoclingClientTests.TransientRetry.cs:line 40&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="f8e59911-43d9-4dfa-98c0-3f687b49be4e" testId="b3189a5e-0304-6230-1971-1e257360e956" testName="DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 401, body: &quot;{\&quot;detail\&quot;:\&quot;Docling upstream conversion failed.\&quot;···)" computerName="MAXBI" duration="00:00:00.0012135" startTime="2026-10-26T11:28:46.7253922+01:00" endTime="2026-10-26T11:28:46.7253924+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f8e59911-43d9-4dfa-98c0-3f687b49be4e" />
+    <UnitTestResult executionId="2be9f747-4d8f-41e3-b49b-59d22c65a174" testId="f03df2ca-7ae5-fe07-951f-a56c26eb30b1" testName="DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 502, body: &quot;{\&quot;detail\&quot;:\&quot;Docling upstream conversion failed. &quot;···)" computerName="MAXBI" duration="00:00:00.0010880" startTime="2026-10-26T11:28:46.7265190+01:00" endTime="2026-10-26T11:28:46.7265191+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2be9f747-4d8f-41e3-b49b-59d22c65a174" />
+    <UnitTestResult executionId="7c9c71b4-34b3-4a96-b721-14d0c4b9108e" testId="62c5e245-5cf5-686c-7fdf-c90923933b08" testName="DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 502, body: &quot;not JSON&quot;)" computerName="MAXBI" duration="00:00:00.0014574" startTime="2026-10-26T11:28:46.7227140+01:00" endTime="2026-10-26T11:28:46.7227141+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7c9c71b4-34b3-4a96-b721-14d0c4b9108e" />
+    <UnitTestResult executionId="1655f1e7-7eaf-4994-80a9-e1efa3052a14" testId="8efaaafe-f83c-3221-c5ed-940faf8f932b" testName="DoclingClientTests.ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response(status: 502)" computerName="MAXBI" duration="00:00:00.0020766" startTime="2026-10-26T11:28:46.7497158+01:00" endTime="2026-10-26T11:28:46.7497160+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1655f1e7-7eaf-4994-80a9-e1efa3052a14">
+      <Output>
+        <ErrorInfo>
+          <Message>System.Net.Http.HttpRequestException : Docling conversion failed with HTTP 502 (docling_conversion_http_error).</Message>
+          <StackTrace>   at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs:line 98&#xD;
+   at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs:line 127&#xD;
+   at DoclingClientTests.ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response(Int32 status) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DoclingClientTests.TransientRetry.cs:line 40&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="be8711d0-5a61-41e6-a8c5-82c3f8916b22" testId="bfbf396d-dc8f-7aa3-326b-9182a8186a67" testName="DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 413, body: &quot;{\&quot;detail\&quot;:\&quot;Docling upstream conversion failed.\&quot;···)" computerName="MAXBI" duration="00:00:00.0009631" startTime="2026-10-26T11:28:46.7285686+01:00" endTime="2026-10-26T11:28:46.7285687+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="be8711d0-5a61-41e6-a8c5-82c3f8916b22" />
+    <UnitTestResult executionId="b161af45-0506-40ff-8da2-ba9de4cc39e0" testId="2e9b657a-d77e-3ee9-b33e-e5397b8c94d6" testName="DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 502, body: &quot;{\&quot;detail\&quot;:\&quot;Docling returned invalid JSON.\&quot;}&quot;)" computerName="MAXBI" duration="00:00:00.0020416" startTime="2026-10-26T11:28:46.7226225+01:00" endTime="2026-10-26T11:28:46.7226225+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b161af45-0506-40ff-8da2-ba9de4cc39e0" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 400, body: &quot;{\&quot;detail\&quot;:\&quot;Docling upstream conversion failed.\&quot;···)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="bf8c0736-17b4-c65b-2f28-38bd7446bcf7">
+      <Execution id="5778247d-de45-4b4b-ab3f-b7d940e0af9a" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DoclingClientTests" name="ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors" />
+    </UnitTest>
+    <UnitTest name="DoclingClientTests.ConvertPdfAsync_transient_retry_uses_one_global_options_deadline_including_previous_attempts" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="3d384d5f-9ee6-2a36-a782-45c4f7082706">
+      <Execution id="870ebdc0-2a95-478e-937e-543361f160fc" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DoclingClientTests" name="ConvertPdfAsync_transient_retry_uses_one_global_options_deadline_including_previous_attempts" />
+    </UnitTest>
+    <UnitTest name="DoclingClientTests.ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response(status: 503)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="bff2268b-8d89-313e-c1a6-f8a93b6d86af">
+      <Execution id="815b1bd4-8749-47a7-bf17-a3e3770a993e" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DoclingClientTests" name="ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response" />
+    </UnitTest>
+    <UnitTest name="DoclingClientTests.ConvertPdfAsync_transient_retry_does_not_retry_invalid_success_responses(kind: &quot;json&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="1e459396-7887-4610-9915-e7ec90f5e37d">
+      <Execution id="6595b084-aa8a-4db4-972b-cf212d715ee4" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DoclingClientTests" name="ConvertPdfAsync_transient_retry_does_not_retry_invalid_success_responses" />
+    </UnitTest>
+    <UnitTest name="DoclingClientTests.ConvertPdfAsync_transient_retry_recovers_from_network_failure_without_publishing_exception_details" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="4d853e76-5a03-b585-42e6-14d745f9d393">
+      <Execution id="44307dcd-3ec6-4a8a-8a3a-f2fcb9985203" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DoclingClientTests" name="ConvertPdfAsync_transient_retry_recovers_from_network_failure_without_publishing_exception_details" />
+    </UnitTest>
+    <UnitTest name="DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 409, body: &quot;{\&quot;detail\&quot;:\&quot;Docling upstream conversion failed.\&quot;···)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="2ccdf241-fe2d-b907-1ddd-b51bfe9a5cbc">
+      <Execution id="be58e38a-a492-47b5-af00-3a6e70b2e777" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DoclingClientTests" name="ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors" />
+    </UnitTest>
+    <UnitTest name="DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 401, body: &quot;{\&quot;detail\&quot;:\&quot;Docling upstream conversion failed.\&quot;···)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="b3189a5e-0304-6230-1971-1e257360e956">
+      <Execution id="f8e59911-43d9-4dfa-98c0-3f687b49be4e" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DoclingClientTests" name="ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors" />
+    </UnitTest>
+    <UnitTest name="DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 413, body: &quot;{\&quot;detail\&quot;:\&quot;Docling upstream conversion failed.\&quot;···)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="bfbf396d-dc8f-7aa3-326b-9182a8186a67">
+      <Execution id="be8711d0-5a61-41e6-a8c5-82c3f8916b22" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DoclingClientTests" name="ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors" />
+    </UnitTest>
+    <UnitTest name="DoclingClientTests.ConvertPdfAsync_transient_retry_preserves_cancellation_during_a_replayed_http_request" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="ae625dc1-366a-da71-01a6-92a363d7b84e">
+      <Execution id="cf55c14c-5616-4f1b-bd9f-8b25500dc553" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DoclingClientTests" name="ConvertPdfAsync_transient_retry_preserves_cancellation_during_a_replayed_http_request" />
+    </UnitTest>
+    <UnitTest name="DoclingClientTests.ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response(status: 504)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="ed385450-6954-7bc3-ac95-b285e999f95e">
+      <Execution id="745f1911-b3c6-4e17-a3d8-d46d3b567520" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DoclingClientTests" name="ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response" />
+    </UnitTest>
+    <UnitTest name="DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 502, body: &quot;{\&quot;detail\&quot;:\&quot;Docling returned an invalid response&quot;···)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="5e31501f-24e2-dcea-034a-45716be0f9f6">
+      <Execution id="99af4a3b-2e59-4e64-965d-0f243968de33" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DoclingClientTests" name="ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors" />
+    </UnitTest>
+    <UnitTest name="DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 502, body: &quot;{\&quot;detail\&quot;:[\&quot;Docling upstream conversion failed.&quot;···)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="4f578e13-d21e-8cd5-cf8c-9c0a716f95d3">
+      <Execution id="e922b61b-e689-4d08-a5dd-c8d912f03769" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DoclingClientTests" name="ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors" />
+    </UnitTest>
+    <UnitTest name="DoclingClientTests.ConvertPdfAsync_transient_retry_preserves_caller_cancellation_during_backoff" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="a67aa695-68d3-f0e8-885a-392fe8452853">
+      <Execution id="d65bcd13-32fa-492b-a63e-aff9f76afc30" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DoclingClientTests" name="ConvertPdfAsync_transient_retry_preserves_caller_cancellation_during_backoff" />
+    </UnitTest>
+    <UnitTest name="DoclingClientTests.ConvertPdfAsync_transient_retry_does_not_retry_invalid_success_responses(kind: &quot;envelope&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="4a871b7c-04d0-af9f-13ae-3eaa3b8b4250">
+      <Execution id="edce7b8f-cf28-48b0-b717-50e49ffa72af" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DoclingClientTests" name="ConvertPdfAsync_transient_retry_does_not_retry_invalid_success_responses" />
+    </UnitTest>
+    <UnitTest name="DoclingClientTests.ConvertPdfAsync_transient_retry_does_not_retry_invalid_success_responses(kind: &quot;schema&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="af09b3d0-06af-096b-6ad2-324645b3ad91">
+      <Execution id="042c5f03-2ca0-4f9c-a86a-530320fe97d2" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DoclingClientTests" name="ConvertPdfAsync_transient_retry_does_not_retry_invalid_success_responses" />
+    </UnitTest>
+    <UnitTest name="DoclingClientTests.ConvertPdfAsync_transient_retry_has_four_retries_and_bounded_backoff_when_dependency_stays_unavailable" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="7e8bfc08-0af5-ee69-936e-5c5127296eb0">
+      <Execution id="7899327c-6d81-4e16-a171-1f4d67ad1bd5" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DoclingClientTests" name="ConvertPdfAsync_transient_retry_has_four_retries_and_bounded_backoff_when_dependency_stays_unavailable" />
+    </UnitTest>
+    <UnitTest name="DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 502, body: &quot;{\&quot;detail\&quot;:\&quot;Docling upstream conversion failed. &quot;···)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="f03df2ca-7ae5-fe07-951f-a56c26eb30b1">
+      <Execution id="2be9f747-4d8f-41e3-b49b-59d22c65a174" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DoclingClientTests" name="ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors" />
+    </UnitTest>
+    <UnitTest name="DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 502, body: &quot;{\&quot;detail\&quot;:\&quot;Docling returned invalid JSON.\&quot;}&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="2e9b657a-d77e-3ee9-b33e-e5397b8c94d6">
+      <Execution id="b161af45-0506-40ff-8da2-ba9de4cc39e0" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DoclingClientTests" name="ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors" />
+    </UnitTest>
+    <UnitTest name="DoclingClientTests.ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response(status: 502)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="8efaaafe-f83c-3221-c5ed-940faf8f932b">
+      <Execution id="1655f1e7-7eaf-4994-80a9-e1efa3052a14" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DoclingClientTests" name="ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response" />
+    </UnitTest>
+    <UnitTest name="DoclingClientTests.ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors(status: 502, body: &quot;not JSON&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="62c5e245-5cf5-686c-7fdf-c90923933b08">
+      <Execution id="7c9c71b4-34b3-4a96-b721-14d0c4b9108e" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DoclingClientTests" name="ConvertPdfAsync_transient_retry_never_retries_permanent_or_unclassified_gateway_errors" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="4d853e76-5a03-b585-42e6-14d745f9d393" executionId="44307dcd-3ec6-4a8a-8a3a-f2fcb9985203" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1e459396-7887-4610-9915-e7ec90f5e37d" executionId="6595b084-aa8a-4db4-972b-cf212d715ee4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7e8bfc08-0af5-ee69-936e-5c5127296eb0" executionId="7899327c-6d81-4e16-a171-1f4d67ad1bd5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5e31501f-24e2-dcea-034a-45716be0f9f6" executionId="99af4a3b-2e59-4e64-965d-0f243968de33" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2ccdf241-fe2d-b907-1ddd-b51bfe9a5cbc" executionId="be58e38a-a492-47b5-af00-3a6e70b2e777" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3d384d5f-9ee6-2a36-a782-45c4f7082706" executionId="870ebdc0-2a95-478e-937e-543361f160fc" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a67aa695-68d3-f0e8-885a-392fe8452853" executionId="d65bcd13-32fa-492b-a63e-aff9f76afc30" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4a871b7c-04d0-af9f-13ae-3eaa3b8b4250" executionId="edce7b8f-cf28-48b0-b717-50e49ffa72af" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="bff2268b-8d89-313e-c1a6-f8a93b6d86af" executionId="815b1bd4-8749-47a7-bf17-a3e3770a993e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4f578e13-d21e-8cd5-cf8c-9c0a716f95d3" executionId="e922b61b-e689-4d08-a5dd-c8d912f03769" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ae625dc1-366a-da71-01a6-92a363d7b84e" executionId="cf55c14c-5616-4f1b-bd9f-8b25500dc553" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="bf8c0736-17b4-c65b-2f28-38bd7446bcf7" executionId="5778247d-de45-4b4b-ab3f-b7d940e0af9a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="af09b3d0-06af-096b-6ad2-324645b3ad91" executionId="042c5f03-2ca0-4f9c-a86a-530320fe97d2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ed385450-6954-7bc3-ac95-b285e999f95e" executionId="745f1911-b3c6-4e17-a3d8-d46d3b567520" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b3189a5e-0304-6230-1971-1e257360e956" executionId="f8e59911-43d9-4dfa-98c0-3f687b49be4e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f03df2ca-7ae5-fe07-951f-a56c26eb30b1" executionId="2be9f747-4d8f-41e3-b49b-59d22c65a174" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="62c5e245-5cf5-686c-7fdf-c90923933b08" executionId="7c9c71b4-34b3-4a96-b721-14d0c4b9108e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8efaaafe-f83c-3221-c5ed-940faf8f932b" executionId="1655f1e7-7eaf-4994-80a9-e1efa3052a14" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="bfbf396d-dc8f-7aa3-326b-9182a8186a67" executionId="be8711d0-5a61-41e6-a8c5-82c3f8916b22" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2e9b657a-d77e-3ee9-b33e-e5397b8c94d6" executionId="b161af45-0506-40ff-8da2-ba9de4cc39e0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Les résultats ne figurent pas dans une liste" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="Tous les résultats chargés" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="20" executed="20" passed="12" failed="8" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 8.0.27)&#xD;
+[xUnit.net 00:00:00.09]   Discovering: SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:00.30]   Discovered:  SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:00.30]   Starting:    SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:00.35]       Assert.Equal() Failure: Values differ&#xD;
+[xUnit.net 00:00:00.35]       Expected: 5&#xD;
+[xUnit.net 00:00:00.35]       Actual:   1&#xD;
+[xUnit.net 00:00:00.35]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.35]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DoclingClientTests.TransientRetry.cs(137,0): at DoclingClientTests.ConvertPdfAsync_transient_retry_has_four_retries_and_bounded_backoff_when_dependency_stays_unavailable()&#xD;
+[xUnit.net 00:00:00.35]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:00.37]       System.Net.Http.HttpRequestException : Docling conversion failed with HTTP 503 (docling_conversion_http_error).&#xD;
+[xUnit.net 00:00:00.37]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.37]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs(98,0): at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride)&#xD;
+[xUnit.net 00:00:00.37]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs(127,0): at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride)&#xD;
+[xUnit.net 00:00:00.37]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DoclingClientTests.TransientRetry.cs(40,0): at DoclingClientTests.ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response(Int32 status)&#xD;
+[xUnit.net 00:00:00.37]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:00.38]       System.Net.Http.HttpRequestException : Docling conversion failed with HTTP 504 (docling_conversion_http_error).&#xD;
+[xUnit.net 00:00:00.38]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.38]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs(98,0): at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride)&#xD;
+[xUnit.net 00:00:00.38]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs(127,0): at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride)&#xD;
+[xUnit.net 00:00:00.38]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DoclingClientTests.TransientRetry.cs(40,0): at DoclingClientTests.ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response(Int32 status)&#xD;
+[xUnit.net 00:00:00.38]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:00.38]       System.Net.Http.HttpRequestException : Docling conversion failed with HTTP 502 (docling_conversion_http_error).&#xD;
+[xUnit.net 00:00:00.38]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.38]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs(98,0): at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride)&#xD;
+[xUnit.net 00:00:00.38]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs(127,0): at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride)&#xD;
+[xUnit.net 00:00:00.38]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DoclingClientTests.TransientRetry.cs(40,0): at DoclingClientTests.ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response(Int32 status)&#xD;
+[xUnit.net 00:00:00.38]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:00.42]       Assert.ThrowsAny() Failure: Exception type was not compatible&#xD;
+[xUnit.net 00:00:00.42]       Expected: typeof(System.OperationCanceledException)&#xD;
+[xUnit.net 00:00:00.42]       Actual:   typeof(System.Net.Http.HttpRequestException)&#xD;
+[xUnit.net 00:00:00.42]       ---- System.Net.Http.HttpRequestException : Docling conversion failed with HTTP 502 (docling_conversion_http_error).&#xD;
+[xUnit.net 00:00:00.42]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.42]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DoclingClientTests.TransientRetry.cs(160,0): at DoclingClientTests.ConvertPdfAsync_transient_retry_preserves_caller_cancellation_during_backoff()&#xD;
+[xUnit.net 00:00:00.42]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:00.42]         ----- Inner Stack Trace -----&#xD;
+[xUnit.net 00:00:00.42]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs(98,0): at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride)&#xD;
+[xUnit.net 00:00:00.42]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs(127,0): at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride)&#xD;
+[xUnit.net 00:00:16.43]       Assert.ThrowsAny() Failure: Exception type was not compatible&#xD;
+[xUnit.net 00:00:16.43]       Expected: typeof(System.OperationCanceledException)&#xD;
+[xUnit.net 00:00:16.43]       Actual:   typeof(System.Net.Http.HttpRequestException)&#xD;
+[xUnit.net 00:00:16.43]       ---- System.Net.Http.HttpRequestException : Docling conversion failed with HTTP 503 (docling_conversion_http_error).&#xD;
+[xUnit.net 00:00:16.43]       Stack Trace:&#xD;
+[xUnit.net 00:00:16.43]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DoclingClientTests.TransientRetry.cs(205,0): at DoclingClientTests.ConvertPdfAsync_transient_retry_uses_one_global_options_deadline_including_previous_attempts()&#xD;
+[xUnit.net 00:00:16.43]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:16.43]         ----- Inner Stack Trace -----&#xD;
+[xUnit.net 00:00:16.43]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs(98,0): at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride)&#xD;
+[xUnit.net 00:00:16.43]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs(127,0): at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride)&#xD;
+[xUnit.net 00:00:16.44]       Assert.ThrowsAny() Failure: Exception type was not compatible&#xD;
+[xUnit.net 00:00:16.44]       Expected: typeof(System.OperationCanceledException)&#xD;
+[xUnit.net 00:00:16.44]       Actual:   typeof(System.Net.Http.HttpRequestException)&#xD;
+[xUnit.net 00:00:16.44]       ---- System.Net.Http.HttpRequestException : Docling conversion failed with HTTP 503 (docling_conversion_http_error).&#xD;
+[xUnit.net 00:00:16.44]       Stack Trace:&#xD;
+[xUnit.net 00:00:16.44]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DoclingClientTests.TransientRetry.cs(180,0): at DoclingClientTests.ConvertPdfAsync_transient_retry_preserves_cancellation_during_a_replayed_http_request()&#xD;
+[xUnit.net 00:00:16.44]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:16.44]         ----- Inner Stack Trace -----&#xD;
+[xUnit.net 00:00:16.44]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs(98,0): at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride)&#xD;
+[xUnit.net 00:00:16.44]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs(127,0): at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride)&#xD;
+[xUnit.net 00:00:16.44]       System.Net.Http.HttpRequestException : PRIVATE_URI_AND_DOCUMENT_SENTINEL&#xD;
+[xUnit.net 00:00:16.44]       Stack Trace:&#xD;
+[xUnit.net 00:00:16.44]            at System.Net.Http.HttpClient.&lt;SendAsync&gt;g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)&#xD;
+[xUnit.net 00:00:16.44]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs(88,0): at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride)&#xD;
+[xUnit.net 00:00:16.44]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\DocumentIntelligence\Docling\DoclingClient.cs(127,0): at DoclingClient.ConvertPdfAsync(String pdfPath, CancellationToken ct, Nullable`1 forceOcrOverride)&#xD;
+[xUnit.net 00:00:16.44]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DoclingClientTests.TransientRetry.cs(61,0): at DoclingClientTests.ConvertPdfAsync_transient_retry_recovers_from_network_failure_without_publishing_exception_details()&#xD;
+[xUnit.net 00:00:16.44]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:16.44]   Finished:    SAAIA.Backend.Tests&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T11:28:46.7199110+01:00">
+        <Text>[xUnit.net 00:00:00.35]     DoclingClientTests.ConvertPdfAsync_transient_retry_has_four_retries_and_bounded_backoff_when_dependency_stays_unavailable [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T11:28:46.7648697+01:00">
+        <Text>[xUnit.net 00:00:00.37]     DoclingClientTests.ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response(status: 503) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T11:28:46.7649191+01:00">
+        <Text>[xUnit.net 00:00:00.38]     DoclingClientTests.ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response(status: 504) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T11:28:46.7649374+01:00">
+        <Text>[xUnit.net 00:00:00.38]     DoclingClientTests.ConvertPdfAsync_transient_retry_replays_complete_multipart_then_validates_canonical_response(status: 502) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T11:28:46.7890933+01:00">
+        <Text>[xUnit.net 00:00:00.42]     DoclingClientTests.ConvertPdfAsync_transient_retry_preserves_caller_cancellation_during_backoff [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T11:29:02.8032489+01:00">
+        <Text>[xUnit.net 00:00:16.43]     DoclingClientTests.ConvertPdfAsync_transient_retry_uses_one_global_options_deadline_including_previous_attempts [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T11:29:02.8078030+01:00">
+        <Text>[xUnit.net 00:00:16.44]     DoclingClientTests.ConvertPdfAsync_transient_retry_preserves_cancellation_during_a_replayed_http_request [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T11:29:02.8104546+01:00">
+        <Text>[xUnit.net 00:00:16.44]     DoclingClientTests.ConvertPdfAsync_transient_retry_recovers_from_network_failure_without_publishing_exception_details [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "saaia-ingestion-qualification-closure.v1",
+  "createdAtUtc": "2026-10-26T11:16:14.594251+00:00",
+  "qualificationStatus": "QUALIFIED_FOR_EXERCISED_CORPUS_AND_EXACT_CPU_RUNTIME",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "paidProviderCalls": 0,
+  "planningExecuted": false,
+  "productionStackDeployed": false,
+  "unitActualResultOutcomes": {
+    "Passed": 5323,
+    "NotExecuted": 2
+  },
+  "postgresActualResultOutcomes": {
+    "Passed": 350,
+    "NotExecuted": 2
+  },
+  "counterNote": "TRX Counters notExecuted is zero despite two UnitTestResult NotExecuted records in Backend; actual result outcomes are retained.",
+  "pythonIngestionTestsPassed": 180,
+  "runtime": {
+    "signedProductionRootsPassed": 5,
+    "goldPdfCount": 12,
+    "recipePageCount": 36,
+    "retrievalFactsPassed": 106,
+    "ocrRealPassed": 1,
+    "linuxFilesystemCasePassed": 1,
+    "linuxRetryCasesPassed": 26,
+    "gcLifecyclePassed": true,
+    "failedReplacementPassed": true,
+    "baselineContainerCountUnchanged": 22,
+    "ownedNamespacesStopped": 16,
+    "denseOnlyRetrievalQualified": false,
+    "realQueuedSourceReturnRaceCaptured": false,
+    "realNetworkFaultInjected": false,
+    "legacyVectorInventoryComplete": false,
+    "gcEnabledByDefault": false
+  },
+  "references": [
+    {
+      "path": "docling-final-central-acceptance-v1.json",
+      "sha256": "2aad239919d2723c3176e7331ae363def3b0176274326d7b8abbff339c311d07"
+    },
+    {
+      "path": "public-export-production-final-v4/public-export-seal.json",
+      "sha256": "c43d581287694cd6a43bcf278205699422d12db4603dc18303cdd0c5c9f789a7"
+    },
+    {
+      "path": "public-supplement-final-v4/supplement-seal.json",
+      "sha256": "ae1eed5d0f1b10aa702d9afbb2a4e65eb57b99f35a1512b3400582b9ef24ff43"
+    },
+    {
+      "path": "signature-rejection-safe-diagnostic-final-v2.json",
+      "sha256": "0ffe9caf914606e293d357cf2c27ac7ad8d65b43a7f77c637045ee8644289d87"
+    },
+    {
+      "path": "build-final-v4/manifest.json",
+      "sha256": "93153eb817f6cdd4f7603c2b78d3edc32d6ab737d717bffad8f8f4bcbf1da4c4"
+    },
+    {
+      "path": "build-final-v4/index-source-comparison-v1.json",
+      "sha256": "327b93ac1635e70d9bb139479c66dd599962a7e25257f0c80cb0a5182bb060d3"
+    },
+    {
+      "path": "independent-public-final-review-v1.json",
+      "sha256": "90f087807588be54876fb7befcc0440b5df44ab3029587c8247d9d6e6b214170"
+    }
+  ]
+}

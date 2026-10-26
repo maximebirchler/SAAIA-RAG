@@ -17,9 +17,11 @@ public static class IngestionDuplicateFilePlanner
     public static async Task<IReadOnlyDictionary<string, IngestionDuplicateFileDecision>> FindDuplicatesByContentAsync(
         IEnumerable<IngestionDuplicateFileCandidate> candidates,
         CancellationToken ct,
-        Func<IngestionDuplicateFileCandidate, CancellationToken, Task<string>>? hashResolver = null)
+        Func<IngestionDuplicateFileCandidate, CancellationToken, Task<string>>? hashResolver = null,
+        bool? windowsFileSystem = null)
     {
-        var duplicateMap = new Dictionary<string, IngestionDuplicateFileDecision>(StringComparer.OrdinalIgnoreCase);
+        var pathComparer = IngestionFileSystemPathIdentity.Comparer(windowsFileSystem ?? OperatingSystem.IsWindows());
+        var duplicateMap = new Dictionary<string, IngestionDuplicateFileDecision>(pathComparer);
 
         var sameSizeGroups = candidates
             .Where(static candidate => !string.IsNullOrWhiteSpace(candidate.RelativePath)
@@ -53,12 +55,12 @@ public static class IngestionDuplicateFilePlanner
 
                 var canonical = hashGroup.Value
                     .OrderBy(static candidate => CanonicalPathScore(candidate.RelativePath))
-                    .ThenBy(static candidate => candidate.RelativePath, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(static candidate => candidate.RelativePath, pathComparer)
                     .First();
 
                 foreach (var duplicate in hashGroup.Value)
                 {
-                    if (string.Equals(duplicate.RelativePath, canonical.RelativePath, StringComparison.OrdinalIgnoreCase))
+                    if (pathComparer.Equals(duplicate.RelativePath, canonical.RelativePath))
                         continue;
 
                     duplicateMap[duplicate.RelativePath] = new IngestionDuplicateFileDecision(

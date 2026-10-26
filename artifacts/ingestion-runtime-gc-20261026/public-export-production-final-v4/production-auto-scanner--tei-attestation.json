@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "saaia-linux-public-proof-projection.v3",
+  "campaignRole": "production-auto-scanner",
+  "campaignRunId": "678433d1-fb2a-4c9c-b3a9-04ba93800095",
+  "qualificationFamily": "production",
+  "sourceFile": "tei-attestation.json",
+  "sourceSha256": "16308b9c038b12f4d7f268f23059330013de09ca5e7a330b0a84dee111939557",
+  "sourceByteSize": 2124,
+  "proof": {
+    "passed": true,
+    "kernelFileOpenTracingPerformed": false,
+    "nativeInfo": {
+      "auto_truncate": false,
+      "max_input_length": 512,
+      "max_concurrent_requests": 8,
+      "max_batch_tokens": 8192,
+      "max_batch_requests": 8,
+      "tokenization_workers": 2,
+      "model_id": "intfloat/multilingual-e5-base",
+      "model_sha": "d128750597153bb5987e10b1c3493a34e5a4502a",
+      "model_dtype": "float32",
+      "version": "1.6.1",
+      "sha": "875239e210e6653fed8206f764ddd1af0adb5fdb",
+      "docker_label": "sha-875239e"
+    },
+    "modelArtifactSha256": {
+      "tokenizer.json": "62c24cdc13d4c9952d63718d6c9fa4c287974249e16b7ade6d5a85e7bbb75626",
+      "sentence_bert_config.json": "948201d8329907aae938fa62f9ceeed53f5694dacc2b87b9f3b78b37ee986529",
+      "config.json": "9dab198f24c8c0879e481cf7822005d5ecbceedbacb390ffafa594e28d31bac4",
+      "onnx/model.onnx": "84a4d426f7e87a6bf5bf195f0bae2c4a7d15f675b23ca96f42fab8326d7a77aa",
+      "1_Pooling/config.json": "f586ab6c734af7b8d14d898bfa7faa886f23b46f86dd1730514309893af13d75"
+    },
+    "containerPathsAndArgvExcludedFromProjection": true,
+    "container": {
+      "autoTruncate": false,
+      "ownedContainerVerified": true,
+      "imageId": "sha256:66db77d7856c9319bbfaf2c5b80a6d0e0ac9ff128ade09eaca1d9c20213617a4",
+      "modelRevision": "d128750597153bb5987e10b1c3493a34e5a4502a",
+      "modelFileSha256": "84a4d426f7e87a6bf5bf195f0bae2c4a7d15f675b23ca96f42fab8326d7a77aa"
+    }
+  },
+  "projectionOnly": true,
+  "independentRuntimeValidationPerformedByExporter": false
+}

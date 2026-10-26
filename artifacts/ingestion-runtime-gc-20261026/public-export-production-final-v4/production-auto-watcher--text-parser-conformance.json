@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "saaia-linux-public-proof-projection.v3",
+  "campaignRole": "production-auto-watcher",
+  "campaignRunId": "72dca7da-254d-40de-8f91-84b2c6a94a4e",
+  "qualificationFamily": "production",
+  "sourceFile": "text-parser-conformance.json",
+  "sourceSha256": "62ee2080c3eaf47c956c4492c82d9cb283caa58527996d6d33234fe97ff2fc4a",
+  "sourceByteSize": 109,
+  "proof": {
+    "unicode_punctuation": true,
+    "unicode_case": true,
+    "conjunction": true,
+    "accent_preserved": true
+  },
+  "projectionOnly": true,
+  "independentRuntimeValidationPerformedByExporter": false
+}

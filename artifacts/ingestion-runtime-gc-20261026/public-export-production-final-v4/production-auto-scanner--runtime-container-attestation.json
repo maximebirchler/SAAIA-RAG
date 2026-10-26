@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "saaia-linux-public-proof-projection.v3",
+  "campaignRole": "production-auto-scanner",
+  "campaignRunId": "678433d1-fb2a-4c9c-b3a9-04ba93800095",
+  "qualificationFamily": "production",
+  "sourceFile": "runtime-container-attestation.json",
+  "sourceSha256": "7ac2cb8dfcc35c40a2d7f921b55e6e36a0793dba6031b94894acd92c90e62cd2",
+  "sourceByteSize": 2394,
+  "proof": {
+    "configurationSignatureVerified": true,
+    "schemaVersion": "saaia-linux-public-runtime-attestation.v1",
+    "runId": "678433d1-fb2a-4c9c-b3a9-04ba93800095",
+    "codeRevisionObservedByReadiness": "source-sha256:dca75ae2906275ab1120aa316aab0c4d5d492fa74a5853dcd5eeb56bb3111a5a",
+    "environmentObservedFromContainer": "Production",
+    "qualificationMode": "production",
+    "configurationSignatureMode": "signed",
+    "backendAssemblySha256": "f6825b8c36bc26a5da8308eb4d4a5ec87c62d6962f57f644c725e8e606eb18c4",
+    "configurationSha256": "2d3e3fd932632743622874391b05f297929787b83cc687f0fabff1991ddf9701",
+    "observedAtUtc": "2026-10-26T10:59:44.241885+00:00",
+    "containers": [
+      {
+        "running": false,
+        "memoryLimitBytes": 1073741824,
+        "nanoCpus": 1000000000,
+        "role": "postgres",
+        "id": "9a6bcb07d2b7e41dff803f8d26ff9982e69acef84196a464a9e4f4b2c8d72ad4",
+        "imageId": "sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51",
+        "loopbackPorts": []
+      },
+      {
+        "running": false,
+        "memoryLimitBytes": 1073741824,
+        "nanoCpus": 1000000000,
+        "role": "qdrant",
+        "id": "389ab57f302427926c3e606427ec998c53bf12b995a5e8e25f9cdb3cf34dab06",
+        "imageId": "sha256:6a34a799bed69c7c25c4e87ab04092005e4579062a9bf0e82a75d0b21f030006",
+        "loopbackPorts": [
+          20424
+        ]
+      },
+      {
+        "running": false,
+        "memoryLimitBytes": 3221225472,
+        "nanoCpus": 2000000000,
+        "role": "tei",
+        "id": "924e0f1f03d74c01c30beea5c388a09fdea415295742a89ca7086acb18021768",
+        "imageId": "sha256:66db77d7856c9319bbfaf2c5b80a6d0e0ac9ff128ade09eaca1d9c20213617a4",
+        "loopbackPorts": [
+          20423
+        ]
+      },
+      {
+        "running": false,
+        "memoryLimitBytes": 5368709120,
+        "nanoCpus": 2000000000,
+        "role": "docling",
+        "id": "48a10fa0a08258fa759fd40df0c7dff96d9e8e7bf73c607cf0e4900cd208c902",
+        "imageId": "sha256:7238422c78fd648dabbc25a4e0f4f1c8a1aec673e84109231d3da3ebaa7e8e69",
+        "loopbackPorts": [
+          20422
+        ]
+      },
+      {
+        "running": false,
+        "memoryLimitBytes": 2147483648,
+        "nanoCpus": 2000000000,
+        "role": "backend",
+        "id": "10a796138db0edd904c8d28f045cf94f32a4c52fb9251716c320ac36581b6480",
+        "imageId": "sha256:d272895b502e7cd902afa7c197eac34b1227ffacfde80204c02f4b444b3587cd",
+        "loopbackPorts": [
+          20421
+        ]
+      }
+    ]
+  },
+  "projectionOnly": true,
+  "independentRuntimeValidationPerformedByExporter": false,
+  "qualificationSeparation": {
+    "selectedFamily": "production",
+    "expectedQualificationMode": "production",
+    "observedQualificationMode": "production",
+    "observedQualificationModePresent": true,
+    "signatureEvidenceInheritedFromPriorCorpus": false,
+    "runtimeQualificationInferredByExporter": false
+  }
+}

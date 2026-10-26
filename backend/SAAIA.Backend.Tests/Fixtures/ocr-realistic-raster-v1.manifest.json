@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "saaia-ocr-raster-fixture.v1",
+  "synthetic": true,
+  "physicalPages": 1,
+  "renderedTextIsRasterOnly": true,
+  "nativeTextOperatorsIntentionallyAbsent": true,
+  "widthPixels": 2550,
+  "heightPixels": 3300,
+  "fontSizePixels": 90,
+  "fontFileName": "arial.ttf",
+  "fontSha256": "b3658eadae55e682b5f69eb64c439c1ecc8f196c0bb8d4756d145d13bc86476a",
+  "pillowVersion": "12.3.0",
+  "reportlabVersion": "4.4.9",
+  "rasterSha256": "6ffc3a3147028c3b3ebabf3ce97332d4db071f8c85b6aeb4fe5b0bd656c36b43",
+  "pdfSha256": "69441aab874dfb04ac8d015431ff3746564bb8d88b6a6b022327b7f2c37c60c6",
+  "pdfSizeBytes": 71721,
+  "lineBounds": [
+    {
+      "lineIndex": 0,
+      "bboxPixels": [
+        200,
+        276,
+        1225,
+        343
+      ],
+      "textSha256": "f24ed2be7d449897117b9e973149daa813435aabbf439d65b9faa9179511dcbb"
+    },
+    {
+      "lineIndex": 1,
+      "bboxPixels": [
+        200,
+        516,
+        1105,
+        583
+      ],
+      "textSha256": "f204f4c8b29caa24136ecc28ae76487abda0a4d39cbcf55191343dd82ab5eb3b"
+    },
+    {
+      "lineIndex": 2,
+      "bboxPixels": [
+        200,
+        756,
+        1045,
+        827
+      ],
+      "textSha256": "b93cf2671ac36cc9cd307a71260c218d5174d1354a4ba2e6fc12319e9262a5f8"
+    }
+  ],
+  "exactOperationalTokens": [
+    "pump",
+    "reset",
+    "panel",
+    "batch",
+    "code",
+    "xq42"
+  ],
+  "ocrEnginesExecutedByGenerator": false,
+  "twoIndependentGenerationsByteIdentical": true,
+  "generatorSha256": "ddf9fc017329f645276c34070aa6f19cd0675e5cb296201758b25e8ca42ddd0d"
+}

@@ -26,7 +26,8 @@ static partial class IngestionEnqueue
         category = IngestionCategoryResolver.Normalize(category);
 
         var docName = Path.GetFileName(docPath);
-        var docId = IdUtil.DeterministicGuid($"{tenantId}:{docPath}");
+        var fallbackDocId = IdUtil.DeterministicGuid($"{tenantId}:{docPath}");
+        var docId = fallbackDocId;
 
         long? fileSize = fi is null ? null : fi.Length;
         DateTime? fileMtime = fi is null ? null : DateTime.SpecifyKind(fi.LastWriteTimeUtc, DateTimeKind.Utc);
@@ -41,7 +42,7 @@ INSERT INTO documents(
 VALUES(
   @tenant_id, @doc_id, @doc_path, @doc_name, @category,
   'pending', now(), @file_size, @file_mtime,
-  now(), NULL, 1, 0,
+  now(), NULL, @reserved_generation, 0,
   false, NULL, NULL
 )
 ON CONFLICT (tenant_id, doc_path)
@@ -57,7 +58,7 @@ DO UPDATE SET
   file_mtime = EXCLUDED.file_mtime,
   last_seen_at = now(),
   missing_since = NULL,
-  ingestion_version = GREATEST(COALESCE(documents.ingestion_version, 0), COALESCE(documents.indexed_version, 0)) + 1,
+  ingestion_version = EXCLUDED.ingestion_version,
   auto_ingest_paused = CASE
       WHEN documents.auto_ingest_pause_reason = 'admin_cancel' THEN documents.auto_ingest_paused
       ELSE false
@@ -70,7 +71,8 @@ DO UPDATE SET
       WHEN documents.auto_ingest_pause_reason = 'admin_cancel' THEN documents.auto_ingest_pause_reason
       ELSE NULL
   END
-RETURNING doc_id, ingestion_version;
+WHERE documents.doc_id=EXCLUDED.doc_id AND GREATEST(COALESCE(documents.ingestion_version,0),COALESCE(documents.indexed_version,0)) < EXCLUDED.ingestion_version
+RETURNING doc_id, ingestion_version, COALESCE(indexed_version,0) AS indexed_version;
 """ : """
 INSERT INTO documents(
   tenant_id, doc_id, doc_path, doc_name, category,
@@ -81,7 +83,7 @@ INSERT INTO documents(
 VALUES(
   @tenant_id, @doc_id, @doc_path, @doc_name, @category,
   'pending', now(), @file_size, @file_mtime,
-  now(), NULL, 1, 0,
+  now(), NULL, @reserved_generation, 0,
   false, NULL, NULL
 )
 ON CONFLICT (tenant_id, doc_path)
@@ -97,25 +99,36 @@ DO UPDATE SET
   file_mtime = EXCLUDED.file_mtime,
   last_seen_at = now(),
   missing_since = NULL,
-  ingestion_version = GREATEST(COALESCE(documents.ingestion_version, 0), COALESCE(documents.indexed_version, 0)) + 1,
+  ingestion_version = EXCLUDED.ingestion_version,
   auto_ingest_paused = false,
   auto_ingest_paused_at = NULL,
   auto_ingest_pause_reason = NULL
+WHERE documents.doc_id=EXCLUDED.doc_id AND GREATEST(COALESCE(documents.ingestion_version,0),COALESCE(documents.indexed_version,0)) < EXCLUDED.ingestion_version
 RETURNING doc_id, ingestion_version, COALESCE(indexed_version, 0) AS indexed_version;
 """;
 
-        var returned = await conn.QuerySingleAsync<(Guid doc_id, int ingestion_version, int indexed_version)>(
-            new CommandDefinition(docSql, new
-            {
-                tenant_id = tenantId,
-                doc_id = docId,
-                doc_path = docPath,
-                doc_name = docName,
-                category,
-                file_size = fileSize,
-                file_mtime = fileMtime
-            }, cancellationToken: ct)
-        );
+        // A slower reservation must not adopt another action's newer generation or document ID.
+        (Guid doc_id, int ingestion_version, int indexed_version) returned = default;
+        for (var admissionAttempt = 0; admissionAttempt < 32; admissionAttempt++)
+        {
+            docId = await IngestionGenerationRegistry.ResolveDocumentIdAsync(conn, tenantId, docPath, fallbackDocId, ct);
+            var reservedGeneration = await IngestionGenerationRegistry.ReserveAsync(conn, tenantId, docId, ct);
+            returned = await conn.QuerySingleOrDefaultAsync<(Guid doc_id, int ingestion_version, int indexed_version)>(
+                new CommandDefinition(docSql, new
+                {
+                    tenant_id = tenantId,
+                    doc_id = docId,
+                    doc_path = docPath,
+                    doc_name = docName,
+                    category,
+                    reserved_generation = reservedGeneration,
+                    file_size = fileSize,
+                    file_mtime = fileMtime
+                }, cancellationToken: ct)
+            );
+            if (returned.doc_id != Guid.Empty) break;
+        }
+        if (returned.doc_id == Guid.Empty) throw new InvalidOperationException("ingestion_admission_contention");
 
         const string cancelDelete = """
 UPDATE ingestion_jobs

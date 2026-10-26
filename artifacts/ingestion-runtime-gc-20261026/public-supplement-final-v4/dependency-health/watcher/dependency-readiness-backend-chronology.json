@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "saaia-dependency-backend-chronology.v1",
+  "runId": "72dca7da-254d-40de-8f91-84b2c6a94a4e",
+  "passed": true,
+  "backendId": "6ea7558c715ea9d5a31726a45b43ab7c8a2d36bd1002284e08bc40cf52954c48",
+  "backendImageId": "sha256:d272895b502e7cd902afa7c197eac34b1227ffacfde80204c02f4b444b3587cd",
+  "backendStartedAt": "2026-10-26T10:50:10.978881045Z",
+  "dependencyReadyAtUtc": "2026-10-26T10:50:10.885262+00:00",
+  "dependencyProofSha256": "24620520011e4caf2611febec3f5c73bfbb9209a4bde67abe6d991c285aaceba"
+}

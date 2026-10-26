@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "saaia-production-sequential-operator-pure.v3",
+  "passed": true,
+  "testsRun": 10,
+  "failed": 0,
+  "skipped": 0,
+  "sourceChangedDuringRun": false,
+  "causalRedAgainstV2": {
+    "testsRun": 1,
+    "unhandledConnectionResetErrors": 1,
+    "scope": "expected_runtime_transport_exception_not_compilation"
+  },
+  "scope": "pure_mock_HTTP_no_real_service_network",
+  "v1AndV2Unchanged": true,
+  "operatorEvidenceSuffix": "v2",
+  "autoEvidenceSuffix": "v1_unchanged_must_be_new",
+  "dotnetDockerSshGitServicesExecuted": false,
+  "files": [
+    {
+      "path": "run-production-sequential-v3.py",
+      "sizeBytes": 17552,
+      "sha256": "59bf411960e979ce8464d746235efa4eb36ee2a56a18b2552345ba323dcc4764"
+    },
+    {
+      "path": "test-production-sequential-v3.py",
+      "sizeBytes": 8762,
+      "sha256": "11a7c9e1a00e20c2c8b0342a5b85aae4d7d40cc2019632b4936223764d368878"
+    },
+    {
+      "path": "production-sequential-operator-v3.md",
+      "sizeBytes": 1756,
+      "sha256": "e75c22fa1060a370eaf6ed1322157580c4dc5d3cc276c8e97e97eb47e19ee7e9"
+    }
+  ]
+}

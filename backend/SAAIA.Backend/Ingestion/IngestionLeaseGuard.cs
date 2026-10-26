@@ -54,7 +54,9 @@ SELECT EXISTS(SELECT 1 FROM ingestion_jobs WHERE job_id=@job AND locked_by=@owne
         // completed attempt; a successor always replaces executionLeaseOwner at dequeue.
         var completedByThisLease = await connection.ExecuteScalarAsync<bool>(new CommandDefinition("""
 SELECT EXISTS(SELECT 1 FROM ingestion_jobs WHERE job_id=@job AND locked_by IS NULL
-  AND status IN ('done','failed') AND payload->>'executionLeaseOwner'=@owner);
+  AND (status IN ('done','failed') OR
+       (status='canceled' AND last_error='scanner_source_returned_before_delete'))
+  AND payload->>'executionLeaseOwner'=@owner);
 """, new { job = jobId, owner = leaseOwner }, cancellationToken: cancellationToken));
         if (!completedByThisLease) throw new IngestionLeaseLostException();
         return IngestionLeaseRenewal.OwnTerminal;

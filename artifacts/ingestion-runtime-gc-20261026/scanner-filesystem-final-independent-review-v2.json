@@ -1,0 +1,149 @@
+{
+  "schemaVersion": "saaia-scanner-filesystem-final-independent-review.v2",
+  "passed": true,
+  "checks": {
+    "unitPassed": true,
+    "pgPassed": true,
+    "sourcesStableAndSame": true,
+    "fourAssemblyAnchorsIdentical": true,
+    "trxHashesMatch": true,
+    "isolatedPgCleanup": true,
+    "selectedSourceAndEmbeddedFixtureAnchorsMatch": true,
+    "sixteenSelectedCausalAndControlCasesPass": true
+  },
+  "unit": {
+    "runId": "b4c728073f114333baddf5eda91e1e62",
+    "counts": {
+      "failed": 0,
+      "executed": 2776,
+      "notExecuted": 2,
+      "adapterReportedExecuted": 2776,
+      "total": 2778,
+      "passed": 2776
+    },
+    "manifestSha256": "099831d80766e6be8017d60df27750d148be1d6fcbef2f8203717fd2604d4c63"
+  },
+  "postgres": {
+    "runId": "2257ea2321bb4112bacdffbd831dbe81",
+    "counts": {
+      "adapterReportedExecuted": 350,
+      "total": 352,
+      "notExecuted": 2,
+      "executed": 350,
+      "failed": 0,
+      "passed": 350
+    },
+    "manifestSha256": "15d7a9ff49c3014e0dd36c01ba20c56285b80de7757b0915a4f0d7ffadae1707",
+    "cleanupManifestSha256": "922ed3e44cb010808a4d1e90b93c278a3209ed70e477d6981a441dd6c9893eb4"
+  },
+  "sourceFingerprint": "3edd882d8486e1d2042734b7eea695485549a0a35b8baab9d8c6dda2878efef1",
+  "sourceFileCount": 1842,
+  "assemblyAnchors": {
+    "SAAIA.AdvancedValidationJobGuard.dll": "79b463a4b048d90378344d9f77b14172b88fc2429dd6d9c114949f551ab39f7b",
+    "SAAIA.Backend.dll": "afe4d78ef471da577af31eff35c6b1d42700da0d5fbe8358dc7ea74f9838371b",
+    "SAAIA.Backend.Tests.dll": "1e92ba08b736c43d6fc8c10552d419d7f02de1efceb66aa9178612654382f70b",
+    "SAAIA.Contracts.dll": "998e1caca2d3ab343cd3f4d1f4771eb9e03f30aa59aab84ff869254f3036c87b"
+  },
+  "selectedSourceAnchors": [
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/JobRepo.ConditionalDelete.cs",
+      "sha256": "730057708471371c96004bd4009da93b2f6dea63576de90115e7c257a1777519",
+      "allFourSourceInventoriesMatchCurrent": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionWorker.cs",
+      "sha256": "ed5001078a3606cfce8dc18830b51cd619509cc64f90893449a91fafe0910b39",
+      "allFourSourceInventoriesMatchCurrent": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.ConditionalDeleteSafety.cs",
+      "sha256": "f4f061ee81f6cc8dccc00f843b20a502ff36d097a04db290b99d1d550ad2254a",
+      "allFourSourceInventoriesMatchCurrent": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/Fixtures/ocr-realistic-raster-v1.pdf",
+      "sha256": "69441aab874dfb04ac8d015431ff3746564bb8d88b6a6b022327b7f2c37c60c6",
+      "allFourSourceInventoriesMatchCurrent": true
+    }
+  ],
+  "selectedPgCases": [
+    {
+      "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_bounded_inventory_never_infers_absence_of_a_present_pdf(maximumFiles: 1, initialStatus: \"indexed\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(requiresSourceAbsence: True, sourceReturns: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(requiresSourceAbsence: False, sourceReturns: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Superseded_running_delete_preserves_latest_versioned_conditional_intent(firstConditional: True, latestConditional: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Conditional_delete_commit_rechecks_under_document_lock_and_refuses_present_or_unknown_source(present: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Superseded_running_delete_preserves_latest_versioned_conditional_intent(firstConditional: False, latestConditional: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_complete_inventory_still_admits_a_proven_absent_pdf_after_grace",
+      "outcome": "Passed"
+    },
+    {
+      "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(requiresSourceAbsence: True, sourceReturns: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Returned_source_transition_rolls_back_document_and_delete_if_fresh_upsert_insert_fails",
+      "outcome": "Passed"
+    },
+    {
+      "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Returned_source_reports_superseded_without_claiming_another_fresh_generation",
+      "outcome": "Passed"
+    },
+    {
+      "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Returned_source_transition_rejects_stale_owner_without_mutating_successor",
+      "outcome": "Passed"
+    },
+    {
+      "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_bounded_inventory_never_infers_absence_of_a_present_pdf(maximumFiles: 1, initialStatus: \"missing\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_bounded_inventory_never_infers_absence_of_a_present_pdf(maximumFiles: 3, initialStatus: \"indexed\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Conditional_delete_commit_rechecks_under_document_lock_and_refuses_present_or_unknown_source(present: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_bounded_inventory_never_infers_absence_of_a_present_pdf(maximumFiles: 3, initialStatus: \"missing\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_rotating_batches_eventually_admit_both_distinct_sources",
+      "outcome": "Passed"
+    }
+  ],
+  "skips": {
+    "unit": [
+      "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.Real_scanned_pdf_ocr_extracts_text_when_opted_in",
+      "SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Real_Linux_case_distinct_files_same_size_and_mtime_keep_their_distinct_hashes_and_publication_candidates"
+    ],
+    "postgres": [
+      "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_runtime_ready_v5_cases_match_expected_behavior_and_primary_document",
+      "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_runtime_ready_writer_cases_keep_prudent_guidance_shape"
+    ]
+  },
+  "realOcrFinalStatus": "PASS_REPORTED_BY_ROOT_SERVER_JSON_NOT_READ_BY_REVIEWER",
+  "realLinuxCaseStatus": "OPERATOR_READY_NOT_EXECUTED_BY_REVIEWER",
+  "automaticRuntimeStatus": "PENDING_ROOT_EXECUTION",
+  "noDotnetServicesNetworkGitExecutedByReviewer": true
+}

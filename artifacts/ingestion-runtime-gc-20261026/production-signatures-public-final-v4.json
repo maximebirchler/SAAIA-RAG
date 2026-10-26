@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "saaia-isolated-production-signatures.v1",
+  "signedAtUtc": "2026-10-26T10:33:21.201341+00:00",
+  "privateKeyTransferred": false,
+  "privateKeyPrinted": false,
+  "signatures": [
+    {
+      "role": "gold-production",
+      "profile": "manual",
+      "root": "/home/maxime/saaia-ingestion-qualification/84cf61ff-6fb9-4fd3-a1f6-8b4b559eecff",
+      "runId": "84cf61ff-6fb9-4fd3-a1f6-8b4b559eecff",
+      "configurationSha256": "ab0763fce1ce378061d9f7143646e8d5e5b8485473bf9571b46f738730711898",
+      "signatureFileSha256": "e6fdd5b9c11b4cd8153d9579d8470ea648feee80ebc01477a79d93268ff490a2",
+      "signatureVerified": true
+    },
+    {
+      "role": "recipe-production",
+      "profile": "manual",
+      "root": "/home/maxime/saaia-ingestion-qualification/5f40863a-7030-4593-b6b4-efc5bae0dae0",
+      "runId": "5f40863a-7030-4593-b6b4-efc5bae0dae0",
+      "configurationSha256": "71182643f89dca532f1930a6693cefe110d58bb7136185baa984b54b1691c2c2",
+      "signatureFileSha256": "3bba1bd878a78d56dceab02313ff4e3458395e11823b99fc0e995ef16ebba49e",
+      "signatureVerified": true
+    },
+    {
+      "role": "scanner",
+      "profile": "scanner",
+      "root": "/home/maxime/saaia-ingestion-qualification/678433d1-fb2a-4c9c-b3a9-04ba93800095",
+      "runId": "678433d1-fb2a-4c9c-b3a9-04ba93800095",
+      "configurationSha256": "2d3e3fd932632743622874391b05f297929787b83cc687f0fabff1991ddf9701",
+      "signatureFileSha256": "76e90feeab1da0561a85ad8638eb2093dfc717b3cf4d30c4d06d139b66f1da3a",
+      "signatureVerified": true
+    },
+    {
+      "role": "watcher",
+      "profile": "watcher",
+      "root": "/home/maxime/saaia-ingestion-qualification/72dca7da-254d-40de-8f91-84b2c6a94a4e",
+      "runId": "72dca7da-254d-40de-8f91-84b2c6a94a4e",
+      "configurationSha256": "19179616cfcb67dfcd7ea6b579a95c5acf3de8c424732c2783cbbd3c63d20752",
+      "signatureFileSha256": "feaf4ee3a80b5737576bb2cb28a9a4439fbc40d6307824ef6a35216c5da5439e",
+      "signatureVerified": true
+    },
+    {
+      "role": "defaults",
+      "profile": "defaults",
+      "root": "/home/maxime/saaia-ingestion-qualification/624c1c62-019d-4262-b347-3512bbf4b7ab",
+      "runId": "624c1c62-019d-4262-b347-3512bbf4b7ab",
+      "configurationSha256": "a862c0ae441375c744a67f6a26c73a8ad53e369a54c4b5f292dfff0a7758804d",
+      "signatureFileSha256": "4ae0a72a8f085e25f609fe33dc422941d7f3a3d48cbf2570379a0e57889530ba",
+      "signatureVerified": true
+    }
+  ]
+}

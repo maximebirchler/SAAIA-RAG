@@ -1,0 +1,195 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="6e47cc7b-dc13-4c78-a5e3-8022d2ce078e" name="maxim@MAXBI 2026-10-26 08:34:50" runUser="MAXBI\maxim" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-26T08:34:50.8109688+01:00" queuing="2026-10-26T08:34:50.8109689+01:00" start="2026-10-26T08:34:49.8334872+01:00" finish="2026-10-26T08:34:50.8306000+01:00" />
+  <TestSettings name="default" id="dbe15329-3095-493e-a8e1-bf01497c3a21">
+    <Deployment runDeploymentRoot="maxim_MAXBI_2026-10-26_08_34_50" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="9a1007fa-aa64-4b2b-b962-cd95258dea79" testId="5707a846-20af-299f-efc3-bd9b4422164f" testName="SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_retain_only_does_not_keep_a_different_case_path_cache_entry" computerName="MAXBI" duration="00:00:00.0008536" startTime="2026-10-26T08:34:50.7628815+01:00" endTime="2026-10-26T08:34:50.7628815+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9a1007fa-aa64-4b2b-b962-cd95258dea79">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Values differ&#xD;
+Expected: 0&#xD;
+Actual:   1</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_retain_only_does_not_keep_a_different_case_path_cache_entry() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\IngestionDuplicateFileCaseIdentityTests.cs:line 36&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="c659f1ae-084a-4887-9729-c9991bfd5722" testId="9a5f1b49-5783-75da-0ff4-006a0baa5aec" testName="SAAIA.Backend.Tests.IngestionFileInventoryTests.Access_or_io_failure_is_unknown_not_absent(denied: True)" computerName="MAXBI" duration="00:00:00.0001302" startTime="2026-10-26T08:34:50.7655577+01:00" endTime="2026-10-26T08:34:50.7655577+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c659f1ae-084a-4887-9729-c9991bfd5722" />
+    <UnitTestResult executionId="1c084419-95e0-44db-bd71-b3642fb4be96" testId="e93a8c85-fd75-d7cf-c36c-44cae396d74b" testName="SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Real_Linux_case_distinct_files_same_size_and_mtime_keep_their_distinct_hashes_and_publication_candidates" computerName="MAXBI" duration="00:00:00.0010000" startTime="2026-10-26T08:34:50.7617181+01:00" endTime="2026-10-26T08:34:50.7617182+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="NotExecuted" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1c084419-95e0-44db-bd71-b3642fb4be96">
+      <Output>
+        <ErrorInfo>
+          <Message>Requires real Linux case-distinct files; virtual platform protocol tests remain runnable elsewhere.</Message>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="d40a1df2-5512-43b2-9965-68672721834b" testId="b778888e-f589-91bf-2f2e-049f0299065c" testName="SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_cached_duplicate_chain_never_suppresses_distinct_case_file_with_different_content" computerName="MAXBI" duration="00:00:00.0007713" startTime="2026-10-26T08:34:50.7626065+01:00" endTime="2026-10-26T08:34:50.7626066+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d40a1df2-5512-43b2-9965-68672721834b">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.False() Failure&#xD;
+Expected: False&#xD;
+Actual:   True</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_cached_duplicate_chain_never_suppresses_distinct_case_file_with_different_content() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\IngestionDuplicateFileCaseIdentityTests.cs:line 54&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="ed2faa8e-6520-4058-ac8f-5202f07772f6" testId="9f370cc0-d547-74d6-5c0f-fce032e6cb7e" testName="SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_case_distinct_paths_do_not_share_cached_hash_for_same_size_and_mtime" computerName="MAXBI" duration="00:00:00.0012265" startTime="2026-10-26T08:34:50.7612354+01:00" endTime="2026-10-26T08:34:50.7612355+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ed2faa8e-6520-4058-ac8f-5202f07772f6">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Strings differ&#xD;
+           ↓ (pos 0)&#xD;
+Expected: "22fe5d6b45c1d1fd4c68d6a4d9375665e32c3e25c"···&#xD;
+Actual:   "37524d2a6c86dd4740b16fc89195cd0f1fbd730ac"···&#xD;
+           ↑ (pos 0)</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_case_distinct_paths_do_not_share_cached_hash_for_same_size_and_mtime() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\IngestionDuplicateFileCaseIdentityTests.cs:line 22&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="321eb0c2-5cc5-4e64-9b7a-714fa899074c" testId="58c19384-ec03-046b-075b-f761c475dbc5" testName="SAAIA.Backend.Tests.IngestionFileInventoryTests.Missing_root_does_not_assert_absence_of_all_sources" computerName="MAXBI" duration="00:00:00.0001501" startTime="2026-10-26T08:34:50.7846280+01:00" endTime="2026-10-26T08:34:50.7846280+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="321eb0c2-5cc5-4e64-9b7a-714fa899074c" />
+    <UnitTestResult executionId="006f192f-a6ab-4ea2-801a-4ae7d066d4dd" testId="734db9a9-c986-fc68-275e-b08dd9283de5" testName="SAAIA.Backend.Tests.IngestionFileInventoryTests.Enumeration_error_never_counts_as_complete_absence" computerName="MAXBI" duration="00:00:00.0086796" startTime="2026-10-26T08:34:50.7844991+01:00" endTime="2026-10-26T08:34:50.7844992+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="006f192f-a6ab-4ea2-801a-4ae7d066d4dd" />
+    <UnitTestResult executionId="0f4a7fa2-7d4a-4b47-a80a-97ad9f42a185" testId="ae1a900f-4be1-b87a-04e2-da154d51845a" testName="SAAIA.Backend.Tests.IngestionFileInventoryTests.Bounded_cursor_visits_later_sources_and_restarts_only_after_complete_cycle" computerName="MAXBI" duration="00:00:00.0003275" startTime="2026-10-26T08:34:50.7845639+01:00" endTime="2026-10-26T08:34:50.7845639+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0f4a7fa2-7d4a-4b47-a80a-97ad9f42a185" />
+    <UnitTestResult executionId="9802121a-9580-4084-897e-b36d2758541c" testId="0eb72180-d921-a405-40f5-9de56d4ceaf5" testName="SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_identical_case_distinct_files_keep_one_canonical_and_one_duplicate" computerName="MAXBI" duration="00:00:00.0010566" startTime="2026-10-26T08:34:50.7619592+01:00" endTime="2026-10-26T08:34:50.7619592+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9802121a-9580-4084-897e-b36d2758541c">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Single() Failure: The collection was empty</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_identical_case_distinct_files_keep_one_canonical_and_one_duplicate() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\IngestionDuplicateFileCaseIdentityTests.cs:line 64&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="a0bf98e0-2147-4286-aa4a-d1fba770cc82" testId="5484fd62-c27d-912e-4f76-10b389dfc8b6" testName="SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Windows_case_aliases_keep_the_same_cached_identity_and_canonical_path" computerName="MAXBI" duration="00:00:00.0096871" startTime="2026-10-26T08:34:50.7536197+01:00" endTime="2026-10-26T08:34:50.7536309+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a0bf98e0-2147-4286-aa4a-d1fba770cc82" />
+    <UnitTestResult executionId="bd995adc-f748-4d8f-a9ec-7941dc3d0d94" testId="6993bc42-43c1-316c-8859-48ac62169665" testName="SAAIA.Backend.Tests.IngestionFileInventoryTests.Traversal_is_unknown_without_probing_outside_root" computerName="MAXBI" duration="00:00:00.0016680" startTime="2026-10-26T08:34:50.7652332+01:00" endTime="2026-10-26T08:34:50.7652332+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bd995adc-f748-4d8f-a9ec-7941dc3d0d94" />
+    <UnitTestResult executionId="4eaf07ba-01f9-484d-b02e-25d47e0cc76b" testId="8ac13df4-f61f-f78f-98f4-bf80d68e9994" testName="SAAIA.Backend.Tests.IngestionFileInventoryTests.Only_explicit_not_found_under_accessible_root_is_absence" computerName="MAXBI" duration="00:00:00.0001180" startTime="2026-10-26T08:34:50.7843690+01:00" endTime="2026-10-26T08:34:50.7843690+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4eaf07ba-01f9-484d-b02e-25d47e0cc76b" />
+    <UnitTestResult executionId="a9f4ab14-5ce0-4825-b5ab-edf2bec71073" testId="73180341-25bf-9611-8430-931a9b7d3063" testName="SAAIA.Backend.Tests.IngestionFileInventoryTests.Access_or_io_failure_is_unknown_not_absent(denied: False)" computerName="MAXBI" duration="00:00:00.0001427" startTime="2026-10-26T08:34:50.7653972+01:00" endTime="2026-10-26T08:34:50.7653973+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a9f4ab14-5ce0-4825-b5ab-edf2bec71073" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="SAAIA.Backend.Tests.IngestionFileInventoryTests.Missing_root_does_not_assert_absence_of_all_sources" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="58c19384-ec03-046b-075b-f761c475dbc5">
+      <Execution id="321eb0c2-5cc5-4e64-9b7a-714fa899074c" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.IngestionFileInventoryTests" name="Missing_root_does_not_assert_absence_of_all_sources" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.IngestionFileInventoryTests.Only_explicit_not_found_under_accessible_root_is_absence" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="8ac13df4-f61f-f78f-98f4-bf80d68e9994">
+      <Execution id="4eaf07ba-01f9-484d-b02e-25d47e0cc76b" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.IngestionFileInventoryTests" name="Only_explicit_not_found_under_accessible_root_is_absence" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.IngestionFileInventoryTests.Bounded_cursor_visits_later_sources_and_restarts_only_after_complete_cycle" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="ae1a900f-4be1-b87a-04e2-da154d51845a">
+      <Execution id="0f4a7fa2-7d4a-4b47-a80a-97ad9f42a185" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.IngestionFileInventoryTests" name="Bounded_cursor_visits_later_sources_and_restarts_only_after_complete_cycle" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.IngestionFileInventoryTests.Enumeration_error_never_counts_as_complete_absence" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="734db9a9-c986-fc68-275e-b08dd9283de5">
+      <Execution id="006f192f-a6ab-4ea2-801a-4ae7d066d4dd" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.IngestionFileInventoryTests" name="Enumeration_error_never_counts_as_complete_absence" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Real_Linux_case_distinct_files_same_size_and_mtime_keep_their_distinct_hashes_and_publication_candidates" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="e93a8c85-fd75-d7cf-c36c-44cae396d74b">
+      <Execution id="1c084419-95e0-44db-bd71-b3642fb4be96" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests" name="Real_Linux_case_distinct_files_same_size_and_mtime_keep_their_distinct_hashes_and_publication_candidates" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.IngestionFileInventoryTests.Access_or_io_failure_is_unknown_not_absent(denied: False)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="73180341-25bf-9611-8430-931a9b7d3063">
+      <Execution id="a9f4ab14-5ce0-4825-b5ab-edf2bec71073" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.IngestionFileInventoryTests" name="Access_or_io_failure_is_unknown_not_absent" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Windows_case_aliases_keep_the_same_cached_identity_and_canonical_path" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="5484fd62-c27d-912e-4f76-10b389dfc8b6">
+      <Execution id="a0bf98e0-2147-4286-aa4a-d1fba770cc82" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests" name="Windows_case_aliases_keep_the_same_cached_identity_and_canonical_path" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_cached_duplicate_chain_never_suppresses_distinct_case_file_with_different_content" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="b778888e-f589-91bf-2f2e-049f0299065c">
+      <Execution id="d40a1df2-5512-43b2-9965-68672721834b" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests" name="Linux_cached_duplicate_chain_never_suppresses_distinct_case_file_with_different_content" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_identical_case_distinct_files_keep_one_canonical_and_one_duplicate" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="0eb72180-d921-a405-40f5-9de56d4ceaf5">
+      <Execution id="9802121a-9580-4084-897e-b36d2758541c" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests" name="Linux_identical_case_distinct_files_keep_one_canonical_and_one_duplicate" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_retain_only_does_not_keep_a_different_case_path_cache_entry" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="5707a846-20af-299f-efc3-bd9b4422164f">
+      <Execution id="9a1007fa-aa64-4b2b-b962-cd95258dea79" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests" name="Linux_retain_only_does_not_keep_a_different_case_path_cache_entry" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.IngestionFileInventoryTests.Traversal_is_unknown_without_probing_outside_root" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="6993bc42-43c1-316c-8859-48ac62169665">
+      <Execution id="bd995adc-f748-4d8f-a9ec-7941dc3d0d94" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.IngestionFileInventoryTests" name="Traversal_is_unknown_without_probing_outside_root" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_case_distinct_paths_do_not_share_cached_hash_for_same_size_and_mtime" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="9f370cc0-d547-74d6-5c0f-fce032e6cb7e">
+      <Execution id="ed2faa8e-6520-4058-ac8f-5202f07772f6" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests" name="Linux_case_distinct_paths_do_not_share_cached_hash_for_same_size_and_mtime" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.IngestionFileInventoryTests.Access_or_io_failure_is_unknown_not_absent(denied: True)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="9a5f1b49-5783-75da-0ff4-006a0baa5aec">
+      <Execution id="c659f1ae-084a-4887-9729-c9991bfd5722" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.IngestionFileInventoryTests" name="Access_or_io_failure_is_unknown_not_absent" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="5707a846-20af-299f-efc3-bd9b4422164f" executionId="9a1007fa-aa64-4b2b-b962-cd95258dea79" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9a5f1b49-5783-75da-0ff4-006a0baa5aec" executionId="c659f1ae-084a-4887-9729-c9991bfd5722" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e93a8c85-fd75-d7cf-c36c-44cae396d74b" executionId="1c084419-95e0-44db-bd71-b3642fb4be96" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b778888e-f589-91bf-2f2e-049f0299065c" executionId="d40a1df2-5512-43b2-9965-68672721834b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9f370cc0-d547-74d6-5c0f-fce032e6cb7e" executionId="ed2faa8e-6520-4058-ac8f-5202f07772f6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="58c19384-ec03-046b-075b-f761c475dbc5" executionId="321eb0c2-5cc5-4e64-9b7a-714fa899074c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="734db9a9-c986-fc68-275e-b08dd9283de5" executionId="006f192f-a6ab-4ea2-801a-4ae7d066d4dd" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ae1a900f-4be1-b87a-04e2-da154d51845a" executionId="0f4a7fa2-7d4a-4b47-a80a-97ad9f42a185" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0eb72180-d921-a405-40f5-9de56d4ceaf5" executionId="9802121a-9580-4084-897e-b36d2758541c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5484fd62-c27d-912e-4f76-10b389dfc8b6" executionId="a0bf98e0-2147-4286-aa4a-d1fba770cc82" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6993bc42-43c1-316c-8859-48ac62169665" executionId="bd995adc-f748-4d8f-a9ec-7941dc3d0d94" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8ac13df4-f61f-f78f-98f4-bf80d68e9994" executionId="4eaf07ba-01f9-484d-b02e-25d47e0cc76b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="73180341-25bf-9611-8430-931a9b7d3063" executionId="a9f4ab14-5ce0-4825-b5ab-edf2bec71073" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Les résultats ne figurent pas dans une liste" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="Tous les résultats chargés" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="13" executed="12" passed="8" failed="4" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 8.0.27)&#xD;
+[xUnit.net 00:00:00.28]   Discovering: SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:00.51]   Discovered:  SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:00.52]   Starting:    SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:00.56]       Assert.Equal() Failure: Strings differ&#xD;
+[xUnit.net 00:00:00.56]                  ↓ (pos 0)&#xD;
+[xUnit.net 00:00:00.56]       Expected: "22fe5d6b45c1d1fd4c68d6a4d9375665e32c3e25c"···&#xD;
+[xUnit.net 00:00:00.56]       Actual:   "37524d2a6c86dd4740b16fc89195cd0f1fbd730ac"···&#xD;
+[xUnit.net 00:00:00.56]                  ↑ (pos 0)&#xD;
+[xUnit.net 00:00:00.56]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.56]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\IngestionDuplicateFileCaseIdentityTests.cs(22,0): at SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_case_distinct_paths_do_not_share_cached_hash_for_same_size_and_mtime()&#xD;
+[xUnit.net 00:00:00.56]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:00.56]       Requires real Linux case-distinct files; virtual platform protocol tests remain runnable elsewhere.&#xD;
+[xUnit.net 00:00:00.56]       Assert.Single() Failure: The collection was empty&#xD;
+[xUnit.net 00:00:00.56]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.56]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\IngestionDuplicateFileCaseIdentityTests.cs(64,0): at SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_identical_case_distinct_files_keep_one_canonical_and_one_duplicate()&#xD;
+[xUnit.net 00:00:00.56]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:00.56]       Assert.False() Failure&#xD;
+[xUnit.net 00:00:00.56]       Expected: False&#xD;
+[xUnit.net 00:00:00.56]       Actual:   True&#xD;
+[xUnit.net 00:00:00.56]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.56]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\IngestionDuplicateFileCaseIdentityTests.cs(54,0): at SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_cached_duplicate_chain_never_suppresses_distinct_case_file_with_different_content()&#xD;
+[xUnit.net 00:00:00.56]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:00.56]       Assert.Equal() Failure: Values differ&#xD;
+[xUnit.net 00:00:00.56]       Expected: 0&#xD;
+[xUnit.net 00:00:00.56]       Actual:   1&#xD;
+[xUnit.net 00:00:00.56]       Stack Trace:&#xD;
+[xUnit.net 00:00:00.56]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\IngestionDuplicateFileCaseIdentityTests.cs(36,0): at SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_retain_only_does_not_keep_a_different_case_path_cache_entry()&#xD;
+[xUnit.net 00:00:00.56]         --- End of stack trace from previous location ---&#xD;
+Le test 'SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Real_Linux_case_distinct_files_same_size_and_mtime_keep_their_distinct_hashes_and_publication_candidates' a été ignoré dans la série de tests.&#xD;
+[xUnit.net 00:00:00.58]   Finished:    SAAIA.Backend.Tests&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T08:34:50.7607748+01:00">
+        <Text>[xUnit.net 00:00:00.56]     SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_case_distinct_paths_do_not_share_cached_hash_for_same_size_and_mtime [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Warning" timestamp="2026-10-26T08:34:50.7616259+01:00">
+        <Text>[xUnit.net 00:00:00.56]     SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Real_Linux_case_distinct_files_same_size_and_mtime_keep_their_distinct_hashes_and_publication_candidates [SKIP]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T08:34:50.7619779+01:00">
+        <Text>[xUnit.net 00:00:00.56]     SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_identical_case_distinct_files_keep_one_canonical_and_one_duplicate [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T08:34:50.7625396+01:00">
+        <Text>[xUnit.net 00:00:00.56]     SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_cached_duplicate_chain_never_suppresses_distinct_case_file_with_different_content [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T08:34:50.7627850+01:00">
+        <Text>[xUnit.net 00:00:00.56]     SAAIA.Backend.Tests.IngestionDuplicateFileCaseIdentityTests.Linux_retain_only_does_not_keep_a_different_case_path_cache_entry [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

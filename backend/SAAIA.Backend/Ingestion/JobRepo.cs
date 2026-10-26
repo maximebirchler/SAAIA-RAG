@@ -59,7 +59,8 @@ RETURNING
             docId,
             version,
             row.CapabilityAProfileSeedFromPayload,
-            leaseOwner);
+            leaseOwner,
+            row.RequiresSourceAbsenceFromPayload);
     }
 
     public static async Task MarkFailedAsync(NpgsqlDataSource ds, Guid jobId, string error, CancellationToken ct, string? leaseOwner = null)
@@ -651,5 +652,7 @@ WHERE status='running'
         public int? VersionFromPayload => ParsedPayload.Version;
 
         public IngestionCapabilityAProfileSeed? CapabilityAProfileSeedFromPayload => ParsedPayload.CapabilityAProfileSeed;
+
+        public bool RequiresSourceAbsenceFromPayload => ParsedPayload.RequiresSourceAbsence;
     }
 }

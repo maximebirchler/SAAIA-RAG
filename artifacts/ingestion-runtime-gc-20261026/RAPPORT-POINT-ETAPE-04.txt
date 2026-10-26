@@ -1,0 +1,43 @@
+SAAIA — rapport depuis celui de 08h35, le 26/10/2026
+
+La chaîne documentaire a progressé sur une nouvelle image Linux contenant les derniers correctifs. Aucun appel de LLM payant et aucun test de planning n’ont été effectués.
+
+CE QUI EST MAINTENANT VALIDÉ PAR DES EXÉCUTIONS RÉELLES
+
+1. Les 12 PDF de référence sont repassés sur le backend final reconstruit. Les 90 faits annotés, les publications SQL, les points Qdrant et les contrôles recherche→lecture sont validés. Ce n’est pas la réutilisation de l’ancien résultat avant correction du scanner.
+
+2. Le livre de recettes est lui aussi repassé sur cette nouvelle image : 36 pages et les 16 faits annotés attendus. Le test d’ingestion est PASS. Cela ne constitue toujours pas un test de planning.
+
+3. L’OCRmyPDF/Ghostscript/Tesseract réel est maintenant PASS : un test sélectionné, un exécuté, un réussi, aucun échec, aucun test ignoré. La fixture utilise un vrai rendu typographique embarqué dans la DLL, sans police externe à installer pendant le test. Tous les mots opérationnels et l’identifiant XQ42 restent exigés exactement. Les anciens essais en échec restent conservés ; aucun critère n’a été abaissé pour faire passer le test.
+
+4. Le test réel du système de fichiers Linux est PASS : un test exécuté, aucun échec ni skip. Deux noms qui diffèrent seulement par leur casse, avec même taille et même date, conservent désormais leurs hashes distincts. La sélection de doublons ne supprime pas le fichier de contenu différent. Ce test exerce les vrais fichiers Linux, le cache SHA et le planificateur ; il n’appelle aucun modèle.
+
+5. La suite PostgreSQL complète est PASS sur le code final : 350 tests réussis, zéro échec, deux anciens tests explicitement non exécutés. Le cluster temporaire a été supprimé, le mot de passe de bootstrap retiré, l’environnement restauré et le port libéré. Aucun cluster existant n’a été modifié.
+
+6. Le backend final a passé ses 2776 tests Unit, avec les deux essais réservés aux moteurs/système Linux non exécutés sur Windows. Ces deux essais ont ensuite leurs propres PASS Linux réels, décrits ci-dessus. Les tests contrats/client avaient également passé leur dernière campagne ; je ne mélange pas leurs nombres avec ceux des nouveaux essais pour gonfler un total.
+
+LES DÉFAUTS CORRIGÉS DEPUIS LE DERNIER RAPPORT
+
+- Inventaire du scanner plafonné : les fichiers au-delà du premier lot ne deviennent plus de faux absents et sont parcourus dans les lots suivants.
+- Erreur d’accès ou inventaire incomplet : cela ne constitue plus une preuve de disparition.
+- Fichier qui revient après la mise en file de sa suppression : le worker recontrôle sa présence, y compris après attente du verrou SQL. Une suppression automatique conditionnelle conserve la publication active et planifie atomiquement une nouvelle ingestion si le fichier est revenu. Les suppressions administratives et de doublons gardent leur intention propre.
+- Coalescence de jobs : l’intention conditionnelle est conservée avec sa version ; elle n’est pas perdue lors d’un remplacement de job.
+- Sondes : elles distinguent réellement une nouvelle ingestion planifiée d’un job déjà dépassé par une version plus récente.
+- Casse des chemins Linux : cache et planificateur appliquent la bonne identité de chemin selon le système.
+
+Ces défauts ont leurs témoins causaux en échec avant correction, puis leurs contrôles verts. Une petite fenêtre filesystem↔transaction SQL reste techniquement non atomisable ; je ne prétends pas avoir créé une transaction unique entre le disque et PostgreSQL. Les barrières de version et les contrôles au point de décision restent documentés.
+
+CE QUI RESTE À EXÉCUTER
+
+- Trois parcours automatiques séparés : scanner seul, watcher seul, puis les deux ensemble avec deux workers. Les outils sont préparés et contre-relus. Ils devront prouver les ajouts, remplacements, retraits, retours, préservation des autres vecteurs et, pour le profil combiné, un vrai chevauchement de deux jobs. Une option cochée ne suffira pas à prouver la concurrence.
+- Le complément recherche→lecture sur chacune des 106 annotations. Les faits sont déjà présents dans les données ; ce contrôle ajoute leur retrouvabilité systématique par l’API. Il reste distinct d’une question naturelle et du raisonnement d’un LLM.
+- Le scellement des preuves publiques utiles, la vérification finale des services existants et l’enregistrement des changements sur Git.
+
+NOUVEAU : LE BLOCAGE DE SIGNATURE PRODUCTION EST LEVÉ
+
+Maxime vient d’indiquer le dossier Keys. J’ai testé la clé fournie en signant un document synthétique puis en vérifiant la signature avec la clé publique réellement approuvée par le backend : VALID. Je n’ai ni affiché ni transféré la clé privée sur le serveur.
+Je peux maintenant préparer une configuration de qualification signée et démarrer les prochains essais en mode Production, toujours dans les namespaces isolés. Les PASS Development déjà obtenus gardent leur statut ; ils ne sont pas renommés en PASS Production.
+
+Les rapports horaires ont maintenant un rappel automatique dans ce chat, avec envoi par le notifier demandé. Les messages longs sont découpés pour Telegram. Le prochain rapport portera uniquement sur ce qui aura changé depuis celui-ci.
+
+Statut global : TESTE_NON_APPROUVE. La purge sûre et les principaux parcours documentaires sont prouvés sur les périmètres décrits ; les déclenchements automatiques et la qualification signée restent en cours. Le planning attend leur clôture.

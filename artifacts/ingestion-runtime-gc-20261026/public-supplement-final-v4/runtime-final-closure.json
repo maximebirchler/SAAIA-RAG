@@ -1,0 +1,204 @@
+{
+  "schemaVersion": "saaia-final-owned-runtime-closure.v1",
+  "observedAtUtc": "2026-10-26T11:01:26.297714+00:00",
+  "baselineContainerCount": 22,
+  "baselineUnchanged": true,
+  "baselineRecords": [
+    {
+      "id": "c732fd8ae478d9939abd0a502bd2a85f66774c171cb8a1d68675e422119a77da",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "274afe1a7bdc5ce4f1b9573b25be2627adcde06cb51974f71dcd03469289b525",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "0650e87b71d087959ad7881aedaa15ad066df956663e8d6e96880cdceb0b850d",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "b5b37cddca35c15b4b71f060751ef6455ade9522d27595ac1af30eecd914c8a3",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "80866a6a888c1cc33ff200115798e71e37aac594d34c7bdd09b279f0dbf70b10",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "1b11fa234228e76d4e07ea43a16806fc2fb00acd920073af23ba0dd5ab21c100",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "ed2a9145dc87f129d0981962e4adb9d40aecf03c6aa41e9d98675fad6e4473f6",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "80cd7dc9edd9294aab21041d9514b210d5bb9559879fe3fc75e7c203bdd1b6df",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "96cabbd265b731482014cb40df621379708a214dea17b29a432d3335604d1989",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "f756b76cd66df4a6af8d5c0a09b9e189040886054fe5aff335033486557923f4",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "08617fec788f63c0e92a97100e4b8826b86f5094e05a022cd5035480f435691c",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "ffea80e2a778dfc43d5db67993421c9311c0731a7dbaa9f223e4bb7021fcd413",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "be3ee15f2f09e92eff952bcd711a22c9c30801a169da75bb3523989301462321",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "cecbce7fb71a9a2bbb23ffd881b3d968d3d2a352d017be7a6cd074a87aca2c57",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "feed747a421275c37e5ce6330713a0ab2dffb54575bba8d093a9b5fb45c12305",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "2a5b1146125e3a51a109b6473740c47703a9772b759c48b1f81454e61c42edac",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "893c4a315c0a5b37f7df1c2a178598f368c6b3896fe97116fe57cc2049dfe0b7",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "468a6c9ed2d6dc21fb2ab7e2d52c5ae377ef49881772263adee0e392d6266c5e",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "119dee60782d4438490e13682470df30e274249f457b1626ec632f755017281b",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "e2cb0de4937b9794a9357785cedabb9cbb4c87993dda5e9615875c3629f28b8c",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "d30120ee3957d70ac4ea1a742f7f84e1e153247f2fe564f51de597a8d46713a1",
+      "unchanged": true,
+      "changedFields": []
+    },
+    {
+      "id": "52dec7faf580e48651cf3efc6ce9283cbb8a1d6f49c442217afb6668556d8be0",
+      "unchanged": true,
+      "changedFields": []
+    }
+  ],
+  "ownedNamespaces": [
+    {
+      "runId": "055da23c-ffc7-4b4f-98c7-24b8357f70bc",
+      "recordedContainerCount": 5,
+      "allRecordedContainersStopped": true
+    },
+    {
+      "runId": "0f2bf739-3b9c-4d43-bd68-39da03553960",
+      "recordedContainerCount": 5,
+      "allRecordedContainersStopped": true
+    },
+    {
+      "runId": "2a7f47db-15f6-4399-bdd7-9f6fd44047ff",
+      "recordedContainerCount": 5,
+      "allRecordedContainersStopped": true
+    },
+    {
+      "runId": "48e5eba2-ea16-41da-98a7-65472c7f6dd6",
+      "recordedContainerCount": 5,
+      "allRecordedContainersStopped": true
+    },
+    {
+      "runId": "4a1474b0-0206-41ae-9bf3-65f495bb8325",
+      "recordedContainerCount": 5,
+      "allRecordedContainersStopped": true
+    },
+    {
+      "runId": "5f40863a-7030-4593-b6b4-efc5bae0dae0",
+      "recordedContainerCount": 5,
+      "allRecordedContainersStopped": true
+    },
+    {
+      "runId": "624c1c62-019d-4262-b347-3512bbf4b7ab",
+      "recordedContainerCount": 5,
+      "allRecordedContainersStopped": true
+    },
+    {
+      "runId": "678433d1-fb2a-4c9c-b3a9-04ba93800095",
+      "recordedContainerCount": 5,
+      "allRecordedContainersStopped": true
+    },
+    {
+      "runId": "72dca7da-254d-40de-8f91-84b2c6a94a4e",
+      "recordedContainerCount": 5,
+      "allRecordedContainersStopped": true
+    },
+    {
+      "runId": "75599fe0-58ae-4df9-8377-d0cefc5d968a",
+      "recordedContainerCount": 5,
+      "allRecordedContainersStopped": true
+    },
+    {
+      "runId": "84cf61ff-6fb9-4fd3-a1f6-8b4b559eecff",
+      "recordedContainerCount": 5,
+      "allRecordedContainersStopped": true
+    },
+    {
+      "runId": "9cdda33f-f3da-4152-9eb2-c34b1f8caa18",
+      "recordedContainerCount": 5,
+      "allRecordedContainersStopped": true
+    },
+    {
+      "runId": "a1f651bd-9159-4743-8a2f-099a85850689",
+      "recordedContainerCount": 5,
+      "allRecordedContainersStopped": true
+    },
+    {
+      "runId": "beefbf62-feff-4faf-9cda-94aa2ef9bb7d",
+      "recordedContainerCount": 5,
+      "allRecordedContainersStopped": true
+    },
+    {
+      "runId": "c9eb933b-993c-46fc-9fb0-bd2bc8faab5e",
+      "recordedContainerCount": 5,
+      "allRecordedContainersStopped": true
+    },
+    {
+      "runId": "f141d139-4333-45fb-8a65-4ea8cac25c9b",
+      "recordedContainerCount": 5,
+      "allRecordedContainersStopped": true
+    }
+  ],
+  "allRecordedOwnedContainersStopped": true,
+  "allRunningContainersBelongToBaseline": true,
+  "nonBaselineRunningContainerCount": 0,
+  "productionMutations": 0
+}

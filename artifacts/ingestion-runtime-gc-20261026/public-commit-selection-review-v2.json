@@ -1,0 +1,219 @@
+{
+  "schemaVersion": "saaia-public-commit-selection-review.v2",
+  "reviewedAtUtc": "2026-10-26T11:18:03.622716+00:00",
+  "verdict": "FAVORABLE_WITH_EXPLICIT_FINAL_ADDITIONS_AND_HASH_REFRESH",
+  "approvalOrStagingPerformed": false,
+  "gitCommandsExecuted": 0,
+  "servicesStarted": 0,
+  "actualSecretStoresOrPrivateKeysRead": false,
+  "reviewedSelection": {
+    "path": "artifacts/ingestion-runtime-gc-20261026/public-commit-selection-v2.json",
+    "sha256": "bf34d235e75ee7d58ca132ad7611262d913fc9a02642b16c32aad089502a7767",
+    "fileCount": 400,
+    "declaredBytes": 27228318,
+    "duplicatePathCount": 0,
+    "allDeclaredFilesExist": true,
+    "sourceSymlinkCount": 0
+  },
+  "rootDeclaredReportChangesAfterDraft": [
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/RAPPORT-FINAL-QUALIFICATION-INGESTION.md",
+      "draftSha256": "5bf21e4d786cd1d8e2ca50c866547daf11bc3319973936d5f87f86b8e74c98ce",
+      "currentSha256": "130c43c22c2cdde4335ebc00d48d05a4bdc6086cd5e78773d9cc53718810e358",
+      "currentBytes": 19851
+    }
+  ],
+  "privacy": {
+    "forbiddenCandidatePaths": [],
+    "selectedActualEnvironmentConfigCredentialDatabaseOrModelFiles": 0,
+    "selectedArchives": 0,
+    "publicExportRawTextVectorPayloadOrPrivateAbsolutePathFields": 0,
+    "publicModelIdsChecked": 5,
+    "allPublicModelIdsAreRelativeHuggingFaceIds": true,
+    "patternHitFiles": [
+      {
+        "path": "artifacts/ingestion-runtime-gc-20261026/public-export-tools-v3/test_public_export_v3.py",
+        "counts": {
+          "openaiKey": 1
+        }
+      }
+    ],
+    "knownSyntheticFixtureException": {
+      "path": "artifacts/ingestion-runtime-gc-20261026/public-export-tools-v3/test_public_export_v3.py",
+      "line": 150,
+      "test": "test_raw_fields_duplicates_secrets_and_nonfinite_values_fail_before_projection",
+      "realCredentialClaimed": false,
+      "matchedValuesPrinted": false
+    },
+    "telegramReceiptKeysOnly": [
+      "part",
+      "sentAtUtc",
+      "status"
+    ],
+    "patternScanIsNotProofAgainstEveryPossibleSecretFormat": true
+  },
+  "sourceFormatExceptions": [
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/072_vector_lifecycle_registry.sql",
+      "reason": "product SQL migration, not a SQL data dump"
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/vector-gc-inventory-readonly-v1.sql",
+      "reason": "readonly reproducibility query source, no captured data"
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/Fixtures/ocr-realistic-raster-v1.pdf",
+      "reason": "declared synthetic embedded test resource, SHA and size match source manifest"
+    },
+    {
+      "path": "infra/.env.example",
+      "reason": "versioned template, not an actual environment credential file"
+    }
+  ],
+  "sealedPublicBundles": [
+    {
+      "directory": "artifacts/ingestion-runtime-gc-20261026/public-export-production-final-v4",
+      "fileCount": 55,
+      "allFilesSelected": true,
+      "exactDirectoryInventory": true,
+      "allExportHashesAndSizesMatch": true,
+      "sealSha256": "c43d581287694cd6a43bcf278205699422d12db4603dc18303cdd0c5c9f789a7",
+      "externalTransferAuthenticityReverified": false
+    },
+    {
+      "directory": "artifacts/ingestion-runtime-gc-20261026/public-supplement-final-v4",
+      "fileCount": 17,
+      "allFilesSelected": true,
+      "exactDirectoryInventory": true,
+      "allExportHashesAndSizesMatch": true,
+      "sealSha256": "ae1eed5d0f1b10aa702d9afbb2a4e65eb57b99f35a1512b3400582b9ef24ff43",
+      "externalTransferAuthenticityReverified": false
+    }
+  ],
+  "finalTestEvidence": [
+    {
+      "kind": "unit",
+      "runId": "4e87ad51184f4572966e89a099f9b221",
+      "state": "passed",
+      "actualUnitTestResultOutcomes": {
+        "Passed": 5323,
+        "NotExecuted": 2
+      },
+      "sourceChangedDuringRun": false,
+      "sourceFingerprintBefore": "9e7fc24261cad2d2624f0feb053fd93520a519b80aed1830e69d67a6b10f1bc7",
+      "sourceFingerprintAfter": "9e7fc24261cad2d2624f0feb053fd93520a519b80aed1830e69d67a6b10f1bc7",
+      "trx": [
+        {
+          "path": "artifacts/ingestion-runtime-gc-20261026/tests/unit-all-docling-final-v1/Backend-4e87ad51184f4572966e89a099f9b221.trx",
+          "sha256MatchesManifest": true,
+          "selected": true
+        },
+        {
+          "path": "artifacts/ingestion-runtime-gc-20261026/tests/unit-all-docling-final-v1/Contracts-4e87ad51184f4572966e89a099f9b221.trx",
+          "sha256MatchesManifest": true,
+          "selected": true
+        },
+        {
+          "path": "artifacts/ingestion-runtime-gc-20261026/tests/unit-all-docling-final-v1/ClientCore-4e87ad51184f4572966e89a099f9b221.trx",
+          "sha256MatchesManifest": true,
+          "selected": true
+        },
+        {
+          "path": "artifacts/ingestion-runtime-gc-20261026/tests/unit-all-docling-final-v1/Client-4e87ad51184f4572966e89a099f9b221.trx",
+          "sha256MatchesManifest": true,
+          "selected": true
+        }
+      ]
+    },
+    {
+      "kind": "postgres",
+      "runId": "bc44cc73f4214458bc9e1e52c86e501a",
+      "state": "passed",
+      "actualUnitTestResultOutcomes": {
+        "Passed": 350,
+        "NotExecuted": 2
+      },
+      "sourceChangedDuringRun": false,
+      "sourceFingerprintBefore": "9e7fc24261cad2d2624f0feb053fd93520a519b80aed1830e69d67a6b10f1bc7",
+      "sourceFingerprintAfter": "9e7fc24261cad2d2624f0feb053fd93520a519b80aed1830e69d67a6b10f1bc7",
+      "trx": [
+        {
+          "path": "artifacts/ingestion-runtime-gc-20261026/tests/postgres-all-docling-final-v1/tests/Backend-bc44cc73f4214458bc9e1e52c86e501a.trx",
+          "sha256MatchesManifest": true,
+          "selected": true
+        }
+      ]
+    }
+  ],
+  "allFinalSourceFingerprintsIdentical": true,
+  "buildSourceEvidence": {
+    "manifest": "artifacts/ingestion-runtime-gc-20261026/build-final-v4/manifest.json",
+    "indexComparison": "artifacts/ingestion-runtime-gc-20261026/build-final-v4/index-source-comparison-v1.json",
+    "fileCount": 445,
+    "currentWorkingBytesMatchFrozenBuildDeclared": true,
+    "indexExactCount": 443,
+    "indexDeclaredLineEndingOnlyCount": 2,
+    "gitIndexRequeriedByReviewer": false
+  },
+  "retrievalIndividualFactsPreserved": {
+    "gold": 90,
+    "recipe": 16
+  },
+  "recommendedFinalAdditions": [
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/run-production-lifecycle-final-v4.py",
+      "sha256": "70bdf35819c50d5209caca932cff0e33ad75eaa84255bc3db3c7a3f29db469de",
+      "bytes": 19337,
+      "alreadyInDraft": false
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/production-lifecycle-final-v4-source-pins.json",
+      "sha256": "25fbea2883b82fd5f6c4d610e5c3830d1279e5e38e12da80e8fe4acd6cfdd5bc",
+      "bytes": 2362,
+      "alreadyInDraft": false
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/production-lifecycle-final-v4.md",
+      "sha256": "a2778f9646fb32dc8c550c6a3305601156e98a409cd659b1eba2318c6e7ccc05",
+      "bytes": 4188,
+      "alreadyInDraft": false
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/test-production-lifecycle-final-v4.py",
+      "sha256": "6d62ae5cdd09683a54eaa25d50d581db8b3dd3d1e6683ec5154faff14f749a1b",
+      "bytes": 15765,
+      "alreadyInDraft": false
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/tests/production-lifecycle-operator-pure-v1/manifest.json",
+      "sha256": "ccaa999c5fe4415e1cfe7091757c61b21f09e801804325450ffa4a46ca8144be",
+      "bytes": 7706,
+      "alreadyInDraft": false
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/tests/production-lifecycle-operator-pure-v1/tests.log",
+      "sha256": "80d81a2f44c91433798b4a90d7714f3fce239428f45a02c448eefa78a0c8998a",
+      "bytes": 2831,
+      "alreadyInDraft": false
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/qualification-final-summary-v1.json",
+      "sha256": "cb1cd8a6796405192107ed3ca4355c59e1cfc1845a12e63c90d3f986ac7c5ee3",
+      "bytes": 2457,
+      "alreadyInDraft": false
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/signature-rejection-safe-diagnostic-final-v2.json",
+      "sha256": "0ffe9caf914606e293d357cf2c27ac7ad8d65b43a7f77c637045ee8644289d87",
+      "bytes": 811,
+      "alreadyInDraft": false
+    }
+  ],
+  "limits": [
+    "Review is of the exact DRAFT v2 snapshot and refreshed report bytes, not a Git approval.",
+    "Root must refresh the final selection hashes after the declared report edits and add the six lifecycle files plus two new summaries.",
+    "The final staged blob scan and LF-aware source/index comparison remain root operations.",
+    "No private credential store was used as a comparison oracle.",
+    "No build, service, provider, SSH or Git operation was executed by this reviewer."
+  ]
+}

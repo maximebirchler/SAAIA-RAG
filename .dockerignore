@@ -4,6 +4,7 @@
 
 !RAG.sln
 !global.json
+!Directory.Build.props
 
 !contracts/
 !contracts/SAAIA.Contracts/
@@ -17,6 +18,8 @@
 **/bin-codex*/
 **/obj/
 **/obj-codex*/
+**/__pycache__/
+**/*.pyc
 **/.vs/
 **/.idea/
 *.user

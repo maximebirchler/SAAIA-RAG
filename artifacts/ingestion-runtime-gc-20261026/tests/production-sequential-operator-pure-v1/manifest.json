@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "saaia-production-sequential-operator-pure.v1",
+  "passed": true,
+  "testsRun": 8,
+  "failed": 0,
+  "skipped": 0,
+  "sourceChangedDuringRun": false,
+  "scope": "pure_protocol_checks_only_not_runtime",
+  "defaultRoles": [
+    "watcher",
+    "defaults"
+  ],
+  "manualGoldRecipeAndRunningScannerExcludedByDefault": true,
+  "dockerHttpSshDotnetGitExecuted": false,
+  "files": [
+    {
+      "path": "run-production-sequential-v1.py",
+      "sizeBytes": 17287,
+      "sha256": "fdff89f6510181097494d76820e364501892258a3dc50920104dd5a5a9bdc4ea"
+    },
+    {
+      "path": "test-production-sequential-v1.py",
+      "sizeBytes": 6042,
+      "sha256": "f4357b7900aac48860d698c05bb206a1bab22a73ed6f238b5498df05fce38a78"
+    },
+    {
+      "path": "production-sequential-operator-v1.md",
+      "sizeBytes": 4284,
+      "sha256": "0664415f3857d370464e5b59fb85b65baf800fbe3818cbac427179e3c03f4a92"
+    }
+  ]
+}

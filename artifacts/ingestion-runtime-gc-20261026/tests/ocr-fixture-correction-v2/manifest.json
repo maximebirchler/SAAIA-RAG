@@ -1,0 +1,417 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "b58bc32e7ac043cc852effcd23cfbc23",
+  "startedAtUtc": "2026-10-26T07:15:27.1534299+00:00",
+  "finishedAtUtc": "2026-10-26T07:15:34.9389540+00:00",
+  "gitCommit": "eb0d47dcb1bb5e6d0038c81c78d95418a5e272c6",
+  "gitDirty": true,
+  "profile": "Unit",
+  "filter": "(Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid)&(FullyQualifiedName~PdfOcrTextExtractorTests)",
+  "requestedProjects": [
+    "Backend"
+  ],
+  "configuration": "Release",
+  "buildRequested": true,
+  "restoreRequested": false,
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-26T07:15:28.1878223+00:00",
+    "sha256": "92350D50E19F927495653A7E7046E68EB61A5554CB4E0163874F066012F911FE",
+    "fileCount": 1803,
+    "inventory": "source-files-b58bc32e7ac043cc852effcd23cfbc23-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-26T07:15:35.5683763+00:00",
+    "sha256": "92350D50E19F927495653A7E7046E68EB61A5554CB4E0163874F066012F911FE",
+    "fileCount": 1803,
+    "inventory": "source-files-b58bc32e7ac043cc852effcd23cfbc23-after.json"
+  },
+  "sourceChangedDuringRun": false,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "state": "passed",
+  "prerequisites": [],
+  "environment": {
+    "clientDataIsolation": {
+      "ownedRelativePath": null,
+      "rootId": null,
+      "environmentRestored": null,
+      "enabled": false,
+      "source": "not_selected",
+      "requiredForClientTests": true
+    },
+    "neutralizedVariableNames": []
+  },
+  "results": [
+    {
+      "project": "Backend",
+      "path": "backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj",
+      "status": "passed",
+      "exitCode": 0,
+      "trx": "Backend-b58bc32e7ac043cc852effcd23cfbc23.trx",
+      "trxSha256": "03E9D456D2CBDC0A3D2DE99D650D222DCC1D75E5FD3BBBF32E2859AAB1B8E320",
+      "assemblies": [
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.AdvancedValidationJobGuard.dll",
+          "role": "local_product_dependency",
+          "sha256": "79B463A4B048D90378344D9F77B14172B88FC2429DD6D9C114949F551AB39F7B",
+          "sizeBytes": 62464,
+          "lastWriteTimeUtc": "2026-10-26T05:53:58.9639244Z",
+          "capturedAtUtc": "2026-10-26T07:15:34.9040990+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.dll",
+          "role": "local_product_dependency",
+          "sha256": "EE4E1A2B4E1C8AEA30C6391A1BDAEE768BCCB94AA71C1086A95A7C8E2E593A3C",
+          "sizeBytes": 7983104,
+          "lastWriteTimeUtc": "2026-10-26T06:37:33.9341010Z",
+          "capturedAtUtc": "2026-10-26T07:15:34.9118778+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "89D81FB1D1FEA50E2CCF3B8D6292B0B3CBC9417A84430AAB17B5014714699D64",
+          "sizeBytes": 5200896,
+          "lastWriteTimeUtc": "2026-10-26T07:15:33.5467024Z",
+          "capturedAtUtc": "2026-10-26T07:15:34.9170570+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "998E1CACA2D3AB343CD3F4D1F4771EB9E03F30AA59AAB84FF869254F3036C87B",
+          "sizeBytes": 154112,
+          "lastWriteTimeUtc": "2026-10-26T05:53:58.9869305Z",
+          "capturedAtUtc": "2026-10-26T07:15:34.9178025+00:00"
+        }
+      ],
+      "counts": {
+        "failed": 0,
+        "notExecuted": 1,
+        "passed": 60,
+        "executed": 60,
+        "adapterReportedExecuted": 60,
+        "total": 61
+      },
+      "cases": [
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.MergeImageOcrText_keeps_word_boundary_differences_as_separate_observations",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002016"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.BuildImagePageOcrDiagnostics_preserves_time_budget_skipped_reason",
+          "outcome": "Passed",
+          "duration": "00:00:00.0006709"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.MergeImageOcrText_keeps_short_observations_without_a_language_whitelist",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002351"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.MergeImageOcrText_keeps_short_title_like_image_ocr_lines_below_word_threshold",
+          "outcome": "Passed",
+          "duration": "00:00:00.0004767"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.BuildImagePageOcrPlan_can_render_empty_pages_even_without_detected_images",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001702"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.TryMergeImagePageOcrAsync_reports_image_page_progress",
+          "outcome": "Passed",
+          "duration": "00:00:00.0053924"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.Raster_ocr_fixture_has_a_valid_zlib_image_stream",
+          "outcome": "Passed",
+          "duration": "00:00:00.0671555"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.MergeImageOcrText_keeps_differences_in_quantities_letters_and_units_as_observations",
+          "outcome": "Passed",
+          "duration": "00:00:00.0038584"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveLanguagesForDocument_does_not_cap_explicit_arbitrary_tesseract_languages",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000351"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ShouldAttemptImagePageOcr_detects_replacement_characters_without_images",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001340"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveLanguagesForDocument_accepts_bcp47_language_aliases",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000480"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveLanguagesForDocument_does_not_use_domain_specific_filename_hints",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000937"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.MergeImageOcrText_keeps_native_text_when_structured_ocr_has_weak_coverage",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002128"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.MergeImageOcrText_keeps_distinct_recognition_variants_without_guessing_equivalence",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002229"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.BuildImagePageOcrPlan_prioritizes_sparse_image_pages_before_distributed_normal_pages",
+          "outcome": "Passed",
+          "duration": "00:00:00.0026583"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveLanguagesForDocument_uses_non_ui_document_language_when_confident(configuredLanguages: \"tur+eng+fra\", text: \"Bu belge guvenlik gereksinimleri ve bakim adimlari\"···, expectedLanguages: \"tur+eng+fra\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000258"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveLanguagesForDocument_uses_non_ui_document_language_when_confident(configuredLanguages: \"ara+eng+fra\", text: \"يشرح هذا المستند اجراءات السلامة والصيانة للمعدات.\", expectedLanguages: \"ara+eng+fra\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000356"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveAutoConfiguredOcrLanguages_keeps_english_when_fallback_is_not_installed",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001196"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.BuildImagePageOcrPlan_includes_text_pages_with_replacement_characters",
+          "outcome": "Passed",
+          "duration": "00:00:00.0004883"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveAutoConfiguredOcrLanguages_can_use_all_installed_languages_when_explicitly_requested",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002061"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.MergeImageOcrText_keeps_native_observation_beside_a_structured_ocr_variant",
+          "outcome": "Passed",
+          "duration": "00:00:00.0003459"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.MergeImageOcrText_retains_probable_noise_in_the_source_observation",
+          "outcome": "Passed",
+          "duration": "00:00:00.0005507"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.BuildImagePageOcrPlan_uses_unlimited_image_pages_when_max_pages_is_zero",
+          "outcome": "Passed",
+          "duration": "00:00:00.0010457"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.MergeImageOcrText_keeps_short_important_image_ocr_lines_below_word_threshold",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002310"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.BuildImagePageOcrPlan_uses_repaired_replacement_signal_even_when_text_is_now_clean",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002937"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.BuildImagePageOcrDiagnostics_reports_page_statuses_without_raw_ocr_text",
+          "outcome": "Passed",
+          "duration": "00:00:00.0017516"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.MergeImageOcrText_preserves_native_and_recovered_observations_when_ocr_is_cleaner",
+          "outcome": "Passed",
+          "duration": "00:00:00.0005509"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.TryMergeImagePageOcrAsync_honors_external_cancel_polling_between_pages",
+          "outcome": "Passed",
+          "duration": "00:00:00.0199963"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ShouldApplyOcrExtraction_rejects_force_ocr_that_loses_most_native_source_text",
+          "outcome": "Passed",
+          "duration": "00:00:00.0014161"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.FilterLowConfidenceImageOcrText_retains_lines_and_exposes_confidence_separately",
+          "outcome": "Passed",
+          "duration": "00:00:00.0032407"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveLanguagesForDocument_falls_back_for_standard_acronym_when_no_other_language_is_known",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000721"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.MergeImageOcrText_does_not_replace_corrupt_native_text_with_partial_ocr",
+          "outcome": "Passed",
+          "duration": "00:00:00.0012600"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveLanguagesForDocument_uses_non_ui_document_language_when_confident(configuredLanguages: \"chi_sim+eng+fra\", text: \"本文件介绍安全联锁状态和维护要求。\", expectedLanguages: \"chi_sim+eng+fra\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002417"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveImageOcrMergeBase_keeps_full_ocr_base_when_native_has_text",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001758"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.WithImageCountsFromNative_preserves_image_candidates_after_full_document_ocr",
+          "outcome": "Passed",
+          "duration": "00:00:00.0007464"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.Image_ocr_commands_are_configurable_with_safe_defaults",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001182"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.CombineOcrDiagnostics_keeps_image_page_details_after_full_document_ocr",
+          "outcome": "Passed",
+          "duration": "00:00:00.0007324"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveAutoConfiguredOcrLanguages_keeps_auto_fallback_bounded_when_many_languages_are_installed",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000904"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveLanguagesForDocument_uses_non_ui_document_language_when_confident(configuredLanguages: \"nld+eng+fra\", text: \"De handleiding beschrijft onderhoud en veiligheids\"···, expectedLanguages: \"nld+eng+fra\")",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002051"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.TryExtractWithDiagnosticsAsync_reports_full_document_sidecar_missing",
+          "outcome": "Passed",
+          "duration": "00:00:00.1724327"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveLanguagesForDocument_keeps_non_ui_configured_languages_when_uncertain",
+          "outcome": "Passed",
+          "duration": "00:00:00.0034613"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveDetectedAutoOcrLanguages_prioritizes_detected_language_without_discarding_other_candidates",
+          "outcome": "Passed",
+          "duration": "00:00:00.0003545"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.Real_scanned_pdf_ocr_extracts_text_when_opted_in",
+          "outcome": "NotExecuted",
+          "duration": "00:00:00.0010000"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveLanguagesForDocument_falls_back_to_configured_languages_when_uncertain",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000649"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveLanguagesForDocument_uses_multitoken_filename_language_when_confident",
+          "outcome": "Passed",
+          "duration": "00:00:00.0017064"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.BuildImagePageOcrPlan_spreads_attempts_across_large_documents",
+          "outcome": "Passed",
+          "duration": "00:00:00.0006324"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveImageOcrMergeBase_preserves_full_ocr_acquired_before_an_image_retry",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002618"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.TruncateOcrProcessOutputForDiagnostics_sanitizes_and_caps_stderr",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001597"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ShouldForceOcrNativeText_detects_glued_native_text_layer",
+          "outcome": "Passed",
+          "duration": "00:00:00.0003039"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.MergeImageOcrText_adds_only_new_ocr_lines_to_native_page_text",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002829"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ShouldForceOcrNativeText_keeps_normal_native_text_on_skip_text_path",
+          "outcome": "Passed",
+          "duration": "00:00:00.0003336"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.Raster_ocr_fixture_rejects_clipped_pixels_instead_of_silently_losing_text",
+          "outcome": "Passed",
+          "duration": "00:00:00.0018527"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveAutoConfiguredOcrLanguages_uses_default_bound_when_max_is_invalid",
+          "outcome": "Passed",
+          "duration": "00:00:00.0060243"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveNoTextFailureReason_reports_ocr_required_but_disabled",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000949"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveLanguagesForDocument_normalizes_configured_language_codes",
+          "outcome": "Passed",
+          "duration": "00:00:00.0000621"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.BuildOcrDisabledDiagnostics_reports_required_image_page_ocr_as_skipped",
+          "outcome": "Passed",
+          "duration": "00:00:00.0044691"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ResolveLanguagesForDocument_uses_document_language_when_confident",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001936"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.MergeImageOcrText_preserves_distinct_structured_recognition_observations",
+          "outcome": "Passed",
+          "duration": "00:00:00.0002200"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ShouldForceOcrNativeText_detects_invalid_c1_font_mapping",
+          "outcome": "Passed",
+          "duration": "00:00:00.0001753"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.BuildExtractionFromSidecarText_builds_pages_tokens_and_ocr_signals",
+          "outcome": "Passed",
+          "duration": "00:00:00.0008903"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.PdfOcrTextExtractorTests.ShouldAttemptImagePageOcr_keeps_image_ocr_enabled_when_full_document_ocr_is_recommended",
+          "outcome": "Passed",
+          "duration": "00:00:00.0045908"
+        }
+      ]
+    }
+  ],
+  "model": {
+    "state": "not_applicable",
+    "reason": "Unit and PostgreSQL profiles do not invoke a model."
+  },
+  "corpus": {
+    "state": "synthetic_fixtures",
+    "reason": "IntegrationPg fixtures create isolated databases; no production corpus is assumed."
+  },
+  "validationProfilesSha256": "8E4B990BC0A828134E5FE0D8E7B2D82406B56D2A200D8D4D37516208E3D3201D",
+  "selectionPolicy": "TRX covers selected tests; excluded profiles were not executed.",
+  "excludedProfiles": [
+    "IntegrationPg",
+    "LiveLocal",
+    "LivePaid"
+  ]
+}

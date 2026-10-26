@@ -1,0 +1,25 @@
+{
+  "executed": true,
+  "passed": true,
+  "containerId": "c77f29ce6730d829707cdf1dd5d19e929dfb14f08127d40015e74d931b378088",
+  "imageId": "sha256:306dea810850f2aea6d0c11e10fdf65f00f5bc9ecf5f960dd8d18cb1c4700d81",
+  "counts": {
+    "selected": 1,
+    "executed": 1,
+    "passed": 1,
+    "failed": 0,
+    "notExecuted": 0
+  },
+  "trxSha256": "b1864b8e27c9f4fcf37600f93b78f7f8a7f2a183a822491c955b7b904a3719a9",
+  "corehostSha256": "b99dd36d5b4d6ded7b647e7594bd63025857d6fd104b638eb1ecb22c17f3a539",
+  "containerExitCode": 0,
+  "oomKilled": false,
+  "attachExitCode": 0,
+  "networkMode": "none",
+  "testBackendSha256": "36d369a7ae567b73698324de1e76c078267edf386ecfd16f45a23c76513cf5a0",
+  "testAssemblySha256": "583c9042fb813784d405311e0dacdd68ec04637c9c4f4e8ce7a44b057299523f",
+  "packageInventorySha256": "60d5f834a3526839991b1ec7c024cc1815541f993a8b895a0098835bd5482b72",
+  "assemblyEvidence": "exact_packaged_bytes_and_host_resolution_not_profiler_module_attestation",
+  "ownedContainerStopped": true,
+  "finishedAtUnix": 1793011632.3007457
+}

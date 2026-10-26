@@ -11,7 +11,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from embedding_attestation import attest_info, validate_expected_profile
 
 MINIMUM_COSINE_MARGIN = 0.001
 DIMENSIONS = 768
@@ -36,34 +40,24 @@ def origin(value: str) -> str:
 
 def request(url: str, method: str = "GET", body: dict | None = None) -> dict:
     raw = None if body is None else json.dumps(body, allow_nan=False).encode("utf-8")
-    with urllib.request.urlopen(urllib.request.Request(url, data=raw, method=method,
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, request, response, code, message, headers, new_url):
+            raise ValueError("Local qualification HTTP redirects are forbidden.")
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+    with opener.open(urllib.request.Request(url, data=raw, method=method,
             headers={"Content-Type": "application/json"}), timeout=120) as response:
         return json.loads(response.read().decode("utf-8"))
 
 
 def attest(info: dict, profile: dict | None, embedding: str) -> None:
-    if not isinstance(profile, dict) or profile.get("schemaVersion") != "saaia-local-embedding-profile.v1":
-        raise ValueError("An independent frozen embedding profile is required.")
-    rag = profile.get("Rag", {})
-    if (origin(rag.get("EmbeddingsBaseUrl", "")) != embedding or profile.get("adapter") != "transformers_cpu"
-            or rag.get("EmbeddingsModel") != "intfloat/multilingual-e5-base"
-            or not re.fullmatch(r"[a-f0-9]{40}(?:[a-f0-9]{24})?", str(rag.get("EmbeddingsModelRevision", "")))
-            or not re.fullmatch(r"[a-f0-9]{64}", str(profile.get("modelFileSha256", "")))
-            or not isinstance(rag.get("EmbeddingsRuntimeRevision"), str) or not rag["EmbeddingsRuntimeRevision"]):
-        raise ValueError("Malformed immutable E5 embedding profile.")
-    expected = {"adapter": profile["adapter"], "model_id": rag["EmbeddingsModel"],
-                "model_revision": rag["EmbeddingsModelRevision"], "model_file_sha256": profile["modelFileSha256"],
-                "runtime_revision": rag["EmbeddingsRuntimeRevision"]}
-    if (info.get("offline") is not True or type(info.get("dimensions")) is not int or info["dimensions"] != DIMENSIONS
-            or any(info.get(key) != value for key, value in expected.items())):
-        raise ValueError("Observed embedding runtime differs from the frozen profile.")
+    attest_info(info, profile, embedding)
 
 
-def vectors_from(response: dict, model: str) -> list[list[float]]:
+def vectors_from(response: dict, model: str, expected_count: int = 4) -> list[list[float]]:
     data = response.get("data")
-    if (response.get("model") != model or not isinstance(data, list) or len(data) != 4
+    if (response.get("model") != model or not isinstance(data, list) or len(data) != expected_count
             or any(not isinstance(row, dict) or type(row.get("index")) is not int for row in data)
-            or {row["index"] for row in data} != set(range(4))):
+            or {row["index"] for row in data} != set(range(expected_count))):
         raise ValueError("Embedding model/count/index contract mismatch.")
     vectors = []
     for row in sorted(data, key=lambda item: item["index"]):
@@ -75,7 +69,7 @@ def vectors_from(response: dict, model: str) -> list[list[float]]:
         if not math.isfinite(norm) or norm <= 0 or abs(norm - 1) > 0.001:
             raise ValueError("Expected normalized nonzero E5 vectors.")
         vectors.append([number / norm for number in vector])
-    if len({tuple(vector) for vector in vectors[:3]}) < 2:
+    if expected_count > 1 and len({tuple(vector) for vector in vectors[:3]}) < 2:
         raise ValueError("Constant embeddings cannot qualify semantic retrieval.")
     return vectors
 
@@ -95,22 +89,37 @@ def run(embedding: str, qdrant: str, *, expected_profile: dict | None = None) ->
     # Validate declarations without learning expected identity from the endpoint.
     if expected_profile is None:
         raise ValueError("Supply the independent embedding profile before making requests.")
+    adapter = validate_expected_profile(expected_profile, embedding)
     info = request(embedding + "/info")
     attest(info, expected_profile, embedding)
+    model_id = expected_profile["Rag"]["EmbeddingsModel"]
     started = time.monotonic()
     controls = []
-    for body, expected in [
-        ({"model": "unknown", "input": "query: test"}, 400),
-        ({"model": info["model_id"], "input": "missing prefix"}, 400),
-        ({"model": info["model_id"], "input": "passage: " + "limite " * 700}, 413),
-    ]:
+    if adapter == "transformers_cpu":
+        negative = [({"model": "unknown", "input": "query: test"}, {400}),
+                    ({"model": model_id, "input": "missing prefix"}, {400}),
+                    ({"model": model_id, "input": "passage: " + "limite " * 700}, {413})]
+    else:
+        # TEI is a generic embedding engine: it need not enforce SAAIA's E5
+        # prefix convention or reject a cosmetic OpenAI model field.
+        negative = [({"model": model_id}, {400, 422})]
+        oversized = {"model": model_id, "input": "passage: " + "limite " *
+                     (expected_profile["expectedInfo"]["max_input_length"] + 188)}
+        if expected_profile["truncationPolicy"] == "reject":
+            negative.append((oversized, {400, 413, 422}))
+        else:
+            accepted = request(embedding + "/v1/embeddings", "POST", oversized)
+            vectors_from(accepted, model_id, 1)
+            controls.append({"kind": "oversized_input_with_declared_auto_truncate", "observedHttpStatus": 200,
+                             "truncatedTokenCountMeasured": False})
+    for body, expected in negative:
         try:
             request(embedding + "/v1/embeddings", "POST", body)
             raise ValueError("Embedding negative control was unexpectedly accepted.")
         except urllib.error.HTTPError as failure:
-            if failure.code != expected:
+            if failure.code not in expected:
                 raise
-            controls.append({"expectedHttpStatus": expected, "observedHttpStatus": failure.code})
+            controls.append({"expectedHttpStatuses": sorted(expected), "observedHttpStatus": failure.code})
     collection = "semantic_diag_" + uuid.uuid4().hex[:12]
     collection_url = qdrant + "/collections/" + collection
     expect_missing(collection_url)
@@ -123,7 +132,7 @@ def run(embedding: str, qdrant: str, *, expected_profile: dict | None = None) ->
         created = True
         for order in PERMUTATIONS:
             texts = [PASSAGES[index] for index in order] + [QUERY]
-            vectors = vectors_from(request(embedding + "/v1/embeddings", "POST", {"model": info["model_id"], "input": texts}), info["model_id"])
+            vectors = vectors_from(request(embedding + "/v1/embeddings", "POST", {"model": model_id, "input": texts}), model_id)
             scores = [sum(a*b for a,b in zip(vectors[3], vector)) for vector in vectors[:3]]
             expected_index = order.index(0)
             margin = scores[expected_index] - max(score for index, score in enumerate(scores) if index != expected_index)
@@ -150,8 +159,10 @@ def run(embedding: str, qdrant: str, *, expected_profile: dict | None = None) ->
                 raise ValueError("Owned collection deletion was not acknowledged.")
             expect_missing(collection_url)
     return {"schemaVersion": "saaia-real-local-vector-probe.v2", "passed": True,
-            "scope": "Attested offline E5 and real Qdrant on three permuted synthetic passages; not ingestion or corpus-wide recall",
-            "runtime": info, "runtimeAttestationMatchesProfile": True, "embeddingDimensions": DIMENSIONS,
+            "scope": "Frozen native/runtime info and real E5/Qdrant synthetic ranking; container/weight provenance is separate, not ingestion or corpus-wide recall",
+            "runtime": info, "embeddingAdapter": adapter, "runtimeAttestationMatchesProfile": True,
+            "nativeRuntimeInfoMatchesFrozenProfile": True,
+            "containerAndWeightsAttestationRequireOwnedRunner": adapter == "tei_cpu", "embeddingDimensions": DIMENSIONS,
             "minimumCosineMargin": MINIMUM_COSINE_MARGIN, "permutations": permutation_results,
             "negativeControls": controls, "freshCollectionVerifiedBeforeCreate": True, "ownedCollectionDeletedAndAbsent": True,
             "elapsedSeconds": round(time.monotonic() - started, 3), "paidProviderCalls": 0,

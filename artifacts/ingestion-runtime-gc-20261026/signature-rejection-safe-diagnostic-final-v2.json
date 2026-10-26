@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "saaia-signature-rejection-safe-diagnostic.v1",
+  "observedAtUtc": "2026-10-26T11:13:07.741382+00:00",
+  "resultSha256": "26b22bc5cfc8af2a38dc5218ead7e5569d5aea80f2820d2f9edd1d5442f7ec8a",
+  "containerId": "8d16d4500dd03c460f9f50568affb3b5179cc3d38f2d50be6f06def39b9883f6",
+  "imageId": "sha256:d272895b502e7cd902afa7c197eac34b1227ffacfde80204c02f4b444b3587cd",
+  "containerStopped": true,
+  "exitCode": 139,
+  "oomKilled": false,
+  "logsSha256": "f000473fc8833092374b78cbb19fc86bc98f96f326cf1f8ca56e8d66c6b83b90",
+  "logsByteCount": 405,
+  "exactSafeDiagnostic": "Unhandled exception. System.InvalidOperationException: deployment.config.json signature verification failed.",
+  "diagnosticObserved": true,
+  "rawLogsIncluded": false,
+  "noServicesStarted": true,
+  "paidProviderCalls": 0
+}

@@ -1,0 +1,126 @@
+{
+  "schema": "saaia-deployment-corrections-source-manifest.v2",
+  "createdUtc": "2026-10-26T06:03:34.1277723Z",
+  "supersedes": "deployment-corrections-source-manifest-v1.json",
+  "sourceFiles": [
+    {
+      "path": ".dockerignore",
+      "bytes": 946,
+      "sha256": "e77c54f3ef14640b36d464a74cd40630af3a7e627be84986415f95936e67fa28"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Dockerfile",
+      "bytes": 1585,
+      "sha256": "3bb0367128421c8fecf335d638f096ca9b4bfaea8d1de49bdae1e58ce4c89963"
+    },
+    {
+      "path": "infra/.env.example",
+      "bytes": 10830,
+      "sha256": "61872875ec2b14923a4af30899ffc0e031919ee439e9e81ed4581cc33a7eee3c"
+    },
+    {
+      "path": "infra/config/deployment.config.prod.template.json",
+      "bytes": 5029,
+      "sha256": "c223ea1de1a8e0aea86a99341c89041a735bd364cda57d96e1ac13cde69eac5d"
+    },
+    {
+      "path": "infra/docker-compose.prod.yml",
+      "bytes": 16463,
+      "sha256": "8efdb8fb9e96143389431cfec0663d4fbe63fa3334bcf5e2177ebef648ec413a"
+    },
+    {
+      "path": "infra/scripts/prod/DeploymentIdentity.ps1",
+      "bytes": 6060,
+      "sha256": "92c9b09199e3e03616cd69211475dd75a331cac06141154a0cee0117b6761290"
+    },
+    {
+      "path": "infra/scripts/prod/deployment_identity.py",
+      "bytes": 3800,
+      "sha256": "bbcb5515bd9724fe81432231dc86b102b78b5bc3482de11134ea436b243447a3"
+    },
+    {
+      "path": "infra/scripts/prod/_common.ps1",
+      "bytes": 20131,
+      "sha256": "5422636d8845190542c617a0af30152c2fdf05c58f9801079aa2e72668232405"
+    },
+    {
+      "path": "infra/scripts/prod/install.ps1",
+      "bytes": 8513,
+      "sha256": "deb590b53a365e764ba16b24bf97e7c8e1919dbdbb4e0582e64150b9df27defd"
+    },
+    {
+      "path": "infra/scripts/prod/install.sh",
+      "bytes": 13771,
+      "sha256": "2d3b4641ec91246367434176f1e3c8a3eb4f273c727740d37e3868920721cc8d"
+    },
+    {
+      "path": "infra/scripts/prod/update.ps1",
+      "bytes": 1017,
+      "sha256": "e58484230665d95b0bc3e47334d0a5fd1414bc9200d7b908a39b4218c88bddb3"
+    },
+    {
+      "path": "infra/scripts/prod/update.sh",
+      "bytes": 1250,
+      "sha256": "379167344bb6fdca9791457ee4994931515d48314ffbae0c1c3fb34c3798893d"
+    },
+    {
+      "path": "infra/scripts/prod/deploy-remote-backend.ps1",
+      "bytes": 16443,
+      "sha256": "60527a5a23a5caa8c2c8d3ff182a355c0ca34fc51224bb4a73cf9a5e9f4cdde5"
+    },
+    {
+      "path": "infra/scripts/prod/tests/deployment-contract.tests.ps1",
+      "bytes": 13922,
+      "sha256": "7ea24625078883db5f57e271457d44452c3fb731ee8ff98a20464a7f0654f2bf"
+    },
+    {
+      "path": "infra/scripts/prod/tests/test_deployment_identity.py",
+      "bytes": 4740,
+      "sha256": "d743275f44c3f363b83de14d3cf7428f3aba7f98cfcdc9e73b8e1d4b68d89c60"
+    }
+  ],
+  "powerShellTests": {
+    "total": 17,
+    "failed": 0,
+    "passed": true,
+    "path": "tests/deployment-transfer-green-v1/result.json"
+  },
+  "pythonTests": {
+    "total": 7,
+    "failed": 0,
+    "log": "deployment-identity-python-green-v2.log"
+  },
+  "syntheticActualTar": "tests/deployment-transfer-real-tar-v1/result.json",
+  "ast": [
+    {
+      "path": "infra/scripts/prod/DeploymentIdentity.ps1",
+      "errors": 0
+    },
+    {
+      "path": "infra/scripts/prod/_common.ps1",
+      "errors": 0
+    },
+    {
+      "path": "infra/scripts/prod/install.ps1",
+      "errors": 0
+    },
+    {
+      "path": "infra/scripts/prod/update.ps1",
+      "errors": 0
+    },
+    {
+      "path": "infra/scripts/prod/deploy-remote-backend.ps1",
+      "errors": 0
+    },
+    {
+      "path": "infra/scripts/prod/tests/deployment-contract.tests.ps1",
+      "errors": 0
+    }
+  ],
+  "servicesStarted": 0,
+  "networkCalls": 0,
+  "dotnetBuilds": 0,
+  "dockerExecuted": false,
+  "actualSecretsReadOrArchived": false,
+  "linuxInstallerExecuted": false
+}

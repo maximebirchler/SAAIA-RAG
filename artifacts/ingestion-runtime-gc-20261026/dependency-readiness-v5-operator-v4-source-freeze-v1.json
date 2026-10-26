@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "saaia-dependency-readiness-source-freeze.v1",
+  "frozenAtUtc": "2026-10-26T10:37:29.929682+00:00",
+  "files": [
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/bootstrap-owned-linux-v5.py",
+      "sha256": "6a5bf82d031ad85170e6337c45b2f7639a7be7b09e06441aabb9b90976589666",
+      "bytes": 29713
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/test-bootstrap-owned-linux-v5.py",
+      "sha256": "18b1df8108c50746978f4127ac1513dff19355f37b243d5523cb6b6b5d323e4c",
+      "bytes": 6959
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/run-production-sequential-v4.py",
+      "sha256": "d07ebca03bb998a0b0654344bed5b96b93a8735d2938284a877a22de6b87ca37",
+      "bytes": 18325
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/test-production-sequential-v4.py",
+      "sha256": "bd25c41b350b6edb56bc504530ae6dd6b06621eebf1078b8c5345a8c25cf2e7b",
+      "bytes": 9826
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/dependency-readiness-v5-operator-v4-README.md",
+      "sha256": "fbdec512182c1d3c4867d6be7c54ba9136c8f5a066c0b465916efad245e424d8",
+      "bytes": 3955
+    }
+  ],
+  "pureTests": {
+    "oldV4CausalRed": {
+      "manifest": "tests/bootstrap-readiness-old-red-v2/manifest.json",
+      "failed": 1,
+      "errors": 0
+    },
+    "bootstrapV5": {
+      "manifest": "tests/bootstrap-readiness-v5-green-v2/manifest.json",
+      "passed": 23
+    },
+    "operatorV4": {
+      "manifest": "tests/production-sequential-operator-pure-v4/manifest.json",
+      "passed": 12
+    }
+  },
+  "networkCalls": 0,
+  "dockerCalls": 0,
+  "dotnetRuns": 0,
+  "remoteExecutionPerformed": false
+}

@@ -22,6 +22,11 @@ fi
 INSTALL_ROOT="${INSTALL_ROOT:-$ROOT}"
 
 export SAAIA_INSTALL_ROOT="$INSTALL_ROOT"
+IDENTITY_HELPER="$ROOT/infra/scripts/prod/deployment_identity.py"
+command -v python3 >/dev/null || { echo "Python 3 is required for offline deployment identity." >&2; exit 2; }
+SAAIA_CODE_REVISION="$(python3 "$IDENTITY_HELPER" --repo-root "$ROOT" source backend)"
+SAAIA_DOCLING_SOURCE_REVISION="$(python3 "$IDENTITY_HELPER" --repo-root "$ROOT" source docling)"
+export SAAIA_CODE_REVISION SAAIA_DOCLING_SOURCE_REVISION
 
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" pull || true
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --build

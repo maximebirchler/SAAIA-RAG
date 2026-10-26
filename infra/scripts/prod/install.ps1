@@ -156,6 +156,10 @@ if (-not $deployDirIsExpected) {
 # Export SAAIA_INSTALL_ROOT for docker bind-mounts
 # ---------------------------
 $env:SAAIA_INSTALL_ROOT = Convert-ToDockerPath $installRoot
+$env:TEI_RUNTIME_REVISION = $cfg.EmbeddingsRuntimeRevision
+$env:QDRANT_RUNTIME_REVISION = $cfg.QdrantRuntimeRevision
+$env:SAAIA_CODE_REVISION = Get-DeploymentSourceRevision -RepoRoot $repo -Kind backend
+$env:SAAIA_DOCLING_SOURCE_REVISION = Get-DeploymentSourceRevision -RepoRoot $repo -Kind docling
 
 $args = @('up','-d')
 if (-not $NoBuild) { $args += @('--build') }
@@ -211,7 +215,7 @@ if (-not $ok) {
   $logCmd = "docker compose -f .\infra\docker-compose.prod.yml"
   if ($installWithOtel) { $logCmd += " -f .\infra\docker-compose.otel.yml" }
   $logCmd += " --env-file .\infra\.env logs -f backend"
-  Write-Warning "Could not reach backend /ready after $maxTries tries. Check logs: $logCmd"
+  throw "Backend readiness failed after $maxTries tries. Check logs: $logCmd"
 }
 
 if ($ok -and $installWithOtel) {

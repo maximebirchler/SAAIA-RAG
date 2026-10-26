@@ -29,7 +29,7 @@ def _sha(data: bytes) -> str:
 def verify(manifest: dict, selected_ids: list[str], observation: dict, api: dict, vectors: dict, *,
            embedding_adapter: str = "deterministic_loopback_3d", embeddings_real: bool = False,
            searches: dict | None = None, require_search: bool = False) -> dict:
-    if (embedding_adapter, embeddings_real) not in {("deterministic_loopback_3d", False), ("transformers_cpu", True)}:
+    if (embedding_adapter, embeddings_real) not in {("deterministic_loopback_3d", False), ("transformers_cpu", True), ("tei_cpu", True)}:
         raise ValueError("Embedding execution mode must be explicit and internally consistent.")
     cases = select_cases(validate_manifest(manifest), selected_ids)
     if observation.get("schemaVersion") != "saaia-owned-worker-observation.v1":
@@ -148,7 +148,7 @@ def verify(manifest: dict, selected_ids: list[str], observation: dict, api: dict
             "canonicalSearchValidated": require_search and complete and all(item.get("canonicalSearch", {}).get("passed") for item in results),
             "embeddingAdapter": embedding_adapter, "embeddingsReal": embeddings_real, "vectorValidated": False,
             "results": results, "limits": ["Real Qdrant storage and point identity are distinct from semantic embedding quality.",
-                "Neither embedding mode alone validates semantic dense ranking; Transformers CPU is not the TEI binary.",
+                "An embedding runtime label alone does not validate dense ranking; TEI and Transformers remain distinct runtimes.",
                 "Read API chunks can overlap pages; independent canonical page facts must pass separately.",
                 "This verifier consumes captured observations; process ownership and execution are proved by the runner."]}
 
@@ -158,7 +158,7 @@ def main() -> int:
     for name in ("manifest", "observation", "api", "vectors", "output"):
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--case-id", action="append", required=True)
-    parser.add_argument("--embedding-adapter", choices=("deterministic_loopback_3d", "transformers_cpu"), default="deterministic_loopback_3d")
+    parser.add_argument("--embedding-adapter", choices=("deterministic_loopback_3d", "transformers_cpu", "tei_cpu"), default="deterministic_loopback_3d")
     parser.add_argument("--embeddings-real", action="store_true")
     parser.add_argument("--searches")
     parser.add_argument("--require-search", action="store_true")

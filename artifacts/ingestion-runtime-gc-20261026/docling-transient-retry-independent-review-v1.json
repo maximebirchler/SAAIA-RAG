@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "saaia-independent-source-review-v1",
+  "reviewId": "docling-transient-retry-independent-review-v1",
+  "reviewedAtUtc": "2026-10-26T10:36:10.3296511Z",
+  "status": "SOURCE_REVIEW_PASSED_RUNTIME_PENDING",
+  "sourceMutationsByReviewer": 0,
+  "dotnetExecutedByReviewer": false,
+  "gitExecutedByReviewer": false,
+  "servicesExecutedByReviewer": false,
+  "sshExecutedByReviewer": false,
+  "apiExecutedByReviewer": false,
+  "openBlockingFindings": [],
+  "closedFindings": [
+    "logger_di_missing",
+    "late_success_after_validation_cancellation",
+    "witnesses_handle_slot_and_redaction_missing"
+  ],
+  "expectedTargetedCases": 26,
+  "executedTargetedCasesByReviewer": 0,
+  "red": {
+    "runId": "2696658f65ad40a18b2afbd39896f791",
+    "passed": 12,
+    "failed": 8,
+    "sourceChangedDuringRun": false,
+    "manifest": "tests/docling-transient-retry-red-v1/manifest.json"
+  },
+  "files": [
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingClient.cs",
+      "sha256": "987432567179b8a9d16eb55c9cc622137d481251599da93f060748749f142dee"
+    },
+    {
+      "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingRetryPolicy.cs",
+      "sha256": "948260eca9a832d1e8cf7dd6b393ae0735c6ce9a338ac4438688732b16e061ec"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Extensions/ServiceCollectionExtensions.cs",
+      "sha256": "da48f05abd161bfcb4978020b7c8549a9b9a8448e532fc9f97e46fcf5d0691a1"
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/DoclingClientTests.TransientRetry.cs",
+      "sha256": "b3674b15ab43834bdf7f9cb1c0379da33604c4d486a00839aba1b83f98647950"
+    }
+  ],
+  "limitations": [
+    "Central GREEN and actual rebuilt Linux runtime remain required.",
+    "Synchronous JSON validation observes cancellation before success but is not preempted mid-parse.",
+    "One source handle preserves atomic pathname replacement identity, not in-place inode immutability."
+  ]
+}

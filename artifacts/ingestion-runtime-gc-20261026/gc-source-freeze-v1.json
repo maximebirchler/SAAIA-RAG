@@ -1,0 +1,135 @@
+{
+  "schema": "saaia.vector-gc-source-freeze.v1",
+  "capturedAtUtc": "2026-10-26T06:36:45.373523+00:00",
+  "status": "FROZEN_PENDING_CENTRAL_GREEN",
+  "files": [
+    {
+      "path": "backend/SAAIA.Backend/Db/Migrations/072_vector_lifecycle_registry.sql",
+      "sha256": "3ac394a9a78a3659ade68fd1f7db5e66d29c72e293fbe342fc5b4b9edef1e8ec",
+      "bytes": 5516,
+      "crlfSequences": 0,
+      "lines": 104
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionGenerationRegistry.cs",
+      "sha256": "aea0518dc788a92ffe02b74e3e2daee6ebfe7e2c3c3d15a11f1670c16895020a",
+      "bytes": 1960,
+      "crlfSequences": 0,
+      "lines": 33
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionVectorRegistry.cs",
+      "sha256": "0db3498791377dac52389b305e515f6d3771431ee71c832a953d9f654622e237",
+      "bytes": 8119,
+      "crlfSequences": 0,
+      "lines": 113
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/VectorGcModels.cs",
+      "sha256": "e77645b6ceb4f82994abdf8ba849d2c8a850011663962935daf8159e7c2aff8b",
+      "bytes": 2301,
+      "crlfSequences": 0,
+      "lines": 46
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/VectorGcQueue.cs",
+      "sha256": "876a082906679497f8f3971b259bef6b51ef5180e51df9982f5da109dc065574",
+      "bytes": 4440,
+      "crlfSequences": 0,
+      "lines": 71
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/VectorGcQdrantTransport.cs",
+      "sha256": "8c33a2275f80b703e4a4d2554bb97e4002f53364cc988f9eccc572e0274619aa",
+      "bytes": 8562,
+      "crlfSequences": 0,
+      "lines": 136
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/VectorGarbageCollector.cs",
+      "sha256": "6b6d245a827b7ef1d1897fe197ba8761295f9116362878470461d969a9ec8e17",
+      "bytes": 6703,
+      "crlfSequences": 0,
+      "lines": 109
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/VectorGcRuntimeState.cs",
+      "sha256": "833641121dbf15a73a9ffc7bb2227a14499d60f87667b2a2cc1a5f3783f4d59c",
+      "bytes": 4394,
+      "crlfSequences": 0,
+      "lines": 68
+    },
+    {
+      "path": "backend/SAAIA.Backend/Options/VectorGcOptions.cs",
+      "sha256": "f069c0fa726e92ddb371f47307df4c7dc8132e45e39c9896d5c3035b6e3436fb",
+      "bytes": 986,
+      "crlfSequences": 0,
+      "lines": 24
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionEnqueue.cs",
+      "sha256": "8c65cd3c84bbb24aedcc58a3c38cf9c2f2645df8553fe4716adf97c1163cf50e",
+      "bytes": 8143,
+      "crlfSequences": 0,
+      "lines": 212
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionEnqueue.Delete.cs",
+      "sha256": "acfde5a3f5f967b8d8ad2a75d3c91be5b7637135268739a93725895d4c4c7a3a",
+      "bytes": 5355,
+      "crlfSequences": 0,
+      "lines": 139
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionWorker.cs",
+      "sha256": "c6462439b8a71c05b00bb15bb7773558813cc6129fbf02d2eac421f129c19e0c",
+      "bytes": 97522,
+      "crlfSequences": 0,
+      "lines": 2074
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/JobRepo.Completion.cs",
+      "sha256": "e3a417f367ac9b9b32516ad129beecec1cd772ec428f25f70076052346adcfb5",
+      "bytes": 25915,
+      "crlfSequences": 0,
+      "lines": 653
+    },
+    {
+      "path": "backend/SAAIA.Backend/Extensions/ServiceCollectionExtensions.cs",
+      "sha256": "170cdfc1d22e16ce30c86585eb16b10c48fd83d5368a131683b4d854f38ca1ce",
+      "bytes": 13642,
+      "crlfSequences": 0,
+      "lines": 282
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/ReadyEndpoints.cs",
+      "sha256": "afff5e3108619c5c3c018cddd82191083ce7afa4bf964ef0bf167db3f8351021",
+      "bytes": 33397,
+      "crlfSequences": 0,
+      "lines": 720
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.VectorGcLifecycle.cs",
+      "sha256": "a5c39a66d974238a6c6e2fe2ed4a5fb0327250a6da8b990a60f49ffba8b6b504",
+      "bytes": 17459,
+      "crlfSequences": 0,
+      "lines": 274
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.VectorGcRegistry.cs",
+      "sha256": "e2d81980d641113edf27804518875fce41d3d62a8edfefba79d676ffe4c53159",
+      "bytes": 20661,
+      "crlfSequences": 0,
+      "lines": 300
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/VectorGcTransportTests.cs",
+      "sha256": "042f5c6421d5837c8514d92a8a21cfeaa51b80bbdb7ec18ef88ee636e1ffe474",
+      "bytes": 14213,
+      "crlfSequences": 0,
+      "lines": 278
+    }
+  ],
+  "aggregateSha256": "c5c5cf08f30a4f4d2febbae7e8dd390be3c51e1002152aafdf3c112181981732",
+  "servicesOrTestsExecutedByAuthor": false
+}

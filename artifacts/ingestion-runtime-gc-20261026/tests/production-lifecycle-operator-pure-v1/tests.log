@@ -1,0 +1,21 @@
+test_complete_phase_passes_only_after_real_stopped_reinspection (lc_operator_offline_tests.OperatorTests.test_complete_phase_passes_only_after_real_stopped_reinspection) ... ok
+test_dependency_failure_never_starts_backend (lc_operator_offline_tests.OperatorTests.test_dependency_failure_never_starts_backend) ... ok
+test_failing_runner_exit_and_incomplete_operator_stop_remain_failed (lc_operator_offline_tests.OperatorTests.test_failing_runner_exit_and_incomplete_operator_stop_remain_failed) ... ok
+test_initial_running_phase_neither_starts_nor_stops_existing_containers (lc_operator_offline_tests.OperatorTests.test_initial_running_phase_neither_starts_nor_stops_existing_containers) ... ok
+test_lifecycle_specific_gc_or_source_restoration_cannot_be_omitted (lc_operator_offline_tests.OperatorTests.test_lifecycle_specific_gc_or_source_restoration_cannot_be_omitted) ... ok
+test_noexecute_reads_only_public_registry_and_requires_observed_hashes (lc_operator_offline_tests.OperatorTests.test_noexecute_reads_only_public_registry_and_requires_observed_hashes) ... ok
+test_one_initial_running_container_prevents_every_start (lc_operator_offline_tests.OperatorTests.test_one_initial_running_container_prevents_every_start) ... ok
+test_phase_commands_use_new_outputs_and_only_new_lifecycle_proof (lc_operator_offline_tests.OperatorTests.test_phase_commands_use_new_outputs_and_only_new_lifecycle_proof) ... ok
+test_phase_finally_stops_after_partial_start_or_readiness_failure (lc_operator_offline_tests.OperatorTests.test_phase_finally_stops_after_partial_start_or_readiness_failure) ... ok
+test_registry_duplicate_namespace_or_wrong_profile_rejected (lc_operator_offline_tests.OperatorTests.test_registry_duplicate_namespace_or_wrong_profile_rejected) ... ok
+test_runner_exit_zero_cannot_replace_terminal_successful_proof (lc_operator_offline_tests.OperatorTests.test_runner_exit_zero_cannot_replace_terminal_successful_proof) ... ok
+test_source_drift_during_phase_cannot_receive_a_pass (lc_operator_offline_tests.OperatorTests.test_source_drift_during_phase_cannot_receive_a_pass) ... ok
+test_start_exact_five_ids_in_order_after_stopped_check (lc_operator_offline_tests.OperatorTests.test_start_exact_five_ids_in_order_after_stopped_check) ... ok
+test_terminal_proof_rejects_development_wrong_run_or_undated (lc_operator_offline_tests.OperatorTests.test_terminal_proof_rejects_development_wrong_run_or_undated) ... ok
+test_terminal_proof_rejects_false_or_string_boolean_and_missing_cleanup (lc_operator_offline_tests.OperatorTests.test_terminal_proof_rejects_false_or_string_boolean_and_missing_cleanup) ... ok
+test_valid_signed_proof_is_accepted (lc_operator_offline_tests.OperatorTests.test_valid_signed_proof_is_accepted) ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 0.106s
+
+OK

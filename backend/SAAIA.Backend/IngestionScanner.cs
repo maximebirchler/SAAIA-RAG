@@ -12,12 +12,14 @@ using Dapper;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using SAAIA.Backend.Bootstrap;
+using SAAIA.Backend;
 
 sealed class IngestionScanner : BackgroundService
 {
     private readonly IServiceProvider _sp;
     private readonly ILogger<IngestionScanner> _log;
     private readonly IngestionFileContentHashCache _fileHashCache = new();
+    private readonly IngestionFileInventory _inventory = new();
 
     // Anti “wipe transitoire”
     private int _emptyScanStreak = 0;
@@ -70,6 +72,12 @@ sealed class IngestionScanner : BackgroundService
         }
     }
 
+    public override void Dispose()
+    {
+        _inventory.Dispose();
+        base.Dispose();
+    }
+
     private async Task ScanOnceAsync(
         NpgsqlDataSource ds,
         IHttpClientFactory httpFactory,
@@ -108,17 +116,29 @@ sealed class IngestionScanner : BackgroundService
         var missingGrace = TimeSpan.FromSeconds(Math.Clamp(opt.MissingGraceSeconds, 5, 24 * 3600));
         var maxFiles = Math.Clamp(opt.MaxFilesPerScan, 1, 200000);
 
-        var files = Directory.EnumerateFiles(root, "*.pdf", SearchOption.AllDirectories)
-            .Take(maxFiles)
-            .ToList();
+        using var inventoryProbe = BackendDiagnostics.Start("ingestion.scanner.inventory", _log);
+        var inventory = _inventory.Read(root, maxFiles);
+        var files = inventory.Files;
+        inventoryProbe.Set("files_selected", files.Count);
+        inventoryProbe.Set("inventory_complete", inventory.Complete);
+        inventoryProbe.Set("inventory_truncated", inventory.ContinuesNextScan);
+        inventoryProbe.Set("next_batch", inventory.ContinuesNextScan ? "resume" : "restart");
+        inventoryProbe.Set("inventory_error", inventory.FailureCode);
+        var deletionsDeferred = 0;
+        var presenceUnknown = 0;
+        if (inventory.FailureCode is not null)
+            _log.LogWarning("Scanner inventory incomplete code={Code}; absence admission is deferred", inventory.FailureCode);
 
         // Anti wipe: delete only after 2 empty scans
-        if (files.Count == 0)
+        if (files.Count == 0 && inventory.Complete)
         {
             _emptyScanStreak++;
             _log.LogWarning("Scanner: 0 file found (streak={Streak})", _emptyScanStreak);
             if (_emptyScanStreak < 2)
+            {
+                inventoryProbe.Complete("deferred", "empty_scan_confirmation_pending");
                 return;
+            }
         }
         else
         {
@@ -144,7 +164,7 @@ WHERE tenant_id = @tenant_id
   AND status <> 'deleted';";
 
         var existing = (await conn.QueryAsync<DocRow>(loadSql, new { tenant_id = tenantId }))
-            .ToDictionary(x => x.DocPath, StringComparer.OrdinalIgnoreCase);
+            .ToDictionary(x => x.DocPath, IngestionFileInventory.PathComparer);
         var pipelineFingerprint = IngestionPipelineIdentity.Compute(rag, opt, documentIntelligence);
 
         const string activeJobsSql = """
@@ -158,7 +178,7 @@ WHERE tenant_id = @tenant_id
                     activeJobsSql,
                     new { tenant_id = tenantId },
                     cancellationToken: ct)))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            .ToHashSet(IngestionFileInventory.PathComparer);
 
         // 3.1) Auto-heal: if Qdrant is empty for this tenant but DB has docs, force reindex.
         bool forceReindexAll = false;
@@ -189,7 +209,7 @@ WHERE tenant_id = @tenant_id
             now,
             ct);
         var duplicateFiles = duplicateScan.Duplicates;
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<string>(IngestionFileInventory.PathComparer);
 
         int enqUpsert = 0, enqDelete = 0, skippedTooFresh = 0, unchanged = 0, suppressedAuto = 0, suppressedDuplicateContent = 0;
         bool anyTooFresh = false;
@@ -384,6 +404,25 @@ WHERE tenant_id = @tenant_id
         {
             if (files.Count == 0 || !seen.Contains(kv.Key))
             {
+                var presence = IngestionFilePresence.Probe(root, kv.Key);
+                if (presence == IngestionSourcePresence.Present)
+                {
+                    // An unselected source is not missing. Repair a transient missing state
+                    // without exceeding this scan's bounded upsert selection.
+                    if (string.Equals(kv.Value.Status, "missing", StringComparison.OrdinalIgnoreCase)
+                        && kv.Value.IndexedVersion > 0)
+                    {
+                        await IngestionEnqueue.TryRestoreMissingIndexedDocumentAsync(conn, tenantId, kv.Key,
+                            new FileInfo(Path.Combine(root, kv.Key)), ct);
+                    }
+                    continue;
+                }
+                if (!inventory.Complete || presence == IngestionSourcePresence.Unknown)
+                {
+                    deletionsDeferred++;
+                    if (presence == IngestionSourcePresence.Unknown) presenceUnknown++;
+                    continue;
+                }
                 // 5.1) Marquer missing (même si anyTooFresh=true)
                 if (!string.Equals(kv.Value.Status, "missing", StringComparison.OrdinalIgnoreCase))
                 {
@@ -410,12 +449,25 @@ WHERE tenant_id = @tenant_id
 
                 if ((now - missingSinceUtc) >= missingGrace)
                 {
-                    await IngestionEnqueue.EnqueueDeleteAsync(conn, tenantId, kv.Key, ct);
+                    // Recheck immediately before destructive admission: a rename/copy may
+                    // have returned the source since the earlier observation.
+                    if (IngestionFilePresence.Probe(root, kv.Key) != IngestionSourcePresence.Absent)
+                    {
+                        deletionsDeferred++;
+                        continue;
+                    }
+                    await IngestionEnqueue.EnqueueDeleteAsync(conn, tenantId, kv.Key, ct,
+                        requiresSourceAbsence: true, enqueueSource: "scanner_missing");
                     activeJobPaths.Add(kv.Key);
                     enqDelete++;
                 }
             }
         }
+
+        inventoryProbe.Set("deletions_deferred", deletionsDeferred);
+        inventoryProbe.Set("presence_unknown", presenceUnknown);
+        inventoryProbe.Complete(inventory.Complete && presenceUnknown == 0 ? "success" : "deferred",
+            inventory.FailureCode ?? (presenceUnknown > 0 ? "source_presence_unknown" : inventory.ContinuesNextScan ? "inventory_truncated" : null));
 
         if (anyTooFresh)
         {

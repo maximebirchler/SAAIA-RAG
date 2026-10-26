@@ -1,0 +1,29 @@
+# DEFAULTS : disponibilité des dépendances au démarrage
+
+État : analyse du code en lecture seule. Le coordinateur rapporte un vrai échec du parcours combiné : fichier A présent avant boot, trois jobs scanner failed en moins de cinq secondes, chacun avec HTTP502 Docling. Scanner et watcher isolés ont leurs résultats distincts. Aucun correctif, test, service, .NET, réseau, SSH ou Git n'a été exécuté par le réviseur pour cette analyse. Le plan de sélection publique est différé ; aucun staging n'est réalisé.
+
+## Deux chaînes concrètes
+
+**L'opérateur de qualification ne reproduit pas l'ordre de santé du Compose installé.** `bootstrap-owned-linux-v4.py:start` vérifie l'identité, les montages et State.Running des dépendances, puis démarre le backend. Il n'attend pas la santé applicative de Docling. `run-production-sequential-v3.py:run_phase` précharge A, démarre le backend, puis appelle seulement `wait_ready`. Or `IngestionScanner.ExecuteAsync` lance son premier ScanOnceAsync dès que ScannerEnabled=true, sans attendre un appel de disponibilité externe. Le fichier préexistant peut donc atteindre le worker avant le premier succès du contrôle opérateur.
+
+À l'inverse, `infra/docker-compose.prod.yml:116` utilise le healthcheck HTTP `/health` Docling (intervalle 10s, timeout5s, start_period60s) et `:258` impose `docling: condition: service_healthy` avant le backend. Le service de qualification créé directement par Docker n'hérite pas de cette dépendance Compose. C'est un écart réel du bootstrap de campagne ; il ne faut pas en déduire que le chemin Compose installé omet cette garde.
+
+`infra/docling-sidecar/entrypoint.sh:7` démarre l'upstream en arrière-plan puis le wrapper, sans barrière entre les deux. Le wrapper peut donc être joignable avant l'upstream. Son `/health` (`saaia_docling/app.py:73`) appelle justement l'upstream et retourne 503 tant qu'il est indisponible. Le backend `/ready` utilise le même contrôle (`ReadyEndpoints.cs:435`), mais le service background a déjà pu consommer les fichiers lorsque l'opérateur attend cette réponse. Attendre `/ready` après start ne protège pas rétrospectivement les premiers jobs.
+
+**Le worker ne diffère pas une HTTP502 Docling.** `DoclingClient.cs:96–101` émet une HttpRequestException avec StatusCode pour tout statut HTTP non réussi. `IngestionWorker.cs:317–336` ne reconnaît comme transitoires que « Too many open files » et certains messages commençant par Qdrant. Le message HTTP502 Docling ne satisfait aucun de ces critères et passe au MarkFailedAsync (`:295`). Il n'y a pas de boucle de retry dans ConvertPdfAsync. Le scanner peut ensuite admettre de nouveaux jobs ; son garde intervient après trois échecs, avec backoff120s par défaut (`IngestionOptions.cs:99–100`, `IngestionScanner.cs:361` et `:642`). Cela explique structurellement la succession rapportée de trois échecs rapides, sans prouver à lui seul la cause interne du HTTP502.
+
+Les tests existants de ShouldDeferTransientInfrastructureFailure dans IngestionWorkerQdrantTests couvrent Qdrant500/503, Qdrant400 et une erreur d'extraction permanente. Ils ne qualifient pas les pannes Docling au démarrage ni après redémarrage du moteur.
+
+## Ce qui reste à confirmer dans les vrais journaux
+
+Une course upstream pas encore écoutant est une hypothèse fortement cohérente avec l'ordre de démarrage et le délai observé. Le statut 502 seul ne permet pas de l'affirmer : le wrapper peut émettre 502 pour une erreur de transport upstream (`app.py:306–309`), pour du JSON upstream invalide (`:154`) ou pour une enveloppe non objet (`:159`), et peut aussi relayer directement un statut upstream non réussi (`:142`). Seuls les journaux et compteurs transport privés observés par le coordinateur peuvent discriminer ces chemins. Aucun corps documentaire ou réponse privée n'est reproduit ici.
+
+Le healthcheck `/health` prouve que l'endpoint upstream répond avec succès ; il ne prouve pas à lui seul que toutes les conversions, modèles ou chargements paresseux futurs réussiront. Un futur PASS de replay doit conserver cette portée. L'échec DEFAULTS actuel ne doit pas être effacé, réutilisé comme baseline vide, ni remplacé par un simple prolongement du délai du runner.
+
+## Reproductions et corrections proposées, non appliquées
+
+Pour l'écart du bootstrap, une garde avant création du backend doit attendre la santé Docling sous ownership et délai borné, avec HTTP200 et upstream=true ; les erreurs de connexion et HTTP503 doivent retarder le démarrage, pas laisser A partir au worker. Un test pur doit prouver l'ordre « indisponible, encore indisponible, sain, puis start backend » et le refus de start après timeout. La configuration signée et le fichier A restent identiques. Ce contrôle doit aussi tolérer les dépendances possédées déjà running ; un backend déjà démarré ne peut pas être qualifié rétroactivement comme ayant attendu la santé.
+
+Pour la résilience du produit, un RED causal doit distinguer une indisponibilité transitoire de service d'un document ou protocole invalide. Un report typé et borné sous bail est préférable à un nouveau classement par texte libre. Les statuts retryables, délais, plafond/budget, annulation, supersede et conservation de l'ancienne publication doivent être testés explicitement. Une enveloppe invalide, une erreur documentaire400/422 ou une signature/provenance invalide ne doit pas être transformée indistinctement en retry infini. La politique exacte reste une décision du correctif autorisé, pas un comportement déjà validé dans cette note.
+
+La garde de déploiement et le retry après une panne ultérieure sont deux propriétés complémentaires : la première ferme la course initiale reproduite ; la seconde protège aussi un worker dont la dépendance redémarre après le succès du healthcheck. Aucune nouvelle campagne payante ni modification d'image/version arbitraire n'est nécessaire pour préparer ces preuves.

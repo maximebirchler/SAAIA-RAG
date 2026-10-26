@@ -1,0 +1,45 @@
+SAAIA — point d’avancement du 26/10/2026, 08h35 (Berlin)
+Périmètre : ce qui a été traité depuis mon rapport de 07h59. Aucun appel de modèle payant, aucun test de planning.
+
+1. PURGE DES VECTEURS : LE PARCOURS RÉEL EST PASSÉ
+J’ai utilisé la vraie pile Linux isolée : backend compilé, PostgreSQL, Qdrant, Docling et TEI. Ce résultat ne vient pas de réponses simulées.
+Sur un PDF synthétique précisément identifié :
+- publication initiale en génération 1, réingestion du même PDF en génération 2 ;
+- suppression effective des anciens points de génération 1, avec conservation de la génération 2 ;
+- réintroduction volontaire d’un seul ancien point capturé, observation de sa présence, puis nouvelle suppression par le collecteur ;
+- suppression du document en génération 3 : publication désactivée et recherche vide ;
+- restauration en génération 4 : nouveaux identifiants, recherche puis lecture de la bonne source ;
+- annulation d’un nouveau job observé running en génération 5 : publication 4 conservée.
+Les 39 points des autres documents, leurs vecteurs, leurs payloads et leurs publications SQL sont restés identiques. Aucun ancien identifiant n’a été réutilisé. Fin du parcours : zéro job actif, cinq conteneurs de test arrêtés, ports Docker libérés.
+
+Ce que cela ferme : la collecte des anciens plans enregistrés et scellés, y compris une réapparition tardive contrôlée. Ce que cela ne prouve pas : l’arrêt d’une requête HTTP du worker déjà en vol. Les vecteurs très anciens sans manifeste exact restent protégés et non purgés automatiquement ; je ne fais pas de suppression large sans preuve d’appartenance.
+
+2. DOCUMENT CORROMPU : CONSERVATION ET REPRISE VALIDÉES
+J’ai ensuite remplacé uniquement la copie de travail de ce PDF par ses 16 premiers octets. Le vrai worker a échoué, sans remplacer la dernière publication valide et sans modifier les autres documents. Le terminal failed est resté stable pendant la fenêtre de contrôle.
+Après restauration des octets exacts, une nouvelle ingestion en génération 7 a réussi. La recherche et la lecture ont confirmé cette publication fraîche. Le scénario s’est terminé sans job actif et avec les cinq services isolés arrêtés.
+Pendant que le fichier était corrompu, je n’ai pas exigé qu’il reste lisible : la vérification de fraîcheur doit pouvoir le refuser. L’invariant vérifié était la conservation de la dernière publication SQL et vectorielle valide.
+
+3. DOCLING SANS INTERNET : VALIDÉ SUR LE SCAN DE RÉFÉRENCE
+Un nouveau conteneur a démarré avec son entrypoint normal, sans réseau Docker, avec une copie possédée du cache public montée en lecture seule. Aucun téléchargement de secours.
+Résultat : HTTP 200, aucune erreur signalée, les 5 faits annotés retrouvés exactement sur la page physique 1, versions des packages réellement installés cohérentes avec la réponse. Démarrage et conversion : 17,162 secondes sur 2 CPU, limite mémoire 5 Gio, aucun OOM. Conteneur arrêté après contrôle.
+C’est un test de démarrage et de conversion OCR forcée, complémentaire du parcours worker déjà testé ; ce n’est pas une garantie universelle sur tous les scans.
+
+4. UN VRAI DÉFAUT DU SCANNER A ÉTÉ TROUVÉ
+Le scanner limitait son inventaire aux N premiers PDF, puis pouvait considérer les autres fichiers connus comme disparus. Un PDF toujours présent pouvait donc devenir missing, puis recevoir une demande de suppression.
+J’ai reproduit le défaut dans une base PostgreSQL locale isolée : 2 échecs attendus et 3 témoins réussis. Ce ne sont pas des erreurs de compilation.
+Le correctif est en cours de validation : lots rotatifs pour parcourir aussi les fichiers au-delà de la limite, refus de déduire une absence d’un inventaire partiel ou d’une erreur d’accès, vérification ponctuelle avant suppression et sondes explicites de ces décisions.
+J’étudie aussi un risque lié à la casse des chemins sous Linux : deux fichiers distincts peuvent avoir des noms qui ne diffèrent que par les majuscules. Un cache de hash ne doit pas les confondre ni les classer comme faux doublons. Des témoins causaux sont en cours d’exécution.
+
+5. OCR HISTORIQUE : PAS ENCORE VALIDÉ
+Le test autonome OCRmyPDF/Ghostscript/Tesseract a exposé un défaut de son PDF synthétique : compression mal formée et une ligne tronquée. Ces défauts de fixture ont été corrigés ; 60 tests ciblés passent, avec le test moteur explicitement non exécuté sur Windows.
+Le nouvel essai réel Linux extrait maintenant du texte, mais le petit alphabet bitmap de cette fixture ne permet pas encore de reconnaître correctement son identifiant XQ42. Je conserve cet échec. Je prépare une fixture typographique réaliste en gardant une exigence de reconnaissance exacte ; je ne réduis pas le critère pour obtenir un PASS.
+Un autre essai intermédiaire a échoué avant les tests à cause du SDK .NET sous un UID de campagne différent ; il ne donne aucune information sur l’OCR et reste identifié séparément.
+
+6. CE QUI SUIT
+Fermer les défauts scanner/casse par tests causaux, reconstruire le backend, puis exercer le déclenchement automatique réellement configuré à l’installation : scanner, watcher et deux workers. Les premiers corpus utilisaient volontairement l’admission par API pour isoler la fidélité documentaire ; cela ne suffit pas à valider les déclencheurs automatiques.
+Compléter aussi la recherche sur les 106 faits annotés : 90 pour les PDF de référence et 16 pour le livre. Jusqu’ici, tous ces faits étaient vérifiés dans les données et chunks, mais le contrôle recherche→lecture comportait une recherche positive par document. Le complément ne nécessitera aucun LLM payant.
+Enfin : sceller les preuves utiles, vérifier de nouveau que les services existants du serveur sont inchangés, documenter précisément les limites et enregistrer les changements sur Git.
+
+La signature Production reste distincte : la clé privée de signature configurée sur l’ancien laptop est absente ici. Les essais sont explicitement Development et ne contournent pas la vérification des signatures. Je continue tout ce qui peut être validé sans elle.
+
+Statut : travail en cours, ingestion pas encore déclarée entièrement validée, produit TESTE_NON_APPROUVE. Le planning attend ces contrôles.

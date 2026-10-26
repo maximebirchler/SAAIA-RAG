@@ -1,0 +1,188 @@
+{
+  "schemaVersion": "saaia-production-lifecycle-operator-offline.v1",
+  "startedAtUtc": "2026-10-26T10:52:45.483256+00:00",
+  "finishedAtUtc": "2026-10-26T10:52:45.637886+00:00",
+  "testsRun": 16,
+  "failureCount": 0,
+  "errorCount": 0,
+  "skipCount": 0,
+  "passed": true,
+  "mockedTransportsOnly": true,
+  "networkCalls": 0,
+  "dockerCalls": 0,
+  "subprocessCalls": 0,
+  "privateStoresRead": false,
+  "sourceChangedDuringRun": false,
+  "sourceInventoryBefore": [
+    {
+      "path": "tools/validation-ingestion/invoke-linux-ingestion.py",
+      "sha256": "eda60c2c8ff2dadfdb19e7f7f9afc4838cf3b59a6bdbdc1b055f83aa45115969"
+    },
+    {
+      "path": "tools/validation-ingestion/invoke-linux-lifecycle.py",
+      "sha256": "ef1fe8dde00c5e6182d45fa9612cd8606518ea7e4a6a89d033f4d660dd8c2662"
+    },
+    {
+      "path": "tools/validation-ingestion/invoke-linux-failed-replacement.py",
+      "sha256": "0ac15d5803f6d533d6af130b52dd9093c67941f29e6b4dd48abd01e92cbcadda"
+    },
+    {
+      "path": "tools/validation-ingestion/linux_owned_runtime.py",
+      "sha256": "013df6c287e0249002cb80154622b17a164f882fb37a13c47f863173f8fcb54d"
+    },
+    {
+      "path": "tools/validation-ingestion/linux_lifecycle_checks.py",
+      "sha256": "b592022ed7873a7f9693df9c9f5ea827701bd2178343206988af038a0b3f6606"
+    },
+    {
+      "path": "tools/validation-ingestion/linux_failed_replacement_checks.py",
+      "sha256": "a7a8239b9a76ef56646178327a9b0b8f05f126b3fcd6a30a8918041b6ca1d75c"
+    },
+    {
+      "path": "tools/validation-ingestion/linux_runtime_queries.py",
+      "sha256": "be1aff6d2733294dc8727ad9c3a30eba2c939c21567075be3d71c8d49f2b27b9"
+    },
+    {
+      "path": "tools/validation-ingestion/vector_point_identity.py",
+      "sha256": "f744100e57ba0788a9829c0be93d982168ba46a14ba8db6c1ae83402519be9c3"
+    },
+    {
+      "path": "tools/validation-ingestion/embedding_attestation.py",
+      "sha256": "57ced0573825fcc2a17f019930123e9864256f8b40c90867db35401d8580f294"
+    },
+    {
+      "path": "tools/validation-ingestion/canonical_search_checks.py",
+      "sha256": "4aa3ba0ae906fefcaad7bf5fe1965f03bda96795f1157e5863ab89f0722f6266"
+    },
+    {
+      "path": "tools/validation-ingestion/linux_retrieval_fact_checks.py",
+      "sha256": "e04b7577cf6801e2113de2a268233acafe1b296d829b54e4c973bd7906a12090"
+    },
+    {
+      "path": "tools/validation-ingestion/verify_worker_publication.py",
+      "sha256": "1303362030d56c6134870e83c365eda88a743e50f25342a4c68e1b3dfba385da"
+    },
+    {
+      "path": "tools/ingestion_gold/canonical_evaluator.py",
+      "sha256": "8a2af0806a8327fd703a6d05918066882f6d539a2ded9eb302534fee272c38f0"
+    },
+    {
+      "path": "tools/ingestion_gold/contracts.py",
+      "sha256": "2e4de685b377d063adf32b3842e7af94717e46f65473a0c31e4573ce887ef6ca"
+    },
+    {
+      "path": "tools/ingestion_gold/critical_facts.py",
+      "sha256": "2a106e8ee4a6ee80edd5039dda1158117506bc9a84a2b4361ce35d254f308823"
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/run-production-sequential-v4.py",
+      "sha256": "d07ebca03bb998a0b0654344bed5b96b93a8735d2938284a877a22de6b87ca37"
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/bootstrap-owned-linux-v5.py",
+      "sha256": "6a5bf82d031ad85170e6337c45b2f7639a7be7b09e06441aabb9b90976589666"
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/run-production-lifecycle-final-v4.py",
+      "sha256": "70bdf35819c50d5209caca932cff0e33ad75eaa84255bc3db3c7a3f29db469de"
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/production-lifecycle-final-v4-source-pins.json",
+      "sha256": "25fbea2883b82fd5f6c4d610e5c3830d1279e5e38e12da80e8fe4acd6cfdd5bc"
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/test-production-lifecycle-final-v4.py",
+      "sha256": "6d62ae5cdd09683a54eaa25d50d581db8b3dd3d1e6683ec5154faff14f749a1b"
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/production-lifecycle-final-v4.md",
+      "sha256": "a2778f9646fb32dc8c550c6a3305601156e98a409cd659b1eba2318c6e7ccc05"
+    }
+  ],
+  "sourceInventoryAfter": [
+    {
+      "path": "tools/validation-ingestion/invoke-linux-ingestion.py",
+      "sha256": "eda60c2c8ff2dadfdb19e7f7f9afc4838cf3b59a6bdbdc1b055f83aa45115969"
+    },
+    {
+      "path": "tools/validation-ingestion/invoke-linux-lifecycle.py",
+      "sha256": "ef1fe8dde00c5e6182d45fa9612cd8606518ea7e4a6a89d033f4d660dd8c2662"
+    },
+    {
+      "path": "tools/validation-ingestion/invoke-linux-failed-replacement.py",
+      "sha256": "0ac15d5803f6d533d6af130b52dd9093c67941f29e6b4dd48abd01e92cbcadda"
+    },
+    {
+      "path": "tools/validation-ingestion/linux_owned_runtime.py",
+      "sha256": "013df6c287e0249002cb80154622b17a164f882fb37a13c47f863173f8fcb54d"
+    },
+    {
+      "path": "tools/validation-ingestion/linux_lifecycle_checks.py",
+      "sha256": "b592022ed7873a7f9693df9c9f5ea827701bd2178343206988af038a0b3f6606"
+    },
+    {
+      "path": "tools/validation-ingestion/linux_failed_replacement_checks.py",
+      "sha256": "a7a8239b9a76ef56646178327a9b0b8f05f126b3fcd6a30a8918041b6ca1d75c"
+    },
+    {
+      "path": "tools/validation-ingestion/linux_runtime_queries.py",
+      "sha256": "be1aff6d2733294dc8727ad9c3a30eba2c939c21567075be3d71c8d49f2b27b9"
+    },
+    {
+      "path": "tools/validation-ingestion/vector_point_identity.py",
+      "sha256": "f744100e57ba0788a9829c0be93d982168ba46a14ba8db6c1ae83402519be9c3"
+    },
+    {
+      "path": "tools/validation-ingestion/embedding_attestation.py",
+      "sha256": "57ced0573825fcc2a17f019930123e9864256f8b40c90867db35401d8580f294"
+    },
+    {
+      "path": "tools/validation-ingestion/canonical_search_checks.py",
+      "sha256": "4aa3ba0ae906fefcaad7bf5fe1965f03bda96795f1157e5863ab89f0722f6266"
+    },
+    {
+      "path": "tools/validation-ingestion/linux_retrieval_fact_checks.py",
+      "sha256": "e04b7577cf6801e2113de2a268233acafe1b296d829b54e4c973bd7906a12090"
+    },
+    {
+      "path": "tools/validation-ingestion/verify_worker_publication.py",
+      "sha256": "1303362030d56c6134870e83c365eda88a743e50f25342a4c68e1b3dfba385da"
+    },
+    {
+      "path": "tools/ingestion_gold/canonical_evaluator.py",
+      "sha256": "8a2af0806a8327fd703a6d05918066882f6d539a2ded9eb302534fee272c38f0"
+    },
+    {
+      "path": "tools/ingestion_gold/contracts.py",
+      "sha256": "2e4de685b377d063adf32b3842e7af94717e46f65473a0c31e4573ce887ef6ca"
+    },
+    {
+      "path": "tools/ingestion_gold/critical_facts.py",
+      "sha256": "2a106e8ee4a6ee80edd5039dda1158117506bc9a84a2b4361ce35d254f308823"
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/run-production-sequential-v4.py",
+      "sha256": "d07ebca03bb998a0b0654344bed5b96b93a8735d2938284a877a22de6b87ca37"
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/bootstrap-owned-linux-v5.py",
+      "sha256": "6a5bf82d031ad85170e6337c45b2f7639a7be7b09e06441aabb9b90976589666"
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/run-production-lifecycle-final-v4.py",
+      "sha256": "70bdf35819c50d5209caca932cff0e33ad75eaa84255bc3db3c7a3f29db469de"
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/production-lifecycle-final-v4-source-pins.json",
+      "sha256": "25fbea2883b82fd5f6c4d610e5c3830d1279e5e38e12da80e8fe4acd6cfdd5bc"
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/test-production-lifecycle-final-v4.py",
+      "sha256": "6d62ae5cdd09683a54eaa25d50d581db8b3dd3d1e6683ec5154faff14f749a1b"
+    },
+    {
+      "path": "artifacts/ingestion-runtime-gc-20261026/production-lifecycle-final-v4.md",
+      "sha256": "a2778f9646fb32dc8c550c6a3305601156e98a409cd659b1eba2318c6e7ccc05"
+    }
+  ]
+}

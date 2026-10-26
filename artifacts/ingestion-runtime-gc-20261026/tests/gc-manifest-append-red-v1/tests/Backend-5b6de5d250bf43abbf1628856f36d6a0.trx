@@ -1,0 +1,59 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="267167e2-520e-43ae-8b20-f67254df6cfc" name="maxim@MAXBI 2026-10-26 07:30:04" runUser="MAXBI\maxim" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-26T07:30:04.5424819+01:00" queuing="2026-10-26T07:30:04.5424821+01:00" start="2026-10-26T07:30:02.9379207+01:00" finish="2026-10-26T07:30:04.5463047+01:00" />
+  <TestSettings name="default" id="062164d6-7280-45ab-b803-32b7f7d5071c">
+    <Deployment runDeploymentRoot="maxim_MAXBI_2026-10-26_07_30_04" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="9ca69e5d-21cd-444a-89e0-639cb5fa8f64" testId="a2d42d4c-5317-a682-4c40-a316aa633273" testName="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_manifest_rejects_post_registration_point_append" computerName="MAXBI" duration="00:00:00.9951203" startTime="2026-10-26T07:30:04.4690808+01:00" endTime="2026-10-26T07:30:04.4690902+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9ca69e5d-21cd-444a-89e0-639cb5fa8f64">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Throws() Failure: No exception was thrown&#xD;
+Expected: typeof(Npgsql.PostgresException)</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_manifest_rejects_post_registration_point_append() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcRegistry.cs:line 24&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_manifest_rejects_post_registration_point_append() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcRegistry.cs:line 28&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_manifest_rejects_post_registration_point_append() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcRegistry.cs:line 28&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_manifest_rejects_post_registration_point_append() in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcRegistry.cs:line 28&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_manifest_rejects_post_registration_point_append" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="a2d42d4c-5317-a682-4c40-a316aa633273">
+      <Execution id="9ca69e5d-21cd-444a-89e0-639cb5fa8f64" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests" name="Vector_gc_manifest_rejects_post_registration_point_append" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="a2d42d4c-5317-a682-4c40-a316aa633273" executionId="9ca69e5d-21cd-444a-89e0-639cb5fa8f64" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Les résultats ne figurent pas dans une liste" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="Tous les résultats chargés" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="1" executed="1" passed="0" failed="1" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 8.0.27)&#xD;
+[xUnit.net 00:00:00.08]   Discovering: SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:00.27]   Discovered:  SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:00.28]   Starting:    SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:01.30]       Assert.Throws() Failure: No exception was thrown&#xD;
+[xUnit.net 00:00:01.30]       Expected: typeof(Npgsql.PostgresException)&#xD;
+[xUnit.net 00:00:01.30]       Stack Trace:&#xD;
+[xUnit.net 00:00:01.30]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcRegistry.cs(24,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_manifest_rejects_post_registration_point_append()&#xD;
+[xUnit.net 00:00:01.30]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcRegistry.cs(28,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_manifest_rejects_post_registration_point_append()&#xD;
+[xUnit.net 00:00:01.30]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcRegistry.cs(28,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_manifest_rejects_post_registration_point_append()&#xD;
+[xUnit.net 00:00:01.30]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.VectorGcRegistry.cs(28,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_manifest_rejects_post_registration_point_append()&#xD;
+[xUnit.net 00:00:01.30]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:01.30]   Finished:    SAAIA.Backend.Tests&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T07:30:04.4680482+01:00">
+        <Text>[xUnit.net 00:00:01.30]     SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Vector_gc_manifest_rejects_post_registration_point_append [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

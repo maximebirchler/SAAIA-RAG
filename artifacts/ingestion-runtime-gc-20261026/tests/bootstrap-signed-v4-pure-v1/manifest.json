@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "saaia-owned-signed-bootstrap-offline.v1",
+  "passed": true,
+  "executedTests": 16,
+  "failedTests": 0,
+  "skippedTests": 0,
+  "sourceChangedDuringRun": false,
+  "scope": "pure_synthetic_files_and_in_memory_Docker_only",
+  "servicesDockerDotnetSshGitExecuted": false,
+  "files": [
+    {
+      "path": "bootstrap-owned-linux-v4.py",
+      "sha256": "12732350fb28c8c8cfc9cad21fc216b5f832dedbbd8b25e5930adacd16f818e0",
+      "sizeBytes": 21081
+    },
+    {
+      "path": "test-bootstrap-owned-linux-v4.py",
+      "sha256": "5bf80681f4ec2dde59c3af5acd118d0c460a22df5af17ef9dbca683afbe49780",
+      "sizeBytes": 14601
+    },
+    {
+      "path": "bootstrap-owned-linux-v4-README.md",
+      "sha256": "deffdae17331b5a62f7c0c81bbc3d741b5877bdc35c59308591f0023ccead04c",
+      "sizeBytes": 7152
+    }
+  ],
+  "baseV3Sha256": "915497bcfd0d76bfd02d537856f22a9f432cb9293ecbc7781dd6ed37a27dc8c4",
+  "independentFindingsClosed": [
+    "prepopulated_public_model_caches_required_before_effects",
+    "create_persist_exact_cid_then_start"
+  ],
+  "publicSignatureUtf8BomAccepted": true,
+  "signatureCryptographicallyVerifiedByBootstrap": false,
+  "runtimeQualificationPerformed": false,
+  "durationSeconds": 1.36
+}

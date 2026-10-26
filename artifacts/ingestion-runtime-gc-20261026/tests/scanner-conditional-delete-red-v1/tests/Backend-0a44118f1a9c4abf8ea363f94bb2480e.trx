@@ -1,0 +1,113 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="f12707a9-529b-4e6b-b54c-53a42d89425b" name="maxim@MAXBI 2026-10-26 08:42:38" runUser="MAXBI\maxim" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-26T08:42:38.5402744+01:00" queuing="2026-10-26T08:42:38.5402745+01:00" start="2026-10-26T08:42:35.3118273+01:00" finish="2026-10-26T08:42:44.9925625+01:00" />
+  <TestSettings name="default" id="14675cdc-e82e-4153-a0e5-c81a0abd70e8">
+    <Deployment runDeploymentRoot="maxim_MAXBI_2026-10-26_08_42_38" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="27527848-91d6-4b46-a54e-75a0ad6ca392" testId="da93b449-d691-dba2-78b0-c7a7878e0ec0" testName="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(requiresSourceAbsence: True, sourceReturns: True)" computerName="MAXBI" duration="00:00:01.0034573" startTime="2026-10-26T08:42:44.9557670+01:00" endTime="2026-10-26T08:42:44.9557671+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="27527848-91d6-4b46-a54e-75a0ad6ca392">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Strings differ&#xD;
+           ↓ (pos 0)&#xD;
+Expected: "indexed"&#xD;
+Actual:   "deleted"&#xD;
+           ↑ (pos 0)</Message>
+          <StackTrace>   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(Boolean requiresSourceAbsence, Boolean sourceReturns) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.ScannerConditionalDelete.cs:line 70&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(Boolean requiresSourceAbsence, Boolean sourceReturns) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.ScannerConditionalDelete.cs:line 97&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(Boolean requiresSourceAbsence, Boolean sourceReturns) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.ScannerConditionalDelete.cs:line 97&#xD;
+   at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(Boolean requiresSourceAbsence, Boolean sourceReturns) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.ScannerConditionalDelete.cs:line 97&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="8fe2b4f3-21ac-4a2f-92bd-4841edaad6ea" testId="85b968a4-4d55-2ad8-1c77-5c21ab78317a" testName="SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_bounded_inventory_never_infers_absence_of_a_present_pdf(maximumFiles: 1, initialStatus: &quot;missing&quot;)" computerName="MAXBI" duration="00:00:00.8656671" startTime="2026-10-26T08:42:40.8914394+01:00" endTime="2026-10-26T08:42:40.8914398+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8fe2b4f3-21ac-4a2f-92bd-4841edaad6ea" />
+    <UnitTestResult executionId="dca3fd8e-45f1-42a0-9804-492316cf7049" testId="069ab459-203d-6a8f-edb2-444110701b17" testName="SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_bounded_inventory_never_infers_absence_of_a_present_pdf(maximumFiles: 3, initialStatus: &quot;missing&quot;)" computerName="MAXBI" duration="00:00:00.8687598" startTime="2026-10-26T08:42:40.0254387+01:00" endTime="2026-10-26T08:42:40.0254389+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="dca3fd8e-45f1-42a0-9804-492316cf7049" />
+    <UnitTestResult executionId="d5b7e41f-66f6-473e-b721-3c572ada0431" testId="6a730dfe-5419-24f6-5e30-0f50f46d267d" testName="SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_rotating_batches_eventually_admit_both_distinct_sources" computerName="MAXBI" duration="00:00:01.1817269" startTime="2026-10-26T08:42:37.3451140+01:00" endTime="2026-10-26T08:42:37.3451239+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d5b7e41f-66f6-473e-b721-3c572ada0431" />
+    <UnitTestResult executionId="067edf5f-082b-444e-867b-b69203c0177c" testId="be7f882d-38f9-3a93-1c28-8940f981aa62" testName="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(requiresSourceAbsence: False, sourceReturns: True)" computerName="MAXBI" duration="00:00:01.1902696" startTime="2026-10-26T08:42:42.9288011+01:00" endTime="2026-10-26T08:42:42.9288014+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="067edf5f-082b-444e-867b-b69203c0177c" />
+    <UnitTestResult executionId="43bc83fa-bc8a-4e3e-ad07-d54c5052ac39" testId="d663a4e9-0019-8817-ed26-a635eefd2286" testName="SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_bounded_inventory_never_infers_absence_of_a_present_pdf(maximumFiles: 1, initialStatus: &quot;indexed&quot;)" computerName="MAXBI" duration="00:00:00.8704166" startTime="2026-10-26T08:42:39.1563757+01:00" endTime="2026-10-26T08:42:39.1563760+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="43bc83fa-bc8a-4e3e-ad07-d54c5052ac39" />
+    <UnitTestResult executionId="10312227-c856-4fdb-90a2-c5e5c97ae6b9" testId="15d05c84-96d0-695b-3432-5fcda0be7e71" testName="SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_bounded_inventory_never_infers_absence_of_a_present_pdf(maximumFiles: 3, initialStatus: &quot;indexed&quot;)" computerName="MAXBI" duration="00:00:00.9398654" startTime="2026-10-26T08:42:38.2856150+01:00" endTime="2026-10-26T08:42:38.2856154+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="10312227-c856-4fdb-90a2-c5e5c97ae6b9" />
+    <UnitTestResult executionId="247df998-e61f-40c1-a1f5-7c24c8f71b8d" testId="480cd165-97c5-b5d4-b71c-918f0f79d255" testName="SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_complete_inventory_still_admits_a_proven_absent_pdf_after_grace" computerName="MAXBI" duration="00:00:00.8443263" startTime="2026-10-26T08:42:41.7360924+01:00" endTime="2026-10-26T08:42:41.7360927+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="247df998-e61f-40c1-a1f5-7c24c8f71b8d" />
+    <UnitTestResult executionId="e627cbf9-1ac9-40b2-9312-aa8c38f6da99" testId="d68a2480-fdc7-a642-f634-00f4620f9c9e" testName="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(requiresSourceAbsence: True, sourceReturns: False)" computerName="MAXBI" duration="00:00:01.0145430" startTime="2026-10-26T08:42:43.9436449+01:00" endTime="2026-10-26T08:42:43.9436453+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e627cbf9-1ac9-40b2-9312-aa8c38f6da99" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_complete_inventory_still_admits_a_proven_absent_pdf_after_grace" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="480cd165-97c5-b5d4-b71c-918f0f79d255">
+      <Execution id="247df998-e61f-40c1-a1f5-7c24c8f71b8d" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests" name="Scanner_complete_inventory_still_admits_a_proven_absent_pdf_after_grace" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_bounded_inventory_never_infers_absence_of_a_present_pdf(maximumFiles: 1, initialStatus: &quot;missing&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="85b968a4-4d55-2ad8-1c77-5c21ab78317a">
+      <Execution id="8fe2b4f3-21ac-4a2f-92bd-4841edaad6ea" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests" name="Scanner_bounded_inventory_never_infers_absence_of_a_present_pdf" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_rotating_batches_eventually_admit_both_distinct_sources" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="6a730dfe-5419-24f6-5e30-0f50f46d267d">
+      <Execution id="d5b7e41f-66f6-473e-b721-3c572ada0431" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests" name="Scanner_rotating_batches_eventually_admit_both_distinct_sources" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(requiresSourceAbsence: True, sourceReturns: True)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="da93b449-d691-dba2-78b0-c7a7878e0ec0">
+      <Execution id="27527848-91d6-4b46-a54e-75a0ad6ca392" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests" name="Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(requiresSourceAbsence: False, sourceReturns: True)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="be7f882d-38f9-3a93-1c28-8940f981aa62">
+      <Execution id="067edf5f-082b-444e-867b-b69203c0177c" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests" name="Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_bounded_inventory_never_infers_absence_of_a_present_pdf(maximumFiles: 1, initialStatus: &quot;indexed&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="d663a4e9-0019-8817-ed26-a635eefd2286">
+      <Execution id="43bc83fa-bc8a-4e3e-ad07-d54c5052ac39" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests" name="Scanner_bounded_inventory_never_infers_absence_of_a_present_pdf" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_bounded_inventory_never_infers_absence_of_a_present_pdf(maximumFiles: 3, initialStatus: &quot;indexed&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="15d05c84-96d0-695b-3432-5fcda0be7e71">
+      <Execution id="10312227-c856-4fdb-90a2-c5e5c97ae6b9" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests" name="Scanner_bounded_inventory_never_infers_absence_of_a_present_pdf" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(requiresSourceAbsence: True, sourceReturns: False)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="d68a2480-fdc7-a642-f634-00f4620f9c9e">
+      <Execution id="e627cbf9-1ac9-40b2-9312-aa8c38f6da99" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.DocumentFoundationIntegrationTests" name="Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_bounded_inventory_never_infers_absence_of_a_present_pdf(maximumFiles: 3, initialStatus: &quot;missing&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\backend\saaia.backend.tests\bin\release\net8.0\saaia.backend.tests.dll" id="069ab459-203d-6a8f-edb2-444110701b17">
+      <Execution id="dca3fd8e-45f1-42a0-9804-492316cf7049" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests" name="Scanner_bounded_inventory_never_infers_absence_of_a_present_pdf" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="da93b449-d691-dba2-78b0-c7a7878e0ec0" executionId="27527848-91d6-4b46-a54e-75a0ad6ca392" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="85b968a4-4d55-2ad8-1c77-5c21ab78317a" executionId="8fe2b4f3-21ac-4a2f-92bd-4841edaad6ea" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="069ab459-203d-6a8f-edb2-444110701b17" executionId="dca3fd8e-45f1-42a0-9804-492316cf7049" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6a730dfe-5419-24f6-5e30-0f50f46d267d" executionId="d5b7e41f-66f6-473e-b721-3c572ada0431" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="be7f882d-38f9-3a93-1c28-8940f981aa62" executionId="067edf5f-082b-444e-867b-b69203c0177c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d663a4e9-0019-8817-ed26-a635eefd2286" executionId="43bc83fa-bc8a-4e3e-ad07-d54c5052ac39" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="15d05c84-96d0-695b-3432-5fcda0be7e71" executionId="10312227-c856-4fdb-90a2-c5e5c97ae6b9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="480cd165-97c5-b5d4-b71c-918f0f79d255" executionId="247df998-e61f-40c1-a1f5-7c24c8f71b8d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d68a2480-fdc7-a642-f634-00f4620f9c9e" executionId="e627cbf9-1ac9-40b2-9312-aa8c38f6da99" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Les résultats ne figurent pas dans une liste" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="Tous les résultats chargés" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="9" executed="9" passed="8" failed="1" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 8.0.27)&#xD;
+[xUnit.net 00:00:00.25]   Discovering: SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:00.46]   Discovered:  SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:00.47]   Starting:    SAAIA.Backend.Tests&#xD;
+[xUnit.net 00:00:09.28]       Assert.Equal() Failure: Strings differ&#xD;
+[xUnit.net 00:00:09.28]                  ↓ (pos 0)&#xD;
+[xUnit.net 00:00:09.28]       Expected: "indexed"&#xD;
+[xUnit.net 00:00:09.28]       Actual:   "deleted"&#xD;
+[xUnit.net 00:00:09.28]                  ↑ (pos 0)&#xD;
+[xUnit.net 00:00:09.28]       Stack Trace:&#xD;
+[xUnit.net 00:00:09.28]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.ScannerConditionalDelete.cs(70,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(Boolean requiresSourceAbsence, Boolean sourceReturns)&#xD;
+[xUnit.net 00:00:09.28]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.ScannerConditionalDelete.cs(97,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(Boolean requiresSourceAbsence, Boolean sourceReturns)&#xD;
+[xUnit.net 00:00:09.28]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.ScannerConditionalDelete.cs(97,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(Boolean requiresSourceAbsence, Boolean sourceReturns)&#xD;
+[xUnit.net 00:00:09.28]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\DocumentFoundationIntegrationTests.ScannerConditionalDelete.cs(97,0): at SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(Boolean requiresSourceAbsence, Boolean sourceReturns)&#xD;
+[xUnit.net 00:00:09.28]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:09.28]   Finished:    SAAIA.Backend.Tests&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-26T08:42:44.9550895+01:00">
+        <Text>[xUnit.net 00:00:09.28]     SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Scanner_conditional_delete_rechecks_source_at_worker_and_preserves_returned_publication(requiresSourceAbsence: True, sourceReturns: True) [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

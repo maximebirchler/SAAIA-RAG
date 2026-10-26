@@ -1,0 +1,554 @@
+{
+  "schemaVersion": "saaia-linux-public-export-seal.v3",
+  "createdAtUtc": "2026-10-26T10:59:44.481343+00:00",
+  "campaigns": {
+    "production-gold": {
+      "runId": "84cf61ff-6fb9-4fd3-a1f6-8b4b559eecff",
+      "family": "production",
+      "kind": "gold"
+    },
+    "production-recipe": {
+      "runId": "5f40863a-7030-4593-b6b4-efc5bae0dae0",
+      "family": "production",
+      "kind": "recipe"
+    },
+    "production-lifecycle": {
+      "runId": "84cf61ff-6fb9-4fd3-a1f6-8b4b559eecff",
+      "family": "production",
+      "kind": "lifecycle"
+    },
+    "production-failed-replacement": {
+      "runId": "84cf61ff-6fb9-4fd3-a1f6-8b4b559eecff",
+      "family": "production",
+      "kind": "failed-replacement"
+    },
+    "production-retrieval-gold": {
+      "runId": "84cf61ff-6fb9-4fd3-a1f6-8b4b559eecff",
+      "family": "production",
+      "kind": "retrieval-gold"
+    },
+    "production-retrieval-recipe": {
+      "runId": "5f40863a-7030-4593-b6b4-efc5bae0dae0",
+      "family": "production",
+      "kind": "retrieval-recipe"
+    },
+    "production-auto-scanner": {
+      "runId": "678433d1-fb2a-4c9c-b3a9-04ba93800095",
+      "family": "production",
+      "kind": "auto-scanner"
+    },
+    "production-auto-watcher": {
+      "runId": "72dca7da-254d-40de-8f91-84b2c6a94a4e",
+      "family": "production",
+      "kind": "auto-watcher"
+    },
+    "production-auto-defaults": {
+      "runId": "624c1c62-019d-4262-b347-3512bbf4b7ab",
+      "family": "production",
+      "kind": "auto-defaults"
+    },
+    "signature-control": {
+      "runId": "84cf61ff-6fb9-4fd3-a1f6-8b4b559eecff",
+      "family": "independent_signature_control",
+      "kind": "signature-rejection",
+      "publicFile": "signature-rejection-result.json"
+    }
+  },
+  "selectedSources": [
+    "production-gold/execution-result.json",
+    "production-gold/publication-verification.json",
+    "production-gold/backend-binary-identity.json",
+    "production-gold/bound-runtime-provenance.json",
+    "production-gold/empty-baseline.json",
+    "production-gold/text-parser-conformance.json",
+    "production-gold/sql-text-conformance.json",
+    "production-gold/tei-attestation.json",
+    "production-recipe/execution-result.json",
+    "production-recipe/publication-verification.json",
+    "production-recipe/backend-binary-identity.json",
+    "production-recipe/bound-runtime-provenance.json",
+    "production-recipe/empty-baseline.json",
+    "production-recipe/text-parser-conformance.json",
+    "production-recipe/sql-text-conformance.json",
+    "production-recipe/tei-attestation.json",
+    "production-lifecycle/lifecycle-result.json",
+    "production-lifecycle/runtime-identity.json",
+    "production-failed-replacement/failed-replacement-result.json",
+    "production-failed-replacement/runtime-identity.json",
+    "production-retrieval-gold/retrieval-facts-result.json",
+    "production-retrieval-gold/runtime-identity.json",
+    "production-retrieval-gold/sql-text-conformance.json",
+    "production-retrieval-recipe/retrieval-facts-result.json",
+    "production-retrieval-recipe/runtime-identity.json",
+    "production-retrieval-recipe/sql-text-conformance.json",
+    "production-auto-scanner/automatic-ingestion-result.json",
+    "production-auto-scanner/backend-binary-identity.json",
+    "production-auto-scanner/bound-runtime-provenance.json",
+    "production-auto-scanner/text-parser-conformance.json",
+    "production-auto-scanner/sql-text-conformance.json",
+    "production-auto-scanner/tei-attestation.json",
+    "production-auto-watcher/automatic-ingestion-result.json",
+    "production-auto-watcher/backend-binary-identity.json",
+    "production-auto-watcher/bound-runtime-provenance.json",
+    "production-auto-watcher/text-parser-conformance.json",
+    "production-auto-watcher/sql-text-conformance.json",
+    "production-auto-watcher/tei-attestation.json",
+    "production-auto-defaults/automatic-ingestion-result.json",
+    "production-auto-defaults/backend-binary-identity.json",
+    "production-auto-defaults/bound-runtime-provenance.json",
+    "production-auto-defaults/text-parser-conformance.json",
+    "production-auto-defaults/sql-text-conformance.json",
+    "production-auto-defaults/tei-attestation.json",
+    "signature-control/signature-rejection-result.json",
+    "production-gold/runtime-container-attestation.json",
+    "production-recipe/runtime-container-attestation.json",
+    "production-lifecycle/runtime-container-attestation.json",
+    "production-failed-replacement/runtime-container-attestation.json",
+    "production-retrieval-gold/runtime-container-attestation.json",
+    "production-retrieval-recipe/runtime-container-attestation.json",
+    "production-auto-scanner/runtime-container-attestation.json",
+    "production-auto-watcher/runtime-container-attestation.json",
+    "production-auto-defaults/runtime-container-attestation.json"
+  ],
+  "files": [
+    {
+      "path": "production-gold--execution-result.json",
+      "sha256": "849be8161b4ce8a894638160b03b7905a95e004a861f6dcd8a59fea5a4d622b5",
+      "byteSize": 3189,
+      "sourceFile": "production-gold/execution-result.json",
+      "sourceSha256": "6065588c17fbd214cad47b2055e319e75c6ed6b2768208880770c0d898d42e0c",
+      "sourceByteSize": 2584
+    },
+    {
+      "path": "production-gold--publication-verification.json",
+      "sha256": "ed67465382a9bf99fd4b645a5b882b9233ca48dda0c69312fccf1b59bce59590",
+      "byteSize": 16175,
+      "sourceFile": "production-gold/publication-verification.json",
+      "sourceSha256": "f4696c1d3b675e92ec90221216078f50fc5cdf4e39b3f28878744d84ea02a0e6",
+      "sourceByteSize": 15306
+    },
+    {
+      "path": "production-gold--backend-binary-identity.json",
+      "sha256": "68ce7662151c12ab3bcee8b6915dd7bb6575a2376f26bfee375ffbf641ae5f30",
+      "byteSize": 806,
+      "sourceFile": "production-gold/backend-binary-identity.json",
+      "sourceSha256": "af06325c97890cb1a4fe43079c54c8c7696e50b79f85e298ffd32ae210efbce6",
+      "sourceByteSize": 340
+    },
+    {
+      "path": "production-gold--bound-runtime-provenance.json",
+      "sha256": "08c9059f3b94d54ba6e8b4803c99bcca743bff388f4b12cd1e0652b18bdada80",
+      "byteSize": 791,
+      "sourceFile": "production-gold/bound-runtime-provenance.json",
+      "sourceSha256": "964d9a8d9a34e6a028fcf53fcbe780f8898bf4bcc70e40159c95f13eb4315216",
+      "sourceByteSize": 322
+    },
+    {
+      "path": "production-gold--empty-baseline.json",
+      "sha256": "630998757e7147b223ea5c53a34874bc81b70fcb5a0e649184ba56c114d68c80",
+      "byteSize": 567,
+      "sourceFile": "production-gold/empty-baseline.json",
+      "sourceSha256": "44c7b8c8b04f18fc2f4770acf08665a5d6bb6f369d06dea2322cb18c764af023",
+      "sourceByteSize": 106
+    },
+    {
+      "path": "production-gold--text-parser-conformance.json",
+      "sha256": "7f7a237078f4ef3363adaad1a43c3bf588af845df5826fbb99a3f205f8e0e16c",
+      "byteSize": 575,
+      "sourceFile": "production-gold/text-parser-conformance.json",
+      "sourceSha256": "62ee2080c3eaf47c956c4492c82d9cb283caa58527996d6d33234fe97ff2fc4a",
+      "sourceByteSize": 109
+    },
+    {
+      "path": "production-gold--sql-text-conformance.json",
+      "sha256": "463244a829a0ea97ebd5dfa7b9e29d31301888fd2ab6efea3215c74ecdf871e4",
+      "byteSize": 882,
+      "sourceFile": "production-gold/sql-text-conformance.json",
+      "sourceSha256": "795f4648687c6369c809fa9aace662d506cc0a4f76b6c13da27cf56a342a8878",
+      "sourceByteSize": 383
+    },
+    {
+      "path": "production-gold--tei-attestation.json",
+      "sha256": "138cea5448d1c924b9ca4c263f08b5d95b606cc4e9a7c9085f264beb36ad2422",
+      "byteSize": 1964,
+      "sourceFile": "production-gold/tei-attestation.json",
+      "sourceSha256": "a7f9c810bc5d42858ac7a7740facacd2b32b407569e6fb4cfbfa889c39d36b79",
+      "sourceByteSize": 2170
+    },
+    {
+      "path": "production-recipe--execution-result.json",
+      "sha256": "14cd8266d9847c9e8f734b36b1a7393e56cff1618fb47ad9e877c6abb49ad7fd",
+      "byteSize": 2818,
+      "sourceFile": "production-recipe/execution-result.json",
+      "sourceSha256": "92f09c0a5f58142e8054d1b5b377b32ee73399de986f3c44639a0da5423c2aeb",
+      "sourceByteSize": 2233
+    },
+    {
+      "path": "production-recipe--publication-verification.json",
+      "sha256": "261127b295c515cab5af38988c66446a1d2cfb62442e68483813f8de40cde491",
+      "byteSize": 2242,
+      "sourceFile": "production-recipe/publication-verification.json",
+      "sourceSha256": "f4d4e2a0dcbc55e464c09c02e4b589f71407d43286e13d6fb343fa76c9b63a8d",
+      "sourceByteSize": 2120
+    },
+    {
+      "path": "production-recipe--backend-binary-identity.json",
+      "sha256": "458596fc5a2d4d74d7c07f0e5c66ba4c788ebd9adb17d8b3e27d961569de6093",
+      "byteSize": 808,
+      "sourceFile": "production-recipe/backend-binary-identity.json",
+      "sourceSha256": "af06325c97890cb1a4fe43079c54c8c7696e50b79f85e298ffd32ae210efbce6",
+      "sourceByteSize": 340
+    },
+    {
+      "path": "production-recipe--bound-runtime-provenance.json",
+      "sha256": "a31303d0d66d29efd71a9feb49b6e8472b01286ddef43df36e4594b0edff1534",
+      "byteSize": 793,
+      "sourceFile": "production-recipe/bound-runtime-provenance.json",
+      "sourceSha256": "964d9a8d9a34e6a028fcf53fcbe780f8898bf4bcc70e40159c95f13eb4315216",
+      "sourceByteSize": 322
+    },
+    {
+      "path": "production-recipe--empty-baseline.json",
+      "sha256": "14dab14885f4b54f091b581e2ca50548e34fe8f66443af735706b3173a0e74bd",
+      "byteSize": 569,
+      "sourceFile": "production-recipe/empty-baseline.json",
+      "sourceSha256": "44c7b8c8b04f18fc2f4770acf08665a5d6bb6f369d06dea2322cb18c764af023",
+      "sourceByteSize": 106
+    },
+    {
+      "path": "production-recipe--text-parser-conformance.json",
+      "sha256": "5009cd7e3fd8279abd9eb0a7ebd61c5d0caea511929a12415ef3246a02b596d6",
+      "byteSize": 577,
+      "sourceFile": "production-recipe/text-parser-conformance.json",
+      "sourceSha256": "62ee2080c3eaf47c956c4492c82d9cb283caa58527996d6d33234fe97ff2fc4a",
+      "sourceByteSize": 109
+    },
+    {
+      "path": "production-recipe--sql-text-conformance.json",
+      "sha256": "7c11a3ca4eee463ddc0bd70ee1ea68509d7809728ef1471e37ba078f62e2b76b",
+      "byteSize": 888,
+      "sourceFile": "production-recipe/sql-text-conformance.json",
+      "sourceSha256": "3ffa009f3f75f8dbb2b6db33f291bd6afa46c695bf2e84627005ff7c6906ce69",
+      "sourceByteSize": 387
+    },
+    {
+      "path": "production-recipe--tei-attestation.json",
+      "sha256": "d6038dd888905f8b87f795ec39d74b4074b5809e8659982e89c17eedd523cb58",
+      "byteSize": 1966,
+      "sourceFile": "production-recipe/tei-attestation.json",
+      "sourceSha256": "34b5f8369dda7fc9d00d33c5a083232c9652a885e947b6ce67aee25cc02d8d31",
+      "sourceByteSize": 2170
+    },
+    {
+      "path": "production-lifecycle--lifecycle-result.json",
+      "sha256": "782042fbeaf19a34def1f092e4e47f3b347f6a7d89ea6b1dc192aa96885b334c",
+      "byteSize": 8566,
+      "sourceFile": "production-lifecycle/lifecycle-result.json",
+      "sourceSha256": "c1a3e6accaeac50fcb1ce98f2a7b2f52866670bc6fe33095731dbfd0c011f57e",
+      "sourceByteSize": 7791
+    },
+    {
+      "path": "production-lifecycle--runtime-identity.json",
+      "sha256": "4e3845cfe535ac9dd962f325d1611f98dd47066f8c63cf1cb41e82a1500838c6",
+      "byteSize": 2814,
+      "sourceFile": "production-lifecycle/runtime-identity.json",
+      "sourceSha256": "75e90f5a69ba94550c39e7fc5a26af56693405c24309ecf1e74e39060b51cf34",
+      "sourceByteSize": 2233
+    },
+    {
+      "path": "production-failed-replacement--failed-replacement-result.json",
+      "sha256": "8fdfc42bd6a576be094512ad1d9d08cad2b2f4ab0a729099f15f1f9eee86d45d",
+      "byteSize": 6436,
+      "sourceFile": "production-failed-replacement/failed-replacement-result.json",
+      "sourceSha256": "b1756f4906e83e993cde2e1b306fa9ead4667dc32993d4f2655702d4aca2f767",
+      "sourceByteSize": 5986
+    },
+    {
+      "path": "production-failed-replacement--runtime-identity.json",
+      "sha256": "d06a50da97a5d5de8a89913215bb1550238ef4a12077aa261dc536cbd2d7de5a",
+      "byteSize": 2823,
+      "sourceFile": "production-failed-replacement/runtime-identity.json",
+      "sourceSha256": "75e90f5a69ba94550c39e7fc5a26af56693405c24309ecf1e74e39060b51cf34",
+      "sourceByteSize": 2233
+    },
+    {
+      "path": "production-retrieval-gold--retrieval-facts-result.json",
+      "sha256": "16562134acba499886d2707f5f492370e82d9b8fa281070a1e942f5f05e64f15",
+      "byteSize": 92956,
+      "sourceFile": "production-retrieval-gold/retrieval-facts-result.json",
+      "sourceSha256": "7af863cb6dd3b7b196cdc3b1c7489fb0af29790770428b7a67b6a94592e7f19f",
+      "sourceByteSize": 88223
+    },
+    {
+      "path": "production-retrieval-gold--runtime-identity.json",
+      "sha256": "d7c5f9cced36bd7969b8d330de5a87590229d1385f176eec449f684abd4b4a71",
+      "byteSize": 2819,
+      "sourceFile": "production-retrieval-gold/runtime-identity.json",
+      "sourceSha256": "60a36db202c7e77494089c5043e7883daa69861ae05704e9d609bb1dc99f5d15",
+      "sourceByteSize": 2233
+    },
+    {
+      "path": "production-retrieval-gold--sql-text-conformance.json",
+      "sha256": "2d00e1dbac3c68352cb073811867c0325a10918c45c2e689874225b8a27e752c",
+      "byteSize": 892,
+      "sourceFile": "production-retrieval-gold/sql-text-conformance.json",
+      "sourceSha256": "7c4a9c1e7593e7ea52e75d7348924618130aa6d33382f86963403439b44cd8ba",
+      "sourceByteSize": 383
+    },
+    {
+      "path": "production-retrieval-recipe--retrieval-facts-result.json",
+      "sha256": "8171e8e334bc5d4a736e30179987db7f992bb735cfbf8b5da23751da0cf0c987",
+      "byteSize": 18466,
+      "sourceFile": "production-retrieval-recipe/retrieval-facts-result.json",
+      "sourceSha256": "04051e53a553803195d54a1c67bebbf92fd7df34ab9d9ba85a8a544f1e08b5c7",
+      "sourceByteSize": 17229
+    },
+    {
+      "path": "production-retrieval-recipe--runtime-identity.json",
+      "sha256": "994b7745aa91a2fca23f70669d5cb7356ac44c7527bdd2b391fdb580fec4c854",
+      "byteSize": 2821,
+      "sourceFile": "production-retrieval-recipe/runtime-identity.json",
+      "sourceSha256": "b640b86a5be5c6f41e76285fc93eb7454c684ed735affa0a52bbcb04ba0fb73b",
+      "sourceByteSize": 2233
+    },
+    {
+      "path": "production-retrieval-recipe--sql-text-conformance.json",
+      "sha256": "f5a138ce4a5f70e4884edd2adef55c80888e6b27dbc55f13e18ec7a09d0e1ad9",
+      "byteSize": 898,
+      "sourceFile": "production-retrieval-recipe/sql-text-conformance.json",
+      "sourceSha256": "3ffa009f3f75f8dbb2b6db33f291bd6afa46c695bf2e84627005ff7c6906ce69",
+      "sourceByteSize": 387
+    },
+    {
+      "path": "production-auto-scanner--automatic-ingestion-result.json",
+      "sha256": "1a84efb7e5ee54bd101ec0ec17c9c9234733c1c757e4321e85683f9b8b5192a4",
+      "byteSize": 10247,
+      "sourceFile": "production-auto-scanner/automatic-ingestion-result.json",
+      "sourceSha256": "a50801b5215b883ccd5f8e6121e1dc8cd93766379493974af197d4db87192948",
+      "sourceByteSize": 9828
+    },
+    {
+      "path": "production-auto-scanner--backend-binary-identity.json",
+      "sha256": "875563a063131468b396dba445ce3db0bdcfd765267e4c019e94b366a59e3ec5",
+      "byteSize": 649,
+      "sourceFile": "production-auto-scanner/backend-binary-identity.json",
+      "sourceSha256": "0b352da8494561b735103167b2e21af0608790ac71965d4d80d38ba3d4f9a81e",
+      "sourceByteSize": 179
+    },
+    {
+      "path": "production-auto-scanner--bound-runtime-provenance.json",
+      "sha256": "b58d94a98cb536a24f4a38161ef4532c8fb9f08850446a1b9f69bd5b371813ef",
+      "byteSize": 799,
+      "sourceFile": "production-auto-scanner/bound-runtime-provenance.json",
+      "sourceSha256": "964d9a8d9a34e6a028fcf53fcbe780f8898bf4bcc70e40159c95f13eb4315216",
+      "sourceByteSize": 322
+    },
+    {
+      "path": "production-auto-scanner--text-parser-conformance.json",
+      "sha256": "3ad4a284280f921025cc0c8b8afa6520e1cb300e7b833cecf35bfda749acb887",
+      "byteSize": 583,
+      "sourceFile": "production-auto-scanner/text-parser-conformance.json",
+      "sourceSha256": "62ee2080c3eaf47c956c4492c82d9cb283caa58527996d6d33234fe97ff2fc4a",
+      "sourceByteSize": 109
+    },
+    {
+      "path": "production-auto-scanner--sql-text-conformance.json",
+      "sha256": "d26e3e00c2a18ba968672c0c5b02ffa9e51280e2c4daa7ba235745f589ff5a7d",
+      "byteSize": 890,
+      "sourceFile": "production-auto-scanner/sql-text-conformance.json",
+      "sourceSha256": "83325443eebeb7528251501b4c9ad097ecd2e206d693b26ac341a95e55bd0b1d",
+      "sourceByteSize": 383
+    },
+    {
+      "path": "production-auto-scanner--tei-attestation.json",
+      "sha256": "3ed47600051aa586a3876ac661f68b35e9656e31df6c6da676d48fa03018c416",
+      "byteSize": 1924,
+      "sourceFile": "production-auto-scanner/tei-attestation.json",
+      "sourceSha256": "16308b9c038b12f4d7f268f23059330013de09ca5e7a330b0a84dee111939557",
+      "sourceByteSize": 2124
+    },
+    {
+      "path": "production-auto-watcher--automatic-ingestion-result.json",
+      "sha256": "5b3e283ead881eec935f0a58489bc4abbe3bd8f1a76991bed7a54b751fe3fc6f",
+      "byteSize": 10394,
+      "sourceFile": "production-auto-watcher/automatic-ingestion-result.json",
+      "sourceSha256": "f3997d9ad54166bc782d18f84f1571a76c570a14595848a0527e3a669734afc3",
+      "sourceByteSize": 9963
+    },
+    {
+      "path": "production-auto-watcher--backend-binary-identity.json",
+      "sha256": "5f1e0e6c3137207cfb00b02b126f30a445c1afa1b69cb340aa53f94d1dcfb710",
+      "byteSize": 649,
+      "sourceFile": "production-auto-watcher/backend-binary-identity.json",
+      "sourceSha256": "0b352da8494561b735103167b2e21af0608790ac71965d4d80d38ba3d4f9a81e",
+      "sourceByteSize": 179
+    },
+    {
+      "path": "production-auto-watcher--bound-runtime-provenance.json",
+      "sha256": "f181344ccedcebd343117457d7989b345194d00ad3d42cec4190b64ba724a324",
+      "byteSize": 799,
+      "sourceFile": "production-auto-watcher/bound-runtime-provenance.json",
+      "sourceSha256": "964d9a8d9a34e6a028fcf53fcbe780f8898bf4bcc70e40159c95f13eb4315216",
+      "sourceByteSize": 322
+    },
+    {
+      "path": "production-auto-watcher--text-parser-conformance.json",
+      "sha256": "ef81c078800c3ae68bbbe3a12dbe9aa404df9fb3afe16472a3d7ea677c300aa2",
+      "byteSize": 583,
+      "sourceFile": "production-auto-watcher/text-parser-conformance.json",
+      "sourceSha256": "62ee2080c3eaf47c956c4492c82d9cb283caa58527996d6d33234fe97ff2fc4a",
+      "sourceByteSize": 109
+    },
+    {
+      "path": "production-auto-watcher--sql-text-conformance.json",
+      "sha256": "8d055b4b8524dfb0ec3709631a0dcc937b326ca7556941c5e8dadb23671c323b",
+      "byteSize": 890,
+      "sourceFile": "production-auto-watcher/sql-text-conformance.json",
+      "sourceSha256": "28f6c508e2479f9fbb9285448ea98d487d447b55217fb9bc599ef209ad708451",
+      "sourceByteSize": 383
+    },
+    {
+      "path": "production-auto-watcher--tei-attestation.json",
+      "sha256": "3b6c301d86d8b2f7b0dbe606a7faa460be846e5e9140f263a90fcbe594f35b28",
+      "byteSize": 1924,
+      "sourceFile": "production-auto-watcher/tei-attestation.json",
+      "sourceSha256": "b0eeef7c28a6368822347ab33c6f8cfbef31451024862ea926f456bbb92cc092",
+      "sourceByteSize": 2124
+    },
+    {
+      "path": "production-auto-defaults--automatic-ingestion-result.json",
+      "sha256": "33cea68c5e20ec408f698b3f4ec9150d842567f9d721f46e0fb2859e60e88466",
+      "byteSize": 11605,
+      "sourceFile": "production-auto-defaults/automatic-ingestion-result.json",
+      "sourceSha256": "410919994fc52fc3d0bdb60a5901ca4eaf9ab15b49649b4e3bcc540ecc0b3f3d",
+      "sourceByteSize": 11141
+    },
+    {
+      "path": "production-auto-defaults--backend-binary-identity.json",
+      "sha256": "7276496d44f878dbb182f2532ff0058adf49835ee1db9c7b5d33f0f78e7735a7",
+      "byteSize": 650,
+      "sourceFile": "production-auto-defaults/backend-binary-identity.json",
+      "sourceSha256": "0b352da8494561b735103167b2e21af0608790ac71965d4d80d38ba3d4f9a81e",
+      "sourceByteSize": 179
+    },
+    {
+      "path": "production-auto-defaults--bound-runtime-provenance.json",
+      "sha256": "0a312d06b43221cf02f478f665ae4c96004c86d04fb12ed70eb561cf169c79a0",
+      "byteSize": 800,
+      "sourceFile": "production-auto-defaults/bound-runtime-provenance.json",
+      "sourceSha256": "964d9a8d9a34e6a028fcf53fcbe780f8898bf4bcc70e40159c95f13eb4315216",
+      "sourceByteSize": 322
+    },
+    {
+      "path": "production-auto-defaults--text-parser-conformance.json",
+      "sha256": "db3506d611e8934237ec47b0279b5fba8f7de05d4091dd3b7285949c949b205a",
+      "byteSize": 584,
+      "sourceFile": "production-auto-defaults/text-parser-conformance.json",
+      "sourceSha256": "62ee2080c3eaf47c956c4492c82d9cb283caa58527996d6d33234fe97ff2fc4a",
+      "sourceByteSize": 109
+    },
+    {
+      "path": "production-auto-defaults--sql-text-conformance.json",
+      "sha256": "07a6ce043375309cbeb2255ab7320288327f35e7171e8f17095caa574b208d22",
+      "byteSize": 891,
+      "sourceFile": "production-auto-defaults/sql-text-conformance.json",
+      "sourceSha256": "58c8daf4a69708348a3bc98844c9ab4f6daa29a38985c8c9d3201e72dd2441d9",
+      "sourceByteSize": 383
+    },
+    {
+      "path": "production-auto-defaults--tei-attestation.json",
+      "sha256": "0137145f3089890fb63e0f8302800e5cee918dce1021a4934cdb64109abf0c0a",
+      "byteSize": 1925,
+      "sourceFile": "production-auto-defaults/tei-attestation.json",
+      "sourceSha256": "3959fff965952ab0aad539e4431dbfc24b28d7da87987a9e71aa4d1a4cc3d816",
+      "sourceByteSize": 2124
+    },
+    {
+      "path": "signature-control--signature-rejection-result.json",
+      "sha256": "225587684800beca09d75503a425520944798d786b4228ecee10e376bca1ebbb",
+      "byteSize": 1617,
+      "sourceFile": "signature-control/signature-rejection-result.json",
+      "sourceSha256": "26b22bc5cfc8af2a38dc5218ead7e5569d5aea80f2820d2f9edd1d5442f7ec8a",
+      "sourceByteSize": 939
+    },
+    {
+      "path": "production-gold--runtime-container-attestation.json",
+      "sha256": "3b0e8e2fda59390d4c521a6f01183cdc53ba23f39508197c8bef330aabe2790a",
+      "byteSize": 3310,
+      "sourceFile": "production-gold/runtime-container-attestation.json",
+      "sourceSha256": "d8845eb000128a7efef14dc44f80caff5154f088c23652149e8b25eb0136edf7",
+      "sourceByteSize": 2394
+    },
+    {
+      "path": "production-recipe--runtime-container-attestation.json",
+      "sha256": "3552025f5b15bf83a46777e92024502858fda58ce721e1036f2ddc01826f21b3",
+      "byteSize": 3312,
+      "sourceFile": "production-recipe/runtime-container-attestation.json",
+      "sourceSha256": "0ad26cd3318cf15ed378f0d72c5b45fff601dd37b44da0420c9f0e98f1896b2e",
+      "sourceByteSize": 2394
+    },
+    {
+      "path": "production-lifecycle--runtime-container-attestation.json",
+      "sha256": "0818c2ab3c42af72c3cbc903be37a985d73f21586ec78f71456500db371979e3",
+      "byteSize": 3315,
+      "sourceFile": "production-lifecycle/runtime-container-attestation.json",
+      "sourceSha256": "b3d90632d51bbd40c0f6496893da9e0b423d0d8972c5296780cc12e520c7d5b6",
+      "sourceByteSize": 2394
+    },
+    {
+      "path": "production-failed-replacement--runtime-container-attestation.json",
+      "sha256": "2f30718446d0206ec50b89cec2ac137f37d4a7e05c78906a6dece54441a3b481",
+      "byteSize": 3324,
+      "sourceFile": "production-failed-replacement/runtime-container-attestation.json",
+      "sourceSha256": "5464d0177402def0a685f3dadb659c79cb26bc252152861133acca6112f896cb",
+      "sourceByteSize": 2394
+    },
+    {
+      "path": "production-retrieval-gold--runtime-container-attestation.json",
+      "sha256": "dffbf9b4f6d0576024ca306638479dc330e3f5b4028023649b2498446a85031f",
+      "byteSize": 3319,
+      "sourceFile": "production-retrieval-gold/runtime-container-attestation.json",
+      "sourceSha256": "1af0ce26fd593f572106cfea2233bbb953ec5dcb31e3ac536146148c2b0ea2ed",
+      "sourceByteSize": 2394
+    },
+    {
+      "path": "production-retrieval-recipe--runtime-container-attestation.json",
+      "sha256": "f777cb83cb3c03528ebfe03292933b6e579d96b58be2c9bb5e4e5f8de71028dc",
+      "byteSize": 3321,
+      "sourceFile": "production-retrieval-recipe/runtime-container-attestation.json",
+      "sourceSha256": "023b7196c398a173b6aaf90ffb0937623fd30737702be18f16f83ce54886c128",
+      "sourceByteSize": 2394
+    },
+    {
+      "path": "production-auto-scanner--runtime-container-attestation.json",
+      "sha256": "b9aedc31964b9a93f1a6c730e92dba14b49d4be2ece21816b94ee38e75f34650",
+      "byteSize": 3318,
+      "sourceFile": "production-auto-scanner/runtime-container-attestation.json",
+      "sourceSha256": "7ac2cb8dfcc35c40a2d7f921b55e6e36a0793dba6031b94894acd92c90e62cd2",
+      "sourceByteSize": 2394
+    },
+    {
+      "path": "production-auto-watcher--runtime-container-attestation.json",
+      "sha256": "60d7e5b42b6b9340c7a0ff2ec07771a95686cf44317b44d4ecdf0fc2442f75ca",
+      "byteSize": 3318,
+      "sourceFile": "production-auto-watcher/runtime-container-attestation.json",
+      "sourceSha256": "e00fc17d3176e09817b6f06babcb89632b48ba2b19623a580dbcd1cfcd451175",
+      "sourceByteSize": 2394
+    },
+    {
+      "path": "production-auto-defaults--runtime-container-attestation.json",
+      "sha256": "72cad4144234b43c13ecbb0b79cb24c0941c8b77bfd10461e2b6d40c6f9f3595",
+      "byteSize": 3319,
+      "sourceFile": "production-auto-defaults/runtime-container-attestation.json",
+      "sourceSha256": "44317c4927b4f1a7435b44ee49cb96dd5574d6b8f8125701639c6c64ca7ed04d",
+      "sourceByteSize": 2394
+    }
+  ],
+  "projectionOnly": true,
+  "runtimeAcceptanceInferredByExporter": false,
+  "networkCalls": 0,
+  "subprocessCalls": 0,
+  "secretStoresRead": 0,
+  "rawCapturesExported": false,
+  "projectionBaseSha256": "27d709df697eab65d8ba835634954e4290753a83859ac1417d18d7d9da5dc862"
+}

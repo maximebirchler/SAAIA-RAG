@@ -1,0 +1,47 @@
+SAAIA — progrès et défaut de démarrage identifié depuis le précédent rapport
+26 octobre 2026 — 11h27, heure locale
+
+Le blocage de signature est levé et les principales preuves sont maintenant obtenues en Production signée, sur une image Linux identifiée. Aucun appel de LLM payant ni test de planning n’a été effectué.
+
+CE QUI A ÉTÉ EXÉCUTÉ ET VALIDÉ
+
+1. J’ai signé les configurations de qualification avec la clé indiquée dans le dossier Keys, sur ce PC. La signature a été vérifiée avec la clé publique déjà reconnue par le backend. La clé privée n’a été ni affichée ni transférée sur le serveur. Un vrai démarrage backend avec une configuration volontairement altérée a été rejeté. Le contrôle conserve son exit code 139 et son absence d’OOM ; je ne le présente pas comme une sortie normale.
+
+2. Les 12 PDF de référence ont passé l’ingestion réelle en Production : les 90 faits annotés, les textes et hashes SQL, les vecteurs et les contrôles recherche puis relecture sont validés. Le livre de recettes a également passé cette nouvelle campagne : 36 pages et 16 faits. Les anciens PASS Development restent des preuves différentes ; je ne les ai pas renommés en Production.
+
+3. Le cycle de vie et la purge ont été rejoués en Production : remplacement du PDF, collecte des seuls anciens points connus, réapparition tardive d’un ancien point puis recollecte, suppression, recréation avec génération supérieure et annulation. Les publications et vecteurs des autres documents sont préservés. Le test de remplacement par un PDF invalide conserve l’ancienne publication ; la reprise avec une source valide réussit ensuite.
+
+4. Le contrôle recherche → lecture a été étendu à toutes les annotations : 90/90 sur les PDF de référence et 16/16 sur le livre, zéro échec. Les 106 contrôles relient le fait à la source, la page physique, la révision et le chunk courant. Les deux campagnes ont utilisé 163 appels HTTP locaux au total, contrôles négatifs compris. Il n’y a aucun appel de génération LLM. Cela valide la retrouvabilité littérale des faits annotés, pas toutes les reformulations ni le raisonnement de planning.
+
+5. Le scanner seul a passé son parcours automatique sur une base neuve : ajout, modification, retrait, purge, recréation et préservation des autres documents. Le watcher seul a lui aussi passé son parcours. Dans le watcher, un même instantané SQL montre réellement deux jobs running, avec deux consommateurs w0/w1 distincts. Cela prouve deux workers, pas deux calculs OCR simultanés.
+
+LES ÉCARTS DU BANC CORRIGÉS
+
+Le premier essai scanner a retrouvé et relu correctement la source, mais l’outil de validation exigeait un tableau vide dans un champ que le backend omet normalement quand aucun retriever n’est dégradé. Le diagnostic est causal : identités, fait exact, relecture et présence dans le bundle physique étaient tous vrais ; seul ce contrôle était faux.
+J’ai corrigé le contrat de l’outil : absence/null/collection vide admis selon le vrai DTO ; mauvais types et diagnostics non vides refusés. Les tests causaux précèdent le correctif, puis la suite centrale passe 180/180. L’ancien essai en échec reste conservé ; le scanner a été relancé dans un namespace neuf.
+
+Une coupure HTTP transitoire a aussi arrêté trop tôt l’attente de démarrage du watcher, avant tout essai documentaire. Le script opérateur attend maintenant ces erreurs de connexion dans une fenêtre bornée. L’échec et le nettoyage restent conservés séparément du PASS fonctionnel ultérieur.
+
+LE DÉFAUT RESTANT, IDENTIFIÉ PRÉCISÉMENT
+
+Le parcours combiné scanner + watcher, avec un PDF déjà présent au démarrage, a échoué. Trois jobs ont reçu HTTP 502 à 10:20:39, 10:20:41 et 10:20:43 UTC. Les logs Docling montrent une connexion refusée vers son moteur interne. Ce moteur n’a commencé à écouter qu’à 10:20:44, puis a terminé son démarrage à 10:20:46.
+
+Cause initiale : le bootstrap de qualification attendait seulement que le conteneur Docling soit Running. Il lançait ensuite le backend et son scanner avant que le moteur interne soit disponible. Le parcours Compose produit attend déjà la santé Docling ; le banc n’était donc pas équivalent sur ce point. Les parcours sans fichier préchargé ne voyaient pas cette fenêtre, puisque les PDF étaient ajoutés plus tard.
+
+Deuxième problème, côté logiciel : cette erreur Docling devient actuellement un échec de job. Le worker sait reporter certaines pannes Qdrant, mais cette reprise ne couvre pas le transport Docling. Le scanner crée alors de nouvelles tentatives avant son backoff. Je traite aussi ce point, au lieu de seulement rendre le banc plus favorable.
+
+CE QUE JE CHANGE MAINTENANT
+
+- Le bootstrap attendra une vraie santé Docling avant de créer le backend. Le PDF restera préchargé : on garde le scénario qui a révélé le défaut. La preuve devra dater cette santé avant le démarrage du backend.
+- La conversion Docling recevra une reprise de transport bornée, avec un budget de temps global, annulation conservée et requête multipart rejouée correctement. Les réponses JSON/enveloppes invalides, erreurs de schéma, authentification et PDF invalides resteront terminales. Un HTTP 502 n’est pas automatiquement une panne transitoire : le wrapper l’utilise aussi pour des réponses invalides.
+- Les tests causaux seront exécutés avant la correction, puis les contrôles verts. Une nouvelle image sera reconstruite et les parcours concernés requalifiés. Les PASS du binaire précédent garderont leur identité historique ; ils ne valideront pas par avance le nouveau binaire.
+
+PREUVES, GIT ET PROTECTION DES DONNÉES
+
+Les preuves publiques sont exportées par une liste explicite et scellées par SHA256. Une première projection réelle de 20 fichiers, puis une de 40 avec les attestations de conteneurs et le contrôle de signature, passent. Les captures SQL, textes, vecteurs, configurations et clés restent hors de ces exports.
+
+Les 444 fichiers du snapshot de build ont été rapprochés du checkout et de l’index Git : 442 identiques en octets, deux différents uniquement par la normalisation de fins de ligne déclarée par Git. 89 fichiers de produit, tests et outillage sont préparés dans l’index par listes explicites. Je n’ai pas encore commité/poussé ce lot, puisque le dernier défaut nécessite une correction et une nouvelle validation.
+
+À 10:26 UTC, j’ai revérifié les 22 conteneurs existants du serveur : mêmes identités, images, dates de démarrage, compteurs de redémarrage et états. Tous les essais restent dans leurs namespaces dédiés. La dernière campagne combinée a clôturé avec zéro job actif, ses cinq conteneurs arrêtés et les bindings de ports absents.
+
+Statut : TESTE_NON_APPROUVE. Le point bloquant actuel est la robustesse du démarrage/repli Docling, précisément reproduite ; ce n’est pas un défaut constaté de compréhension du modèle. Je continue sa correction et la qualification avant le planning. Aucun crédit supplémentaire n’est nécessaire pour ce travail.

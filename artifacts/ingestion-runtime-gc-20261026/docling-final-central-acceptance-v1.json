@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "saaia-final-docling-unit-pg-acceptance.v1",
+  "unitRunId": "4e87ad51184f4572966e89a099f9b221",
+  "unitPassed": 5323,
+  "unitSkipped": 2,
+  "backendPassed": 2802,
+  "newRetryCasesPassed": 26,
+  "postgresRunId": "bc44cc73f4214458bc9e1e52c86e501a",
+  "postgresPassed": 350,
+  "postgresSkipped": 2,
+  "sameSourceFingerprint": true,
+  "sourceStable": true,
+  "sameFourBackendAssemblyAnchors": true,
+  "assemblyAnchors": {
+    "SAAIA.AdvancedValidationJobGuard.dll": "79b463a4b048d90378344d9f77b14172b88fc2429dd6d9c114949f551ab39f7b",
+    "SAAIA.Backend.dll": "36d369a7ae567b73698324de1e76c078267edf386ecfd16f45a23c76513cf5a0",
+    "SAAIA.Backend.Tests.dll": "583c9042fb813784d405311e0dacdd68ec04637c9c4f4e8ce7a44b057299523f",
+    "SAAIA.Contracts.dll": "998e1caca2d3ab343cd3f4d1f4771eb9e03f30aa59aab84ff869254f3036c87b"
+  },
+  "cleanup": {
+    "existingClusterModified": false,
+    "environmentRestored": true,
+    "clusterRemoved": true,
+    "bootstrapPasswordRemoved": true,
+    "remainingListener": false,
+    "externalCorpusAccess": false
+  }
+}

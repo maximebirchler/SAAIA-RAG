@@ -10,7 +10,7 @@ using Xunit;
 
 namespace SAAIA.Backend.Tests;
 
-public sealed class DynamicRootCategoryRegressionTests
+public sealed partial class DynamicRootCategoryRegressionTests
 {
     [Fact]
     public void Derive_returns_empty_category_for_root_document()
