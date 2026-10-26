@@ -340,7 +340,57 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;
         }
     }
 
-    private static async Task RunScannerOnceAsync(NpgsqlDataSource ds, string root, Guid tenantId)
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileTheory("IntegrationPg")]
+    [InlineData("unchanged", 0)]
+    [InlineData("missing_profile", 1)]
+    [InlineData("force_ocr", 1)]
+    [InlineData("model_revision", 1)]
+    [InlineData("paused_missing_profile", 0)]
+    public async Task Scanner_reprocesses_an_unchanged_source_only_for_a_changed_pipeline_and_respects_admin_pause(string change, int expectedJobs)
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        Assert.NotNull(db);
+        var root = Path.Combine(Path.GetTempPath(), $"saaia-pipeline-identity-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            const string path = "pipeline-source.pdf";
+            var absolute = Path.Combine(root, path);
+            await File.WriteAllBytesAsync(absolute, "%PDF-1.4\n"u8.ToArray());
+            var file = new FileInfo(absolute);
+            var tenant = Guid.NewGuid();
+            await using var ds = NpgsqlDataSource.Create(db!.ConnectionString);
+            await SeedExistingDocumentAsync(ds, tenant, path, string.Empty, file.Length, file.LastWriteTimeUtc);
+            var rag = new RagOptions();
+            var document = new DocumentIntelligenceOptions();
+            var fingerprint = IngestionPipelineIdentity.Compute(rag, new IngestionOptions(), document);
+            await using var connection = await ds.OpenConnectionAsync();
+            await connection.ExecuteAsync("""
+UPDATE documents SET ingestion_pipeline_fingerprint=@fingerprint,
+ auto_ingest_paused=@paused, auto_ingest_pause_reason=CASE WHEN @paused THEN 'admin_cancel' ELSE NULL END
+WHERE tenant_id=@tenant AND doc_path=@path;
+""", new { tenant, path, fingerprint = change.Contains("missing_profile") ? null : fingerprint,
+                paused = change == "paused_missing_profile" });
+            if (change == "force_ocr") document.ForceOcr = true;
+            if (change == "model_revision") rag.EmbeddingsModelRevision = "different-immutable-revision";
+
+            await RunScannerOnceAsync(ds, root, tenant, rag, document);
+
+            Assert.Equal(expectedJobs, await connection.ExecuteScalarAsync<int>(
+                "SELECT count(*) FROM ingestion_jobs WHERE tenant_id=@tenant", new { tenant }));
+            var versions = await connection.QuerySingleAsync<(int Ingestion, int Indexed)>(
+                "SELECT ingestion_version, indexed_version FROM documents WHERE tenant_id=@tenant AND doc_path=@path", new { tenant, path });
+            Assert.Equal(1 + expectedJobs, versions.Ingestion);
+            Assert.Equal(1, versions.Indexed);
+            Assert.Equal(file.Length, new FileInfo(absolute).Length);
+            Assert.Equal(file.LastWriteTimeUtc, File.GetLastWriteTimeUtc(absolute));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    private static async Task RunScannerOnceAsync(NpgsqlDataSource ds, string root, Guid tenantId,
+        RagOptions? rag = null, DocumentIntelligenceOptions? documentIntelligence = null)
     {
         var scanner = new IngestionScanner(
             new ServiceCollection().BuildServiceProvider(),
@@ -356,7 +406,7 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;
         {
             ds,
             new StubHttpClientFactory(),
-            new RagOptions(),
+            rag ?? new RagOptions(),
             new IngestionOptions
             {
                 DocumentsRoot = root,
@@ -366,6 +416,7 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;
                 ReindexIfQdrantEmpty = false
             },
             new BootstrapOptions { TenantId = tenantId },
+            documentIntelligence ?? new DocumentIntelligenceOptions(),
             CancellationToken.None
         });
 
@@ -397,13 +448,13 @@ INSERT INTO documents(
   tenant_id, doc_id, doc_path, doc_name, category,
   status, created_at, updated_at, file_size, file_mtime,
   last_seen_at, missing_since, ingestion_version, indexed_version,
-  auto_ingest_paused, auto_ingest_paused_at, auto_ingest_pause_reason
+  auto_ingest_paused, auto_ingest_paused_at, auto_ingest_pause_reason, ingestion_pipeline_fingerprint
 )
 VALUES(
   @tenant_id, @doc_id, @doc_path, @doc_name, @category,
   @status, now(), now(), @file_size, @file_mtime,
   now(), @missing_since, @ingestion_version, @indexed_version,
-  false, NULL, NULL
+  false, NULL, NULL, @pipeline_fingerprint
 );
 """,
             new
@@ -420,7 +471,10 @@ VALUES(
                     ? DateTime.SpecifyKind(missingSinceUtc.Value, DateTimeKind.Utc)
                     : (DateTime?)null,
                 ingestion_version = ingestionVersion,
-                indexed_version = indexedVersion
+                indexed_version = indexedVersion,
+                // A currently published fixture isolates category/duplicate behavior.
+                // Tests for missing or changed profiles override this explicitly.
+                pipeline_fingerprint = IngestionPipelineIdentity.Compute(new RagOptions(), new IngestionOptions(), new DocumentIntelligenceOptions())
             });
     }
 

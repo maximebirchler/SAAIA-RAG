@@ -29,10 +29,15 @@ static partial class JobRepo
         PdfExtractionQualitySummary? nativeExtractionQuality = null,
         IngestionCapabilityAProfileSeed? capabilityAProfileSeed = null,
         CanonicalIngestionBundle? canonicalBundle = null,
-        IReadOnlyList<ExtractedDocumentUnit>? structuredProfileUnits = null)
+        IReadOnlyList<ExtractedDocumentUnit>? structuredProfileUnits = null,
+        string? ingestionPipelineFingerprint = null,
+        string? ingestionVectorPlanFingerprint = null,
+        string? leaseOwner = null)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
+        if (!await IngestionLeaseGuard.LockOwnedAsync(conn, tx, jobId, leaseOwner, ct, tenantId, docPath))
+            return false;
 
         const string lockSql = """
 SELECT
@@ -148,10 +153,7 @@ SET auto_ingest_paused = CASE
         WHEN COALESCE(indexed_version, 0) > 0 THEN 'indexed'
         ELSE status
     END,
-    ingestion_version = CASE
-        WHEN COALESCE(indexed_version, 0) > 0 THEN COALESCE(indexed_version, 0)
-        ELSE GREATEST(COALESCE(ingestion_version, 0), COALESCE(indexed_version, 0))
-    END,
+    ingestion_version = GREATEST(COALESCE(ingestion_version, 0), COALESCE(indexed_version, 0)),
     updated_at = now()
 WHERE tenant_id=@tenant_id AND doc_path=@doc_path
   AND COALESCE(status, '') NOT IN ('missing','deleted');";
@@ -258,6 +260,8 @@ SET content_hash=@hash,
     page_count=@page_count,
     status='indexed',
     indexed_version=@indexed_version,
+    ingestion_pipeline_fingerprint=@ingestion_pipeline_fingerprint,
+    ingestion_vector_plan_fingerprint=@ingestion_vector_plan_fingerprint,
     last_ingested_at=now(),
     updated_at=now(),
     auto_ingest_paused=false,
@@ -273,6 +277,8 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
             version,
             page_count = pages.Count,
             indexed_version = nextIndexedVersion,
+            ingestion_pipeline_fingerprint = ingestionPipelineFingerprint,
+            ingestion_vector_plan_fingerprint = ingestionVectorPlanFingerprint,
             mtime = DateTime.SpecifyKind(mtimeUtc, DateTimeKind.Utc)
         }, transaction: tx, cancellationToken: ct));
 
@@ -326,10 +332,13 @@ WHERE job_id=@job_id AND status='running';";
         Guid jobId,
         string docPath,
         int version,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? leaseOwner = null)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
+        if (!await IngestionLeaseGuard.LockOwnedAsync(conn, tx, jobId, leaseOwner, ct, tenantId, docPath))
+            return false;
 
         const string lockSql = """
 SELECT
@@ -408,13 +417,14 @@ SET status='deleted',
     file_size=NULL,
     file_mtime=NULL,
     missing_since=NULL,
-    ingestion_version=0,
+    ingestion_version=GREATEST(COALESCE(ingestion_version, 0), @version),
     indexed_version=0,
+    ingestion_vector_plan_fingerprint=NULL,
     auto_ingest_paused=false,
     auto_ingest_paused_at=NULL,
     auto_ingest_pause_reason=NULL
 WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
-        await conn.ExecuteAsync(new CommandDefinition(docSql, new { tenant_id = tenantId, doc_path = docPath }, transaction: tx, cancellationToken: ct));
+        await conn.ExecuteAsync(new CommandDefinition(docSql, new { tenant_id = tenantId, doc_path = docPath, version }, transaction: tx, cancellationToken: ct));
 
         const string doneSql = @"UPDATE ingestion_jobs
 SET status='done',
@@ -453,10 +463,13 @@ WHERE job_id=@job_id AND status='running';";
         string docPath,
         int supersededVersion,
         CancellationToken ct,
-        string lastError = "superseded_version")
+        string lastError = "superseded_version",
+        string? leaseOwner = null)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
+        if (!await IngestionLeaseGuard.LockOwnedAsync(conn, tx, jobId, leaseOwner, ct, tenantId, docPath))
+            return false;
 
         const string lockSql = """
 SELECT
@@ -612,11 +625,11 @@ RETURNING job_id;
             }, transaction: tx, cancellationToken: ct));
     }
 
-    public static async Task UpdateProgressAsync(NpgsqlDataSource ds, Guid jobId, string phase, int? current, int? total, CancellationToken ct)
-        => await IngestionJobSnapshotStore.UpdateProgressAsync(ds, jobId, phase, current, total, ct);
+    public static async Task UpdateProgressAsync(NpgsqlDataSource ds, Guid jobId, string phase, int? current, int? total, CancellationToken ct, string? leaseOwner = null)
+        => await IngestionJobSnapshotStore.UpdateProgressAsync(ds, jobId, phase, current, total, ct, leaseOwner);
 
-    public static async Task UpdateProgressAsync(NpgsqlDataSource ds, Guid jobId, string phase, int? current, int? total, object? details, CancellationToken ct)
-        => await IngestionJobSnapshotStore.UpdateProgressAsync(ds, jobId, phase, current, total, details, ct);
+    public static async Task UpdateProgressAsync(NpgsqlDataSource ds, Guid jobId, string phase, int? current, int? total, object? details, CancellationToken ct, string? leaseOwner = null)
+        => await IngestionJobSnapshotStore.UpdateProgressAsync(ds, jobId, phase, current, total, details, ct, leaseOwner);
 
     public static async Task StoreResumeCheckpointAsync(
         NpgsqlDataSource ds,
@@ -626,8 +639,10 @@ RETURNING job_id;
         int chunkTotal,
         string embeddingModel,
         string embeddingInputFormat,
-        CancellationToken ct)
-        => await IngestionJobSnapshotStore.StoreResumeCheckpointAsync(ds, jobId, sourceHash, fileSize, chunkTotal, embeddingModel, embeddingInputFormat, ct);
+        CancellationToken ct,
+        string? vectorPlanFingerprint = null,
+        string? leaseOwner = null)
+        => await IngestionJobSnapshotStore.StoreResumeCheckpointAsync(ds, jobId, sourceHash, fileSize, chunkTotal, embeddingModel, embeddingInputFormat, ct, vectorPlanFingerprint, leaseOwner);
 
     public static async Task<ResumeCheckpointState?> GetResumeCheckpointAsync(NpgsqlDataSource ds, Guid jobId, CancellationToken ct)
         => await IngestionJobSnapshotStore.GetResumeCheckpointAsync(ds, jobId, ct);

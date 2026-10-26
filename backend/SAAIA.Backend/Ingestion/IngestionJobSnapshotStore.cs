@@ -104,8 +104,8 @@ WHERE j.job_id = @job_id
         await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
     }
 
-    public static async Task UpdateProgressAsync(NpgsqlDataSource ds, Guid jobId, string phase, int? current, int? total, CancellationToken ct)
-        => await UpdateProgressAsync(ds, jobId, phase, current, total, details: null, ct);
+    public static async Task UpdateProgressAsync(NpgsqlDataSource ds, Guid jobId, string phase, int? current, int? total, CancellationToken ct, string? leaseOwner = null)
+        => await UpdateProgressAsync(ds, jobId, phase, current, total, details: null, ct, leaseOwner);
 
     public static async Task UpdateProgressAsync(
         NpgsqlDataSource ds,
@@ -114,8 +114,10 @@ WHERE j.job_id = @job_id
         int? current,
         int? total,
         object? details,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? leaseOwner = null)
     {
+        if (string.IsNullOrWhiteSpace(leaseOwner)) throw new IngestionLeaseLostException();
         await using var conn = await ds.OpenConnectionAsync(ct);
         int? percent = null;
         if (current.HasValue && total.HasValue && total.Value > 0)
@@ -142,9 +144,11 @@ SET payload = jsonb_set(
         true
     ),
     locked_at = CASE WHEN status='running' THEN now() ELSE locked_at END
-WHERE job_id=@job_id;";
+WHERE job_id=@job_id AND status='running' AND locked_by=@lease_owner;";
 
-        await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId, phase, current, total, percent, details_json = detailsJson }, cancellationToken: ct));
+        var changed = await conn.ExecuteAsync(new CommandDefinition(sql,
+            new { job_id = jobId, phase, current, total, percent, details_json = detailsJson, lease_owner = leaseOwner }, cancellationToken: ct));
+        if (leaseOwner is not null && changed != 1) throw new IngestionLeaseLostException();
     }
 
     public static async Task StoreResumeCheckpointAsync(
@@ -155,8 +159,11 @@ WHERE job_id=@job_id;";
         int chunkTotal,
         string embeddingModel,
         string embeddingInputFormat,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? vectorPlanFingerprint = null,
+        string? leaseOwner = null)
     {
+        if (string.IsNullOrWhiteSpace(leaseOwner)) throw new IngestionLeaseLostException();
         await using var conn = await ds.OpenConnectionAsync(ct);
         const string sql = @"
 UPDATE ingestion_jobs
@@ -168,21 +175,25 @@ SET payload = jsonb_set(
             'fileSize', @fileSize,
             'chunkTotal', @chunkTotal,
             'embeddingModel', @embeddingModel,
-            'embeddingInputFormat', @embeddingInputFormat
+            'embeddingInputFormat', @embeddingInputFormat,
+            'vectorPlanFingerprint', @vectorPlanFingerprint
         ),
         true
     )
-WHERE job_id=@job_id;";
+WHERE job_id=@job_id AND status='running' AND locked_by=@lease_owner;";
 
-        await conn.ExecuteAsync(new CommandDefinition(sql, new
+        var changed = await conn.ExecuteAsync(new CommandDefinition(sql, new
         {
             job_id = jobId,
             sourceHash,
             fileSize,
             chunkTotal,
             embeddingModel,
-            embeddingInputFormat
+            embeddingInputFormat,
+            vectorPlanFingerprint,
+            lease_owner = leaseOwner
         }, cancellationToken: ct));
+        if (leaseOwner is not null && changed != 1) throw new IngestionLeaseLostException();
     }
 
     public static async Task<JobRepo.ResumeCheckpointState?> GetResumeCheckpointAsync(NpgsqlDataSource ds, Guid jobId, CancellationToken ct)
@@ -196,7 +207,8 @@ SELECT
     CASE WHEN jsonb_typeof(payload->'resume'->'fileSize')='number' AND (payload->'resume'->>'fileSize') ~ '^[0-9]{1,18}$' THEN (payload->'resume'->>'fileSize')::bigint ELSE NULL END AS "FileSize",
     CASE WHEN jsonb_typeof(payload->'resume'->'chunkTotal')='number' AND (payload->'resume'->>'chunkTotal') ~ '^-?[0-9]{1,9}$' THEN (payload->'resume'->>'chunkTotal')::int ELSE NULL END AS "ChunkTotal",
     payload #>> '{resume,embeddingModel}' AS "EmbeddingModel",
-    payload #>> '{resume,embeddingInputFormat}' AS "EmbeddingInputFormat"
+    payload #>> '{resume,embeddingInputFormat}' AS "EmbeddingInputFormat",
+    payload #>> '{resume,vectorPlanFingerprint}' AS "VectorPlanFingerprint"
 FROM ingestion_jobs
 WHERE job_id=@job_id
 LIMIT 1;

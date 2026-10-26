@@ -112,10 +112,13 @@ internal static class CanonicalNativePdfImageInventoryReconciler
                                 CultureInfo.InvariantCulture),
                             ["heightInSamples"] = image.HeightInSamples.ToString(
                                 CultureInfo.InvariantCulture),
-                            ["semanticDecisionOwner"] = "llm_client"
+                            ["semanticDecisionOwner"] = "llm_client",
+                            ["semanticExtractionStatus"] = "not_performed"
                         }
                     }
                 });
+                if (!canonicalPage.QualityFlags.Contains("figure_semantics_not_extracted", StringComparer.Ordinal))
+                    canonicalPage.QualityFlags.Add("figure_semantics_not_extracted");
                 addedFigureCount++;
                 addedOnPage++;
             }

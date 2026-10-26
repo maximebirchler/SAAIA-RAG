@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using SAAIA.Contracts.DocumentIntelligence;
 
-internal static class DoclingCanonicalRetrievalProjector
+internal static partial class DoclingCanonicalRetrievalProjector
 {
     internal const string ContentChunkType = "docling_canonical_content_v1";
     internal const string TableChunkType = "docling_canonical_table_v1";
@@ -82,6 +82,10 @@ internal static class DoclingCanonicalRetrievalProjector
         var sectionPageEndByOrdinal = document.SectionTree.ToDictionary(
             static section => section.Ordinal,
             static section => section.PageEnd);
+        var pagesWithUncertainLayoutAssociations = document.Pages
+            .Where(page => page.QualityFlags.Contains(CanonicalSourceAssociationPolicy.LayoutAssociationUncertainFlag,
+                StringComparer.Ordinal))
+            .Select(page => page.PageNumber).ToHashSet();
         int? currentPageNumber = null;
         ChunkBuffer? buffer = null;
 
@@ -105,7 +109,8 @@ internal static class DoclingCanonicalRetrievalProjector
             if (!string.Equals(
                     chunkType,
                     NativeLayoutAlternativeChunkType,
-                    StringComparison.Ordinal))
+                    StringComparison.Ordinal)
+                && !string.Equals(chunkType, RetrievalChunkProjector.PhysicalPageContextChunkType, StringComparison.Ordinal))
             {
                 foreach (var heading in SelectContextHeadings(
                              activeHeadings,
@@ -130,7 +135,8 @@ internal static class DoclingCanonicalRetrievalProjector
                 // A page with its own headings starts a new local reading
                 // context. A headingless page may inherit only a section that
                 // the canonical tree proves continues onto that page.
-                if (pagesContainingHeadings.Contains(atom.PageNumber))
+                if (pagesContainingHeadings.Contains(atom.PageNumber)
+                    || pagesWithUncertainLayoutAssociations.Contains(atom.PageNumber))
                 {
                     activeHeadings.Clear();
                 }
@@ -213,6 +219,7 @@ internal static class DoclingCanonicalRetrievalProjector
 
         Flush();
         MergeSmallAdjacentChunks(projected, maxWords, minWords);
+        RetainUncoveredObservedHeadings(atoms, projected, maxWords);
         return projected
             .Select((chunk, index) => chunk with
             {
@@ -244,7 +251,7 @@ internal static class DoclingCanonicalRetrievalProjector
         {
             foreach (var block in page.Blocks)
             {
-                if (block.IsRepeatedFurniture
+                if (IsProvenPageCounter(block, page.PageNumber)
                     || string.IsNullOrWhiteSpace(block.Text.Retrieval))
                     continue;
                 if (IsNativeSupplementalBlock(block))
@@ -254,9 +261,10 @@ internal static class DoclingCanonicalRetrievalProjector
                         block.Ordinal,
                         page.PageNumber,
                         NormalizeText(block.Text.Retrieval),
-                        block.BlockType,
+                        string.Equals(block.BlockType, CanonicalNativeTextCoverageReconciler.RecoveryBlockType, StringComparison.Ordinal)
+                            ? "unassigned_physical_context" : block.BlockType,
                         block.BlockId,
-                        IsNativeSupplementalNavigation(block),
+                        false,
                         false,
                         1,
                         null,
@@ -273,9 +281,9 @@ internal static class DoclingCanonicalRetrievalProjector
                 var sourceRef = RequireSourceRef(block.Provenance);
                 var provenanceIndex = ResolveProvenanceIndex(block.Provenance);
                 var item = RequireItem(itemMap, sourceRef);
-                var navigation = block.IsRepeatedFurniture
-                                 || IsNavigationItem(item, itemMap);
-                var heading = IsHeadingBlock(block.BlockType);
+                var unassigned = CanonicalSourceAssociationPolicy.IsUnassignedPhysicalContext(block);
+                var navigation = !unassigned && IsNavigationItem(item, itemMap);
+                var heading = !unassigned && IsHeadingBlock(block.BlockType);
                 atoms.Add(new(
                     DoclingDocumentTraversal.ResolveOrder(
                         orderByRef,
@@ -284,7 +292,7 @@ internal static class DoclingCanonicalRetrievalProjector
                     block.ReadingOrder,
                     page.PageNumber,
                     NormalizeText(block.Text.Retrieval),
-                    heading ? "heading" : "block",
+                    unassigned ? "unassigned_physical_context" : heading ? "heading" : "block",
                     block.BlockId,
                     navigation,
                     heading,
@@ -316,7 +324,7 @@ internal static class DoclingCanonicalRetrievalProjector
                         .ThenBy(static cell => cell.CellId, StringComparer.Ordinal)
                         .ToArray();
                     var text = string.Join(
-                        " | ",
+                        "\t",
                         cells.Select(static cell => cell.Text.Retrieval)
                             .Where(static value =>
                                 !string.IsNullOrWhiteSpace(value)));
@@ -447,15 +455,12 @@ internal static class DoclingCanonicalRetrievalProjector
                    "native_layout_reading_order_reconciliation",
                    StringComparison.Ordinal));
 
-    private static bool IsNativeSupplementalNavigation(
-        CanonicalBlock block)
-        => block.Provenance.Attributes.TryGetValue(
-               "contentRoleHint",
-               out var value)
-           && string.Equals(
-               value,
-               RetrievalContentClassifier.NavigationRole,
-               StringComparison.OrdinalIgnoreCase);
+    private static bool IsProvenPageCounter(CanonicalBlock block, int physicalPage)
+        => (block.IsRepeatedFurniture
+                || string.Equals(block.BlockType, "page_header", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(block.BlockType, "page_footer", StringComparison.OrdinalIgnoreCase))
+           && string.Equals(block.Text.Retrieval.Trim(), physicalPage.ToString(
+               System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
 
     private static void EmitTableChunks(
         IReadOnlyList<SourceAtom> rows,
@@ -636,7 +641,9 @@ internal static class DoclingCanonicalRetrievalProjector
                     static atom => atom.QualitySignals))),
             SourceUnitOrdinals: [],
             SourceUnitCount: 0,
-            ChunkComposition: string.Equals(
+            ChunkComposition: string.Equals(buffer.ChunkType, RetrievalChunkProjector.PhysicalPageContextChunkType, StringComparison.Ordinal)
+                ? "canonical_physical_context_not_asserted"
+                : string.Equals(
                 buffer.ChunkType,
                 TableChunkType,
                 StringComparison.Ordinal)
@@ -773,6 +780,9 @@ internal static class DoclingCanonicalRetrievalProjector
             return TableChunkType;
         }
 
+        if (string.Equals(atom.Kind, "unassigned_physical_context", StringComparison.Ordinal))
+            return RetrievalChunkProjector.PhysicalPageContextChunkType;
+
         return string.Equals(
             atom.Kind,
             CanonicalNativeLayoutReconciler.RecoveryBlockType,
@@ -806,11 +816,7 @@ internal static class DoclingCanonicalRetrievalProjector
             if (!visited.Add(current.SelfRef))
                 throw new InvalidDataException(
                     $"Docling parent tree contains a cycle at '{current.SelfRef}'.");
-            if (string.Equals(
-                    current.ContentLayer,
-                    "furniture",
-                    StringComparison.OrdinalIgnoreCase)
-                || IsNavigationLabel(current.Label)
+            if (IsNavigationLabel(current.Label)
                 || current is DoclingGroup group
                 && (IsNavigationLabel(group.Name)
                     || IsNavigationLabel(group.Label)))
@@ -821,13 +827,6 @@ internal static class DoclingCanonicalRetrievalProjector
             if (current.Parent is null)
                 break;
             var parentRef = current.Parent.Ref;
-            if (string.Equals(
-                    parentRef,
-                    "#/furniture",
-                    StringComparison.Ordinal))
-            {
-                return true;
-            }
             if (string.Equals(
                     parentRef,
                     "#/body",
@@ -847,14 +846,6 @@ internal static class DoclingCanonicalRetrievalProjector
         => string.Equals(
                value,
                "document_index",
-               StringComparison.OrdinalIgnoreCase)
-           || string.Equals(
-               value,
-               "page_header",
-               StringComparison.OrdinalIgnoreCase)
-           || string.Equals(
-               value,
-               "page_footer",
                StringComparison.OrdinalIgnoreCase);
 
     private static string RequireSourceRef(
@@ -902,11 +893,8 @@ internal static class DoclingCanonicalRetrievalProjector
             .Replace("\r\n", "\n", StringComparison.Ordinal)
             .Replace('\r', '\n')
             .Split('\n')
-            .Select(static line => string.Join(
-                " ",
-                line.Split(
-                    (char[]?)null,
-                    StringSplitOptions.RemoveEmptyEntries)))
+            .Select(static line => string.Join("\t", line.Split('\t').Select(static cell => string.Join(
+                " ", cell.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)))))
             .Where(static line => !string.IsNullOrWhiteSpace(line)))
             .Trim();
         return RetrievalTextHygiene.RepairHyphenatedCompoundSpacing(normalized);

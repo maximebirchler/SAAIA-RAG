@@ -187,13 +187,21 @@ internal static partial class CanonicalNativeLayoutReconciler
         var canonicalBagAgreement = ComputeBagCoverage(
             nativeTokens,
             canonicalTokens);
-        if (orderedAgreement >= MaximumOrderedAgreement
-            || bagAgreement < MinimumBagAgreement
-            || bagAgreement - orderedAgreement
-            < MinimumOrderDisagreement
-            || canonicalBagAgreement >= MinimumBagAgreement
-            && canonicalOrderedAgreement
-            >= MaximumOrderedAgreement)
+        var nativeOrderDiffers = bagAgreement - orderedAgreement
+            >= MinimumOrderDisagreement;
+        var canonicalOrderDiffers =
+            canonicalBagAgreement >= MinimumBagAgreement
+            && canonicalBagAgreement - canonicalOrderedAgreement
+            >= MinimumOrderDisagreement;
+        var canonicalAlreadyAgrees =
+            canonicalBagAgreement >= MinimumBagAgreement
+            && canonicalOrderedAgreement >= MaximumOrderedAgreement;
+        // Native flat text may already use the geometric order while the
+        // canonical observation uses another order. It is not a reason to
+        // discard that independently observed alternative.
+        if (bagAgreement < MinimumBagAgreement
+            || canonicalAlreadyAgrees
+            || !nativeOrderDiffers && !canonicalOrderDiffers)
         {
             return new(
                 candidates.Length,
@@ -291,6 +299,7 @@ internal static partial class CanonicalNativeLayoutReconciler
 
         AddDistinct(page.QualityFlags, PageQualityFlag);
         AddDistinct(page.QualityFlags, RecoveryQualityFlag);
+        CanonicalSourceAssociationPolicy.MarkLayoutPageAssociationsUncertain(document, page);
         return new(
             candidates.Length,
             candidates.Length,

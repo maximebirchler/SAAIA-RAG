@@ -4,24 +4,6 @@ namespace SAAIA.Backend.Tests;
 
 public sealed class IngestionWorkerQdrantTests
 {
-    [Theory]
-    [InlineData(0, null, 5, true)]
-    [InlineData(0, 4, 5, true)]
-    [InlineData(0, 5, 5, false)]
-    [InlineData(16, 4, 5, false)]
-    [InlineData(16, 5, 5, false)]
-    [InlineData(0, 0, 0, false)]
-    public void ShouldPurgeQdrantVersionBeforeFullEmbedding_only_for_unpublished_full_restarts(
-        int resumeFromChunk,
-        int? indexedVersion,
-        int jobVersion,
-        bool expected)
-    {
-        Assert.Equal(
-            expected,
-            IngestionWorker.ShouldPurgeQdrantVersionBeforeFullEmbedding(resumeFromChunk, indexedVersion, jobVersion));
-    }
-
     [Fact]
     public void Resume_checkpoint_requires_same_embedding_model_and_format()
     {
@@ -33,30 +15,31 @@ public sealed class IngestionWorkerQdrantTests
             FileSize = 1234,
             ChunkTotal = 32,
             EmbeddingModel = "intfloat/multilingual-e5-base",
-            EmbeddingInputFormat = "e5_passage_v1"
+            EmbeddingInputFormat = "e5_passage_v1",
+            VectorPlanFingerprint = "plan"
         };
 
-        Assert.True(IngestionWorker.IsResumeCheckpointCompatible(
+        Assert.True(IngestionVectorPlan.CanResume(
             checkpoint,
             "ABC123",
             32,
             "intfloat/multilingual-e5-base",
-            "e5_passage_v1"));
+            "e5_passage_v1", "plan"));
 
-        Assert.False(IngestionWorker.IsResumeCheckpointCompatible(
+        Assert.False(IngestionVectorPlan.CanResume(
             checkpoint,
             "abc123",
             32,
             "sentence-transformers/all-MiniLM-L6-v2",
-            "raw_passage_v1"));
+            "raw_passage_v1", "plan"));
 
         checkpoint.EmbeddingInputFormat = null;
-        Assert.False(IngestionWorker.IsResumeCheckpointCompatible(
+        Assert.False(IngestionVectorPlan.CanResume(
             checkpoint,
             "abc123",
             32,
             "intfloat/multilingual-e5-base",
-            "e5_passage_v1"));
+            "e5_passage_v1", "plan"));
     }
 
     [Theory]

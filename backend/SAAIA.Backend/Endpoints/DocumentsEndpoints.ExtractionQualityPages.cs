@@ -165,6 +165,8 @@ LIMIT 1;";
                     pageNumber = page.PageNumber,
                     qualityStatus = page.QualityStatus,
                     extractionConfidence = page.ExtractionConfidence,
+                    confidenceKind = page.ConfidenceKind,
+                    ocrCoverageStatus = page.OcrCoverageStatus,
                     manualReviewRecommended = page.ManualReviewRecommended,
                     charCount = page.CharCount,
                     wordCount = page.WordCount,
@@ -279,6 +281,7 @@ ORDER BY chunk_index;";
             var chunksOnPage = chunksByPage.TryGetValue(page.PageNumber, out var pageChunks)
                 ? pageChunks
                 : [];
+            imageOcrDiagnosticsByPage.TryGetValue(page.PageNumber, out var imageOcrDiagnostic);
             var review = ExtractionQualityDiagnostics.AssessPage(
                 page.WordCount,
                 page.CharCount,
@@ -286,7 +289,11 @@ ORDER BY chunk_index;";
                 unitsOnPage.Length,
                 suspiciousUnitCount,
                 chunksOnPage.Length,
-                ParseJsonStringArray(page.SignalsJson));
+                ParseJsonStringArray(page.SignalsJson),
+                imageOcrDiagnostic is null ? null : new PdfImagePageOcrDiagnostic(
+                    page.PageNumber, imageOcrDiagnostic.Status, imageOcrDiagnostic.Reason,
+                    imageOcrDiagnostic.OcrWordCount, imageOcrDiagnostic.OcrCharCount,
+                    imageOcrDiagnostic.ExitCode, imageOcrDiagnostic.TimedOut));
             var includePreviews = ShouldIncludeExtractionPagePreviews(review);
 
             return new ExtractionQualityPageItem(
@@ -308,9 +315,7 @@ ORDER BY chunk_index;";
                 review.Signals,
                 includePreviews ? BuildExtractionPreviews(unitsOnPage.Select(static unit => unit.TextContent)) : [],
                 includePreviews ? BuildExtractionPreviews(chunksOnPage.Select(static chunk => chunk.TextContent)) : [],
-                imageOcrDiagnosticsByPage.TryGetValue(page.PageNumber, out var imageOcrDiagnostic)
-                    ? imageOcrDiagnostic
-                    : null);
+                imageOcrDiagnostic, review.ConfidenceKind, review.OcrCoverageStatus);
         }).ToArray();
 
         return Results.Ok(new
@@ -343,6 +348,8 @@ ORDER BY chunk_index;";
                 pageNumber = page.PageNumber,
                 qualityStatus = page.QualityStatus,
                 extractionConfidence = page.ExtractionConfidence,
+                    confidenceKind = page.ConfidenceKind,
+                    ocrCoverageStatus = page.OcrCoverageStatus,
                 manualReviewRecommended = page.ManualReviewRecommended,
                 charCount = page.CharCount,
                 wordCount = page.WordCount,
@@ -525,7 +532,9 @@ ORDER BY chunk_index;";
                     TryGetStringArray(item, "signals"),
                     [],
                     [],
-                    imageOcrDiagnostic));
+                    imageOcrDiagnostic,
+                    TryGetString(item, "confidenceKind") ?? "heuristic_indexability",
+                    TryGetString(item, "ocrCoverageStatus") ?? imageOcrDiagnostic?.Status));
             }
 
             return result.OrderBy(static page => page.PageNumber).ToArray();
@@ -666,7 +675,9 @@ ORDER BY chunk_index;";
         string[] Signals,
         string[] UnitPreviews,
         string[] ChunkPreviews,
-        ExtractionQualityImageOcrDiagnostic? ImageOcrDiagnostic);
+        ExtractionQualityImageOcrDiagnostic? ImageOcrDiagnostic,
+        string ConfidenceKind = "heuristic_indexability",
+        string? OcrCoverageStatus = null);
 
     private sealed record ExtractionQualityImageOcrDiagnostic(
         string Status,

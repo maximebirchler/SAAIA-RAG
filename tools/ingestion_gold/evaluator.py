@@ -3,8 +3,10 @@ from __future__ import annotations
 import difflib
 import math
 import re
+import unicodedata
 from dataclasses import dataclass
 from typing import Any, Iterable
+from .critical_facts import critical_fact_issues
 
 
 @dataclass(frozen=True)
@@ -14,8 +16,7 @@ class EvaluationIssue:
 
 
 def _normalise(value: object) -> str:
-    text = re.sub(r"\s+", " ", str(value or "")).strip().casefold()
-    return "".join(character for character in text if character.isalnum() or character == " ")
+    return " ".join(unicodedata.normalize("NFC", str(value or "")).casefold().split())
 
 
 def _content_items(document: dict[str, Any]) -> list[dict[str, Any]]:
@@ -271,7 +272,9 @@ def evaluate_case(
         candidates = [
             table
             for table in tables
-            if not required_text or required_text in _normalise(_table_text(table))
+            if (not required_text or required_text in _normalise(_table_text(table)))
+            and ("page" not in expected or any(int(prov.get("page_no", 0)) == int(expected["page"])
+                 for prov in table.get("prov", []) if isinstance(prov, dict)))
         ]
         if not candidates:
             issues.append(
@@ -340,6 +343,12 @@ def evaluate_case(
                         )
                     )
 
+    critical_pages: dict[int, list[str]] = {}
+    for item in ordered:
+        for page in {int(prov.get("page_no", 0)) for prov in item.get("prov", []) if isinstance(prov, dict)}:
+            critical_pages.setdefault(page, []).append(_item_text(item))
+    critical_issues = critical_fact_issues(expectations.get("criticalFacts", []), critical_pages)
+    issues.extend(EvaluationIssue(issue["check"], issue["message"]) for issue in critical_issues)
     return {
         "ok": not issues,
         "issues": [

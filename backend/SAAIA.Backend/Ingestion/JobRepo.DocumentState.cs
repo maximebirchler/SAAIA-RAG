@@ -1,11 +1,11 @@
-﻿using Dapper;
+using Dapper;
 using Npgsql;
 
 static partial class JobRepo
 {
-    public static async Task StabilizeDocumentAfterCancelAsync(NpgsqlDataSource ds, Guid tenantId, string docPath, CancellationToken ct)
+    private static async Task StabilizeDocumentAfterCancelAsync(NpgsqlConnection conn, NpgsqlTransaction? tx,
+        Guid tenantId, string docPath, CancellationToken ct)
     {
-        await using var conn = await ds.OpenConnectionAsync(ct);
         const string sql = @"
 UPDATE documents
 SET auto_ingest_paused = CASE
@@ -24,15 +24,12 @@ SET auto_ingest_paused = CASE
         WHEN COALESCE(indexed_version, 0) > 0 THEN 'indexed'
         ELSE status
     END,
-    ingestion_version = CASE
-        WHEN COALESCE(indexed_version, 0) > 0 THEN COALESCE(indexed_version, 0)
-        ELSE GREATEST(COALESCE(ingestion_version, 0), COALESCE(indexed_version, 0))
-    END,
+    ingestion_version = GREATEST(COALESCE(ingestion_version, 0), COALESCE(indexed_version, 0)),
     updated_at = now()
 WHERE tenant_id = @tenant_id
   AND doc_path = @doc_path
   AND COALESCE(status, '') NOT IN ('missing','deleted');";
-        await conn.ExecuteAsync(new CommandDefinition(sql, new { tenant_id = tenantId, doc_path = docPath }, cancellationToken: ct));
+        await conn.ExecuteAsync(new CommandDefinition(sql, new { tenant_id = tenantId, doc_path = docPath }, transaction: tx, cancellationToken: ct));
     }
 
     public static async Task<bool> IsCanceledAsync(NpgsqlDataSource ds, Guid jobId, CancellationToken ct)

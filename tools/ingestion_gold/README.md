@@ -1,123 +1,116 @@
-# Corpus gold de mise en page
+# Corpus Gold de conversion et de projection
 
-Ce dossier contient un harnais reproductible pour qualifier la première étape
-de l'ingestion documentaire sans dépendre d'une catégorie métier ni conserver
-de document privé dans Git.
+Le manifeste courant est `config/ingestion-acceptance-gold.v2.json` : douze PDF
+synthétiques, seize pages physiques. Les huit cas de mise en page historiques
+sont complétés par quatre documents français : natif, mixte natif/scan/natif,
+tableau sur deux pages et scan intégral. Le manifeste historique v1 reste
+conservé ; son rendu non épinglé ne constitue pas une qualification actuelle.
 
-## Ce qui est mesuré
+Ce harnais mesure la conversion Docling puis la projection canonique du backend.
+Il **ne lance pas le worker d'ingestion**, ne passe pas par sa file, ne publie pas
+dans PostgreSQL et ne vérifie pas Qdrant. Un rapport réussi ne valide donc pas
+l'ingestion de bout en bout. Les champs `ingestionWorkerExecuted`,
+`sqlPublicationValidated` et `vectorValidated` restent explicitement faux.
 
-Le manifeste `config/ingestion-layout-gold.v1.json` décrit des PDF synthétiques
-et leurs invariants :
+## Contrats de fidélité
 
-- présence et fidélité de marqueurs textuels ;
-- ordre de lecture ;
-- types de blocs ;
-- géométrie normalisée ;
-- dimensions, cellules et spans des tableaux ;
-- OCR de texte raster et scans pleine page.
-- sortie canonique réelle après réconciliation, identité des preuves et
-  inventaire géométrique des images PDF natives.
+Les annotations sont écrites dans le manifeste indépendamment de toute sortie
+d'extraction. Le générateur ne les lit pas pour construire le texte du document.
+Elles couvrent les marqueurs, l'ordre, la géométrie, les types de blocs, les
+cellules vides/fusionnées et des faits critiques exacts liés à leur page physique.
+Les faits conservent signes, décimales, accents, unités, fractions et négations.
+Seuls NFC et les espaces sont harmonisés ; aucun score flou ne valide ces faits.
+Une valeur trouvée sur une page voisine ne valide pas la page attendue. La couche
+canonique exige aussi leur présence dans un chunk ancré sur la bonne page.
 
-Les PDF sont générés de façon déterministe et leur SHA-256 est versionné. Les
-attentes du corpus servent uniquement aux tests : elles ne sont jamais chargées
-par le runtime d'ingestion.
+Le projecteur C# utilise les valeurs courantes de `IngestionOptions` (200 mots
+maximum, 25 minimum au moment de cette campagne), applique le filtre de publication
+réel et conserve les SHA-256 des DLL backend/projecteur chargées. Le manifeste v2
+exige ces défauts de production. Il ne rend pas publiables des cartes courtes en
+abaissant artificiellement le minimum à un mot.
 
-## Commandes principales
+Le SHA-256 de chaque PDF, celui de la police et ceux des trois fichiers du
+générateur sont épinglés, ainsi que Python, ReportLab et Pillow. La police doit
+être fournie explicitement : aucun téléchargement, aucune substitution silencieuse.
+Les PDF français et tous les rasters utilisent cette police. Les parties natives
+des huit documents historiques gardent leurs polices PDF standard, dont le rendu
+reste lié à la version épinglée de ReportLab. Le fichier de police Windows n'est
+pas redistribué dans le dépôt. Toute dérive demande un nouveau manifeste relu ;
+le harnais ne réapprend jamais ses attentes à partir de la sortie évaluée.
 
-Tests unitaires du harnais :
+## Commandes locales
 
-```powershell
-python -m unittest tools.ingestion_gold.tests.test_evaluator -v
-```
-
-Qualification du sidecar déployé :
-
-```powershell
-python -m tools.ingestion_gold.runner `
-  --ssh-target maxime@100.80.213.61 `
-  --output tmp/pdfs/ingestion-layout-gold-run/report.json
-```
-
-Par défaut, le runner construit le petit projecteur C# de qualification, puis
-évalue séparément la réponse brute Docling et la sortie canonique réellement
-publiée par le backend. Le rapport v2 ne réussit que si la couche canonique
-réussit. `--skip-canonical` reste disponible pour un diagnostic volontairement
-limité au sidecar ; `--case-id` permet de rejouer un ou plusieurs cas précis.
-
-Comparaison directe d'un modèle Docling dans l'environnement qui possède
-Docling :
+Les dépendances Python sont `reportlab` et `Pillow` pour la génération. `pypdf`
+sert au contrôle indépendant des fichiers générés dans cette campagne. Le runner
+HTTP n'importe pas Docling : son moteur et ses modèles sont gérés séparément.
+Les tests purs ne lancent aucun service, OCR, téléchargement ou modèle :
 
 ```powershell
-python -m tools.ingestion_gold.layout_model_probe `
-  first.pdf second.pdf `
-  --model egret-large `
-  --ocr `
-  --output-dir tmp/model-response
+python -B -m unittest discover -s tools/ingestion_gold/tests -v
 ```
 
-Réévaluation de réponses déjà capturées :
+Générer seulement les sources locales dans un dossier neuf :
 
 ```powershell
-python -m tools.ingestion_gold.evaluate_responses `
-  --response-dir tmp/model-response `
-  --output tmp/model-response/report.json
+python -B -m tools.ingestion_gold.generate `
+  --font-path C:/Windows/Fonts/arial.ttf `
+  --output-dir artifacts/ma-campagne-neuve/sources
 ```
 
-Export de métriques structurelles sans recopier le texte des documents :
+La génération refuse une version/police différente des pins du manifeste. Elle
+préserve les PDF et écrit `generation-proof.json`. Cette preuve concerne seulement
+les sources ; elle ne prétend pas avoir exécuté l'OCR.
+
+La DLL `SAAIA.IngestionGold.dll` doit être compilée et vérifiée séparément avant
+la campagne. Le runner ne construit et ne restaure aucun projet implicitement.
+Une fois le service Docling local prêt, utiliser un autre dossier neuf :
 
 ```powershell
-$responses = (Get-ChildItem tmp/model-response/*.response.json).FullName
-python -m tools.ingestion_gold.structural_metrics `
-  $responses `
-  --output tmp/model-response/structural-metrics.json
+python -B -m tools.ingestion_gold.runner `
+  --base-url http://127.0.0.1:15101 `
+  --canonical-assembly CHEMIN_EXPLICITE/SAAIA.IngestionGold.dll `
+  --font-path C:/Windows/Fonts/arial.ttf `
+  --output artifacts/ma-conversion-neuve/report.json
 ```
 
-Validation de la seconde lecture géométrique du backend :
+`--case-id` permet de sélectionner un ou plusieurs cas, sans nom inconnu ni
+doublon. Le rapport décrit exactement ce sous-ensemble. `--skip-canonical`
+produit uniquement un diagnostic brut : `diagnosticOk` peut être vrai, mais
+`ok`/`qualificationComplete` restent faux et le code de sortie est 1.
+
+Réévaluer des réponses et snapshots déjà capturés, sans requête HTTP :
 
 ```powershell
-dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj `
-  --filter "FullyQualifiedName~PdfNativeLayoutExtractorTests|FullyQualifiedName~CanonicalNativeLayoutReconcilerTests|FullyQualifiedName~CanonicalNativePdfImageInventoryReconcilerTests"
+python -B -m tools.ingestion_gold.evaluate_responses `
+  --response-dir artifacts/ma-conversion-neuve `
+  --require-canonical `
+  --output artifacts/ma-conversion-neuve/reevaluation.json
 ```
 
-Cette seconde lecture utilise les algorithmes standards PdfPig
-`NearestNeighbourWordExtractor`, `RecursiveXYCut` et
-`UnsupervisedReadingOrderDetector`. Elle ne remplace pas Docling :
+Le schéma de rapport v3 refuse un corpus vide, un cas manquant, la couche canonique
+absente ou en échec, les sources différentes et un rendu non épinglé. La réussite
+canonique et le résultat brut restent distincts : une réconciliation mécanique
+peut restaurer une surface native que Docling a mal ordonnée. La commande de
+réévaluation vérifie les hashes PDF capturés par la projection contre le manifeste ;
+elle ne relance pas le rendu ni ne valide la configuration d'un service disparu.
 
-- Docling reste la source structurée des tableaux, figures, titres et ancres ;
-- PdfPig conserve une lecture géométrique alternative lorsque le même calque
-  natif contient les mêmes mots dans un ordre sensiblement différent ;
-- les fragments situés dans une table canonique sont écartés quand la région
-  hors table est suffisamment représentative ;
-- une garde de fragmentation empêche une page de cellules isolées de devenir
-  une pseudo-narration ;
-- les blocs alternatifs gardent page, polygone, moteur, version, algorithme,
-  accords mesurés et le marqueur `semanticDecisionOwner=llm_client`.
-- PdfPig inventorie aussi chaque placement d’image embarquée avec sa page, son
-  polygone et ses dimensions en pixels ; aucune légende ni interprétation
-  sémantique n’est inventée par le backend, et le LLM client reste le décideur.
-- cet inventaire décrit l'objet raster source. Une figure Docling contenue
-  dans ce raster décrit une sous-région visuelle à une autre granularité ; les
-  deux preuves ne doivent pas être dédupliquées sur leur seule imbrication.
+Le mode SSH historique demeure disponible uniquement avec `--ssh-target`
+explicite. Il n'est utilisé par aucune commande ci-dessus et ne fait pas partie
+de la campagne locale actuelle. `layout_model_probe.py` est un outil historique
+lié aux API des versions Docling qui exposent ses modèles ; ce n'est pas le
+bootstrap du runtime actuel. Aucun endpoint distant implicite n'est contacté.
 
-Le corpus mesure séparément la sortie brute du sidecar et la sortie canonique.
-Une sortie Docling peut donc échouer l'invariant d'ordre ou omettre une figure
-tandis que la représentation backend restaure une surface de lecture ou un
-ancrage mécanique. Les deux niveaux ne doivent pas être confondus dans un
-rapport.
+## Preuves et limites
 
-## Discipline de promotion
+Conserver sources, réponses brutes, snapshots canoniques, rapport et versions du
+runtime dans un dossier de campagne neuf. Les preuves ne sont pas supprimées ni
+écrasées automatiquement. La sélection publique doit être revue séparément.
 
-Un modèle ou un correcteur n'est jamais promu sur un seul PDF. La décision doit
-séparer au minimum :
-
-1. fidélité du texte ;
-2. ordre de lecture ;
-3. tables et cellules ;
-4. figures et légendes ;
-5. provenance et géométrie ;
-6. latence froide et chaude ;
-7. mémoire et matériel utilisés.
-
-Une amélioration d'ordre ne justifie pas la perte d'une table ou d'une figure.
-Les résultats réels et les overlays restent sous `tmp/`, qui est ignoré par
-Git, et sont supprimés à la fin d'une campagne.
+Un verdict de production exige ensuite un parcours distinct : API d'enqueue,
+vrai worker, OCR local réellement exécuté sur pages raster, publication atomique
+du canonique et des chunks, récupération effective des points Qdrant, puis lecture
+API sourcée. L'absence d'un moteur OCR doit produire un skip explicite ou un échec,
+jamais un test réussi par retour anticipé. Corruptions, scans difficiles,
+pages manuscrites et tableaux non représentés restent hors de la preuve obtenue
+avec ce petit corpus. Ni un sous-ensemble ni une projection hors worker ne valide
+toutes les formes de PDF.

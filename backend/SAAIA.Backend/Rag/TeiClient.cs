@@ -18,7 +18,7 @@ static class TeiClient
     internal sealed record RerankItem(int Index, double Score);
     private const int DimCacheMaxEntries = 32;
 
-    private static readonly ConcurrentDictionary<string, int> _dimCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, int> _dimCache = new(StringComparer.Ordinal);
 
     // TEI can be briefly unavailable during startup (model download / warmup) or under load.
     // We retry a few times on transient failures to avoid failing ingestion for a simple race.
@@ -31,9 +31,10 @@ static class TeiClient
         TimeSpan.FromSeconds(3),
     };
 
-    public static async Task<int> GetVectorDimAsync(HttpClient tei, string model, CancellationToken ct)
+    public static async Task<int> GetVectorDimAsync(HttpClient tei, string model, CancellationToken ct, string? modelRevision = null)
     {
-        if (!string.IsNullOrWhiteSpace(model) && _dimCache.TryGetValue(model, out var cached) && cached > 0)
+        var cacheKey = $"{tei.BaseAddress?.AbsoluteUri}\n{model}\n{modelRevision}";
+        if (!string.IsNullOrWhiteSpace(model) && _dimCache.TryGetValue(cacheKey, out var cached) && cached > 0)
             return cached;
 
         var probeInput = FormatEmbeddingInput(model, "ping", EmbeddingInputKind.Query);
@@ -44,9 +45,9 @@ static class TeiClient
 
         if (!string.IsNullOrWhiteSpace(model))
         {
-            if (_dimCache.Count >= DimCacheMaxEntries && !_dimCache.ContainsKey(model))
+            if (_dimCache.Count >= DimCacheMaxEntries && !_dimCache.ContainsKey(cacheKey))
                 _dimCache.Clear();
-            _dimCache[model] = dim;
+            _dimCache[cacheKey] = dim;
         }
 
         return dim;
@@ -101,35 +102,13 @@ static class TeiClient
                         continue;
                     }
 
-                    var err = await TryReadErrorBodyAsync(resp, ct);
-                    throw new Exception($"TEI embeddings failed: {(int)resp.StatusCode} {resp.ReasonPhrase} {err}".Trim());
+                    throw new HttpRequestException($"TEI embeddings failed: HTTP {(int)resp.StatusCode}", null, resp.StatusCode);
                 }
 
                 await using var stream = await resp.Content.ReadAsStreamAsync(ct);
                 using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
 
-                if (!doc.RootElement.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array)
-                    throw new Exception("TEI response missing 'data' array");
-
-                var list = new List<float[]>(capacity: data.GetArrayLength());
-
-                foreach (var item in data.EnumerateArray())
-                {
-                    if (!item.TryGetProperty("embedding", out var emb) || emb.ValueKind != JsonValueKind.Array)
-                        throw new Exception("TEI response item missing 'embedding' array");
-
-                    var v = new float[emb.GetArrayLength()];
-                    var i = 0;
-                    foreach (var n in emb.EnumerateArray())
-                        v[i++] = n.ValueKind == JsonValueKind.Number ? n.GetSingle() : 0f;
-
-                    list.Add(v);
-                }
-
-                if (list.Count != inputs.Length)
-                    throw new Exception($"TEI embeddings count mismatch: got {list.Count}, expected {inputs.Length}");
-
-                return list.ToArray();
+                return TeiEmbeddingResponse.Parse(doc.RootElement, inputs.Length);
             }
         }
     }
@@ -186,8 +165,7 @@ static class TeiClient
                         continue;
                     }
 
-                    var err = await TryReadErrorBodyAsync(resp, ct);
-                    throw new Exception($"TEI rerank failed: {(int)resp.StatusCode} {resp.ReasonPhrase} {err}".Trim());
+                    throw new HttpRequestException($"TEI rerank failed: HTTP {(int)resp.StatusCode}", null, resp.StatusCode);
                 }
 
                 await using var stream = await resp.Content.ReadAsStreamAsync(ct);
@@ -270,18 +248,4 @@ static class TeiClient
         await Task.Delay(total, ct);
     }
 
-    private static async Task<string> TryReadErrorBodyAsync(HttpResponseMessage resp, CancellationToken ct)
-    {
-        try
-        {
-            var s = await resp.Content.ReadAsStringAsync(ct);
-            if (string.IsNullOrWhiteSpace(s)) return string.Empty;
-            s = s.Replace("\r", " ").Replace("\n", " ");
-            return s.Length <= 2000 ? s : s[..2000];
-        }
-        catch
-        {
-            return string.Empty;
-        }
-    }
 }

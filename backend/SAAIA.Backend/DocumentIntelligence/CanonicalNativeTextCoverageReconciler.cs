@@ -20,7 +20,9 @@ internal sealed record NativeTextCoverageReconciliationSummary(
     int RecoveredLayoutBlockCount = 0,
     int RecoveredLayoutPageCount = 0,
     int RecoveredLayoutCharacterCount = 0,
-    int SkippedUndersegmentedLayoutPageCount = 0);
+    int SkippedUndersegmentedLayoutPageCount = 0,
+    string Availability = "available",
+    int ReconciledTableCellCount = 0);
 
 internal static partial class CanonicalNativeTextCoverageReconciler
 {
@@ -37,7 +39,8 @@ internal static partial class CanonicalNativeTextCoverageReconciler
         IReadOnlyList<string> Tokens,
         double OrderedCanonicalCoverage,
         double BagCanonicalCoverage,
-        double CanonicalCoverage);
+        double CanonicalCoverage,
+        bool LiteralContentRepresented);
 
     public static NativeTextCoverageReconciliationSummary Apply(
         CanonicalDocument document,
@@ -70,11 +73,15 @@ internal static partial class CanonicalNativeTextCoverageReconciler
                 0,
                 0,
                 0,
-                0);
+                0,
+                Availability: enabled ? "unavailable" : "disabled");
         }
 
         var canonicalPages = document.Pages.ToDictionary(
             static page => page.PageNumber);
+        if (nativeExtraction.Pages.Any(page => !canonicalPages.ContainsKey(page.PageNumber)))
+            throw new InvalidDataException("docling_page_inventory_incomplete");
+        var reconciledTableCells = 0;
         var auditedPages = 0;
         var candidateLines = 0;
         var recoveredLines = 0;
@@ -104,6 +111,7 @@ internal static partial class CanonicalNativeTextCoverageReconciler
             }
 
             auditedPages++;
+            reconciledTableCells += CanonicalNativeTableCellReconciler.Apply(document, canonicalPage, nativePage, engineVersion);
             var navigationHint = PageContainsNavigationStructure(
                 canonicalPage);
             var canonicalSegments = BuildCanonicalSegments(canonicalPage);
@@ -112,15 +120,13 @@ internal static partial class CanonicalNativeTextCoverageReconciler
             var lines = BuildNativeLines(
                 nativePage.Text,
                 canonicalSegments,
-                canonicalPageTokens);
+                canonicalPageTokens,
+                canonicalPage);
             candidateLines += lines.Count;
             var recoverable = lines
                 .Where(line =>
-                    line.CanonicalCoverage < minimumLineCoverage
-                    && IsUsefulRecoveryLine(
-                        line.Text,
-                        line.Tokens,
-                        navigationHint))
+                    !line.LiteralContentRepresented
+                    && HasSourceContent(line.Text))
                 .ToArray();
             if (recoverable.Length > 0)
             {
@@ -184,7 +190,10 @@ internal static partial class CanonicalNativeTextCoverageReconciler
                                     CultureInfo.InvariantCulture),
                                 ["sourceLineEnd"] = lastLine.ToString(
                                     CultureInfo.InvariantCulture),
-                                ["coverageAlgorithm"] = "line_lcs_v1",
+                                ["coverageAlgorithm"] = "literal_presence_with_similarity_diagnostics_v2",
+                                ["retentionPolicy"] = "retain_unrepresented_literal_content",
+                                ["sectionAssociation"] = "not_asserted",
+                                ["contextScope"] = "physical_page",
                                 ["maximumCanonicalCoverage"] = group
                                     .Max(static line =>
                                         line.CanonicalCoverage)
@@ -203,9 +212,7 @@ internal static partial class CanonicalNativeTextCoverageReconciler
                                     .ToString(
                                         "0.######",
                                         CultureInfo.InvariantCulture),
-                                ["contentRoleHint"] = navigationHint
-                                    ? RetrievalContentClassifier.NavigationRole
-                                    : RetrievalContentClassifier.ContentRole,
+                                ["contentRoleHint"] = RetrievalContentClassifier.ContentRole,
                                 ["semanticDecisionOwner"] = "llm_client"
                             }
                         }
@@ -262,7 +269,8 @@ internal static partial class CanonicalNativeTextCoverageReconciler
             recoveredLayoutBlocks,
             recoveredLayoutPages,
             recoveredLayoutCharacters,
-            skippedUndersegmentedLayoutPages);
+            skippedUndersegmentedLayoutPages,
+            ReconciledTableCellCount: reconciledTableCells);
     }
 
     private static bool IsReliableNativeTextPage(
@@ -361,18 +369,19 @@ internal static partial class CanonicalNativeTextCoverageReconciler
     private static IReadOnlyList<NativeLine> BuildNativeLines(
         string text,
         IReadOnlyList<IReadOnlyList<string>> canonicalSegments,
-        IReadOnlyList<string> canonicalPageTokens)
+        IReadOnlyList<string> canonicalPageTokens,
+        CanonicalPage canonicalPage)
     {
         var normalized = text
             .Replace("\r\n", "\n", StringComparison.Ordinal)
             .Replace('\r', '\n');
         var lines = normalized.Split('\n');
+        var representedLines = CanonicalLiteralTextCoverage.FindRepresentedLineIndices(lines, canonicalPage);
         var projected = new List<NativeLine>();
         for (var index = 0; index < lines.Length; index++)
         {
             var line = CollapseWhitespace(
-                OcrNoiseFilter.RemoveSpacedLetterRunNoise(
-                    lines[index]));
+                lines[index]);
             if (string.IsNullOrWhiteSpace(line))
                 continue;
             var tokens = Tokenize(line);
@@ -392,7 +401,8 @@ internal static partial class CanonicalNativeTextCoverageReconciler
                 tokens,
                 orderedCoverage,
                 bagCoverage,
-                Math.Max(orderedCoverage, bagCoverage)));
+                Math.Max(orderedCoverage, bagCoverage),
+                representedLines.Contains(index)));
         }
 
         return projected;
@@ -553,30 +563,9 @@ internal static partial class CanonicalNativeTextCoverageReconciler
                / (double)source.Count;
     }
 
-    private static bool IsUsefulRecoveryLine(
-        string text,
-        IReadOnlyList<string> tokens,
-        bool navigationHint)
-    {
-        if (text.Length < 6 || tokens.Count < 2)
-            return false;
-        if (tokens.All(static token =>
-                token.All(char.IsDigit)))
-        {
-            return false;
-        }
-
-        if (OcrNoiseFilter.LooksLikeProbableNoiseText(text)
-            && !(navigationHint
-                 && ExplicitNavigationLeaderBeforePageRegex().IsMatch(text)))
-        {
-            return false;
-        }
-
-        return tokens.Any(static token =>
-            token.Length >= 3
-            && token.Any(char.IsLetter));
-    }
+    private static bool HasSourceContent(string text)
+        // Neither similarity nor token count proves that a literal observation is disposable.
+        => !string.IsNullOrWhiteSpace(text) && text.Any(char.IsLetterOrDigit);
 
     private static bool EndsWithWordContinuationHyphen(string value)
     {

@@ -304,7 +304,7 @@ class EvaluatorTests(unittest.TestCase):
             root = Path(directory)
             manifest = root / "manifest.json"
             manifest.write_text(
-                '{"cases":[{"caseId":"missing","expectations":{}}]}',
+                '{"schemaVersion":"ingestion_layout_gold_v1","cases":[{"caseId":"missing","expectations":{}}]}',
                 encoding="utf-8",
             )
 
@@ -415,7 +415,7 @@ class EvaluatorTests(unittest.TestCase):
             root = Path(directory)
             manifest = root / "manifest.json"
             manifest.write_text(
-                json.dumps({"cases": [case]}),
+                json.dumps({"schemaVersion": "ingestion_layout_gold_v1", "cases": [case]}),
                 encoding="utf-8",
             )
             (root / "combined.response.json").write_text(
@@ -433,8 +433,9 @@ class EvaluatorTests(unittest.TestCase):
                 require_canonical=True,
             )
 
-        self.assertTrue(report["ok"], report)
-        self.assertEqual("ingestion_layout_gold_report_v2", report["schemaVersion"])
+        self.assertFalse(report["ok"], "Historical unpinned inputs remain a diagnostic, not an acceptance proof.")
+        self.assertTrue(report["diagnosticOk"], report)
+        self.assertEqual("ingestion_layout_gold_report_v3", report["schemaVersion"])
         self.assertEqual(1, report["canonicalCaseCount"])
         self.assertIn("raw", report["results"][0])
         self.assertIn("canonical", report["results"][0])

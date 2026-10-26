@@ -3,7 +3,8 @@ using SAAIA.Backend;
 using SAAIA.Contracts.DocumentIntelligence;
 
 internal sealed record IngestionPublicationIdentity(Guid TenantId, Guid JobId, string RelativePath,
-    byte[] SourceHash, long SourceBytes, DateTime ModifiedUtc, int Version);
+    byte[] SourceHash, long SourceBytes, DateTime ModifiedUtc, int Version, string? PipelineFingerprint = null,
+    string? VectorPlanFingerprint = null, string? LeaseOwner = null);
 internal sealed record IngestionPublicationArtifacts(IReadOnlyList<ExtractedPdfPage> Pages,
     IReadOnlyList<ExtractedDocumentSection> Sections, IReadOnlyList<ExtractedDocumentUnit> Units,
     IReadOnlyList<ProjectedRetrievalChunk> Chunks, IReadOnlyList<ExtractedExactMatchEntry> ExactEntries,
@@ -32,7 +33,8 @@ internal static class IngestionPublicationStage
                 artifacts.Pages, artifacts.Sections, artifacts.Units, artifacts.Chunks, artifacts.ExactEntries,
                 artifacts.ContextualEntries, cancellationToken, extraction.Source, extraction.OcrAttempted,
                 extraction.OcrApplied, extraction.OcrLanguages, extraction.OcrMilliseconds, extraction.OcrDiagnostics,
-                extraction.NativeQuality, extraction.ProfileSeed, artifacts.CanonicalBundle, artifacts.ProfileUnits).ConfigureAwait(false);
+                extraction.NativeQuality, extraction.ProfileSeed, artifacts.CanonicalBundle, artifacts.ProfileUnits,
+                identity.PipelineFingerprint, identity.VectorPlanFingerprint, identity.LeaseOwner).ConfigureAwait(false);
             probe.Complete(committed ? "success" : "superseded", committed ? null : "not_published");
             return committed;
         }

@@ -6,7 +6,9 @@ internal static class PostgresTextSanitizer
     internal static string Clean(string? text)
         => string.IsNullOrEmpty(text)
             ? string.Empty
-            : TextEncodingSanitizer.RepairCommonMojibake(text.Replace("\0", string.Empty));
+            // PostgreSQL text cannot contain NUL. Other Unicode is literal source data,
+            // including unknown glyphs and documents describing encoding failures.
+            : text.Replace("\0", string.Empty);
 
     internal static string? CleanOrNull(string? text)
     {

@@ -32,7 +32,8 @@ internal static class LegacyPdfCanonicalDocumentAdapter
             .ToList();
         var blockIdsByPage = pages.ToDictionary(
             static page => page.PageNumber,
-            static page => page.Blocks.Select(block => block.BlockId).ToArray());
+            static page => page.Blocks.Where(static block => block.BlockType != "ocr_source_observation")
+                .Select(block => block.BlockId).ToArray());
 
         var document = new CanonicalDocument
         {
@@ -86,8 +87,8 @@ internal static class LegacyPdfCanonicalDocumentAdapter
                 Unit = page.WidthPoints.HasValue ? "pt" : null
             },
             Language = context.Language,
-            Blocks =
-            [
+            Blocks = new List<CanonicalBlock>
+            {
                 new()
                 {
                     BlockId = blockId,
@@ -105,7 +106,7 @@ internal static class LegacyPdfCanonicalDocumentAdapter
                         Language = context.Language
                     }
                 }
-            ],
+            }.Concat(LegacyOcrObservationProjector.Project(context, page)).ToList(),
             QualityFlags = qualityFlags.Distinct(StringComparer.Ordinal).ToList()
         };
     }

@@ -100,7 +100,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         await using (var conn = await ds.OpenConnectionAsync())
         {
@@ -232,7 +232,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         await using (var conn = await ds.OpenConnectionAsync())
         {
@@ -400,7 +400,7 @@ VALUES(
             retrievalChunks,
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         await using (var conn = await ds.OpenConnectionAsync())
         {
@@ -583,7 +583,7 @@ VALUES(
             retrievalChunks,
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         await using (var conn = await ds.OpenConnectionAsync())
         {

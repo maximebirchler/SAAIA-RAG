@@ -1,7 +1,7 @@
 using SAAIA.Contracts.DocumentIntelligence;
 using Xunit;
 
-public sealed class DoclingCanonicalDocumentAdapterTests
+public sealed partial class DoclingCanonicalDocumentAdapterTests
 {
     [Fact]
     public void Project_PreservesStructureCoordinatesReadingOrderAndProvenance()
@@ -345,8 +345,8 @@ public sealed class DoclingCanonicalDocumentAdapterTests
         Assert.Equal(100, page.WidthPoints);
         Assert.Equal(200, page.HeightPoints);
         Assert.Contains("Canonical body", page.Text);
-        Assert.Contains("A | B", page.Text);
-        Assert.Contains("C | D", page.Text);
+        Assert.Contains("A\tB", page.Text);
+        Assert.Contains("C\tD", page.Text);
         Assert.Contains("document_intelligence_docling", page.Quality!.Signals);
         Assert.Contains("spatial_blocks_available", page.Quality.Signals);
         Assert.Contains("table_structure_available", page.Quality.Signals);
@@ -516,8 +516,8 @@ public sealed class DoclingCanonicalDocumentAdapterTests
             chunks,
             chunk => chunk.ChunkType
                      == DoclingCanonicalRetrievalProjector.TableChunkType);
-        Assert.Contains("A | B", table.Text);
-        Assert.Contains("C | D", table.Text);
+        Assert.Contains("A\tB", table.Text);
+        Assert.Contains("C\tD", table.Text);
         Assert.Equal(4, table.CanonicalTableCellIds!.Count);
         Assert.DoesNotContain(headingBlockId, table.CanonicalBlockIds!);
         Assert.Contains(headingBlockId, table.CanonicalContextBlockIds!);
@@ -622,7 +622,7 @@ public sealed class DoclingCanonicalDocumentAdapterTests
     }
 
     [Fact]
-    public void NativeTextCoverageReconciliation_RecoversOnlyProvenMissingNavigationText()
+    public void NativeTextCoverageReconciliation_RetainsUnrepresentedOrderWithoutPageWideNavigationInference()
     {
         var response = BuildResponse();
         var source = response.Document.JsonContent!;
@@ -664,7 +664,7 @@ APPENDIX B: REFERENCES................................17
                 minimumLineCoverage: 0.90);
 
         Assert.Equal(1, summary.AuditedPageCount);
-        Assert.Equal(1, summary.RecoveredLineCount);
+        Assert.Equal(2, summary.RecoveredLineCount);
         Assert.Equal(1, summary.RecoveredBlockCount);
         var recovery = Assert.Single(
             canonical.Pages[0].Blocks,
@@ -673,7 +673,7 @@ APPENDIX B: REFERENCES................................17
                 == CanonicalNativeTextCoverageReconciler
                     .RecoveryBlockType);
         Assert.Equal(
-            "APPENDIX B: REFERENCES................................17",
+            "D C B A" + Environment.NewLine + "APPENDIX B: REFERENCES................................17",
             recovery.Text.Retrieval);
         Assert.Contains(
             CanonicalNativeTextCoverageReconciler
@@ -683,7 +683,7 @@ APPENDIX B: REFERENCES................................17
             "PdfPig",
             recovery.Provenance.Engine);
         Assert.Equal(
-            RetrievalContentClassifier.NavigationRole,
+            RetrievalContentClassifier.ContentRole,
             recovery.Provenance.Attributes["contentRoleHint"]);
 
         var chunks = DoclingCanonicalRetrievalProjector.Project(
@@ -697,8 +697,12 @@ APPENDIX B: REFERENCES................................17
                 "APPENDIX B: REFERENCES",
                 StringComparison.Ordinal));
         Assert.Equal(
-            RetrievalContentClassifier.NavigationRole,
+            RetrievalContentClassifier.ContentRole,
             recoveredChunk.ContentRole);
+        Assert.Equal(RetrievalChunkProjector.PhysicalPageContextChunkType, recoveredChunk.ChunkType);
+        Assert.Null(recoveredChunk.SectionTitle);
+        Assert.Contains(chunks, chunk => chunk.ContentRole == RetrievalContentClassifier.NavigationRole
+            && chunk.CanonicalTableCellIds is { Count: > 0 });
         Assert.Contains(
             recovery.BlockId,
             recoveredChunk.CanonicalBlockIds!);
@@ -946,7 +950,7 @@ Levels................................23
     }
 
     [Fact]
-    public void NativeTextCoverageReconciliation_DoesNotReinjectCoveredHyphenFragmentOrNativeNoise()
+    public void NativeTextCoverageReconciliation_RetainsUnverifiedHyphenAndGlyphObservationsWithoutAssertingASection()
     {
         var response = BuildResponse();
         var source = response.Document.JsonContent!;
@@ -984,27 +988,19 @@ ffl e s u r Stoppez la cuisson après ébullition.
                 canonical,
                 nativeExtraction);
 
-        Assert.True(
-            summary.RecoveredLineCount == 0,
-            string.Join(
-                Environment.NewLine,
-                canonical.Pages[0].Blocks
-                    .Where(static block =>
-                        block.BlockType
-                        == CanonicalNativeTextCoverageReconciler
-                            .RecoveryBlockType)
-                    .Select(block =>
-                        $"{block.Text.Canonical} | "
-                        + string.Join(
-                            ",",
-                            block.Provenance.Attributes))));
-        Assert.Equal(0, summary.RecoveredBlockCount);
-        Assert.DoesNotContain(
-            canonical.Pages[0].Blocks,
-            static block =>
-                block.BlockType
-                == CanonicalNativeTextCoverageReconciler
-                    .RecoveryBlockType);
+        Assert.Equal(2, summary.RecoveredLineCount);
+        var observation = Assert.Single(canonical.Pages[0].Blocks,
+            block => block.BlockType == CanonicalNativeTextCoverageReconciler.RecoveryBlockType);
+        Assert.Equal(nativeText.Replace("\r\n", "\n", StringComparison.Ordinal),
+            observation.Text.Raw.Replace("\r\n", "\n", StringComparison.Ordinal));
+        Assert.Equal("not_asserted", observation.Provenance.Attributes["sectionAssociation"]);
+        Assert.Contains(canonical.Pages[0].Blocks, block => block.Text.Canonical == body.Text);
+        var chunk = Assert.Single(DoclingCanonicalRetrievalProjector.Project(canonical, source, 220, 1),
+            chunk => chunk.CanonicalBlockIds!.Contains(observation.BlockId));
+        Assert.Equal(RetrievalChunkProjector.PhysicalPageContextChunkType, chunk.ChunkType);
+        Assert.Null(chunk.SectionOrdinal);
+        Assert.Null(chunk.SectionTitle);
+        Assert.Null(chunk.HeadingPath);
     }
 
     [Fact]
@@ -1284,7 +1280,7 @@ ffl e s u r Stoppez la cuisson après ébullition.
     }
 
     [Fact]
-    public void Project_InfersRepeatedMarginFurnitureAndOmitsItFromRetrieval()
+    public void Project_AnnotatesRepeatedMarginsWithoutDeletingUnknownSourceText()
     {
         var source = new DoclingDocument
         {
@@ -1353,7 +1349,7 @@ ffl e s u r Stoppez la cuisson après ébullition.
         Assert.Equal(3, inferred.Length);
         Assert.All(inferred, block =>
         {
-            Assert.True(block.IsRepeatedFurniture);
+            Assert.False(block.IsRepeatedFurniture);
             Assert.Contains(
                 CanonicalRepeatedPageFurnitureClassifier.InferredQualityFlag,
                 block.QualityFlags);
@@ -1361,7 +1357,7 @@ ffl e s u r Stoppez la cuisson après ébullition.
                 CanonicalRepeatedPageFurnitureClassifier.ClassifierVersion,
                 block.Provenance.Attributes["repeatedFurnitureClassifier"]);
             Assert.Equal(
-                "6",
+                "3",
                 block.Provenance.Attributes["repeatedFurnitureDistinctPages"]);
         });
         Assert.All(
@@ -1380,14 +1376,12 @@ ffl e s u r Stoppez la cuisson après ébullition.
                 StringComparison.Ordinal));
         Assert.False(trimmed.IsRepeatedFurniture);
         Assert.Equal(
-            "Keep this substantive instruction.",
+            "Keep this substantive instruction. Example Corp",
             trimmed.Text.Retrieval);
         Assert.Equal(
             "Keep this substantive instruction. Example Corp",
             trimmed.Text.Canonical);
-        Assert.Contains(
-            CanonicalRepeatedPageFurnitureClassifier.TrimmedQualityFlag,
-            trimmed.QualityFlags);
+        Assert.Equal(trimmed.Text.Canonical, trimmed.Text.Retrieval);
 
         var chunks = DoclingCanonicalRetrievalProjector.Project(
             canonical,
@@ -1395,7 +1389,7 @@ ffl e s u r Stoppez la cuisson après ébullition.
             maxWords: 220,
             minWords: 1);
 
-        Assert.DoesNotContain(
+        Assert.Contains(
             chunks,
             chunk => chunk.Text.Contains(
                 "Example Corp",

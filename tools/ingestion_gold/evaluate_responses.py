@@ -7,6 +7,7 @@ from typing import Any
 
 from .canonical_evaluator import evaluate_canonical_snapshot
 from .evaluator import evaluate_case
+from .contracts import campaign_report, validate_manifest
 
 
 def evaluate_response_directory(
@@ -16,9 +17,10 @@ def evaluate_response_directory(
     require_canonical: bool = False,
 ) -> dict[str, Any]:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    cases = validate_manifest(manifest)
     resolved_canonical_dir = canonical_dir or response_dir
     results: list[dict[str, Any]] = []
-    for case in manifest.get("cases", []):
+    for case in cases:
         case_id = str(case["caseId"])
         response_path = response_dir / f"{case_id}.response.json"
         if not response_path.is_file():
@@ -79,25 +81,8 @@ def evaluate_response_directory(
                 **({"probe": probe} if isinstance(probe, dict) else {}),
             }
         )
-    canonical_results = [
-        result["canonical"]
-        for result in results
-        if isinstance(result.get("canonical"), dict)
-    ]
-    return {
-        "schemaVersion": "ingestion_layout_gold_report_v2",
-        "ok": all(result["ok"] for result in results),
-        "caseCount": len(results),
-        "passedCaseCount": sum(1 for result in results if result["ok"]),
-        "rawPassedCaseCount": sum(
-            1 for result in results if result.get("raw", {}).get("ok")
-        ),
-        "canonicalCaseCount": len(canonical_results),
-        "canonicalPassedCaseCount": sum(
-            1 for result in canonical_results if result.get("ok")
-        ),
-        "results": results,
-    }
+    return campaign_report(results, [case["caseId"] for case in cases], canonical_required=require_canonical,
+                           renderer_pinned=manifest["schemaVersion"] == "ingestion_acceptance_gold_v2")
 
 
 def main() -> int:
@@ -106,7 +91,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--manifest",
-        default="config/ingestion-layout-gold.v1.json",
+        default="config/ingestion-acceptance-gold.v2.json",
     )
     parser.add_argument("--response-dir", required=True)
     parser.add_argument("--canonical-dir")

@@ -13,8 +13,9 @@ if (args.Contains("--native-paid-corpus", StringComparer.Ordinal))
 var pdfPath = RequireArgument(args, "--pdf");
 var responsePath = RequireArgument(args, "--response");
 var outputPath = RequireArgument(args, "--output");
-var maxWords = ReadIntegerArgument(args, "--chunk-max-words", 220);
-var minWords = ReadIntegerArgument(args, "--chunk-min-words", 1);
+var ingestionOptions = new IngestionOptions();
+var maxWords = ReadIntegerArgument(args, "--chunk-max-words", ingestionOptions.ChunkMaxWords);
+var minWords = ReadIntegerArgument(args, "--chunk-min-words", ingestionOptions.ChunkMinWords);
 
 if (!File.Exists(pdfPath))
     throw new FileNotFoundException("The PDF fixture does not exist.", pdfPath);
@@ -78,6 +79,10 @@ var snapshot = new
 {
     schemaVersion = "ingestion_layout_canonical_snapshot_v1",
     sourceSha256,
+    backendAssemblySha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(typeof(PdfExtractor).Assembly.Location))),
+    projectorAssemblySha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(System.Reflection.Assembly.GetExecutingAssembly().Location))),
+    chunking = new { maxWords, minWords, matchesProductionDefaults = maxWords == ingestionOptions.ChunkMaxWords && minWords == ingestionOptions.ChunkMinWords },
+    boundaries = new { ingestionWorkerExecuted = false, sqlPublicationValidated = false, vectorValidated = false },
     document = canonical,
     reconciliation,
     imageInventory,

@@ -23,12 +23,10 @@ public sealed class PdfOcrTextExtractorTests
         Assert.All(result.Pages, page => Assert.Contains("ocr_text_extracted", page.Quality!.Signals));
     }
 
-    [Fact]
+    [OcrEngineFact]
+    [Trait("Category", "OcrE2E")]
     public async Task Real_scanned_pdf_ocr_extracts_text_when_opted_in()
     {
-        if (!string.Equals(Environment.GetEnvironmentVariable("SAAIA_TEST_OCR_E2E"), "1", StringComparison.Ordinal))
-            return;
-
         var ocrCommand = Environment.GetEnvironmentVariable("SAAIA_TEST_OCR_COMMAND") ?? "ocrmypdf";
         var rendererCommand = Environment.GetEnvironmentVariable("SAAIA_TEST_OCR_IMAGE_RENDERER_COMMAND") ?? "gs";
         var textCommand = Environment.GetEnvironmentVariable("SAAIA_TEST_OCR_IMAGE_TEXT_COMMAND") ?? "tesseract";
@@ -180,7 +178,7 @@ public sealed class PdfOcrTextExtractorTests
     }
 
     [Fact]
-    public void MergeImageOcrText_replaces_corrupt_native_text_when_ocr_is_cleaner()
+    public void MergeImageOcrText_preserves_native_and_recovered_observations_when_ocr_is_cleaner()
     {
         var nativeText = "Configuration and protec\uFFFDion requirements\nDocument owner approval required";
         var nativeWords = nativeText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
@@ -207,9 +205,10 @@ public sealed class PdfOcrTextExtractorTests
 
         Assert.NotNull(merged);
         Assert.Equal("pdf_text_plus_image_ocr", merged!.Source);
-        Assert.Equal("Configuration and protection requirements\nDocument owner approval required", merged.Pages[0].Text);
-        Assert.DoesNotContain('\uFFFD', merged.Pages[0].Text);
-        Assert.Contains("image_ocr_replaced_corrupt_text", merged.Pages[0].Quality!.Signals);
+        Assert.Contains(nativeText, merged.Pages[0].Text, StringComparison.Ordinal);
+        Assert.Contains("Configuration and protection requirements", merged.Pages[0].Text, StringComparison.Ordinal);
+        Assert.Equal(nativeText, merged.Pages[0].RawText);
+        Assert.DoesNotContain("image_ocr_replaced_corrupt_text", merged.Pages[0].Quality!.Signals);
         Assert.Contains("image_ocr_text_extracted", merged.Quality.Signals);
     }
 
@@ -304,7 +303,7 @@ public sealed class PdfOcrTextExtractorTests
     }
 
     [Fact]
-    public void MergeImageOcrText_replaces_layout_compressed_native_text_when_ocr_preserves_blocks()
+    public void MergeImageOcrText_keeps_native_observation_beside_a_structured_ocr_variant()
     {
         const string nativeText =
             "Control module procedure Start the pump 10 bar pressure 2 kg load Confirm valve position Components pressure gauge pump valve safety label release handle Inspection notes complete.";
@@ -340,8 +339,10 @@ release handle
             minWords: 3);
 
         Assert.NotNull(merged);
-        Assert.Equal(ocrText.Trim(), merged!.Pages[0].Text);
-        Assert.Contains("image_ocr_replaced_layout_text", merged.Pages[0].Quality!.Signals);
+        Assert.StartsWith(nativeText, merged!.Pages[0].Text, StringComparison.Ordinal);
+        Assert.Contains("10 bar pressure", merged.Pages[0].Text, StringComparison.Ordinal);
+        Assert.Equal(ocrText, Assert.Single(merged.Pages[0].OcrObservations!).RawText);
+        Assert.DoesNotContain("image_ocr_replaced_layout_text", merged.Pages[0].Quality!.Signals);
     }
 
     [Fact]
@@ -441,7 +442,7 @@ Different alarm label
     }
 
     [Fact]
-    public void MergeImageOcrText_still_skips_short_isolated_ocr_noise_lines()
+    public void MergeImageOcrText_keeps_short_observations_without_a_language_whitelist()
     {
         var nativePage = new ExtractedPdfPage(
             1,
@@ -464,11 +465,12 @@ Different alarm label
             "eng",
             minWords: 4);
 
-        Assert.Null(merged);
+        Assert.NotNull(merged);
+        Assert.NotEmpty(merged!.Pages[0].OcrObservations!);
     }
 
     [Fact]
-    public void MergeImageOcrText_skips_native_lines_with_ocr_spacing_differences()
+    public void MergeImageOcrText_keeps_word_boundary_differences_as_separate_observations()
     {
         var nativePage = new ExtractedPdfPage(
             1,
@@ -492,12 +494,12 @@ Different alarm label
             minWords: 3);
 
         Assert.NotNull(merged);
-        Assert.DoesNotContain("Ingredientconstraints", merged!.Pages[0].Text, StringComparison.Ordinal);
+        Assert.Contains("Ingredientconstraints", merged!.Pages[0].Text, StringComparison.Ordinal);
         Assert.Contains("IMAGE LABEL KEEP COLD", merged.Pages[0].Text, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void MergeImageOcrText_skips_low_novelty_ocr_lines_with_minor_recognition_errors()
+    public void MergeImageOcrText_keeps_distinct_recognition_variants_without_guessing_equivalence()
     {
         var nativePage = new ExtractedPdfPage(
             1,
@@ -521,14 +523,14 @@ Different alarm label
             minWords: 3);
 
         Assert.NotNull(merged);
-        Assert.DoesNotContain("protectlon", merged!.Pages[0].Text, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("requlrements", merged.Pages[0].Text, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(1, CountOccurrences(merged.Pages[0].Text, "reset procedure"));
+        Assert.Contains("protectlon", merged!.Pages[0].Text, StringComparison.Ordinal);
+        Assert.Contains("requlrements", merged.Pages[0].Text, StringComparison.Ordinal);
+        Assert.Contains("reset procedure", merged.Pages[0].Text, StringComparison.Ordinal);
         Assert.Contains("PHOTO LABEL SERVICE MODE", merged.Pages[0].Text, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void MergeImageOcrText_skips_short_ocr_lines_already_covered_by_native_text()
+    public void MergeImageOcrText_keeps_differences_in_quantities_letters_and_units_as_observations()
     {
         var nativeText = "1 branche de celeri\n2 l de bouillon de volaille\n1 c. a soupe de graisse\n1 pincee de noix de muscade";
         var nativePage = new ExtractedPdfPage(
@@ -553,15 +555,15 @@ Different alarm label
             minWords: 3);
 
         Assert.NotNull(merged);
-        Assert.DoesNotContain("I branche", merged!.Pages[0].Text, StringComparison.Ordinal);
-        Assert.DoesNotContain("2 1 de bouillon", merged.Pages[0].Text, StringComparison.Ordinal);
-        Assert.DoesNotContain("Ic. a soupe", merged.Pages[0].Text, StringComparison.Ordinal);
-        Assert.DoesNotContain("Ipincee", merged.Pages[0].Text, StringComparison.Ordinal);
+        Assert.Contains("I branche", merged!.Pages[0].Text, StringComparison.Ordinal);
+        Assert.Contains("2 1 de bouillon", merged.Pages[0].Text, StringComparison.Ordinal);
+        Assert.Contains("Ic. a soupe", merged.Pages[0].Text, StringComparison.Ordinal);
+        Assert.Contains("Ipincee", merged.Pages[0].Text, StringComparison.Ordinal);
         Assert.Contains("VISIBLE PANEL LABEL", merged.Pages[0].Text, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void FilterLowConfidenceImageOcrText_removes_lines_with_low_confidence_meaningful_words()
+    public void FilterLowConfidenceImageOcrText_retains_lines_and_exposes_confidence_separately()
     {
         const string cleanedText = """
 Pour 4 perronney
@@ -585,13 +587,14 @@ level	page_num	block_num	par_num	line_num	word_num	left	top	width	height	conf	te
 
         var filtered = PdfOcrTextExtractor.FilterLowConfidenceImageOcrText(cleanedText, tsvText);
 
-        Assert.DoesNotContain("perronney", filtered, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(cleanedText, filtered);
+        Assert.True(OcrObservationParser.Parse(cleanedText, tsvText, "tesseract", "fra").HasLowConfidenceWords);
         Assert.Contains("Comme tous les plats", filtered, StringComparison.Ordinal);
         Assert.Contains("VISIBLE PANEL LABEL", filtered, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void MergeImageOcrText_does_not_append_noisy_duplicate_structured_lines()
+    public void MergeImageOcrText_preserves_distinct_structured_recognition_observations()
     {
         var nativeText = "Pour 4 personnes\n1 kg de pommes de terre\n100 g de beurre\nPreparation : pelez et coupez les pommes de terre, puis servez chaud.";
         var nativePage = new ExtractedPdfPage(
@@ -615,11 +618,12 @@ level	page_num	block_num	par_num	line_num	word_num	left	top	width	height	conf	te
             "fra+eng",
             minWords: 3);
 
-        Assert.Null(merged);
+        Assert.NotNull(merged);
+        Assert.NotEmpty(merged!.Pages[0].OcrObservations!);
     }
 
     [Fact]
-    public void MergeImageOcrText_skips_probable_ocr_noise_lines()
+    public void MergeImageOcrText_retains_probable_noise_in_the_source_observation()
     {
         var nativePage = new ExtractedPdfPage(
             1,
@@ -643,7 +647,7 @@ level	page_num	block_num	par_num	line_num	word_num	left	top	width	height	conf	te
             minWords: 4);
 
         Assert.NotNull(merged);
-        Assert.DoesNotContain("sjueynsuog", merged!.Pages[0].Text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("sjueynsuog", Assert.Single(merged!.Pages[0].OcrObservations!).RawText, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("PHOTO WARNING PANEL Keep hands clear", merged.Pages[0].Text, StringComparison.Ordinal);
     }
 
@@ -709,7 +713,7 @@ level	page_num	block_num	par_num	line_num	word_num	left	top	width	height	conf	te
     }
 
     [Fact]
-    public void ShouldApplyOcrExtraction_accepts_force_ocr_when_token_count_is_equal()
+    public void ShouldApplyOcrExtraction_rejects_force_ocr_that_loses_most_native_source_text()
     {
         var firstGluedToken = string.Concat(Enumerable.Repeat("SupplierCodeOfConductDeliveringBetterPublicServicesTogether", 3));
         var secondGluedToken = string.Concat(Enumerable.Repeat("TransparentGovernanceAndAccessibleProcurementRequirements", 3));
@@ -740,7 +744,7 @@ level	page_num	block_num	par_num	line_num	word_num	left	top	width	height	conf	te
             OcrLanguages: "eng");
 
         Assert.True(PdfOcrTextExtractor.ShouldForceOcrNativeText(native));
-        Assert.True(PdfOcrTextExtractor.ShouldApplyOcrExtraction(
+        Assert.False(PdfOcrTextExtractor.ShouldApplyOcrExtraction(
             native,
             ocr,
             fullDocumentOcrRecommended: true,
@@ -779,14 +783,14 @@ level	page_num	block_num	par_num	line_num	word_num	left	top	width	height	conf	te
             options,
             native);
 
-        Assert.Equal("deu+eng", languages);
+        Assert.Equal("deu+fra+eng+spa+por+ita", languages);
     }
 
     [Theory]
-    [InlineData("nld+eng+fra", "De handleiding beschrijft onderhoud en veiligheidscontroles voor de installatie.", "nld+eng")]
-    [InlineData("ara+eng+fra", "يشرح هذا المستند اجراءات السلامة والصيانة للمعدات.", "ara+eng")]
-    [InlineData("chi_sim+eng+fra", "本文件介绍安全联锁状态和维护要求。", "chi_sim+eng")]
-    [InlineData("tur+eng+fra", "Bu belge guvenlik gereksinimleri ve bakim adimlarini aciklar.", "tur+eng")]
+    [InlineData("nld+eng+fra", "De handleiding beschrijft onderhoud en veiligheidscontroles voor de installatie.", "nld+eng+fra")]
+    [InlineData("ara+eng+fra", "يشرح هذا المستند اجراءات السلامة والصيانة للمعدات.", "ara+eng+fra")]
+    [InlineData("chi_sim+eng+fra", "本文件介绍安全联锁状态和维护要求。", "chi_sim+eng+fra")]
+    [InlineData("tur+eng+fra", "Bu belge guvenlik gereksinimleri ve bakim adimlarini aciklar.", "tur+eng+fra")]
     public void ResolveLanguagesForDocument_uses_non_ui_document_language_when_confident(
         string configuredLanguages,
         string text,
@@ -868,14 +872,14 @@ level	page_num	block_num	par_num	line_num	word_num	left	top	width	height	conf	te
     }
 
     [Fact]
-    public void ResolveDetectedAutoOcrLanguages_prefers_detected_language_without_filling_auto_pool()
+    public void ResolveDetectedAutoOcrLanguages_prioritizes_detected_language_without_discarding_other_candidates()
     {
         var languages = PdfOcrTextExtractor.ResolveDetectedAutoOcrLanguages(
             "nl",
             ["fra", "eng", "deu", "ita"],
             ["eng", "fra", "deu", "ita", "nld", "ara"]);
 
-        Assert.Equal(["nld", "eng"], languages);
+        Assert.Equal(["nld", "eng", "fra", "deu", "ita"], languages);
     }
 
     [Fact]
@@ -1013,7 +1017,7 @@ level	page_num	block_num	par_num	line_num	word_num	left	top	width	height	conf	te
             options,
             nativeExtraction: null);
 
-        Assert.Equal("deu+eng", languages);
+        Assert.Equal("deu+fra+eng+ita+spa", languages);
     }
 
     [Fact]
@@ -1303,7 +1307,7 @@ level	page_num	block_num	par_num	line_num	word_num	left	top	width	height	conf	te
             });
 
         Assert.Equal("image_page", diagnostics.Mode);
-        Assert.Equal("partial_budget", diagnostics.CoverageStatus);
+        Assert.Equal("partial_error", diagnostics.CoverageStatus);
         Assert.Equal([1], diagnostics.PagesWithOcrText);
         Assert.Equal([1], diagnostics.PagesWithNovelText);
         Assert.NotNull(diagnostics.ImagePageDiagnostics);
@@ -1340,7 +1344,7 @@ level	page_num	block_num	par_num	line_num	word_num	left	top	width	height	conf	te
     }
 
     [Fact]
-    public void ResolveImageOcrMergeBase_prefers_native_empty_base_over_full_ocr_result()
+    public void ResolveImageOcrMergeBase_preserves_full_ocr_acquired_before_an_image_retry()
     {
         var nativePage = new ExtractedPdfPage(
             1,
@@ -1368,7 +1372,7 @@ level	page_num	block_num	par_num	line_num	word_num	left	top	width	height	conf	te
 
         var mergeBase = IngestionWorker.ResolveImageOcrMergeBase(native, fullOcr, fullOcrApplied: true);
 
-        Assert.Same(native, mergeBase);
+        Assert.Same(fullOcr, mergeBase);
     }
 
     [Fact]

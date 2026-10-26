@@ -3041,7 +3041,8 @@ LIMIT @candidate_limit;
         string? categoryPath = null,
         Action<string, string?>? degradedRetrieverRef = null,
         TeiWorkloadGovernor? teiGovernor = null,
-        bool attachContentCards = true)
+        bool attachContentCards = true,
+        ILogger? logger = null)
     {
         var tei = httpFactory.CreateClient("tei");
         tei.BaseAddress = new Uri(rag.EmbeddingsBaseUrl);
@@ -3103,52 +3104,28 @@ LIMIT @candidate_limit;
         filterMust.Add(new { key = "embedding_input_format", match = new { value = expectedEmbeddingInputFormat } });
         if (!string.IsNullOrWhiteSpace(rag.EmbeddingsModel))
             filterMust.Add(new { key = "embedding_model", match = new { value = rag.EmbeddingsModel.Trim() } });
+        if (!string.IsNullOrWhiteSpace(rag.EmbeddingsModelRevision))
+            filterMust.Add(new { key = "embedding_model_revision", match = new { value = rag.EmbeddingsModelRevision.Trim() } });
 
         var qdrantLimit = string.IsNullOrWhiteSpace(categoryPath)
             ? candidates
             : Math.Clamp(candidates * 3, candidates, Math.Max(candidates, 256));
-        var payload = new
+        object RequestBody(int limit) => new
         {
             vector = qvec,
-            limit = qdrantLimit,
+            limit,
             with_payload = true,
             filter = new { must = filterMust, must_not = filterMustNot }
         };
 
-        var url = $"/collections/{rag.QdrantCollection}/points/search";
-        HttpResponseMessage? resp = null;
-
         var swQ = Stopwatch.StartNew();
         try
         {
-            using (var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"))
-                resp = await qdrant.PostAsync(url, content, ct);
-
-            if (resp.StatusCode == HttpStatusCode.NotFound)
-            {
-                resp.Dispose();
-                resp = null;
-                await QdrantClient.EnsureCollectionAsync(qdrant, rag.QdrantCollection, qvec.Length, ct);
-
-                using var content2 = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-                resp = await qdrant.PostAsync(url, content2, ct);
-            }
-
-            qdrantStatusRef((int)resp.StatusCode);
-
-            if (!resp.IsSuccessStatusCode)
-            {
-                var errBody = await resp.Content.ReadAsStringAsync(ct);
-                throw new Exception($"Qdrant search failed: {(int)resp.StatusCode} {resp.ReasonPhrase} {errBody}");
-            }
-
-            await using var stream = await resp.Content.ReadAsStreamAsync(ct);
-            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
-            var rawMatches = QdrantClient.ParseSearchResults(doc);
-            var embeddingCompatibleMatches = rawMatches
-                .Where(match => IsDenseMatchEmbeddingCompatible(match, rag.EmbeddingsModel))
-                .ToList();
-            var filtered = await FilterMatchesAgainstActiveDocumentVersionsAsync(ds, tenantId, embeddingCompatibleMatches, ct, categoryPath);
+            var filtered = await DenseActiveCandidateSearch.ExecuteAsync(qdrant, rag.QdrantCollection, qvec.Length,
+                qdrantLimit, candidates, RequestBody,
+                match => IsDenseMatchEmbeddingCompatible(match, rag.EmbeddingsModel),
+                (matches, filterCt) => FilterMatchesAgainstActiveDocumentVersionsAsync(ds, tenantId, matches, filterCt, categoryPath),
+                qdrantStatusRef, degradedRetrieverRef, ct, logger);
             var ranked = RerankDenseMatches(filtered);
             if (!attachContentCards)
             {
@@ -3192,7 +3169,6 @@ LIMIT @candidate_limit;
         {
             swQ.Stop();
             qdrantMsRef(swQ.ElapsedMilliseconds);
-            resp?.Dispose();
         }
     }
 

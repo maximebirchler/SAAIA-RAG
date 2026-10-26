@@ -86,7 +86,8 @@ internal static class InteractivePrimaryLookup
                     qdrantStatusRef: value => flow.Session.Timings.QdrantStatus = value,
                     categoryPath: plan.Scope.CategoryPath,
                     degradedRetrieverRef: flow.Session.Degradation.Mark,
-                    teiGovernor: resources.Context.TeiGovernor),
+                    teiGovernor: resources.Context.TeiGovernor,
+                    logger: resources.Context.Logger),
                 whenSkipped: static () => new List<RagMatch>(),
                 getReturnedCount: static matches => matches.Count);
         var skipDocumentProfileSearchForPreciseLookup =

@@ -32,6 +32,8 @@ internal static class DoclingCanonicalDocumentAdapter
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(source);
         ValidateContext(context);
+        if (source.KeyValueItems.Count > 0 || source.FormItems.Count > 0)
+            throw new InvalidDataException("docling_unprojected_structured_items");
 
         var sourceItems = DoclingDocumentTraversal.BuildItemMap(source);
         var orderByRef = DoclingDocumentTraversal.BuildReadingOrder(source, sourceItems);
@@ -139,7 +141,7 @@ internal static class DoclingCanonicalDocumentAdapter
             {
                 var sourceProvenance = item.Provenance[provenanceIndex];
                 var page = RequirePage(pages, sourceProvenance.PageNumber);
-                var (rawText, canonicalText) = ProjectTextRegion(
+                var (rawText, canonicalText) = DoclingTextRegionProjector.Project(
                     item,
                     sourceProvenance,
                     provenanceIndex);
@@ -226,6 +228,15 @@ internal static class DoclingCanonicalDocumentAdapter
                     provenanceIndex,
                     sourceProvenance.CharacterSpan);
                 AddTableRepairProvenance(tableProvenance, item.TableRepair);
+                if (item.RepairAttempt is { } attempt)
+                {
+                    tableProvenance.Attributes["regionalTableRepairAttemptStatus"] =
+                        attempt.Status is "error" or "not_applied" or "applied" ? attempt.Status : "unknown";
+                    tableProvenance.Attributes["regionalTableRepairAttemptReason"] =
+                        SafeDiagnosticCode(attempt.Reason);
+                    if (attempt.Status == "error")
+                        AddQualityFlag(page.QualityFlags, "canonical_table_regional_ocr_degraded");
+                }
                 var table = new CanonicalTable
                 {
                     TableId = tableId,
@@ -320,6 +331,8 @@ internal static class DoclingCanonicalDocumentAdapter
                         provenanceIndex,
                         sourceProvenance.CharacterSpan)
                 });
+                page.Figures[^1].Provenance.Attributes["semanticExtractionStatus"] = "not_performed";
+                AddQualityFlag(page.QualityFlags, "figure_semantics_not_extracted");
                 AddCaptionRelations(context.SourceSha256, captionIds, figureId, relations);
             }
         }
@@ -336,6 +349,8 @@ internal static class DoclingCanonicalDocumentAdapter
                      .ThenBy(static item => item.GlobalOrder)
                      .ThenBy(static item => item.Block.ReadingOrder))
         {
+            if (CanonicalSourceAssociationPolicy.IsUnassignedPhysicalContext(projection.Block))
+                continue;
             if (string.Equals(projection.Label, "section_header", StringComparison.Ordinal))
             {
                 while (active.Count > 0 && active.Peek().Level >= projection.Level)
@@ -360,8 +375,6 @@ internal static class DoclingCanonicalDocumentAdapter
                 continue;
             }
 
-            if (projection.Block.IsRepeatedFurniture)
-                continue;
             if (active.Count == 0)
                 continue;
             var current = active.Peek().Node;
@@ -410,105 +423,6 @@ internal static class DoclingCanonicalDocumentAdapter
             Attributes = attributes
         };
     }
-
-    private static (string Raw, string Canonical) ProjectTextRegion(
-        DoclingTextItem item,
-        DoclingProvenance provenance,
-        int provenanceIndex)
-    {
-        if (item.Provenance.Count <= 1)
-        {
-            var singleRegionRaw = string.IsNullOrEmpty(item.OriginalText)
-                ? item.Text ?? ""
-                : item.OriginalText;
-            return (singleRegionRaw, item.Text ?? "");
-        }
-
-        if (provenance.CharacterSpan is not { Length: 2 })
-        {
-            throw new InvalidDataException(
-                $"Docling text '{item.SelfRef}' provenance {provenanceIndex} "
-                + "does not contain an exact two-bound character span.");
-        }
-
-        var start = provenance.CharacterSpan[0];
-        var endExclusive = provenance.CharacterSpan[1];
-        var fragment = SliceByUnicodeScalarRange(
-            item.OriginalText ?? "",
-            start,
-            endExclusive,
-            item.SelfRef,
-            provenanceIndex);
-
-        // Docling defines multi-provenance charspans against `orig`, not `text`.
-        // Its own serializer therefore uses the exact `orig` slice as both values.
-        return (fragment, fragment);
-    }
-
-    private static string SliceByUnicodeScalarRange(
-        string value,
-        int start,
-        int endExclusive,
-        string sourceRef,
-        int provenanceIndex)
-    {
-        if (start < 0 || endExclusive < start)
-        {
-            throw InvalidCharacterSpan(
-                sourceRef,
-                provenanceIndex,
-                start,
-                endExclusive,
-                value.EnumerateRunes().Count());
-        }
-
-        var scalarIndex = 0;
-        var utf16Index = 0;
-        int? utf16Start = start == 0 ? 0 : null;
-        int? utf16End = endExclusive == 0 ? 0 : null;
-        foreach (var rune in value.EnumerateRunes())
-        {
-            if (scalarIndex == start)
-                utf16Start = utf16Index;
-            if (scalarIndex == endExclusive)
-            {
-                utf16End = utf16Index;
-                break;
-            }
-
-            utf16Index += rune.Utf16SequenceLength;
-            scalarIndex++;
-        }
-
-        if (scalarIndex == start)
-            utf16Start ??= utf16Index;
-        if (scalarIndex == endExclusive)
-            utf16End ??= utf16Index;
-        if (!utf16Start.HasValue || !utf16End.HasValue)
-        {
-            throw InvalidCharacterSpan(
-                sourceRef,
-                provenanceIndex,
-                start,
-                endExclusive,
-                scalarIndex);
-        }
-
-        return value.Substring(
-            utf16Start.Value,
-            utf16End.Value - utf16Start.Value);
-    }
-
-    private static InvalidDataException InvalidCharacterSpan(
-        string sourceRef,
-        int provenanceIndex,
-        int start,
-        int endExclusive,
-        int scalarLength)
-        => new(
-            $"Docling text '{sourceRef}' provenance {provenanceIndex} "
-            + $"contains invalid character span [{start}, {endExclusive}) "
-            + $"for original text length {scalarLength}.");
 
     private static CanonicalTextVariants BuildTextVariants(string? rawText, string? canonicalText)
     {
@@ -727,6 +641,10 @@ internal static class DoclingCanonicalDocumentAdapter
         if (overlap)
             AddQualityFlag(page.QualityFlags, "canonical_table_overlapping_grid");
     }
+
+    private static string SafeDiagnosticCode(string value)
+        => value.Length <= 128 && value.All(character => char.IsAsciiLetterOrDigit(character)
+            || character is '_' or '-' or '.') ? value : "unrecognized_reason";
 
     private static void AddTableRepairProvenance(
         CanonicalExtractionProvenance provenance,

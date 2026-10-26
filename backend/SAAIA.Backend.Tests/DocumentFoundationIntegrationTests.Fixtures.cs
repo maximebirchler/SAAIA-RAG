@@ -460,7 +460,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries ?? [],
             contextualEntries,
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
 
         Assert.True(committed);
     }
@@ -548,7 +548,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries ?? [],
             contextualEntries,
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
 
         Assert.True(committed);
     }

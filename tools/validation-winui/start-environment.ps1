@@ -8,10 +8,16 @@ param(
     # Windows PostgreSQL's C locale treats Unicode punctuation as letters.
     # Keep -PgLocale C available only for deliberate negative diagnostics.
     [ValidateNotNullOrEmpty()][string]$PgLocale = 'English_United States.1252',
+    [string]$BackendOverlayPath = '',
     [switch]$NoBuild
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$ingestionOverlay=$null
+if($BackendOverlayPath){
+    . (Join-Path $repo 'tools/validation-ingestion/OwnedIngestionConfig.ps1')
+    $ingestionOverlay=Read-OwnedIngestionOverlay -Path $BackendOverlayPath -RepositoryRoot $repo
+}
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 if (Test-Path -LiteralPath $output) { throw 'Select a new evidence directory; existing runs are never overwritten.' }
 foreach ($port in @($BackendPort, $FixturePort)) {
@@ -50,6 +56,11 @@ $owner = [ordered]@{ schemaVersion = 'saaia-winui-local-runtime.v1'; runId = $ru
     processes = @(); externalCallsPossible = $false; existingDatabaseModified = $false;
     adapters = @('Real production backend', 'Real PostgreSQL16 isolated cluster', 'Deterministic loopback TEI/Qdrant/LLM fixtures');
     productStatus = 'TESTE_NON_APPROUVE' }
+if($ingestionOverlay){
+    $owner['ingestionOverlaySha256']=(Get-FileHash -LiteralPath $BackendOverlayPath -Algorithm SHA256).Hash
+    $owner['adapters']=@('Real production canonical ingestion worker','Real PostgreSQL16 isolated cluster',
+        'Explicit loopback Docling and Qdrant endpoints','Loopback embedding adapter declared by campaign')
+}
 function Save-Owner { [IO.File]::WriteAllText((Join-Path $output 'environment.json'), ($owner | ConvertTo-Json -Depth 10)) }
 function Start-Helper([string]$File, [string[]]$Arguments, [string]$Name, [hashtable]$Environment = @{}) {
     $info = [Diagnostics.ProcessStartInfo]::new($File)
@@ -114,6 +125,12 @@ try {
         OpenTelemetry = @{ Enabled = $false }
         Logging = @{ LogLevel = @{ Default = 'Information'; 'Microsoft.AspNetCore' = 'Warning' } }
     }
+    if($ingestionOverlay){
+        foreach($section in $ingestionOverlay.Keys){
+            if(-not $backendConfig.Contains($section)){$backendConfig[$section]=@{}}
+            foreach($key in $ingestionOverlay[$section].Keys){$backendConfig[$section][$key]=$ingestionOverlay[$section][$key]}
+        }
+    }
     [IO.File]::WriteAllText((Join-Path $runtime 'deployment.config.json'), ($backendConfig | ConvertTo-Json -Depth 10))
     # Keep synthetic credentials private and separate from the versionable environment manifest.
     [IO.File]::WriteAllText((Join-Path $runtime 'fixture-secrets.json'), (@{ apiKey = $apiKey; pgPassword = $password } | ConvertTo-Json))
@@ -124,12 +141,18 @@ try {
     $runnerSpec = @{ executable = (Get-Command dotnet).Source; arguments = @($backendDll, '--contentRoot', $runtime, '--urls', $owner.backendUrl);
         stdout = (Join-Path $output 'backend.stdout.log'); stderr = (Join-Path $output 'backend.stderr.log') }
     [IO.File]::WriteAllText((Join-Path $runtime 'backend-process.json'), ($runnerSpec | ConvertTo-Json))
-    $backend = Start-Helper (Get-Process -Id $PID).Path @('-NoProfile', '-File', (Join-Path $PSScriptRoot 'run-helper.ps1'), '-Specification', (Join-Path $runtime 'backend-process.json')) 'backend-runner' @{
+    $backendEnvironment=@{
         ASPNETCORE_ENVIRONMENT = 'Development'; DOTNET_ENVIRONMENT = 'Development';
         ConfigSignature__ConfigPath = (Join-Path $runtime 'deployment.config.json');
         ConfigSignature__SignaturePath = (Join-Path $runtime 'missing-development.sig');
         ConfigSignature__AllowUnsignedInDevelopment = 'true'
     }
+    if($ingestionOverlay){
+        # This identifies the bytes actually loaded, including uncommitted code.
+        # A Git HEAD label alone would not describe a dirty build faithfully.
+        $backendEnvironment['SAAIA_CODE_REVISION']=Get-OwnedIngestionCodeRevision $owner.backendAssemblySha256
+    }
+    $backend = Start-Helper (Get-Process -Id $PID).Path @('-NoProfile', '-File', (Join-Path $PSScriptRoot 'run-helper.ps1'), '-Specification', (Join-Path $runtime 'backend-process.json')) 'backend-runner' $backendEnvironment
     $deadline = [DateTimeOffset]::UtcNow.AddSeconds(90)
     do {
         try {

@@ -26,10 +26,10 @@ internal static class DoclingLegacyExtractionAdapter
             {
                 var provenance = item.Provenance[index];
                 var entries = RequirePage(entriesByPage, provenance.PageNumber);
+                var region = DoclingTextRegionProjector.Project(item, provenance, index);
                 entries.Add(new(
                     DoclingDocumentTraversal.ResolveOrder(orderByRef, item.SelfRef, index),
-                    string.IsNullOrEmpty(item.OriginalText) ? item.Text ?? "" : item.OriginalText,
-                    item.Text ?? ""));
+                    region.Raw, region.Canonical));
             }
         }
 
@@ -128,7 +128,7 @@ internal static class DoclingLegacyExtractionAdapter
                 .Where(static text => !string.IsNullOrWhiteSpace(text))
                 .ToArray();
             if (values.Length > 0)
-                rows.Add(string.Join(" | ", values));
+                rows.Add(string.Join("\t", values));
         }
 
         return string.Join(Environment.NewLine, rows);

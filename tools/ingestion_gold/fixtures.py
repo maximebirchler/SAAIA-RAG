@@ -14,6 +14,9 @@ from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, Table, TableStyle
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.lib.utils import ImageReader
+from .contracts import validate_manifest
+from .renderer import PINNED_FONT, pinned_renderer
+from .fixtures_fr import BUILDERS as FRENCH_BUILDERS
 
 
 PAGE_WIDTH, PAGE_HEIGHT = A4
@@ -317,6 +320,8 @@ def build_structured_table(path: Path, _: Path) -> None:
 
 
 def _load_image_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    if PINNED_FONT.get() is not None:
+        return ImageFont.truetype(str(PINNED_FONT.get()), size=size)
     candidates = [
         Path("C:/Windows/Fonts/arial.ttf"),
         Path("C:/Windows/Fonts/segoeui.ttf"),
@@ -451,6 +456,7 @@ BUILDERS: dict[str, Callable[[Path, Path], None]] = {
     "structured_table": build_structured_table,
     "mixed_image_text": build_mixed_image_text,
     "full_page_scan": build_full_page_scan,
+    **FRENCH_BUILDERS,
 }
 
 
@@ -462,31 +468,25 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def generate_fixtures(manifest_path: Path, output_dir: Path) -> list[dict]:
+def generate_fixtures(manifest_path: Path, output_dir: Path, font_path: Path | None = None) -> list[dict]:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if manifest.get("schemaVersion") != "ingestion_layout_gold_v1":
-        raise ValueError("Unsupported ingestion layout gold schema.")
+    cases = validate_manifest(manifest)
     output_dir.mkdir(parents=True, exist_ok=True)
     generated: list[dict] = []
-    for case in manifest.get("cases", []):
-        case_id = str(case["caseId"])
-        builder_name = str(case["generator"])
-        builder = BUILDERS.get(builder_name)
-        if builder is None:
-            raise ValueError(f"Unknown fixture generator: {builder_name}")
-        output_path = output_dir / f"{case_id}.pdf"
-        builder(output_path, output_dir)
-        source_hash = sha256_file(output_path)
-        expected_hash = str(case.get("sourceSha256") or "")
-        if expected_hash and source_hash != expected_hash:
-            raise ValueError(
-                f"Fixture {case_id} drifted: expected {expected_hash}, got {source_hash}."
-            )
-        generated.append(
-            {
-                "case": case,
-                "path": output_path,
-                "sourceSha256": source_hash,
-            }
-        )
+    with pinned_renderer(manifest.get("rendererPins"), font_path) as renderer:
+        for case in cases:
+            case_id = str(case["caseId"])
+            builder_name = str(case["generator"])
+            builder = BUILDERS.get(builder_name)
+            if builder is None:
+                raise ValueError(f"Unknown fixture generator: {builder_name}")
+            output_path = output_dir / f"{case_id}.pdf"
+            if output_path.exists():
+                raise FileExistsError("Never overwrite an existing gold source PDF.")
+            builder(output_path, output_dir)
+            source_hash = sha256_file(output_path)
+            expected_hash = str(case.get("sourceSha256") or "")
+            if expected_hash and source_hash != expected_hash:
+                raise ValueError(f"Fixture {case_id} drifted: expected {expected_hash}, got {source_hash}.")
+            generated.append({"case": case, "path": output_path, "sourceSha256": source_hash, "renderer": renderer})
     return generated

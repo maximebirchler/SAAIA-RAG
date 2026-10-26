@@ -915,15 +915,19 @@ public sealed class DocumentUnitExtractorTests
         Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(string.Join(" ", Enumerable.Repeat(noisyWindow, 3))));
     }
 
-    [Fact]
-    public void Ocr_noise_filter_detects_spaced_letter_runs_without_removing_useful_text()
+    [Theory]
+    [InlineData("i j o t e s l a g a r b u r e Faites griller les tranches de pain et frottez-les")]
+    [InlineData("i j o t é s l a g a r b u r e • Faites griller les tranches de pain de campagne et frottez-les")]
+    [InlineData("t e n c o r e m e i l l e u r e avec la gousse d'ail restante et les tranches")]
+    public void Ocr_noise_filter_retains_letter_spacing_when_readable_source_text_has_no_independent_damage(string text)
     {
-        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(
-            "i j o t e s l a g a r b u r e Faites griller les tranches de pain et frottez-les"));
-        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(
-            "i j o t é s l a g a r b u r e • Faites griller les tranches de pain de campagne et frottez-les"));
-        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(
-            "t e n c o r e m e i l l e u r e avec la gousse d'ail restante et les tranches"));
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(text));
+        Assert.Equal(text, OcrNoiseFilter.RemoveSpacedLetterRunNoise(text));
+    }
+
+    [Fact]
+    public void Ocr_noise_filter_keeps_garbled_controls_separate_from_literal_spacing_and_source_values()
+    {
         Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(
             "15 L L ne) 18 3 [A L cl \u00a3 \u00a3 Xue all ade ade JE UE & y d9 \u00a3 \u00a3 ell alle al alle alle all "
             + "[4 L 9 G S G y L S G G ra L g Aug esn 36 45 8 L L 8 i$ [4 L J00pu] Xy "
@@ -1307,12 +1311,14 @@ public sealed class DocumentUnitExtractorTests
         Assert.Equal(uncertainHeaderContent, OcrNoiseFilter.RemoveTrailingNoisySupplement(uncertainHeaderContent));
     }
 
-    [Fact]
-    public void Ocr_noise_filter_skips_short_broken_uppercase_header_fragments()
+    [Theory]
+    [InlineData("DES-")]
+    [InlineData("PLATS PRINCI-")]
+    [InlineData("OPEN-LOOP calibration remains active.")]
+    public void Ocr_noise_filter_preserves_uppercase_source_fragments_without_independent_corruption(string text)
     {
-        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText("DES-"));
-        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText("PLATS PRINCI-"));
-        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText("OPEN-LOOP calibration remains active."));
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(text));
+        Assert.Equal(text, OcrNoiseFilter.RemoveTrailingNoisySupplement(text));
     }
 
     [Fact]
@@ -1415,37 +1421,10 @@ public sealed class DocumentUnitExtractorTests
     }
 
     [Fact]
-    public void Ocr_noise_filter_removes_spaced_letter_runs_while_preserving_adjacent_text()
+    public void Ocr_noise_filter_retains_spaced_glyph_observations_without_guessing_their_meaning()
     {
-        var text = string.Join('\n',
-            "A s t u c e ! encore 35 minutes. Cinq minutes avant la fin, ajoutez les",
-            "C o m",
-            "i j o t é s l a g a r b u r e • Faites griller les tranches de pain de campagne et frottez-les",
-            "t e n c o r e m e i l l e u r e avec la gousse d'ail restante.",
-            "l a grande cocotte.",
-            "P r o fi t e z au-feu, effilochez les restes.",
-            "Servez avec quelques gouttes de colorant pour des e n - c i e l !",
-            "M I X I N G V A L V E Overview Components Process mode Categories For 2 sections");
-
-        var cleaned = OcrNoiseFilter.RemoveSpacedLetterRunNoise(text);
-
-        Assert.DoesNotContain("A s t u c e", cleaned, StringComparison.Ordinal);
-        Assert.DoesNotContain("i j o t", cleaned, StringComparison.Ordinal);
-        Assert.DoesNotContain("t e n c", cleaned, StringComparison.Ordinal);
-        Assert.DoesNotContain("l a grande", cleaned, StringComparison.Ordinal);
-        Assert.DoesNotContain("P r o fi", cleaned, StringComparison.Ordinal);
-        Assert.DoesNotContain("e n - c", cleaned, StringComparison.Ordinal);
-        Assert.Contains("encore 35 minutes", cleaned, StringComparison.Ordinal);
-        Assert.Contains("Faites griller les tranches", cleaned, StringComparison.Ordinal);
-        Assert.Contains("avec la gousse d'ail restante", cleaned, StringComparison.Ordinal);
-        Assert.Contains("grande cocotte", cleaned, StringComparison.Ordinal);
-        Assert.Contains("au-feu, effilochez les restes", cleaned, StringComparison.Ordinal);
-        Assert.Contains("Servez avec quelques gouttes", cleaned, StringComparison.Ordinal);
-        Assert.Contains("M I X I N G V A L V E Overview", cleaned, StringComparison.Ordinal);
-        Assert.Equal(
-            "Stoppez la cuisson après ébullition.",
-            OcrNoiseFilter.RemoveSpacedLetterRunNoise(
-                "ffl e s u r Stoppez la cuisson après ébullition."));
+        const string text = "x y z\np q are independent variables\nA s t u c e ! encore 35 minutes.\nM I X I N G V A L V E";
+        Assert.Equal(text, OcrNoiseFilter.RemoveSpacedLetterRunNoise(text));
     }
 
     [Fact]

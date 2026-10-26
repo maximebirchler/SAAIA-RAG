@@ -7,7 +7,8 @@ internal static class ExtractionQualityDiagnostics
         int unitCount,
         int suspiciousUnitCount,
         int chunkCount,
-        IReadOnlyCollection<string>? extractionSignals = null)
+        IReadOnlyCollection<string>? extractionSignals = null,
+        PdfImagePageOcrDiagnostic? ocrDiagnostic = null)
     {
         var pageQuality = PdfPageExtractionQuality.FromCounts(wordCount, charCount);
         var signals = new List<string>(pageQuality.Signals);
@@ -30,18 +31,29 @@ internal static class ExtractionQualityDiagnostics
             signals.Add("probable_ocr_noise_units");
 
         var status = ResolveStatus(pageQuality, wordCount, charCount, imageCount, unitCount, suspiciousUnitCount, chunkCount);
-        var manualReviewRecommended = status.StartsWith("manual_review_", StringComparison.Ordinal);
+        var coverage = ocrDiagnostic?.Status ?? (imageCount > 0 ? "not_assessed" : "not_applicable");
+        var coverageIncomplete = coverage is "render_failed" or "ocr_failed" or "ocr_output_missing"
+            or "output_read_failed" or "skipped" or "ocr_empty" or "not_assessed";
+        var nativeConfidence = ResolveConfidence(status);
+        var manualReviewRecommended = status.StartsWith("manual_review_", StringComparison.Ordinal) || coverageIncomplete;
+        if (coverageIncomplete)
+        {
+            signals.Add("ocr_coverage_incomplete");
+            if (!status.StartsWith("manual_review_", StringComparison.Ordinal))
+                status = "page_partial_ocr_coverage";
+        }
 
         return new ExtractionPageReview(
             Status: status,
-            ExtractionConfidence: ResolveConfidence(status),
+            ExtractionConfidence: nativeConfidence,
             ManualReviewRecommended: manualReviewRecommended,
             TextStatus: pageQuality.TextStatus,
             TextEmpty: pageQuality.TextEmpty,
             TextSparse: pageQuality.TextSparse,
             OcrCandidate: pageQuality.OcrCandidate,
             AverageCharsPerWord: pageQuality.AverageCharsPerWord,
-            Signals: signals.Distinct(StringComparer.Ordinal).ToArray());
+            Signals: signals.Distinct(StringComparer.Ordinal).ToArray(),
+            OcrCoverageStatus: coverage);
     }
 
     private static string ResolveStatus(
@@ -108,4 +120,6 @@ internal sealed record ExtractionPageReview(
     bool TextSparse,
     bool OcrCandidate,
     double AverageCharsPerWord,
-    string[] Signals);
+    string[] Signals,
+    string ConfidenceKind = "heuristic_indexability",
+    string? OcrCoverageStatus = null);

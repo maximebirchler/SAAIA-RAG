@@ -31,7 +31,8 @@ sealed record IngestionJob(
     string? Category,
     Guid DocId,
     int Version,
-    IngestionCapabilityAProfileSeed? CapabilityAProfileSeed);
+    IngestionCapabilityAProfileSeed? CapabilityAProfileSeed,
+    string? LeaseOwner = null);
 
 sealed partial class IngestionWorker : BackgroundService
 {
@@ -80,7 +81,7 @@ sealed partial class IngestionWorker : BackgroundService
 
         var tasks = Enumerable.Range(0, workerConcurrency)
             .Select(i => RunLoopAsync(
-                workerId: BuildWorkerId(workerInstanceId, i),
+                consumerId: BuildWorkerId(workerInstanceId, i),
                 emptyDelayMs,
                 ct))
             .ToArray();
@@ -109,7 +110,7 @@ sealed partial class IngestionWorker : BackgroundService
     }
 
     private async Task RunLoopAsync(
-        string workerId,
+        string consumerId,
         int emptyDelayMs,
         CancellationToken ct)
     {
@@ -141,13 +142,14 @@ sealed partial class IngestionWorker : BackgroundService
                         _log.LogWarning("Requeued {Count} stale running ingestion jobs", requeued);
                 }
 
-                var job = await JobRepo.TryDequeueAsync(ds, workerId, ct);
+                var job = await JobRepo.TryDequeueAsync(ds, consumerId, ct);
                 if (job is null)
                 {
                     await Task.Delay(emptyDelayMs, ct);
                     continue;
                 }
 
+                var workerId = job.LeaseOwner ?? throw new IngestionLeaseLostException();
                 using (_log.BeginScope(new Dictionary<string, object>
                 {
                     { "tenant_id", job.TenantId },
@@ -174,7 +176,7 @@ sealed partial class IngestionWorker : BackgroundService
                             job,
                             workerId,
                             operationCt => job.Action == "delete"
-                                ? ProcessDeleteAsync(ds, httpFactory, rag, ingest, job, workerId, operationCt)
+                                ? ProcessDeleteAsync(ds, ingest, job, workerId, operationCt)
                                 : ProcessUpsertAsync(
                                     ds,
                                     httpFactory,
@@ -193,25 +195,15 @@ sealed partial class IngestionWorker : BackgroundService
                         else
                             _log.LogInformation("Ingestion canceled at commit job={JobId} doc={DocPath}", job.JobId, job.DocPath);
                     }
+                    catch (IngestionLeaseLostException)
+                    {
+                        _log.LogWarning("Ingestion ownership lost job={JobId}; operation stopped without changing its successor", job.JobId);
+                    }
                     catch (JobCanceledException jc)
                     {
-                        _log.LogInformation("Job canceled job={JobId} action={Action} doc={DocPath} reason={Reason}",
-                            job.JobId, job.Action, job.DocPath, jc.Reason);
-                        await JobRepo.MarkCanceledAsync(ds, job.JobId, jc.Reason, ct);
-                        if (ShouldStabilizeDocumentAfterCancel(jc.Reason))
-                        {
-                            // Safety net: stabilize document to prevent scanner from recreating admin/user-canceled jobs.
-                            // Uses COALESCE so it won't overwrite if cancel endpoint already set the pause.
-                            try
-                            {
-                                await JobRepo.StabilizeDocumentAfterCancelAsync(ds, job.TenantId, job.DocPath, ct);
-                                await JobRepo.FreezeTerminalSnapshotAsync(ds, job.JobId, ct);
-                            }
-                            catch (Exception stabEx)
-                            {
-                                _log.LogWarning(stabEx, "Failed to stabilize document after cancel job={JobId} doc={DocPath}", job.JobId, job.DocPath);
-                            }
-                        }
+                        _log.LogInformation("Job canceled job={JobId} reason={Reason}", job.JobId, jc.Reason);
+                        await JobRepo.MarkCanceledAsync(ds, job.JobId, jc.Reason, ct, leaseOwner: workerId,
+                            stabilizeDocument: ShouldStabilizeDocumentAfterCancel(jc.Reason));
                     }
                     catch (OperationCanceledException) when (!ct.IsCancellationRequested)
                     {
@@ -221,22 +213,14 @@ sealed partial class IngestionWorker : BackgroundService
                         {
                             _log.LogInformation("Job canceled via token job={JobId} action={Action} doc={DocPath}",
                                 job.JobId, job.Action, job.DocPath);
-                            await JobRepo.MarkCanceledAsync(ds, job.JobId, "canceled_by_admin_token", ct);
-                            try
-                            {
-                                await JobRepo.StabilizeDocumentAfterCancelAsync(ds, job.TenantId, job.DocPath, ct);
-                                await JobRepo.FreezeTerminalSnapshotAsync(ds, job.JobId, ct);
-                            }
-                            catch (Exception stabEx)
-                            {
-                                _log.LogWarning(stabEx, "Failed to stabilize document after token cancel job={JobId} doc={DocPath}", job.JobId, job.DocPath);
-                            }
+                            await JobRepo.MarkCanceledAsync(ds, job.JobId, "canceled_by_admin_token", ct,
+                                leaseOwner: workerId, stabilizeDocument: true);
                         }
                         else
                         {
                             _log.LogWarning("Job timed out/canceled job={JobId} action={Action} doc={DocPath}",
                                 job.JobId, job.Action, job.DocPath);
-                            await JobRepo.MarkFailedAsync(ds, job.JobId, "timeout_or_canceled", ct);
+                            await JobRepo.MarkFailedAsync(ds, job.JobId, "timeout_or_canceled", ct, leaseOwner: workerId);
                         }
                     }
                     catch (Exception ex)
@@ -247,16 +231,8 @@ sealed partial class IngestionWorker : BackgroundService
                         {
                             _log.LogInformation(ex, "Job canceled after exception job={JobId} action={Action} doc={DocPath}",
                                 job.JobId, job.Action, job.DocPath);
-                            await JobRepo.MarkCanceledAsync(ds, job.JobId, "canceled_by_admin_exception", ct);
-                            try
-                            {
-                                await JobRepo.StabilizeDocumentAfterCancelAsync(ds, job.TenantId, job.DocPath, ct);
-                                await JobRepo.FreezeTerminalSnapshotAsync(ds, job.JobId, ct);
-                            }
-                            catch (Exception stabEx)
-                            {
-                                _log.LogWarning(stabEx, "Failed to stabilize document after exception cancel job={JobId} doc={DocPath}", job.JobId, job.DocPath);
-                            }
+                            await JobRepo.MarkCanceledAsync(ds, job.JobId, "canceled_by_admin_exception", ct,
+                                leaseOwner: workerId, stabilizeDocument: true);
                         }
                         else
                         {
@@ -279,7 +255,7 @@ sealed partial class IngestionWorker : BackgroundService
                                             retryDelaySeconds = Math.Max(1, (int)Math.Ceiling(retryDelay.TotalSeconds)),
                                             deferred = true
                                         },
-                                        ct);
+                                        ct, leaseOwner: workerId);
                                 }
 
                                 _log.LogWarning(
@@ -290,7 +266,7 @@ sealed partial class IngestionWorker : BackgroundService
                                     job.DocPath,
                                     bulkheadTimeout.BulkheadName,
                                     (int)Math.Ceiling(retryDelay.TotalSeconds));
-                                await JobRepo.DeferTransientAsync(ds, job.JobId, ex.Message, retryDelay, ct);
+                                await JobRepo.DeferTransientAsync(ds, job.JobId, ex.Message, retryDelay, ct, leaseOwner: workerId);
                                 continue;
                             }
 
@@ -304,13 +280,13 @@ sealed partial class IngestionWorker : BackgroundService
                                     job.Action,
                                     job.DocPath,
                                     (int)Math.Ceiling(retryDelay.TotalSeconds));
-                                await JobRepo.DeferTransientAsync(ds, job.JobId, ex.Message, retryDelay, ct);
+                                await JobRepo.DeferTransientAsync(ds, job.JobId, ex.Message, retryDelay, ct, leaseOwner: workerId);
                                 continue;
                             }
 
                             _log.LogError(ex, "Job failed job={JobId} action={Action} doc={DocPath}",
                                 job.JobId, job.Action, job.DocPath);
-                            await JobRepo.MarkFailedAsync(ds, job.JobId, ex.Message, ct);
+                            await JobRepo.MarkFailedAsync(ds, job.JobId, ex.Message, ct, leaseOwner: workerId);
                         }
                     }
                 }
@@ -372,18 +348,6 @@ sealed partial class IngestionWorker : BackgroundService
         var v = await conn.ExecuteScalarAsync<int?>(new CommandDefinition(sql, new { tenant_id = tenantId, doc_path = docPath }, cancellationToken: ct));
         return v.HasValue && v.Value == version;
     }
-
-    private static async Task<int?> GetIndexedDocVersionAsync(NpgsqlDataSource ds, Guid tenantId, string docPath, CancellationToken ct)
-    {
-        await using var conn = await ds.OpenConnectionAsync(ct);
-        const string sql = "SELECT indexed_version FROM documents WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
-        return await conn.ExecuteScalarAsync<int?>(new CommandDefinition(sql, new { tenant_id = tenantId, doc_path = docPath }, cancellationToken: ct));
-    }
-
-    internal static bool ShouldPurgeQdrantVersionBeforeFullEmbedding(int resumeFromChunk, int? indexedVersion, int jobVersion)
-        => resumeFromChunk == 0
-           && jobVersion > 0
-           && (!indexedVersion.HasValue || indexedVersion.Value != jobVersion);
 
     internal static string ResolveEmbeddingInputFormat(string? embeddingsModel)
         => TeiClient.RequiresE5InstructionPrefix(embeddingsModel)
@@ -449,7 +413,9 @@ sealed partial class IngestionWorker : BackgroundService
            || string.Equals(
                chunk.ChunkType,
                DoclingCanonicalRetrievalProjector.TableChunkType,
-               StringComparison.Ordinal);
+               StringComparison.Ordinal)
+           || (string.Equals(chunk.ChunkType, RetrievalChunkProjector.PhysicalPageContextChunkType, StringComparison.Ordinal)
+               && chunk.CanonicalBlockIds is { Count: > 0 });
 
     private static bool LooksLikeLowSubstanceRetrievalChunk(ProjectedRetrievalChunk chunk)
     {
@@ -594,27 +560,6 @@ sealed partial class IngestionWorker : BackgroundService
             OtherRejectedChunkCount: other);
     }
 
-    internal static bool IsResumeCheckpointCompatible(
-        JobRepo.ResumeCheckpointState? checkpoint,
-        string sourceHash,
-        int chunkTotal,
-        string? embeddingsModel,
-        string embeddingInputFormat)
-    {
-        if (checkpoint is null
-            || !checkpoint.ProgressCurrent.HasValue
-            || checkpoint.ProgressCurrent.Value <= 0)
-            return false;
-
-        return string.Equals(checkpoint.SourceHash, sourceHash, StringComparison.OrdinalIgnoreCase)
-            && checkpoint.ChunkTotal == chunkTotal
-            && string.Equals(NormalizeEmbeddingModelMarker(checkpoint.EmbeddingModel), NormalizeEmbeddingModelMarker(embeddingsModel), StringComparison.OrdinalIgnoreCase)
-            && string.Equals(checkpoint.EmbeddingInputFormat, embeddingInputFormat, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string NormalizeEmbeddingModelMarker(string? embeddingsModel)
-        => string.IsNullOrWhiteSpace(embeddingsModel) ? "unspecified" : embeddingsModel.Trim();
-
     internal static bool ShouldStabilizeDocumentAfterCancel(string? reason)
         => !string.Equals(reason, "superseded_version", StringComparison.OrdinalIgnoreCase)
            && !string.Equals(reason, "superseded_failed_ocr_publish", StringComparison.OrdinalIgnoreCase)
@@ -627,8 +572,7 @@ sealed partial class IngestionWorker : BackgroundService
         return TimeSpan.FromSeconds(Math.Clamp(intervalSeconds, 10, 60));
     }
 
-    // Heartbeat: refresh locked_at so long jobs are not considered stale while they are still running.
-    internal async Task<T> RunWithJobHeartbeatAsync<T>(
+    internal Task<T> RunWithJobHeartbeatAsync<T>(
         NpgsqlDataSource ds,
         IngestionJob job,
         string workerId,
@@ -636,73 +580,23 @@ sealed partial class IngestionWorker : BackgroundService
         CancellationToken ct,
         TimeSpan? heartbeatInterval = null,
         Func<int, TimeSpan, CancellationToken, Task>? onHeartbeatAsync = null)
+        => IngestionLeaseExecution.RunAsync(
+            token => TouchJobLockAsync(ds, job.JobId, workerId, token), operation,
+            heartbeatInterval ?? TimeSpan.FromSeconds(20), ct, onHeartbeatAsync);
+
+    private async Task TouchJobLockAsync(NpgsqlDataSource ds, Guid jobId, string workerId, CancellationToken ct)
     {
-        var interval = heartbeatInterval ?? TimeSpan.FromSeconds(20);
-        var elapsed = Stopwatch.StartNew();
+        using var probe = BackendDiagnostics.Start("ingestion.lease_renewal", _log);
+        probe.Set("job_id", jobId);
         try
         {
-            await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+            var renewal = await IngestionLeaseGuard.RenewAsync(ds, jobId, workerId, ct);
+            probe.Set("renewal_state", renewal.ToString());
+            probe.Set("ttl_renewed", renewal == IngestionLeaseRenewal.Renewed);
+            probe.Complete(renewal == IngestionLeaseRenewal.OwnerObservedRenewalDeferred ? "deferred" : "success");
         }
-        catch (Exception ex) when (!ct.IsCancellationRequested)
-        {
-            _log.LogDebug(ex, "Failed to refresh initial ingestion heartbeat job={JobId}", job.JobId);
-        }
-
-        using var heartbeatCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var heartbeatCount = 0;
-        var heartbeatTask = Task.Run(async () =>
-        {
-            while (!heartbeatCts.Token.IsCancellationRequested)
-            {
-                try
-                {
-                    await Task.Delay(interval, heartbeatCts.Token);
-                    await TouchJobLockAsync(ds, job.JobId, workerId, heartbeatCts.Token);
-                    heartbeatCount++;
-                    if (onHeartbeatAsync is not null)
-                        await onHeartbeatAsync(heartbeatCount, elapsed.Elapsed, heartbeatCts.Token);
-                }
-                catch (OperationCanceledException) when (heartbeatCts.IsCancellationRequested)
-                {
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    _log.LogDebug(ex, "Failed to refresh ingestion heartbeat job={JobId}", job.JobId);
-                }
-            }
-        }, CancellationToken.None);
-
-        try
-        {
-            return await operation(ct);
-        }
-        finally
-        {
-            heartbeatCts.Cancel();
-            try
-            {
-                await heartbeatTask;
-            }
-            catch (OperationCanceledException) when (heartbeatCts.IsCancellationRequested)
-            {
-                // Expected when the operation finishes before the next heartbeat tick.
-            }
-        }
+        catch (Exception exception) { probe.Fail(exception); throw; }
     }
-
-    private static async Task TouchJobLockAsync(NpgsqlDataSource ds, Guid jobId, string workerId, CancellationToken ct)
-    {
-        await using var conn = await ds.OpenConnectionAsync(ct);
-        const string sql = @"
-UPDATE ingestion_jobs
-SET locked_at=now()
-WHERE job_id=@job_id
-  AND status='running'
-  AND locked_by=@worker;";
-        await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId, worker = workerId }, cancellationToken: ct));
-    }
-
     private static CancellationTokenSource? CreateTimeoutCts(CancellationToken ct, int seconds)
     {
         if (seconds <= 0) return null;
@@ -720,7 +614,7 @@ WHERE job_id=@job_id
     private static async Task<bool> IsJobCancellationRequestedAsync(NpgsqlDataSource ds, IngestionJob job, CancellationToken ct)
         => await JobRepo.IsCancellationRequestedAsync(ds, job.TenantId, job.DocPath, job.JobId, job.Action, ct).ConfigureAwait(false);
 
-    private static async Task ReportImageOcrProgressAsync(
+    private async Task ReportImageOcrProgressAsync(
         NpgsqlDataSource ds,
         Guid jobId,
         string workerId,
@@ -733,11 +627,11 @@ WHERE job_id=@job_id
             ? Math.Clamp(current, 0, progressTotal.Value)
             : Math.Max(0, current);
 
-        await JobRepo.UpdateProgressAsync(ds, jobId, "image_ocr", progressCurrent, progressTotal, ct);
+        await JobRepo.UpdateProgressAsync(ds, jobId, "image_ocr", progressCurrent, progressTotal, ct, leaseOwner: workerId);
         await TouchJobLockAsync(ds, jobId, workerId, ct);
     }
 
-    private static async Task ReportOcrWaitingForSlotHeartbeatAsync(
+    private async Task ReportOcrWaitingForSlotHeartbeatAsync(
         NpgsqlDataSource ds,
         Guid jobId,
         string workerId,
@@ -759,11 +653,11 @@ WHERE job_id=@job_id
             forceFullDocumentOcr,
             state = "waiting_for_ocr_bulkhead"
         };
-        await JobRepo.UpdateProgressAsync(ds, jobId, "ocr_waiting_for_slot", Math.Max(0, heartbeatCount), null, details, ct);
+        await JobRepo.UpdateProgressAsync(ds, jobId, "ocr_waiting_for_slot", Math.Max(0, heartbeatCount), null, details, ct, leaseOwner: workerId);
         await TouchJobLockAsync(ds, jobId, workerId, ct);
     }
 
-    private static async Task ReportFullDocumentOcrHeartbeatAsync(
+    private async Task ReportFullDocumentOcrHeartbeatAsync(
         NpgsqlDataSource ds,
         Guid jobId,
         string workerId,
@@ -782,7 +676,7 @@ WHERE job_id=@job_id
             languages = string.IsNullOrWhiteSpace(languages) ? null : languages.Trim(),
             forceOcr
         };
-        await JobRepo.UpdateProgressAsync(ds, jobId, "ocr_full_document", Math.Max(0, heartbeatCount), null, details, ct);
+        await JobRepo.UpdateProgressAsync(ds, jobId, "ocr_full_document", Math.Max(0, heartbeatCount), null, details, ct, leaseOwner: workerId);
         await TouchJobLockAsync(ds, jobId, workerId, ct);
     }
 
@@ -959,64 +853,16 @@ WHERE job_id=@job_id
     }
 
     private async Task<bool> ProcessDeleteAsync(
-        NpgsqlDataSource ds,
-        IHttpClientFactory httpFactory,
-        RagOptions rag,
-        IngestionOptions ingest,
-        IngestionJob job,
-        string workerId,
-        CancellationToken ct)
+        NpgsqlDataSource ds, IngestionOptions ingest, IngestionJob job, string workerId, CancellationToken ct)
     {
-        var tenantId = job.TenantId;
-        var docId = job.DocId;
-
         await ThrowIfJobCanceledAsync(ds, job, ct);
-
-        var qdrant = httpFactory.CreateClient("qdrant");
-        qdrant.BaseAddress = new Uri(rag.QdrantBaseUrl);
-
-        var relDocPath = DocPathNormalizer.NormalizeToRelative(job.DocPath, ingest.DocumentsRoot);
-
-        if (job.Version > 0)
-        {
-            var ok = await IsCurrentDocVersionAsync(ds, tenantId, relDocPath, job.Version, ct);
-            if (!ok)
-            {
-                await JobRepo.MarkSupersededAndQueueCurrentAsync(ds, tenantId, job.JobId, relDocPath, job.Version, ct);
-                return false;
-            }
-        }
-
-        using var qdrantCts = CreateTimeoutCts(ct, ingest.QdrantTimeoutSeconds);
-        var qct = qdrantCts?.Token ?? ct;
-
-        await JobRepo.UpdateProgressAsync(ds, job.JobId, "deleting", null, null, ct);
-        await ThrowIfJobCanceledAsync(ds, job, ct);
+        var path = DocPathNormalizer.NormalizeToRelative(job.DocPath, ingest.DocumentsRoot);
+        await JobRepo.UpdateProgressAsync(ds, job.JobId, "deleting", null, null, ct, leaseOwner: workerId);
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-
-        var committed = await JobRepo.CompleteDeleteAsync(
-            ds, tenantId, job.JobId, relDocPath, job.Version, ct);
-
-        if (!committed)
-            return false;
-
-        try
-        {
-            using (await _bulkheads.AcquireQdrantAsync(qct))
-            {
-                await QdrantClient.DeleteByDocAsync(qdrant, rag.QdrantCollection, tenantId, docId, qct);
-            }
-        }
-        catch (Exception ex)
-        {
-            _log.LogWarning(ex,
-                "Qdrant cleanup failed after delete commit job={JobId} doc={DocPath}. Points are orphaned but filtered by RAG.",
-                job.JobId, job.DocPath);
-        }
-
-        return true;
+        // SQL deactivation is authoritative. No broad vector delete may race a new incarnation.
+        return await JobRepo.CompleteDeleteAsync(ds, job.TenantId, job.JobId, path, job.Version, ct,
+            leaseOwner: workerId);
     }
-
     private async Task<bool> ProcessUpsertAsync(
         NpgsqlDataSource ds,
         IHttpClientFactory httpFactory,
@@ -1068,9 +914,9 @@ WHERE job_id=@job_id
                 && savedProgressTotal.Value > 0;
 
             if (hasSavedProgress)
-                await JobRepo.UpdateProgressAsync(ds, job.JobId, "resuming", savedProgressCurrent, savedProgressTotal, ct);
+                await JobRepo.UpdateProgressAsync(ds, job.JobId, "resuming", savedProgressCurrent, savedProgressTotal, ct, leaseOwner: workerId);
             else
-                await JobRepo.UpdateProgressAsync(ds, job.JobId, "preparing", null, null, ct);
+                await JobRepo.UpdateProgressAsync(ds, job.JobId, "preparing", null, null, ct, leaseOwner: workerId);
             await ThrowIfJobCanceledAsync(ds, job, ct);
             await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
@@ -1079,7 +925,7 @@ WHERE job_id=@job_id
                 var ok = await IsCurrentDocVersionAsync(ds, tenantId, relDocPath, job.Version, ct);
                 if (!ok)
                 {
-                    await JobRepo.MarkSupersededAndQueueCurrentAsync(ds, tenantId, job.JobId, relDocPath, job.Version, ct);
+                    await JobRepo.MarkSupersededAndQueueCurrentAsync(ds, tenantId, job.JobId, relDocPath, job.Version, ct, leaseOwner: workerId);
                     return false;
                 }
             }
@@ -1091,14 +937,11 @@ WHERE job_id=@job_id
 
             // Hash + size
             diagnostics.Begin("hash");
-            byte[] hash;
-            long size;
             var swHash = Stopwatch.StartNew();
-            await using (var fs = File.OpenRead(absPath))
-            {
-                size = fs.Length;
-                hash = await SHA256.HashDataAsync(fs, ct);
-            }
+            await using var sourceSnapshot = await IngestionSourceSnapshot.CreateAsync(absPath, ct);
+            var inputPath = sourceSnapshot.Path;
+            var hash = sourceSnapshot.Hash;
+            var size = sourceSnapshot.Length;
             swHash.Stop();
             hashMs = swHash.ElapsedMilliseconds;
             var hashHex = Convert.ToHexString(hash).ToLowerInvariant();
@@ -1108,17 +951,17 @@ WHERE job_id=@job_id
             // PDF -> tokens -> chunks
             diagnostics.Begin("extraction");
             if (!hasSavedProgress)
-                await JobRepo.UpdateProgressAsync(ds, job.JobId, "extracting", null, null, ct);
+                await JobRepo.UpdateProgressAsync(ds, job.JobId, "extracting", null, null, ct, leaseOwner: workerId);
             await TouchJobLockAsync(ds, job.JobId, workerId, ct);
             var swExtract = Stopwatch.StartNew();
-            var sourceExtraction = await IngestionExtractionStage.ExtractAsync(absPath, documentIntelligence,
+            var sourceExtraction = await IngestionExtractionStage.ExtractAsync(inputPath, documentIntelligence,
                 async (forceOcr, stageToken) =>
                 {
-                    await JobRepo.UpdateProgressAsync(ds, job.JobId, "document_intelligence", null, null, stageToken);
+                    await JobRepo.UpdateProgressAsync(ds, job.JobId, "document_intelligence", null, null, stageToken, leaseOwner: workerId);
                     return await RunWithJobHeartbeatAsync(ds, job, workerId, async operationToken =>
                     {
                         using (await _bulkheads.AcquireOcrAsync(operationToken))
-                            return await doclingClient.ConvertPdfAsync(absPath, operationToken, forceOcr);
+                            return await doclingClient.ConvertPdfAsync(inputPath, operationToken, forceOcr);
                     }, stageToken);
                 }, _log, ct);
             var useDocling = sourceExtraction.UsesDocling;
@@ -1223,7 +1066,7 @@ WHERE job_id=@job_id
                         elapsed,
                         operationCt)))
                 {
-                    ocrLanguages = PdfOcrTextExtractor.ResolveLanguagesForDocument(absPath, ingest, nativeExtraction);
+                    ocrLanguages = PdfOcrTextExtractor.ResolveLanguagesForDocument(inputPath, ingest, nativeExtraction);
                     if (fullDocumentOcrRecommended)
                     {
                         await ReportFullDocumentOcrHeartbeatAsync(
@@ -1240,7 +1083,7 @@ WHERE job_id=@job_id
                             ds,
                             job,
                             workerId,
-                            operationCt => PdfOcrTextExtractor.TryExtractWithDiagnosticsAsync(absPath, ingest, operationCt, ocrLanguages, forceFullDocumentOcr),
+                            operationCt => PdfOcrTextExtractor.TryExtractWithDiagnosticsAsync(inputPath, ingest, operationCt, ocrLanguages, forceFullDocumentOcr),
                             ct,
                             onHeartbeatAsync: (heartbeat, elapsed, operationCt) => ReportFullDocumentOcrHeartbeatAsync(
                                 ds,
@@ -1268,13 +1111,13 @@ WHERE job_id=@job_id
                     {
                         if (fullDocumentOcrRecommended)
                         {
-                            await JobRepo.UpdateProgressAsync(ds, job.JobId, "image_ocr", null, null, ct);
+                            await JobRepo.UpdateProgressAsync(ds, job.JobId, "image_ocr", null, null, ct, leaseOwner: workerId);
                             await TouchJobLockAsync(ds, job.JobId, workerId, ct);
                         }
 
                         var imageMergeBase = ResolveImageOcrMergeBase(nativeExtraction, ocrExtraction, fullOcrApplied);
                         var imageOcrPlan = PdfOcrTextExtractor.BuildImagePageOcrPlan(imageMergeBase, ingest);
-                        await JobRepo.UpdateProgressAsync(ds, job.JobId, "image_ocr", 0, imageOcrPlan.AttemptedPageCount, ct);
+                        await JobRepo.UpdateProgressAsync(ds, job.JobId, "image_ocr", 0, imageOcrPlan.AttemptedPageCount, ct, leaseOwner: workerId);
                         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
                         var imageOcrCallbacks = new PdfImagePageOcrCallbacks(
                             ReportProgressAsync: (current, total, operationCt) => ReportImageOcrProgressAsync(ds, job.JobId, workerId, current, total, operationCt),
@@ -1283,7 +1126,7 @@ WHERE job_id=@job_id
                             ds,
                             job,
                             workerId,
-                            operationCt => PdfOcrTextExtractor.TryMergeImagePageOcrAsync(absPath, ingest, imageMergeBase, operationCt, ocrLanguages, imageOcrCallbacks),
+                            operationCt => PdfOcrTextExtractor.TryMergeImagePageOcrAsync(inputPath, ingest, imageMergeBase, operationCt, ocrLanguages, imageOcrCallbacks),
                             ct);
                         imageOcrDiagnostics = imageOcrResult?.Diagnostics;
                         imageOcrExtraction = imageOcrResult?.Extraction;
@@ -1338,11 +1181,17 @@ WHERE job_id=@job_id
                 ocrDiagnostics?.PagesWithNovelText.Length ?? 0,
                 ocrDiagnostics?.CoverageStatus ?? "",
                 ocrDiagnostics?.FailureReason ?? "");
-            await JobRepo.UpdateProgressAsync(ds, job.JobId, "structuring", null, null, ct);
+            await JobRepo.UpdateProgressAsync(ds, job.JobId, "structuring", null, null, ct, leaseOwner: workerId);
             await TouchJobLockAsync(ds, job.JobId, workerId, ct);
             var structure = IngestionProjectionStage.ProjectStructure(new(tenantId, docId, job.Version,
                 hashHex, size, Path.GetFileName(relDocPath.Replace('\\', '/')), documentIntelligence,
                 doclingConversion, nativeTextLayerExtraction, extraction), _log);
+            extraction = structure.CanonicalExtraction ?? extraction;
+            tokens = extraction.Tokens;
+            pages = extraction.Pages;
+            extractionQuality = extraction.Quality;
+            diagnostics.Set("pages", pages.Count);
+            diagnostics.Set("tokens", tokens.Count);
             var canonicalRetrievalDocument = structure.CanonicalDocument;
             var nativeTextReconciliation = structure.NativeTextReconciliation;
             var nativePdfImageInventory = structure.NativeImageInventory;
@@ -1359,13 +1208,14 @@ WHERE job_id=@job_id
                 var ok = await IsCurrentDocVersionAsync(ds, tenantId, relDocPath, job.Version, ct);
                 if (!ok)
                 {
-                    await JobRepo.MarkSupersededAndQueueCurrentAsync(ds, tenantId, job.JobId, relDocPath, job.Version, ct);
+                    await JobRepo.MarkSupersededAndQueueCurrentAsync(ds, tenantId, job.JobId, relDocPath, job.Version, ct, leaseOwner: workerId);
                     return false;
                 }
             }
 
             if (tokens.Count == 0)
             {
+                await sourceSnapshot.AssertSourceUnchangedAsync(absPath, ct);
                 var failureReason = ResolveNoTextFailureReason(ocrAttempted, ocrRequiredButDisabled);
                 try
                 {
@@ -1377,7 +1227,7 @@ WHERE job_id=@job_id
                         relDocPath,
                         hash,
                         size,
-                        File.GetLastWriteTimeUtc(absPath),
+                        sourceSnapshot.SourceLastWriteTimeUtc,
                         job.Version,
                         extraction.Source,
                         ocrAttempted,
@@ -1388,7 +1238,7 @@ WHERE job_id=@job_id
                         nativeExtractionQuality,
                         failureReason,
                         ct,
-                        extractedPages: pages);
+                        extractedPages: pages, leaseOwner: workerId);
                     if (!failureDiagnosticsPublished)
                         return false;
                 }
@@ -1400,7 +1250,7 @@ WHERE job_id=@job_id
                 throw new Exception($"No text extracted from PDF; text_status={extractionQuality.TextStatus}; ocr_recommended={extractionQuality.OcrRecommended}; failure_reason={failureReason}; ocr_failure={ocrDiagnostics?.FailureReason ?? "none"}");
             }
 
-            await JobRepo.UpdateProgressAsync(ds, job.JobId, "chunking", null, null, ct);
+            await JobRepo.UpdateProgressAsync(ds, job.JobId, "chunking", null, null, ct, leaseOwner: workerId);
             diagnostics.Begin("chunk_projection");
             await TouchJobLockAsync(ds, job.JobId, workerId, ct);
             var swChunking = Stopwatch.StartNew();
@@ -1460,6 +1310,7 @@ WHERE job_id=@job_id
                 chunkingMs);
             if (retrievalChunkQuality.SearchableChunkCount == 0)
             {
+                await sourceSnapshot.AssertSourceUnchangedAsync(absPath, ct);
                 const string failureReason = "manual_review_no_searchable_chunks";
                 var failureDiagnosticsPublished = await DocumentFoundationRepo.PublishUnsearchableRetrievalDiagnosticsAsync(
                     ds,
@@ -1469,7 +1320,7 @@ WHERE job_id=@job_id
                     relDocPath,
                     hash,
                     size,
-                    File.GetLastWriteTimeUtc(absPath),
+                    sourceSnapshot.SourceLastWriteTimeUtc,
                     job.Version,
                     pages,
                     units,
@@ -1484,7 +1335,7 @@ WHERE job_id=@job_id
                     extractionQuality,
                     nativeExtractionQuality,
                     failureReason,
-                    ct);
+                    ct, leaseOwner: workerId);
                 if (!failureDiagnosticsPublished)
                     return false;
 
@@ -1492,7 +1343,7 @@ WHERE job_id=@job_id
                 return false;
             }
 
-            await JobRepo.UpdateProgressAsync(ds, job.JobId, "projecting", null, null, ct);
+            await JobRepo.UpdateProgressAsync(ds, job.JobId, "projecting", null, null, ct, leaseOwner: workerId);
             diagnostics.Begin("index_projection");
             await TouchJobLockAsync(ds, job.JobId, workerId, ct);
             var indexProjection = IngestionProjectionStage.ProjectIndex(relDocPath, sections, units,
@@ -1510,33 +1361,6 @@ WHERE job_id=@job_id
             var chunkLinkMap = BuildChunkLinkMap(docId, job.Version, retrievalChunks);
             await TouchJobLockAsync(ds, job.JobId, workerId, ct);
             var embeddingInputFormat = ResolveEmbeddingInputFormat(rag.EmbeddingsModel);
-            var canResumeFromCheckpoint = IsResumeCheckpointCompatible(
-                checkpoint,
-                hashHex,
-                chunks.Count,
-                rag.EmbeddingsModel,
-                embeddingInputFormat);
-            var resumeFromChunk = canResumeFromCheckpoint
-                ? Math.Clamp(checkpoint!.ProgressCurrent!.Value, 0, chunks.Count)
-                : 0;
-
-            await JobRepo.UpdateProgressAsync(ds, job.JobId, "embedding", resumeFromChunk, chunks.Count, ct);
-            await JobRepo.StoreResumeCheckpointAsync(ds, job.JobId, hashHex, size, chunks.Count, rag.EmbeddingsModel, embeddingInputFormat, ct);
-            await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-
-            if (resumeFromChunk > 0)
-            {
-                _log.LogInformation(
-                    "Resuming ingestion job={JobId} doc={DocPath} from chunk {ResumeFrom}/{Total}",
-                    job.JobId, relDocPath, resumeFromChunk, chunks.Count);
-            }
-            else if (checkpoint?.ProgressCurrent is > 0)
-            {
-                _log.LogWarning(
-                    "Resume checkpoint mismatch job={JobId} doc={DocPath}; restarting from chunk 0 (saved={Saved}, total={Total})",
-                    job.JobId, relDocPath, checkpoint.ProgressCurrent, chunks.Count);
-            }
-
             // TEI
             diagnostics.Begin("dependency_warmup");
             var tei = httpFactory.CreateClient("tei");
@@ -1565,7 +1389,8 @@ WHERE job_id=@job_id
                         return await TeiClient.GetVectorDimAsync(
                             tei,
                             rag.EmbeddingsModel,
-                            teiToken);
+                            teiToken,
+                            rag.EmbeddingsModelRevision);
                     }
                 },
                 ct);
@@ -1592,37 +1417,52 @@ WHERE job_id=@job_id
             qdrantEnsureMs = swEnsureCollection.ElapsedMilliseconds;
             await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
-            var indexedVersionBeforeEmbedding = await GetIndexedDocVersionAsync(ds, tenantId, relDocPath, ct);
-            if (ShouldPurgeQdrantVersionBeforeFullEmbedding(resumeFromChunk, indexedVersionBeforeEmbedding, job.Version))
+            var category = IngestionCategoryResolver.Normalize(job.Category ?? ingest.DefaultCategory);
+            var planInputs = chunks.Select(chunk =>
             {
-                await ThrowIfJobCanceledAsync(ds, job, ct);
-                using (await _bulkheads.AcquireQdrantAsync(qdrantToken))
+                var projected = ResolveProjectedRetrievalChunk(chunk, retrievalChunksByIndex);
+                return (object)new
                 {
-                    await QdrantClient.DeleteVersionByDocAsync(
-                        qdrant,
-                        rag.QdrantCollection,
-                        tenantId,
-                        docId,
-                        job.Version,
-                        qdrantToken);
-                }
-                await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-            }
-            else if (resumeFromChunk == 0 && indexedVersionBeforeEmbedding == job.Version)
+                    projected,
+                    input = TeiClient.FormatEmbeddingInput(rag.EmbeddingsModel,
+                        CleanTextForIndexing(ResolveEmbeddingText(projected.ChunkIndex, projected.Text, contextualTextByChunkIndex)),
+                        TeiClient.EmbeddingInputKind.Passage),
+                    sectionTitle = projected.SectionTitle ?? ResolveSectionTitle(projected.SectionOrdinal, sectionTitleByOrdinal),
+                    headingPath = projected.HeadingPath ?? ContextualTextProjector.ResolveHeadingPath(projected.SectionOrdinal, headingPathBySectionOrdinal),
+                    links = chunkLinkMap.GetValueOrDefault(projected.ChunkIndex)
+                };
+            }).ToArray();
+            var vectorPlanFingerprint = IngestionVectorPlan.Fingerprint(hashHex, rag, dim, embeddingInputFormat, planInputs,
+                new(tenantId, docId, relDocPath, category, job.Version));
+            var pointIds = chunks.Select(chunk => DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, job.Version, chunk.ChunkIndex))
+                .Select(chunkId => new IngestionVectorPoint(IngestionVectorPlan.PointId(chunkId, vectorPlanFingerprint), chunkId)).ToArray();
+            var resumeFromChunk = 0;
+            var checkpointCompatible = IngestionVectorPlan.CanResume(checkpoint, hashHex, chunks.Count,
+                rag.EmbeddingsModel, embeddingInputFormat, vectorPlanFingerprint);
+            if (checkpointCompatible)
             {
-                _log.LogWarning(
-                    "Skipping Qdrant version pre-cleanup for already published version job={JobId} doc={DocPath} version={Version}",
-                    job.JobId,
-                    relDocPath,
-                    job.Version);
+                using var verifyCts = CreateTimeoutCts(ct, ingest.QdrantTimeoutSeconds);
+                using (await _bulkheads.AcquireQdrantAsync(verifyCts?.Token ?? ct))
+                {
+                    if (await IngestionVectorPlan.HasCompletePointsAsync(qdrant, rag.QdrantCollection,
+                        pointIds.Take(checkpoint!.ProgressCurrent!.Value).ToArray(), vectorPlanFingerprint, verifyCts?.Token ?? ct))
+                        resumeFromChunk = checkpoint.ProgressCurrent.Value;
+                }
             }
+            diagnostics.Set("resume_plan_compatible", checkpointCompatible);
+            diagnostics.Set("resume_verified_chunks", resumeFromChunk);
+            diagnostics.Set("vector_plan_fingerprint", vectorPlanFingerprint);
+            await JobRepo.UpdateProgressAsync(ds, job.JobId, "embedding", resumeFromChunk, chunks.Count, ct, leaseOwner: workerId);
+            await JobRepo.StoreResumeCheckpointAsync(ds, job.JobId, hashHex, size, chunks.Count,
+                rag.EmbeddingsModel, embeddingInputFormat, ct, vectorPlanFingerprint, leaseOwner: workerId);
+            if (checkpoint?.ProgressCurrent is > 0)
+                _log.LogInformation("Ingestion resume verified job={JobId} compatible={Compatible} retained_chunks={Retained}/{Total}",
+                    job.JobId, checkpointCompatible, resumeFromChunk, chunks.Count);
 
-            // embed + upsert by batches
-            diagnostics.Begin("embedding_and_index_write");
+            // Plan-specific point IDs make full restarts idempotent; stale plans remain inactive.
             var batchSize = IngestionOptions.ResolveEmbeddingsBatchSize(ingest.EmbeddingsBatchSize);
 
             var nowIso = DateTimeOffset.UtcNow.ToString("O");
-            var category = IngestionCategoryResolver.Normalize(job.Category ?? ingest.DefaultCategory);
 
             for (int i = resumeFromChunk; i < chunks.Count; i += batchSize)
             {
@@ -1679,7 +1519,7 @@ WHERE job_id=@job_id
 
                     points.Add(new
                     {
-                        id = chunkId.ToString(),
+                        id = IngestionVectorPlan.PointId(chunkId, vectorPlanFingerprint).ToString(),
                         vector = vectors[j],
                         payload = BuildQdrantChunkPayload(
                             tenantId,
@@ -1695,7 +1535,9 @@ WHERE job_id=@job_id
                             item.HeadingPath,
                             item.ChunkLinks,
                             rag.EmbeddingsModel,
-                            embeddingInputFormat)
+                            embeddingInputFormat,
+                            rag.EmbeddingsModelRevision,
+                            vectorPlanFingerprint)
                     });
                 }
 
@@ -1716,21 +1558,31 @@ WHERE job_id=@job_id
                 await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
                 var done = Math.Min(i + slice.Count, chunks.Count);
-                await JobRepo.UpdateProgressAsync(ds, job.JobId, "embedding", done, chunks.Count, ct);
+                await JobRepo.UpdateProgressAsync(ds, job.JobId, "embedding", done, chunks.Count, ct, leaseOwner: workerId);
                 _log.LogInformation(
                     "Ingestion progress job={JobId} doc={DocPath} chunks={Done}/{Total} tei_ms={TeiMs} qdrant_ms={QdrantMs}",
                     job.JobId, relDocPath, done, chunks.Count, swTei.ElapsedMilliseconds, swQ.ElapsedMilliseconds
                 );
             }
 
-            await JobRepo.UpdateProgressAsync(ds, job.JobId, "finalizing", chunks.Count, chunks.Count, ct);
+            await JobRepo.UpdateProgressAsync(ds, job.JobId, "finalizing", chunks.Count, chunks.Count, ct, leaseOwner: workerId);
             await ThrowIfJobCanceledAsync(ds, job, ct);
             await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
             if (!File.Exists(absPath))
                 throw new Exception("source_removed_during_ingestion");
 
-            var mtime = File.GetLastWriteTimeUtc(absPath);
+            diagnostics.Begin("publication_integrity");
+            await sourceSnapshot.AssertSourceUnchangedAsync(absPath, ct);
+            using (var verifyCts = CreateTimeoutCts(ct, ingest.QdrantTimeoutSeconds))
+            using (await _bulkheads.AcquireQdrantAsync(verifyCts?.Token ?? ct))
+            {
+                if (!await IngestionVectorPlan.HasCompletePointsAsync(qdrant, rag.QdrantCollection, pointIds,
+                    vectorPlanFingerprint, verifyCts?.Token ?? ct))
+                    throw new InvalidDataException("vector_publication_incomplete");
+            }
+            diagnostics.Set("verified_vector_points", pointIds.Length);
+            var mtime = sourceSnapshot.SourceLastWriteTimeUtc;
             diagnostics.Begin("canonical_manifest");
             CanonicalIngestionBundle? canonicalBundle = null;
             if (ingest.CanonicalArtifactsEnabled)
@@ -1811,7 +1663,8 @@ WHERE job_id=@job_id
             var swPublish = Stopwatch.StartNew();
             diagnostics.Begin("publication");
             var committed = await IngestionPublicationStage.PublishAsync(ds,
-                new(tenantId, job.JobId, relDocPath, hash, size, mtime, job.Version),
+                new(tenantId, job.JobId, relDocPath, hash, size, mtime, job.Version,
+                    IngestionPipelineIdentity.Compute(rag, ingest, documentIntelligence), vectorPlanFingerprint, workerId),
                 new(pages, sections, units, retrievalChunks, exactMatchEntries, contextualTextEntries,
                     canonicalBundle, structuredProfileUnits),
                 new(extraction.Source, ocrAttempted, ocrApplied, ocrLanguages, ocrAttempted ? ocrMs : null,
@@ -1824,29 +1677,7 @@ WHERE job_id=@job_id
                 return false;
 
             diagnostics.Set("published", true);
-            diagnostics.Begin("cleanup");
-            try
-            {
-                var swCleanup = Stopwatch.StartNew();
-                using var cleanupQdrantCts = CreateTimeoutCts(ct, ingest.QdrantTimeoutSeconds);
-                var cleanupQdrantToken = cleanupQdrantCts?.Token ?? ct;
-                using (await _bulkheads.AcquireQdrantAsync(cleanupQdrantToken))
-                {
-                    await QdrantClient.DeleteOtherVersionsByDocAsync(
-                        qdrant, rag.QdrantCollection,
-                        tenantId, docId, job.Version, cleanupQdrantToken);
-                }
-                swCleanup.Stop();
-                cleanupMs = swCleanup.ElapsedMilliseconds;
-            }
-            catch (Exception ex)
-            {
-                diagnostics.Set("cleanup_incomplete", true);
-                _log.LogWarning(ex,
-                    "Failed to cleanup old Qdrant versions job={JobId} doc={DocPath}. Old points filtered by RAG version check.",
-                    job.JobId, job.DocPath);
-            }
-
+            diagnostics.Set("vector_cleanup_deferred", true);
             swTotal.Stop();
             _log.LogInformation(
                 "Ingestion stage timings job={JobId} doc={DocPath} total_ms={TotalMs} hash_ms={HashMs} extract_ms={ExtractMs} native_text_extract_ms={NativeTextExtractMs} ocr_ms={OcrMs} extraction_source={ExtractionSource} sections_ms={SectionsMs} units_ms={UnitsMs} chunking_ms={ChunkingMs} exact_ms={ExactMs} contextual_ms={ContextualMs} tei_warmup_ms={TeiWarmupMs} qdrant_ensure_ms={QdrantEnsureMs} embedding_ms={EmbeddingMs} qdrant_upsert_ms={QdrantUpsertMs} publish_ms={PublishMs} cleanup_ms={CleanupMs} pages={Pages} sections={Sections} units={Units} chunks={Chunks} exact_entries={ExactEntries} contextual_entries={ContextualEntries} extraction_quality={ExtractionQuality} ocr_recommended={OcrRecommended}",
@@ -1909,17 +1740,7 @@ WHERE job_id=@job_id
         if (!fullOcrApplied || currentOcrExtraction is null)
             return nativeExtraction;
 
-        return ShouldPreferImageOcrFromNativeBase(nativeExtraction)
-            ? nativeExtraction
-            : currentOcrExtraction;
-    }
-
-    private static bool ShouldPreferImageOcrFromNativeBase(PdfExtractionResult nativeExtraction)
-    {
-        var quality = nativeExtraction.Quality;
-        return string.Equals(quality.TextStatus, "empty_text", StringComparison.Ordinal)
-               || quality.TotalWordCount <= 0
-               || nativeExtraction.Pages.All(static page => string.IsNullOrWhiteSpace(page.Text));
+        return currentOcrExtraction;
     }
 
     internal static bool IsOcrRequiredButDisabled(
@@ -2002,7 +1823,9 @@ WHERE job_id=@job_id
         string? headingPath,
         ChunkLinkInfo? chunkLinks,
         string? embeddingModel = null,
-        string? embeddingInputFormat = null)
+        string? embeddingInputFormat = null,
+        string? embeddingModelRevision = null,
+        string? vectorPlanFingerprint = null)
     {
         var chunkId = DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, ingestionVersion, projectedChunk.ChunkIndex);
         var text = CleanTextForIndexing(projectedChunk.Text);
@@ -2041,7 +1864,7 @@ WHERE job_id=@job_id
             ["updated_at"] = nowIso,
             ["text"] = text,
             ["embed_text"] = cleanEmbeddingText,
-            ["text_cleaning_version"] = "mojibake_repair_v2",
+            ["text_cleaning_version"] = "source_transport_v3",
             ["text_cleaning_changed"] = textCleaningChanged,
             ["text_mojibake_after"] = LooksLikeMojibakeForDiagnostics(text)
                 || LooksLikeMojibakeForDiagnostics(cleanEmbeddingText)
@@ -2050,6 +1873,8 @@ WHERE job_id=@job_id
             ["embedding_basis"] = usesContextualText ? ContextualTextProjector.SchemaVersion : "chunk_text",
             ["context_schema_version"] = ContextualTextProjector.SchemaVersion,
             ["embedding_model"] = embeddingModel,
+            ["embedding_model_revision"] = embeddingModelRevision,
+            ["ingestion_plan_fingerprint"] = vectorPlanFingerprint,
             ["embedding_input_format"] = embeddingInputFormat,
             ["section_ordinal"] = projectedChunk.SectionOrdinal,
             ["unit_ordinal"] = projectedChunk.UnitOrdinal,

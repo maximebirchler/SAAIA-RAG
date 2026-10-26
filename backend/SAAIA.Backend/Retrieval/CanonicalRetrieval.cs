@@ -192,7 +192,8 @@ internal static partial class CanonicalRetrieval
             categoryPath: categoryPath,
             degradedRetrieverRef: MarkRetrieverDegraded,
             teiGovernor: teiGovernor,
-            attachContentCards: false));
+            attachContentCards: false,
+            logger: context.Logger));
 
         await Task.WhenAll(exactTask, sparseTask, denseTask).ConfigureAwait(false);
         var exact = SanitizeCanonicalMatches((await exactTask).Matches);

@@ -2058,7 +2058,8 @@ SELECT d.doc_id AS "DocId",
        d.status AS "Status",
        d.indexed_version AS "IndexedVersion",
        r.ingestion_version AS "CurrentRevisionIngestionVersion",
-       LOWER(ENCODE(d.content_hash, 'hex')) AS "ContentHashHex"
+       LOWER(ENCODE(d.content_hash, 'hex')) AS "ContentHashHex",
+       d.ingestion_vector_plan_fingerprint AS "VectorPlanFingerprint"
 FROM documents d
 LEFT JOIN document_revisions r
   ON r.tenant_id = d.tenant_id
@@ -2090,7 +2091,7 @@ WHERE d.tenant_id=@tenant_id
             if (!RagDocPathMatchesCategoryPath(row.DocPath, normalizedCategoryPath))
                 continue;
 
-            if (!IsActiveDenseMatchForRevision(match, row.CurrentRevisionIngestionVersion, row.ContentHashHex))
+            if (!IsActiveDenseMatchForRevision(match, row.CurrentRevisionIngestionVersion, row.ContentHashHex, row.VectorPlanFingerprint))
                 continue;
 
             filtered.Add(match);
@@ -2309,8 +2310,12 @@ GROUP BY d.doc_id;
     internal static bool IsActiveDenseMatchForRevision(
         RagMatch match,
         int? currentRevisionIngestionVersion,
-        string? currentContentHashHex)
+        string? currentContentHashHex,
+        string? currentVectorPlanFingerprint = null)
     {
+        // NULL is the legacy generation, not a wildcard for a plan-specific point.
+        if (!string.Equals(match.IngestionPlanFingerprint, currentVectorPlanFingerprint, StringComparison.Ordinal))
+            return false;
         var matchHash = NormalizeHashHex(match.HashDoc);
         var currentHash = NormalizeHashHex(currentContentHashHex);
         var hashCanBeChecked = !string.IsNullOrWhiteSpace(matchHash) && !string.IsNullOrWhiteSpace(currentHash);

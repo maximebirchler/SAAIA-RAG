@@ -90,7 +90,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             Assert.True(await JobRepo.CompleteUpsertAsync(ds, tenantId, jobId, docPath,
                 hash, pdfBytes.Length, File.GetLastWriteTimeUtc(pdfPath), 1, extraction.Pages,
                 sections, units, chunks, ExactMatchEntryExtractor.Extract(units),
-                ContextualTextProjector.Project(docPath, sections, units, chunks), CancellationToken.None));
+                ContextualTextProjector.Project(docPath, sections, units, chunks), CancellationToken.None, leaseOwner: "test-worker"));
 
             var ctx = BuildRagHttpContext(tenantId);
             var result = await InvokeRagSearchAsync(ctx, ds, Options.Create(CreateTestRagOptions()),
@@ -611,7 +611,7 @@ WHERE c.tenant_id=@tenant;
             exact,
             contextual,
             CancellationToken.None,
-            canonicalBundle: bundle);
+            canonicalBundle: bundle, leaseOwner: "test-worker");
 
         Assert.True(committed);
         await using var conn = new NpgsqlConnection(db.ConnectionString);

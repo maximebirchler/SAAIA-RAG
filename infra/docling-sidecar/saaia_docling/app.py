@@ -13,9 +13,11 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from starlette.datastructures import UploadFile
 
+from .execution_metadata import conversion_execution_metadata
 from .heading_hierarchy import HeadingHierarchyConfiguration
 from .ocr_engine import RapidOcrRegionEngine
 from .response_repair import repair_response_tables
+from .transport_diagnostics import ConversionTransportDiagnostics
 
 
 logging.basicConfig(
@@ -64,6 +66,7 @@ app = FastAPI(
     openapi_url=None,
 )
 ocr_engine = RapidOcrRegionEngine()
+conversion_transport = ConversionTransportDiagnostics()
 
 
 @app.get("/health")
@@ -80,6 +83,7 @@ async def health() -> JSONResponse:
             "status": "ok" if upstream_ready else "upstream_unavailable",
             "upstream": upstream_ready,
             "regionalTableRepair": REPAIR_ENABLED,
+            "conversionTransport": conversion_transport.snapshot(),
             "headingHierarchy": {
                 "enabled": HEADING_HIERARCHY.enabled,
                 "useBookmarks": HEADING_HIERARCHY.use_bookmarks,
@@ -174,6 +178,10 @@ async def convert_file(request: Request) -> Response:
                         len(summaries),
                         applied,
                     )
+            payload["saaia_execution"] = conversion_execution_metadata(
+                fields, repair_enabled=REPAIR_ENABLED, render_scale=RENDER_SCALE,
+                padding_points=PADDING_POINTS, minimum_score=MINIMUM_SCORE,
+            )
             return JSONResponse(payload)
 
 
@@ -260,6 +268,15 @@ def _forward_conversion_sync(
     filename: str,
     content_type: str,
     fields: list[tuple[str, str]],
+) -> httpx.Response:
+    with conversion_transport.observe() as response_received:
+        response = _forward_conversion_http(pdf_path, filename, content_type, fields)
+        response_received(response.is_success)
+        return response
+
+
+def _forward_conversion_http(
+    pdf_path: Path, filename: str, content_type: str, fields: list[tuple[str, str]],
 ) -> httpx.Response:
     timeout = httpx.Timeout(
         UPSTREAM_TIMEOUT_SECONDS,

@@ -2,29 +2,9 @@ using System.Text.RegularExpressions;
 
 internal static partial class OcrNoiseFilter
 {
-    internal static string RemoveSpacedLetterRunNoise(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return string.Empty;
-
-        var normalized = text.Replace("\r\n", "\n").Replace('\r', '\n');
-        var lines = normalized.Split('\n');
-        var cleanedLines = new List<string>(lines.Length);
-        foreach (var line in lines)
-        {
-            var cleaned = RemoveSpacedLetterRunNoiseFromLine(line);
-            if (string.IsNullOrWhiteSpace(cleaned))
-            {
-                if (string.IsNullOrWhiteSpace(line))
-                    cleanedLines.Add(string.Empty);
-                continue;
-            }
-
-            cleanedLines.Add(cleaned);
-        }
-
-        return string.Join('\n', cleanedLines).Trim();
-    }
+    // A glyph sequence can be a formula, identifier or literal label. Preserve it;
+    // confidence/geometry may flag uncertainty but do not establish useless text.
+    internal static string RemoveSpacedLetterRunNoise(string? text) => text ?? string.Empty;
 
     internal static bool LooksLikeProbableNoiseText(string? text)
     {
@@ -48,9 +28,6 @@ internal static partial class OcrNoiseFilter
         // Their short length, units or decorative markers do not establish OCR damage.
 
         if (LooksLikeShortBrokenProseFragment(text))
-            return true;
-
-        if (LooksLikeShortBrokenHeaderFooterFragment(text))
             return true;
 
         if (text.Length < 32)
@@ -1062,6 +1039,8 @@ internal static partial class OcrNoiseFilter
 
     private static bool LooksLikeSpacedLetterRunNoise(string text)
     {
+        if (!text.Contains('\uFFFD') && text.Count(static ch => ch is '|' or '@' or '=' or '\\') < 3)
+            return false;
         var tokens = TokenRegex().Matches(text)
             .Select(static match => TrimToken(match.Value))
             .Where(static token => token.Length > 0)
@@ -1136,142 +1115,6 @@ internal static partial class OcrNoiseFilter
             && tokens[0] == "e"
             && tokens.Any(LooksLikeGluedInitialIOrLToken);
     }
-
-    private static bool LooksLikeShortBrokenHeaderFooterFragment(string text)
-    {
-        var normalized = Regex.Replace(text, @"\s+", " ").Trim();
-        if (normalized.Length is < 3 or > 40)
-            return false;
-        if (!normalized.EndsWith("-", StringComparison.Ordinal))
-            return false;
-        if (normalized.Any(static ch => ch is '.' or '!' or '?' or '\u2022' or ':' or ';'))
-            return false;
-        if (normalized.Any(char.IsDigit))
-            return false;
-
-        var tokens = TokenRegex().Matches(normalized)
-            .Select(static match => TrimToken(match.Value))
-            .Where(static token => token.Length > 0)
-            .ToArray();
-        if (tokens.Length is < 1 or > 4)
-            return false;
-
-        var letters = normalized.Where(IsLatinLetter).ToArray();
-        return letters.Length >= 3 && letters.All(char.IsUpper);
-    }
-
-    private static string RemoveSpacedLetterRunNoiseFromLine(string line)
-    {
-        if (string.IsNullOrWhiteSpace(line))
-            return string.Empty;
-
-        var matches = TokenRegex().Matches(line)
-            .Select(static match => new TokenSpan(match.Index, match.Length, TrimToken(match.Value)))
-            .Where(static token => token.Text.Length > 0)
-            .ToArray();
-        if (matches.Length == 0)
-            return line.Trim();
-
-        if (matches.Length <= 3
-            && matches.All(static token => IsSpacedLetterNoiseToken(token.Text))
-            && matches.Any(static token => token.Text.Any(char.IsLower)))
-        {
-            return string.Empty;
-        }
-
-        var ranges = new List<(int Start, int End)>();
-        var runStart = -1;
-        var runEnd = -1;
-        var runTokens = new List<TokenSpan>();
-
-        void FlushRun()
-        {
-            if (ShouldRemoveSpacedLetterRun(runTokens, matches.Length, runStart, line))
-            {
-                var start = runStart;
-                var end = runEnd;
-                while (end < line.Length && IsTrailingNoisePunctuation(line[end]))
-                    end++;
-                ranges.Add((start, end));
-            }
-
-            runStart = -1;
-            runEnd = -1;
-            runTokens.Clear();
-        }
-
-        foreach (var token in matches)
-        {
-            if (IsSpacedLetterNoiseToken(token.Text))
-            {
-                if (runStart < 0)
-                    runStart = token.Start;
-                runEnd = token.End;
-                runTokens.Add(token);
-                continue;
-            }
-
-            FlushRun();
-        }
-
-        FlushRun();
-        if (ranges.Count == 0)
-            return Regex.Replace(line, @"[ \t]{2,}", " ").Trim();
-
-        var builder = new System.Text.StringBuilder(line.Length);
-        var cursor = 0;
-        foreach (var range in ranges.OrderBy(static range => range.Start))
-        {
-            if (range.Start > cursor)
-                builder.Append(line, cursor, range.Start - cursor);
-            cursor = Math.Max(cursor, range.End);
-        }
-
-        if (cursor < line.Length)
-            builder.Append(line, cursor, line.Length - cursor);
-
-        var cleaned = Regex.Replace(builder.ToString(), @"[ \t]{2,}", " ").Trim();
-        cleaned = Regex.Replace(cleaned, @"^(?:\p{Ll}\s+){2,}(?=\p{Ll}{3,})", string.Empty, RegexOptions.CultureInvariant).Trim();
-        cleaned = Regex.Replace(cleaned, @"^\s*[!?,;:.\u2026-]+\s*", string.Empty).Trim();
-        return cleaned;
-    }
-
-    private static bool ShouldRemoveSpacedLetterRun(
-        IReadOnlyList<TokenSpan> runTokens,
-        int lineTokenCount,
-        int runStart,
-        string line)
-    {
-        if (runTokens.Count == 0)
-            return false;
-        if (runTokens.All(static token => token.Text.All(char.IsUpper)))
-            return false;
-
-        var lowercaseCount = runTokens.Count(static token => token.Text.Any(char.IsLower));
-        if (runTokens.Count >= 2 && lowercaseCount == runTokens.Count && IsAtLineStart(line, runStart))
-            return true;
-        if (runTokens.Count >= 8 && lowercaseCount >= 1)
-            return true;
-        if (runTokens.Count >= 5 && lowercaseCount >= 3)
-            return true;
-
-        return lineTokenCount <= 4 && runTokens.Count >= 3 && lowercaseCount >= 1;
-    }
-
-    private static bool IsAtLineStart(string line, int index)
-    {
-        for (var i = 0; i < index && i < line.Length; i++)
-        {
-            if (!char.IsWhiteSpace(line[i]) && !IsTrailingNoisePunctuation(line[i]))
-                return false;
-        }
-
-        return true;
-    }
-
-    private static bool IsTrailingNoisePunctuation(char ch)
-        => char.IsWhiteSpace(ch)
-           || ch is '!' or '?' or ',' or ';' or ':' or '.' or '\u2026' or '-' or '\u2013' or '\u2014';
 
     private static bool ContainsLatinLettersAndDigits(string token)
         => ContainsLatinLetter(token) && token.Any(char.IsDigit);
@@ -1469,8 +1312,4 @@ internal static partial class OcrNoiseFilter
     [GeneratedRegex(@"[\.!?\u2026]\s+(?:[\u2022\-]\s*)?[\p{L}'\u2019\s]{2,40}$", RegexOptions.CultureInvariant)]
     private static partial Regex CompleteSentenceWithShortTrailingBulletRegex();
 
-    private readonly record struct TokenSpan(int Start, int Length, string Text)
-    {
-        public int End => Start + Length;
-    }
 }

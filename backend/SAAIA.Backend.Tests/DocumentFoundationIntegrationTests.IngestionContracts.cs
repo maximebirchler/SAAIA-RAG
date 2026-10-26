@@ -82,7 +82,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             nativeExtractionQuality: extractionQuality,
             failureReason: "scanned_pdf_not_indexable",
             CancellationToken.None,
-            extractedPages: [page]);
+            extractedPages: [page], leaseOwner: "test-worker");
 
         await using var conn = new NpgsqlConnection(db.ConnectionString);
         await conn.OpenAsync();
@@ -172,7 +172,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             extractionQuality,
             nativeExtractionQuality: extractionQuality,
             failureReason: "scanned_pdf_not_indexable",
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
 
         await using var conn = new NpgsqlConnection(db.ConnectionString);
         await conn.OpenAsync();
@@ -242,7 +242,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks: [new ProjectedRetrievalChunk(0, 0, 0, 1, 1, text, 7, [3], "unit_exact_v1")],
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         await using (var conn = new NpgsqlConnection(db.ConnectionString))
         {
@@ -298,7 +298,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             nativeExtractionQuality: failedQuality,
             failureReason: "scanned_pdf_not_indexable",
             CancellationToken.None,
-            extractedPages: [failedPage]);
+            extractedPages: [failedPage], leaseOwner: "test-worker");
 
         await using (var conn = new NpgsqlConnection(db.ConnectionString))
         {

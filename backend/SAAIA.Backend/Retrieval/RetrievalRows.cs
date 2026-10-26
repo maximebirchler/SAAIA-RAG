@@ -11,7 +11,8 @@ internal static partial class RetrievalRows
         string Status,
         int IndexedVersion,
         int? CurrentRevisionIngestionVersion,
-        string? ContentHashHex);
+        string? ContentHashHex,
+        string? VectorPlanFingerprint = null);
 
     internal sealed record DocProfileContentCardsRow(
         Guid DocId,

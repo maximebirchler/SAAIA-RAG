@@ -65,7 +65,7 @@ public sealed partial class DocumentFoundationIntegrationTests
         Assert.True(await JobRepo.CompleteUpsertAsync(ds, tenant, jobId, docPath,
             hash, bytes.Length, File.GetLastWriteTimeUtc(pdfPath), 1, extraction.Pages,
             sections, units, chunks, ExactMatchEntryExtractor.Extract(units),
-            ContextualTextProjector.Project(docPath, sections, units, chunks), CancellationToken.None));
+            ContextualTextProjector.Project(docPath, sections, units, chunks), CancellationToken.None, leaseOwner: "test-worker"));
         var key = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         Guid revisionId;
         IEnumerable<dynamic> publishedCards;

@@ -59,7 +59,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks: [new ProjectedRetrievalChunk(0, 0, 0, 1, 1, text, 5, [3], "unit_exact_v1")],
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         await using var conn = new NpgsqlConnection(db.ConnectionString);
         await conn.OpenAsync();
@@ -153,7 +153,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks: [new ProjectedRetrievalChunk(0, 0, 0, 1, 1, text, 7, [3], "unit_exact_v1")],
             exactMatchEntries: [],
             contextualTextEntries: [new ProjectedContextualTextEntry(0, 0, 0, 0, 1, 1, $"Document: WeeklyPlan.pdf\nExcerpt:\n{text}", text.Length + 35, 10, [4])],
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         await using var conn = new NpgsqlConnection(db.ConnectionString);
         await conn.OpenAsync();
@@ -219,7 +219,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks: [new ProjectedRetrievalChunk(0, 0, 0, 1, 1, text, 7, [3], "unit_exact_v1")],
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         await using var conn = new NpgsqlConnection(db.ConnectionString);
         await conn.OpenAsync();
@@ -285,7 +285,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks: [new ProjectedRetrievalChunk(0, 0, 0, 1, 1, text, 4, [3], "unit_exact_v1")],
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         await using var conn = new NpgsqlConnection(db.ConnectionString);
         await conn.OpenAsync();
@@ -375,7 +375,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks: [new ProjectedRetrievalChunk(0, 0, 0, 1, 1, text, 7, [3], "unit_exact_v1")],
             exactMatchEntries: [],
             contextualTextEntries: [new ProjectedContextualTextEntry(0, 0, 0, 0, 1, 1, $"Document: Audit.pdf\nExcerpt:\n{text}", text.Length + 31, 10, [4])],
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         await using var conn = new NpgsqlConnection(db.ConnectionString);
         await conn.OpenAsync();

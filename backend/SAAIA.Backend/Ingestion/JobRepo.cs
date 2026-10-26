@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using Npgsql;
 
 static partial class JobRepo
@@ -6,6 +6,7 @@ static partial class JobRepo
     public static async Task<IngestionJob?> TryDequeueAsync(NpgsqlDataSource ds, string workerId, CancellationToken ct)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
+        var leaseOwner = IngestionLeaseGuard.CreateOwner(workerId);
 
         const string sql = @"
 WITH cte AS (
@@ -29,6 +30,7 @@ SET status='running',
     locked_at=now(),
     started_at=COALESCE(started_at, now()),
     attempts=attempts+1
+    ,payload=jsonb_set(COALESCE(payload, '{}'::jsonb), '{executionLeaseOwner}', to_jsonb(@worker::text), true)
 FROM cte
 WHERE j.job_id=cte.job_id
 RETURNING
@@ -40,7 +42,7 @@ RETURNING
   j.payload   AS Payload;";
 
         var row = await conn.QueryFirstOrDefaultAsync<IngestionJobRow>(
-            new CommandDefinition(sql, new { worker = workerId }, cancellationToken: ct));
+            new CommandDefinition(sql, new { worker = leaseOwner }, cancellationToken: ct));
 
         if (row is null)
             return null;
@@ -56,35 +58,17 @@ RETURNING
             row.Category,
             docId,
             version,
-            row.CapabilityAProfileSeedFromPayload);
+            row.CapabilityAProfileSeedFromPayload,
+            leaseOwner);
     }
 
-    public static async Task MarkDoneAsync(NpgsqlDataSource ds, Guid jobId, CancellationToken ct)
+    public static async Task MarkFailedAsync(NpgsqlDataSource ds, Guid jobId, string error, CancellationToken ct, string? leaseOwner = null)
     {
-        await using var conn = await ds.OpenConnectionAsync(ct);
-        const string sql = @"
-UPDATE ingestion_jobs
-SET status = CASE
-        WHEN (LOWER(COALESCE(payload #>> '{control,cancelRequested}', '')) = 'true') THEN 'canceled'
-        ELSE 'done'
-    END,
-    finished_at=now(),
-    last_error = CASE
-        WHEN (LOWER(COALESCE(payload #>> '{control,cancelRequested}', '')) = 'true')
-            THEN COALESCE(last_error, 'canceled_by_admin')
-        ELSE NULL
-    END,
-    payload = ((COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}'),
-    locked_by=NULL,
-    locked_at=NULL
-WHERE job_id=@job_id AND status IN ('running','paused');";
-        await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId }, cancellationToken: ct));
-    }
-
-    public static async Task MarkFailedAsync(NpgsqlDataSource ds, Guid jobId, string error, CancellationToken ct)
-    {
+        if (string.IsNullOrWhiteSpace(leaseOwner)) throw new IngestionLeaseLostException();
         await using var conn = await ds.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
+        if (!await IngestionLeaseGuard.LockOwnedAsync(conn, tx, jobId, leaseOwner, ct))
+            return;
 
         const string supersededStateSql = @"
 SELECT
@@ -296,9 +280,13 @@ WHERE job_id=@job_id AND status IN ('running','paused');";
         await tx.CommitAsync(ct);
     }
 
-    public static async Task DeferTransientAsync(NpgsqlDataSource ds, Guid jobId, string reason, TimeSpan delay, CancellationToken ct)
+    public static async Task DeferTransientAsync(NpgsqlDataSource ds, Guid jobId, string reason, TimeSpan delay, CancellationToken ct, string? leaseOwner = null)
     {
+        if (string.IsNullOrWhiteSpace(leaseOwner)) throw new IngestionLeaseLostException();
         await using var conn = await ds.OpenConnectionAsync(ct);
+        await using var tx = await conn.BeginTransactionAsync(ct);
+        if (!await IngestionLeaseGuard.LockOwnedAsync(conn, tx, jobId, leaseOwner, ct))
+            return;
         const string sql = @"
 UPDATE ingestion_jobs
 SET status='queued',
@@ -317,12 +305,18 @@ WHERE job_id=@job_id
             job_id = jobId,
             reason,
             delay_seconds = Math.Max(1, (int)Math.Ceiling(delay.TotalSeconds))
-        }, cancellationToken: ct));
+        }, transaction: tx, cancellationToken: ct));
+        await tx.CommitAsync(ct);
     }
 
-    public static async Task MarkCanceledAsync(NpgsqlDataSource ds, Guid jobId, string reason, CancellationToken ct)
+    public static async Task MarkCanceledAsync(NpgsqlDataSource ds, Guid jobId, string reason, CancellationToken ct,
+        string? leaseOwner = null, bool stabilizeDocument = false)
     {
+        if (string.IsNullOrWhiteSpace(leaseOwner)) throw new IngestionLeaseLostException();
         await using var conn = await ds.OpenConnectionAsync(ct);
+        await using var tx = await conn.BeginTransactionAsync(ct);
+        if (!await IngestionLeaseGuard.LockOwnedAsync(conn, tx, jobId, leaseOwner, ct))
+            return;
         const string sql = @"
 UPDATE ingestion_jobs j
 SET status = CASE
@@ -407,7 +401,7 @@ WHERE j.job_id=@job_id
   AND d.tenant_id=j.tenant_id
   AND d.doc_path=j.doc_path
   AND j.status IN ('queued','running','canceled','paused');";
-        var affected = await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId, reason }, cancellationToken: ct));
+        var affected = await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId, reason }, transaction: tx, cancellationToken: ct));
 
         const string fallbackSql = @"
 UPDATE ingestion_jobs
@@ -422,14 +416,23 @@ WHERE job_id=@job_id
   AND status IN ('queued','running','canceled','paused');";
         if (affected == 0)
         {
-            var fallbackAffected = await conn.ExecuteAsync(new CommandDefinition(fallbackSql, new { job_id = jobId, reason }, cancellationToken: ct));
+            var fallbackAffected = await conn.ExecuteAsync(new CommandDefinition(fallbackSql, new { job_id = jobId, reason }, transaction: tx, cancellationToken: ct));
             if (fallbackAffected > 0)
-                await FreezeTerminalSnapshotAsync(conn, jobId, null, ct);
+                await FreezeTerminalSnapshotAsync(conn, jobId, tx, ct);
         }
         else
         {
-            await FreezeTerminalSnapshotAsync(conn, jobId, null, ct);
+            await FreezeTerminalSnapshotAsync(conn, jobId, tx, ct);
         }
+        if (stabilizeDocument && affected > 0)
+        {
+            var document = await conn.QuerySingleAsync<(Guid TenantId, string DocPath)>(new CommandDefinition(
+                "SELECT tenant_id AS TenantId, doc_path AS DocPath FROM ingestion_jobs WHERE job_id=@job",
+                new { job = jobId }, transaction: tx, cancellationToken: ct));
+            await StabilizeDocumentAfterCancelAsync(conn, tx, document.TenantId, document.DocPath, ct);
+            await FreezeTerminalSnapshotAsync(conn, jobId, tx, ct);
+        }
+        await tx.CommitAsync(ct);
     }
 
     public static async Task<int> RequeueStaleRunningAsync(NpgsqlDataSource ds, TimeSpan staleAfter, CancellationToken ct)
@@ -580,25 +583,6 @@ WHERE status='running'
         return affected;
     }
 
-    public static async Task TouchAsync(NpgsqlDataSource ds, Guid jobId, string workerId, CancellationToken ct)
-    {
-        await using var conn = await ds.OpenConnectionAsync(ct);
-
-        const string sql = @"
-    UPDATE ingestion_jobs
-    SET locked_at=now()
-    WHERE job_id=@job_id
-    AND status='running'
-    AND locked_by=@worker;";
-
-        await conn.ExecuteAsync(new CommandDefinition(sql, new
-        {
-            job_id = jobId,
-            worker = workerId
-        }, cancellationToken: ct));
-    }
-
-
     /// <summary>
     /// Safety net: ensures the document is stabilized after a job cancellation.
     /// Uses COALESCE to not overwrite existing pause info from the cancel endpoint.
@@ -621,6 +605,7 @@ WHERE status='running'
         public int? ChunkTotal { get; set; }
         public string? EmbeddingModel { get; set; }
         public string? EmbeddingInputFormat { get; set; }
+        public string? VectorPlanFingerprint { get; set; }
     }
 
     private sealed record JobAndDocumentCancelState(

@@ -13,7 +13,7 @@ internal static class RuntimeCapabilityDiagnosticsBuilder
         CancellationToken ct)
     {
         var rows = (await conn.QueryAsync<CapabilityAOperationalRow>(new CommandDefinition(
-            """
+            $"""
 WITH current_docs AS (
   SELECT
     d.doc_id AS "DocId",
@@ -21,8 +21,10 @@ WITH current_docs AS (
     d.status AS "Status",
     COALESCE(d.ingestion_version, 0) AS "IngestionVersion",
     COALESCE(d.indexed_version, 0) AS "IndexedVersion",
-    COALESCE(d.auto_ingest_paused, false) AS "AutoIngestPaused"
+    COALESCE(d.auto_ingest_paused, false) AS "AutoIngestPaused",
+    {IngestionGenerationDiagnostics.ObservationColumnsSql}
   FROM documents d
+  {IngestionGenerationDiagnostics.ObservationJoinsSql}
   WHERE d.tenant_id = @tenant
     AND COALESCE(d.status, '') NOT IN ('missing', 'deleted')
 )
@@ -84,13 +86,9 @@ SELECT
     WHERE dr.tenant_id = @tenant
       AND dr.doc_id = cd."DocId"
       AND dr.indexed_version = cd."IndexedVersion") AS "HasContextualTextEntries",
-  EXISTS(
-    SELECT 1
-    FROM ingestion_jobs i
-    WHERE i.tenant_id = @tenant
-      AND i.doc_path = cd."DocPath"
-      AND i.action = 'upsert'
-      AND i.status IN ('queued', 'running', 'paused')) AS "HasActiveUpsertJob"
+  cd."HasActiveIngestionJob",
+  cd."LatestGenerationStatus",
+  cd."ObservedSourceChanged"
 FROM current_docs cd;
 """,
             new { tenant = tenantId },
@@ -100,9 +98,14 @@ FROM current_docs cd;
             .Where(static row => BuildCapabilityAReasons(row).Count > 0)
             .ToArray();
         var reasonCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        foreach (var row in candidateRows)
+        foreach (var row in rows)
         {
-            foreach (var reason in BuildCapabilityAReasons(row))
+            // Warnings remain visible in the existing diagnostic surface even
+            // when an abandoned generation is not a candidate to enqueue.
+            var reasons = BuildCapabilityAReasons(row).Concat(IngestionGenerationDiagnostics.WarningReasons(
+                row.IngestionVersion, row.IndexedVersion, row.LatestGenerationStatus,
+                row.HasActiveIngestionJob, row.ObservedSourceChanged)).Distinct(StringComparer.OrdinalIgnoreCase);
+            foreach (var reason in reasons)
             {
                 reasonCounts[reason] = reasonCounts.TryGetValue(reason, out var count) ? count + 1 : 1;
             }
@@ -145,9 +148,9 @@ WHERE payload ->> 'source' = 'capability_a'
 """,
             cancellationToken: ct));
 
-        var blockedByActiveJobCount = candidateRows.Count(static row => row.HasActiveUpsertJob);
+        var blockedByActiveJobCount = candidateRows.Count(static row => row.HasActiveIngestionJob);
         var blockedByPolicyCount = candidateRows.Count(static row => row.AutoIngestPaused);
-        var readyToEnqueueCount = candidateRows.Count(row => !row.AutoIngestPaused && !row.HasActiveUpsertJob);
+        var readyToEnqueueCount = candidateRows.Count(row => !row.AutoIngestPaused && !row.HasActiveIngestionJob);
         var offsetBackfillCandidateCount = candidateRows.Count(static row =>
             row.HasRetrievalChunkOffsetsMissing || row.HasExactMatchOffsetsMissing);
 
@@ -553,8 +556,10 @@ GROUP BY lower(btrim(result ->> 'llmFailureCategory'));
 
         if (row.IndexedVersion <= 0)
             reasons.Add("never_indexed");
-        if (row.IngestionVersion > row.IndexedVersion)
-            reasons.Add("indexed_version_outdated");
+        var generationReason = IngestionGenerationDiagnostics.WorkReason(
+            row.IngestionVersion, row.IndexedVersion, row.LatestGenerationStatus, row.HasActiveIngestionJob);
+        if (generationReason is not null)
+            reasons.Add(generationReason);
         if (row.IndexedVersion > 0 && !row.HasRevision)
             reasons.Add("revision_missing");
         if (row.IndexedVersion > 0 && row.HasRevision && !row.HasRetrievalChunks)
@@ -586,7 +591,9 @@ GROUP BY lower(btrim(result ->> 'llmFailureCategory'));
         bool HasExactMatchEntries,
         bool HasExactMatchOffsetsMissing,
         bool HasContextualTextEntries,
-        bool HasActiveUpsertJob);
+        bool HasActiveIngestionJob,
+        string? LatestGenerationStatus,
+        bool ObservedSourceChanged);
 
     private static DateTimeOffset? ToUtcOffset(DateTime? value)
     {

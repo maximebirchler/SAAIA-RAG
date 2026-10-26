@@ -4,7 +4,7 @@ using System.Text.Json;
 using SAAIA.Backend.Endpoints;
 using Xunit;
 
-public sealed class DoclingClientTests
+public sealed partial class DoclingClientTests
 {
     [Fact]
     public async Task ConvertPdfAsync_SendsBoundedStructuredRequestAndValidatesResponse()
@@ -255,7 +255,7 @@ public sealed class DoclingClientTests
     }
 
     [Fact]
-    public void OcrDiagnostics_DoNotInventPerPageAttribution()
+    public void OcrDiagnostics_SeparatesEngineTimingFromUnobservedPageAttribution()
     {
         var response = BuildResponse();
         response.Timings["ocr"] = new()
@@ -282,10 +282,13 @@ public sealed class DoclingClientTests
             extraction);
 
         Assert.Equal("docling_auto", diagnostics.Mode);
-        Assert.Equal(2, diagnostics.AttemptedPageCount);
+        Assert.False(diagnostics.PageCountsAvailable);
+        Assert.Equal(0, diagnostics.AttemptedPageCount);
+        Assert.Equal(2, diagnostics.EngineTimingCount);
+        Assert.Equal("page", diagnostics.EngineTimingScope);
         Assert.Empty(diagnostics.AttemptedPages);
         Assert.Empty(diagnostics.PagesWithOcrText);
-        Assert.Equal("engine_managed", diagnostics.CoverageStatus);
+        Assert.Equal("engine_managed_page_counts_unknown", diagnostics.CoverageStatus);
         Assert.Equal(750, DocumentExtractionPolicy.ResolveDoclingTimingMs(response, "ocr"));
     }
 

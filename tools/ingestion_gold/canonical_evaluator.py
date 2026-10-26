@@ -6,6 +6,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from typing import Any, Iterable
+from .critical_facts import critical_fact_issues
 
 
 NATIVE_LAYOUT_BLOCK_TYPE = "native_layout_recovery"
@@ -19,10 +20,7 @@ class CanonicalEvaluationIssue:
 
 
 def _normalise(value: Any) -> str:
-    text = unicodedata.normalize("NFKC", str(value or ""))
-    return " ".join(
-        re.sub(r"[^\w]+", " ", text.casefold(), flags=re.UNICODE).split()
-    )
+    return " ".join(unicodedata.normalize("NFC", str(value or "")).casefold().split())
 
 
 def _text_variant(item: dict[str, Any]) -> str:
@@ -92,6 +90,37 @@ def _best_item(
             best_score = score
             best_item = item
     return best_score, best_item
+
+
+def _best_geometry_item(
+    marker: str,
+    items: Iterable[dict[str, Any]],
+    *,
+    minimum_similarity: float,
+    page: int | None,
+) -> dict[str, Any] | None:
+    """Choose a literal source anchor, independently of the expected position.
+
+    Prefer the most specific text carrier among equally matching anchored
+    observations. A merged region must not hide a precise block or cell, and
+    an unanchored recovery must never lend another observation its geometry.
+    """
+    normalised_marker = _normalise(marker)
+    candidates: list[tuple[float, int, int, dict[str, Any]]] = []
+    for ordinal, item in enumerate(items):
+        if page is not None and int(item.get("_goldPageNumber", 0)) != page:
+            continue
+        center = _polygon_center(item)
+        if center is None or not all(math.isfinite(value) for value in center):
+            continue
+        text = _normalise(_text_variant(item))
+        if not text:
+            continue
+        score = (1.0 if normalised_marker in text else
+                 difflib.SequenceMatcher(None, normalised_marker, text).ratio())
+        if score >= minimum_similarity:
+            candidates.append((-score, len(text), ordinal, item))
+    return min(candidates, key=lambda candidate: candidate[:3])[3] if candidates else None
 
 
 def _surface_text(items: Iterable[dict[str, Any]]) -> str:
@@ -182,6 +211,14 @@ def evaluate_canonical_snapshot(
     case: dict[str, Any],
 ) -> dict[str, Any]:
     issues: list[CanonicalEvaluationIssue] = []
+    if case.get("sourceSha256") and snapshot.get("sourceSha256") != case["sourceSha256"]:
+        issues.append(CanonicalEvaluationIssue("canonical_source_hash", "Canonical projection does not match the frozen source PDF."))
+    if case.get("canonicalExpectations", {}).get("requireProductionDefaults") is True:
+        if snapshot.get("chunking", {}).get("matchesProductionDefaults") is not True:
+            issues.append(CanonicalEvaluationIssue("canonical_chunking", "Projection did not use the current production chunking defaults."))
+        for name in ("backendAssemblySha256", "projectorAssemblySha256"):
+            if not re.fullmatch(r"[a-fA-F0-9]{64}", str(snapshot.get(name, ""))):
+                issues.append(CanonicalEvaluationIssue("canonical_assembly_identity", "Missing immutable loaded assembly identity: " + name))
     if snapshot.get("schemaVersion") != "ingestion_layout_canonical_snapshot_v1":
         return {
             "ok": False,
@@ -282,6 +319,12 @@ def evaluate_canonical_snapshot(
     searchable_items = [
         *blocks,
         *(
+            {**cell, "_goldPageNumber": table.get("_goldPageNumber")}
+            for table in tables
+            for cell in table.get("cells") or []
+            if isinstance(cell, dict)
+        ),
+        *(
             {
                 "text": {
                     "retrieval": _table_text(table),
@@ -329,13 +372,18 @@ def evaluate_canonical_snapshot(
                 )
             )
 
+    geometry_anchors: dict[str, dict[str, Any]] = {}
+    marker_minima = {str(marker["text"]): float(marker.get("minSimilarity", 1.0))
+                     for marker in expectations.get("markers", [])}
     for geometry in expectations.get("geometry", []):
         marker = str(geometry["marker"])
-        result = marker_results.get(marker) or _best_item(
+        item = _best_geometry_item(
             marker,
             searchable_items,
+            minimum_similarity=marker_minima.get(marker, 1.0),
+            page=int(geometry["page"]) if "page" in geometry else None,
         )
-        center = _polygon_center(result[1]) if result[1] is not None else None
+        center = _polygon_center(item) if item is not None else None
         if center is None:
             issues.append(
                 CanonicalEvaluationIssue(
@@ -344,6 +392,12 @@ def evaluate_canonical_snapshot(
                 )
             )
             continue
+        geometry_anchors[marker] = {
+            "blockId": item.get("blockId"),
+            "cellId": item.get("cellId"),
+            "pageNumber": item.get("_goldPageNumber"),
+            "selectionPolicy": "most_specific_matching_anchored_observation",
+        }
         expected_x = float(geometry["centerX"])
         expected_y = float(geometry["centerY"])
         tolerance = float(geometry.get("tolerance", 0.12))
@@ -362,7 +416,8 @@ def evaluate_canonical_snapshot(
         candidates = [
             table
             for table in tables
-            if not required_text or required_text in _normalise(_table_text(table))
+            if (not required_text or required_text in _normalise(_table_text(table)))
+            and ("page" not in expected or int(table.get("_goldPageNumber", 0)) == int(expected["page"]))
         ]
         if not candidates:
             issues.append(
@@ -583,6 +638,13 @@ def evaluate_canonical_snapshot(
     image_inventory = snapshot.get("imageInventory")
     if not isinstance(image_inventory, dict):
         image_inventory = {}
+    critical_pages: dict[int, list[str]] = {}
+    for block in blocks:
+        critical_pages.setdefault(int(block.get("_goldPageNumber", 0)), []).append(_text_variant(block))
+    for table in tables:
+        critical_pages.setdefault(int(table.get("_goldPageNumber", 0)), []).append(_table_text(table))
+    critical_issues = critical_fact_issues(expectations.get("criticalFacts", []), critical_pages, chunks)
+    issues.extend(CanonicalEvaluationIssue(issue["check"], issue["message"]) for issue in critical_issues)
     return {
         "ok": not issues,
         "issues": [
@@ -611,6 +673,7 @@ def evaluate_canonical_snapshot(
                 marker: round(result[0], 4)
                 for marker, result in marker_results.items()
             },
+            "geometryAnchors": geometry_anchors,
             "selectedReadingOrderSurfaces": selected_surfaces,
             "recoveredLayoutPageCount": int(
                 reconciliation.get("recoveredLayoutPageCount", 0)

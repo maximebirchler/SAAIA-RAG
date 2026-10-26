@@ -24,6 +24,13 @@ internal sealed class DoclingConvertResponse
 
     [JsonPropertyName("saaia_table_repairs")]
     public List<DoclingTableRepairSummary> TableRepairs { get; set; } = [];
+
+    [JsonPropertyName("saaia_execution")]
+    public DoclingExecutionMetadata? Execution { get; set; }
+
+    [JsonIgnore]
+    public bool? RequestedForceOcr { get; set; }
+
 }
 
 internal sealed class DoclingExportDocument
@@ -170,6 +177,9 @@ internal sealed class DoclingTableItem : DoclingContentItem
 
     [JsonPropertyName("saaia_table_repair")]
     public DoclingTableRepair? TableRepair { get; set; }
+
+    [JsonPropertyName("saaia_table_repair_attempt")]
+    public DoclingTableRepairSummary? RepairAttempt { get; set; }
 }
 
 internal sealed class DoclingGroup : DoclingContentItem
@@ -347,4 +357,24 @@ internal sealed class DoclingTableRepairSummary
 
     [JsonPropertyName("ocr_duration_ms")]
     public int? OcrDurationMs { get; set; }
+}
+
+internal sealed class DoclingExecutionMetadata
+{
+    [JsonPropertyName("package_versions")]
+    public Dictionary<string, string?> PackageVersions { get; set; } = new(StringComparer.Ordinal);
+    [JsonPropertyName("force_ocr")]
+    public bool? ForceOcr { get; set; }
+    [JsonPropertyName("do_ocr")]
+    public bool? DoOcr { get; set; }
+    [JsonPropertyName("table_repair_enabled")]
+    public bool? TableRepairEnabled { get; set; }
+    [JsonPropertyName("table_repair_scale")]
+    public double? TableRepairScale { get; set; }
+    [JsonPropertyName("table_repair_padding_points")]
+    public double? TableRepairPaddingPoints { get; set; }
+    [JsonPropertyName("table_repair_minimum_score")]
+    public double? TableRepairMinimumScore { get; set; }
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "observed";
 }

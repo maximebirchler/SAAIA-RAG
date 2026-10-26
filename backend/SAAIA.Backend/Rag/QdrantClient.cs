@@ -44,92 +44,6 @@ static class QdrantClient
         }
     }
 
-    public static async Task DeleteByDocAsync(HttpClient qdrant, string collection, Guid tenantId, Guid docId, CancellationToken ct)
-    {
-        var filter = new
-        {
-            must = new object[]
-            {
-                new { key = "tenant_id", match = new { value = tenantId.ToString() } },
-                new { key = "doc_id", match = new { value = docId.ToString() } }
-            }
-        };
-        var body = new { filter };
-
-        using var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
-
-        using var resp = await qdrant.PostAsync(
-            $"/collections/{collection}/points/delete?wait=true",
-            content,
-            ct);
-
-        if (resp.StatusCode == HttpStatusCode.NotFound) return;
-        if (!resp.IsSuccessStatusCode)
-        {
-            var err = await TryReadErrorBodyAsync(resp, ct);
-            throw new Exception($"Qdrant delete failed: {(int)resp.StatusCode} {resp.ReasonPhrase} {err}".Trim());
-        }
-    }
-
-    public static async Task DeleteOtherVersionsByDocAsync(HttpClient qdrant, string collection, Guid tenantId, Guid docId, int keepVersion, CancellationToken ct)
-    {
-        var filter = new
-        {
-            must = new object[]
-            {
-                new { key = "tenant_id", match = new { value = tenantId.ToString() } },
-                new { key = "doc_id", match = new { value = docId.ToString() } }
-            },
-            must_not = new object[]
-            {
-                new { key = "ingestion_version", match = new { value = keepVersion } }
-            }
-        };
-        var body = new { filter };
-
-        using var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
-
-        using var resp = await qdrant.PostAsync(
-            $"/collections/{collection}/points/delete?wait=true",
-            content,
-            ct);
-
-        if (resp.StatusCode == HttpStatusCode.NotFound) return;
-        if (!resp.IsSuccessStatusCode)
-        {
-            var err = await TryReadErrorBodyAsync(resp, ct);
-            throw new Exception($"Qdrant delete stale versions failed: {(int)resp.StatusCode} {resp.ReasonPhrase} {err}".Trim());
-        }
-    }
-
-    public static async Task DeleteVersionByDocAsync(HttpClient qdrant, string collection, Guid tenantId, Guid docId, int version, CancellationToken ct)
-    {
-        var filter = new
-        {
-            must = new object[]
-            {
-                new { key = "tenant_id", match = new { value = tenantId.ToString() } },
-                new { key = "doc_id", match = new { value = docId.ToString() } },
-                new { key = "ingestion_version", match = new { value = version } }
-            }
-        };
-        var body = new { filter };
-
-        using var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
-
-        using var resp = await qdrant.PostAsync(
-            $"/collections/{collection}/points/delete?wait=true",
-            content,
-            ct);
-
-        if (resp.StatusCode == HttpStatusCode.NotFound) return;
-        if (!resp.IsSuccessStatusCode)
-        {
-            var err = await TryReadErrorBodyAsync(resp, ct);
-            throw new Exception($"Qdrant delete version failed: {(int)resp.StatusCode} {resp.ReasonPhrase} {err}".Trim());
-        }
-    }
-
     public static async Task UpsertPointsAsync(HttpClient qdrant, string collection, List<object> points, CancellationToken ct)
     {
         var body = new { points };
@@ -252,7 +166,8 @@ static class QdrantClient
                 SourceUnitStartOrdinal: GetInt("source_unit_start_ordinal"),
                 SourceUnitEndOrdinal: GetInt("source_unit_end_ordinal"),
                 SourceUnitCount: GetInt("source_unit_count"),
-                ChunkComposition: GetStr("chunk_composition")
+                ChunkComposition: GetStr("chunk_composition"),
+                IngestionPlanFingerprint: GetStr("ingestion_plan_fingerprint")
             );
 
             list.Add(m);
@@ -265,10 +180,15 @@ static class QdrantClient
     {
         try
         {
-            var s = await resp.Content.ReadAsStringAsync(ct);
-            if (string.IsNullOrWhiteSpace(s)) return string.Empty;
-            s = s.Replace("\r", " ").Replace("\n", " ");
-            return s.Length <= 2000 ? s : s[..2000];
+            await using var stream = await resp.Content.ReadAsStreamAsync(ct);
+            var buffer = new byte[8192];
+            var length = await stream.ReadAtLeastAsync(buffer, buffer.Length, throwOnEndOfStream: false, ct);
+            var text = Encoding.UTF8.GetString(buffer, 0, length);
+            // Preserve actionable infrastructure signals without copying a body which may echo source text.
+            if (text.Contains("Too many open files", StringComparison.OrdinalIgnoreCase)) return "storage_pressure: Too many open files";
+            if (text.Contains("Not recovered from previous error", StringComparison.OrdinalIgnoreCase)) return "storage_unavailable: Not recovered from previous error";
+            if (text.Contains("Service internal error", StringComparison.OrdinalIgnoreCase)) return "Service internal error";
+            return "upstream_error_body_omitted";
         }
         catch
         {
@@ -342,5 +262,6 @@ public sealed record RagMatch(
     int? SourceUnitStartOrdinal = null,
     int? SourceUnitEndOrdinal = null,
     int? SourceUnitCount = null,
-    string? ChunkComposition = null
+    string? ChunkComposition = null,
+    string? IngestionPlanFingerprint = null
 );

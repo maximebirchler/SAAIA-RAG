@@ -107,7 +107,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries,
             contextualTextEntries,
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
 
         Assert.True(committed);
 
@@ -315,7 +315,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries: [],
             contextualTextEntries,
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
 
         Assert.True(committed);
 
@@ -415,7 +415,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
 
         Assert.False(committed);
 
@@ -578,7 +578,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
 
         Assert.False(committed);
 
@@ -678,7 +678,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
 
         Assert.True(committed);
 
@@ -787,7 +787,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             ocrApplied: true,
             ocrLanguages: "eng",
             ocrDurationMs: 321,
-            ocrDiagnostics: diagnostics);
+            ocrDiagnostics: diagnostics, leaseOwner: "test-worker");
 
         Assert.True(committed);
 
@@ -883,7 +883,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             nativeExtractionQuality: extractionQuality,
             failureReason: "ocr_required_but_disabled",
             CancellationToken.None,
-            extractedPages: [page]);
+            extractedPages: [page], leaseOwner: "test-worker");
 
         await using (var conn = new NpgsqlConnection(db.ConnectionString))
         {
@@ -976,7 +976,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks: [new ProjectedRetrievalChunk(0, 0, 0, 1, 1, rawText, 5, [3], "unit_exact_v1")],
             exactMatchEntries: [new ExtractedExactMatchEntry(0, 0, 0, 1, 1, rawText, "intro\0 text", rawText.Length, 5, [4], "verbatim_excerpt")],
             contextualTextEntries: [new ProjectedContextualTextEntry(0, 0, 0, 0, 1, 1, rawContext, rawContext.Length, 8, [5])],
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
 
         Assert.True(committed);
 
@@ -1036,7 +1036,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks: [new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "OLD ACTIVE CARD\nOld details.", 5, [3], "unit_exact_v1")],
             exactMatchEntries: [new ExtractedExactMatchEntry(0, 0, 0, 1, 1, "OLD ACTIVE CARD\nOld details.", "old active card old details", 28, 5, [4], "verbatim_excerpt")],
             contextualTextEntries: [new ProjectedContextualTextEntry(0, 0, 0, 0, 1, 1, "Document: ActiveCards.pdf\n\nExcerpt:\nOLD ACTIVE CARD\nOld details.", 62, 8, [5])],
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
 
         Assert.True(firstCommitted);
 
@@ -1077,7 +1077,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks: [new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "NEW ACTIVE CARD\nFresh details.", 5, [8], "unit_exact_v1")],
             exactMatchEntries: [new ExtractedExactMatchEntry(0, 0, 0, 1, 1, "NEW ACTIVE CARD\nFresh details.", "new active card fresh details", 30, 5, [9], "verbatim_excerpt")],
             contextualTextEntries: [new ProjectedContextualTextEntry(0, 0, 0, 0, 1, 1, "Document: ActiveCards.pdf\n\nExcerpt:\nNEW ACTIVE CARD\nFresh details.", 64, 8, [10])],
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
 
         Assert.True(secondCommitted);
 
@@ -1137,7 +1137,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             exactMatchEntries: [],
             contextualTextEntries: [],
             ct: CancellationToken.None,
-            capabilityAProfileSeed: seed);
+            capabilityAProfileSeed: seed, leaseOwner: "test-worker");
 
         Assert.True(committed);
 
@@ -1276,7 +1276,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks: [],
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
 
         Assert.False(committed);
 
@@ -1421,7 +1421,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks: [],
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
 
         Assert.False(committed);
 
@@ -1457,7 +1457,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             jobId,
             docPath,
             version: 3,
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
 
         Assert.True(committed);
 
@@ -1478,7 +1478,7 @@ public sealed partial class DocumentFoundationIntegrationTests
         Assert.Equal(0, processingRun.indexed_version_after);
         Assert.Null(processingRun.revision_id);
         Assert.Equal("deleted", docStatus.status);
-        Assert.Equal(0, docStatus.ingestion_version);
+        Assert.Equal(3, docStatus.ingestion_version);
         Assert.Equal(0, docStatus.indexed_version);
     }
 
@@ -1498,7 +1498,7 @@ public sealed partial class DocumentFoundationIntegrationTests
         await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 2, indexedVersion: 1);
 
         var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await JobRepo.MarkFailedAsync(ds, jobId, "boom", CancellationToken.None);
+        await JobRepo.MarkFailedAsync(ds, jobId, "boom", CancellationToken.None, leaseOwner: "test-worker");
 
         await using var conn = new NpgsqlConnection(db.ConnectionString);
         await conn.OpenAsync();
@@ -1528,7 +1528,7 @@ public sealed partial class DocumentFoundationIntegrationTests
         await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 2, indexedVersion: 1);
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await JobRepo.DeferTransientAsync(ds, jobId, "OCR bulkhead: wait timeout after 1800s (max=1).", TimeSpan.FromSeconds(90), CancellationToken.None);
+        await JobRepo.DeferTransientAsync(ds, jobId, "OCR bulkhead: wait timeout after 1800s (max=1).", TimeSpan.FromSeconds(90), CancellationToken.None, leaseOwner: "test-worker");
 
         await using var conn = new NpgsqlConnection(db.ConnectionString);
         await conn.OpenAsync();
@@ -1587,7 +1587,7 @@ public sealed partial class DocumentFoundationIntegrationTests
         }
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await JobRepo.MarkFailedAsync(ds, jobId, "boom", CancellationToken.None);
+        await JobRepo.MarkFailedAsync(ds, jobId, "boom", CancellationToken.None, leaseOwner: "test-worker");
 
         await using var verifyConn = new NpgsqlConnection(db.ConnectionString);
         await verifyConn.OpenAsync();
@@ -1651,7 +1651,7 @@ public sealed partial class DocumentFoundationIntegrationTests
         }
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await JobRepo.MarkFailedAsync(ds, jobId, "boom", CancellationToken.None);
+        await JobRepo.MarkFailedAsync(ds, jobId, "boom", CancellationToken.None, leaseOwner: "test-worker");
 
         await using var verifyConn = new NpgsqlConnection(db.ConnectionString);
         await verifyConn.OpenAsync();
@@ -1687,7 +1687,7 @@ public sealed partial class DocumentFoundationIntegrationTests
         await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 4, indexedVersion: 2);
 
         var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await JobRepo.MarkCanceledAsync(ds, jobId, "canceled_by_admin_test", CancellationToken.None);
+        await JobRepo.MarkCanceledAsync(ds, jobId, "canceled_by_admin_test", CancellationToken.None, leaseOwner: "test-worker");
 
         await using var conn = new NpgsqlConnection(db.ConnectionString);
         await conn.OpenAsync();
@@ -1703,7 +1703,7 @@ public sealed partial class DocumentFoundationIntegrationTests
 
     [Trait("Profile", "IntegrationPg")]
     [ProfileFact("IntegrationPg")]
-    public async Task StabilizeDocumentAfterCancelAsync_reverts_indexed_document_to_published_version()
+    public async Task MarkCanceledAsync_keeps_published_revision_and_monotone_ingestion_generation()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
@@ -1714,25 +1714,39 @@ public sealed partial class DocumentFoundationIntegrationTests
         var jobId = Guid.Parse("abababab-5656-3333-3333-333333333333");
         const string docPath = "General/CanceledIndexed.pdf";
 
+        await PublishIndexedDocumentAsync(db, tenantId, docId, Guid.NewGuid(), docPath, 3,
+            "Control", "The published instrument control remains available after an unrelated ingestion attempt is canceled.",
+            "Published instrument control with its source citation.");
         await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 5, indexedVersion: 3);
 
         await using var conn = new NpgsqlConnection(db.ConnectionString);
         await conn.OpenAsync();
+        const string currentRevisionSql = """
+SELECT r.revision_id FROM documents d JOIN document_revisions r
+ON r.tenant_id=d.tenant_id AND r.doc_id=d.doc_id AND r.indexed_version=d.indexed_version
+WHERE d.tenant_id=@tenant AND d.doc_path=@docPath;
+""";
+        var publishedRevision = await conn.ExecuteScalarAsync<Guid>(currentRevisionSql, new { tenant = tenantId, docPath });
         await conn.ExecuteAsync(
             "UPDATE documents SET status='indexed' WHERE tenant_id=@tenant AND doc_path=@docPath;",
             new { tenant = tenantId, docPath });
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await JobRepo.StabilizeDocumentAfterCancelAsync(ds, tenantId, docPath, CancellationToken.None);
+        await JobRepo.MarkCanceledAsync(ds, jobId, "canceled_by_admin_fixture", CancellationToken.None,
+            leaseOwner: "test-worker", stabilizeDocument: true);
 
         var document = await conn.QuerySingleAsync<(string status, int ingestion_version, int indexed_version, bool auto_ingest_paused)>(
             "SELECT status, ingestion_version, indexed_version, auto_ingest_paused FROM documents WHERE tenant_id=@tenant AND doc_path=@docPath;",
             new { tenant = tenantId, docPath });
 
         Assert.Equal("indexed", document.status);
-        Assert.Equal(3, document.ingestion_version);
+        Assert.Equal(5, document.ingestion_version);
         Assert.Equal(3, document.indexed_version);
         Assert.False(document.auto_ingest_paused);
+        Assert.Equal(publishedRevision, await conn.ExecuteScalarAsync<Guid>(currentRevisionSql, new { tenant = tenantId, docPath }));
+        Assert.Equal(DocumentFoundationRepo.BuildStableRevisionId(tenantId, docId, 3), publishedRevision);
+        Assert.Equal(1, await conn.ExecuteScalarAsync<int>("SELECT count(*) FROM document_revisions WHERE tenant_id=@tenant AND doc_id=@doc",
+            new { tenant = tenantId, doc = docId }));
     }
 
     [Trait("Profile", "IntegrationPg")]
@@ -1809,7 +1823,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries,
             contextualTextEntries,
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
 
         Assert.True(committed);
 
@@ -1898,7 +1912,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries,
             contextualTextEntries,
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         var matches = await RetrievalChannels.SearchExactMatchesAsync(
             ds,
@@ -1979,7 +1993,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries,
             contextualTextEntries,
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         var matches = await RetrievalChannels.SearchExactMatchesAsync(
             ds,
@@ -2047,7 +2061,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         var matches = await RetrievalChannels.SearchExactMatchesAsync(
             ds,
@@ -2172,7 +2186,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             ],
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
 
         await using var conn = new NpgsqlConnection(db.ConnectionString);
         await conn.OpenAsync();
@@ -2258,7 +2272,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             [
                 new ProjectedContextualTextEntry(0, 0, 2, 0, 1, 1, firstContentExcerpt, firstContentExcerpt.Length, 12, [11])
             ],
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
 
         await using var conn = new NpgsqlConnection(db.ConnectionString);
         await conn.OpenAsync();
@@ -2336,7 +2350,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries: [],
             contextualTextEntries,
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         long measuredSparseMs = -1;
         var matches = await RetrievalChannels.SearchSparseMatchesAsync(
@@ -2422,7 +2436,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries: [],
             contextualTextEntries,
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         var matches = await RetrievalChannels.SearchSparseMatchesAsync(
             ds,
@@ -2685,7 +2699,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries,
             contextualTextEntries: [],
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         var exactMatches = await RetrievalChannels.SearchExactMatchesAsync(
             ds,
@@ -2766,7 +2780,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries,
             contextualTextEntries: [],
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         await using (var conn = await ds.OpenConnectionAsync())
         {
@@ -2840,8 +2854,8 @@ public sealed partial class DocumentFoundationIntegrationTests
         var docBExact = new[] { new ExtractedExactMatchEntry(0, 0, 0, 1, 1, "EN 15281", "en 15281", 8, 2, [9], "standard_ref") };
         var docBContext = new[] { new ProjectedContextualTextEntry(0, 0, 0, 0, 1, 1, "Document: Guide.pdf\nExcerpt:\nEN 15281", 36, 4, [10]) };
 
-        Assert.True(await JobRepo.CompleteUpsertAsync(ds, tenantId, jobAId, docAPath, [1, 1, 1], 10, DateTime.UtcNow, 1, docAPages, docASections, docAUnits, docAChunks, docAExact, docAContext, CancellationToken.None));
-        Assert.True(await JobRepo.CompleteUpsertAsync(ds, tenantId, jobBId, docBPath, [2, 2, 2], 10, DateTime.UtcNow, 1, docBPages, docBSections, docBUnits, docBChunks, docBExact, docBContext, CancellationToken.None));
+        Assert.True(await JobRepo.CompleteUpsertAsync(ds, tenantId, jobAId, docAPath, [1, 1, 1], 10, DateTime.UtcNow, 1, docAPages, docASections, docAUnits, docAChunks, docAExact, docAContext, CancellationToken.None, leaseOwner: "test-worker"));
+        Assert.True(await JobRepo.CompleteUpsertAsync(ds, tenantId, jobBId, docBPath, [2, 2, 2], 10, DateTime.UtcNow, 1, docBPages, docBSections, docBUnits, docBChunks, docBExact, docBContext, CancellationToken.None, leaseOwner: "test-worker"));
 
         var byCategory = await RetrievalChannels.SearchExactMatchesAsync(
             ds,
@@ -3211,7 +3225,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
 
         Assert.True(committed);
 
@@ -3272,7 +3286,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         var sparseAnchor = new RagMatch(
             Score: 0.90,
@@ -3365,7 +3379,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         var anchorChunkId = DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 8, 0);
         var companionChunkId = DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 8, 1);
@@ -3479,7 +3493,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         var routeAnchor = new RagMatch(
             Score: 0.91,
@@ -3550,7 +3564,7 @@ public sealed partial class DocumentFoundationIntegrationTests
                 languages = "eng+fra",
                 forceOcr = true
             },
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
         await JobRepo.StoreResumeCheckpointAsync(
             ds,
             jobId,
@@ -3559,7 +3573,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             32,
             "intfloat/multilingual-e5-base",
             "e5_passage_v1",
-            CancellationToken.None);
+            CancellationToken.None, "plan", leaseOwner: "test-worker");
 
         var checkpoint = await JobRepo.GetResumeCheckpointAsync(ds, jobId, CancellationToken.None);
 
@@ -3571,6 +3585,7 @@ public sealed partial class DocumentFoundationIntegrationTests
         Assert.Equal(32, checkpoint.ChunkTotal);
         Assert.Equal("intfloat/multilingual-e5-base", checkpoint.EmbeddingModel);
         Assert.Equal("e5_passage_v1", checkpoint.EmbeddingInputFormat);
+        Assert.Equal("plan", checkpoint.VectorPlanFingerprint);
 
         await using var conn = new NpgsqlConnection(db.ConnectionString);
         await conn.OpenAsync();
@@ -3585,18 +3600,18 @@ public sealed partial class DocumentFoundationIntegrationTests
         Assert.Equal("eng+fra", details.GetProperty("languages").GetString());
         Assert.True(details.GetProperty("forceOcr").GetBoolean());
 
-        Assert.True(IngestionWorker.IsResumeCheckpointCompatible(
+        Assert.True(IngestionVectorPlan.CanResume(
             checkpoint,
             "ABC123",
             32,
             "intfloat/multilingual-e5-base",
-            "e5_passage_v1"));
-        Assert.False(IngestionWorker.IsResumeCheckpointCompatible(
+            "e5_passage_v1", "plan"));
+        Assert.False(IngestionVectorPlan.CanResume(
             checkpoint,
             "abc123",
             32,
             "sentence-transformers/all-MiniLM-L6-v2",
-            "raw_passage_v1"));
+            "raw_passage_v1", "plan"));
     }
 
     [Trait("Profile", "IntegrationPg")]
@@ -3651,7 +3666,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
 
         Assert.True(committed);
 
@@ -3748,7 +3763,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             retrievalChunks,
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None));
+            CancellationToken.None, leaseOwner: "test-worker"));
 
         var denseAnchor = new RagMatch(
             Score: 0.82,

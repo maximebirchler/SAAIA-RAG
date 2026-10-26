@@ -95,27 +95,35 @@ internal sealed class DoclingClient(
                 timeoutCts.Token);
             if (!response.IsSuccessStatusCode)
             {
-                var detail = bytes.Length == 0
-                    ? ""
-                    : Encoding.UTF8.GetString(bytes.AsSpan(0, Math.Min(bytes.Length, 2_000)));
                 throw new HttpRequestException(
-                    $"Docling conversion failed with HTTP {(int)response.StatusCode}: {detail}",
+                    $"Docling conversion failed with HTTP {(int)response.StatusCode} (docling_conversion_http_error).",
                     inner: null,
                     response.StatusCode);
             }
 
-            var result = JsonSerializer.Deserialize<DoclingConvertResponse>(bytes, JsonOptions)
-                ?? throw new InvalidDataException("Docling returned an empty JSON response.");
+            DoclingConvertResponse result;
+            try
+            {
+                result = JsonSerializer.Deserialize<DoclingConvertResponse>(bytes, JsonOptions)
+                    ?? throw new InvalidDataException("docling_response_json_empty");
+            }
+            catch (JsonException)
+            {
+                // An inner parser exception can contain an upstream key/path. Keep ordinary logs content-free.
+                throw new InvalidDataException("docling_response_json_invalid");
+            }
             if (!string.Equals(result.Status, "success", StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException($"Docling conversion status was '{result.Status}'.");
+                throw new InvalidDataException("docling_conversion_status_invalid");
             if (result.Errors.Count > 0)
                 throw new InvalidDataException($"Docling reported {result.Errors.Count} conversion error(s).");
             if (result.Document.JsonContent is null)
                 throw new InvalidDataException("Docling did not return its canonical JSON document.");
             if (!string.Equals(result.Document.JsonContent.SchemaName, "DoclingDocument", StringComparison.Ordinal))
                 throw new InvalidDataException(
-                    $"Unsupported Docling schema '{result.Document.JsonContent.SchemaName}'.");
+                    "docling_schema_unsupported");
 
+            result.RequestedForceOcr = forceOcrOverride ?? options.ForceOcr;
+            DoclingExecutionMetadataPolicy.Validate(options, result, result.RequestedForceOcr.Value);
             return result;
         }
         finally

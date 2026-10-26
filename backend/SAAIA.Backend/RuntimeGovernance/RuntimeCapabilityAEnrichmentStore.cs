@@ -18,7 +18,7 @@ internal static class RuntimeCapabilityAEnrichmentStore
     {
         var normalizedCategory = string.IsNullOrWhiteSpace(category) ? null : category.Trim().ToLowerInvariant();
         var rows = await conn.QueryAsync<CapabilityAEnrichmentCandidateRow>(new CommandDefinition(
-            """
+            $"""
 WITH current_docs AS (
   SELECT
     d.doc_id AS "DocId",
@@ -30,8 +30,10 @@ WITH current_docs AS (
     COALESCE(d.indexed_version, 0) AS "IndexedVersion",
     COALESCE(d.auto_ingest_paused, false) AS "AutoIngestPaused",
     d.auto_ingest_pause_reason AS "AutoIngestPauseReason",
-    profile.language AS "ProfileLanguage"
+    profile.language AS "ProfileLanguage",
+    {IngestionGenerationDiagnostics.ObservationColumnsSql}
   FROM documents d
+  {IngestionGenerationDiagnostics.ObservationJoinsSql}
   LEFT JOIN LATERAL (
     SELECT NULLIF(BTRIM(p.language), '') AS language
     FROM document_profiles p
@@ -118,7 +120,10 @@ SELECT
     JOIN contextual_text_entries cte ON cte.revision_id = dr.revision_id
     WHERE dr.tenant_id = @tenant
       AND dr.doc_id = cd."DocId"
-      AND dr.indexed_version = cd."IndexedVersion") AS "HasContextualTextEntries"
+      AND dr.indexed_version = cd."IndexedVersion") AS "HasContextualTextEntries",
+  cd."LatestGenerationStatus",
+  cd."HasActiveIngestionJob",
+  cd."ObservedSourceChanged"
 FROM current_docs cd
 ORDER BY cd."Category", cd."DocPath"
 LIMIT @limit;
@@ -311,8 +316,10 @@ LIMIT @limit;
 
         if (row.IndexedVersion <= 0)
             reasons.Add("never_indexed");
-        if (row.IngestionVersion > row.IndexedVersion)
-            reasons.Add("indexed_version_outdated");
+        var generationReason = IngestionGenerationDiagnostics.WorkReason(
+            row.IngestionVersion, row.IndexedVersion, row.LatestGenerationStatus, row.HasActiveIngestionJob);
+        if (generationReason is not null)
+            reasons.Add(generationReason);
         if (row.IndexedVersion > 0 && !row.HasRevision)
             reasons.Add("revision_missing");
         if (row.IndexedVersion > 0 && row.HasRevision && !row.HasRetrievalChunks)
@@ -516,7 +523,8 @@ LIMIT @limit;
         var score = reasons.Count;
         if (row.IndexedVersion <= 0)
             score += 5;
-        if (row.IngestionVersion > row.IndexedVersion)
+        if (IngestionGenerationDiagnostics.WorkReason(row.IngestionVersion, row.IndexedVersion,
+                row.LatestGenerationStatus, row.HasActiveIngestionJob) is not null)
             score += 3;
         if (reasons.Contains("retrieval_chunks_missing", StringComparer.OrdinalIgnoreCase))
             score += 3;
@@ -565,7 +573,10 @@ LIMIT @limit;
         bool HasRetrievalChunkOffsetsMissing,
         bool HasExactMatchEntries,
         bool HasExactMatchOffsetsMissing,
-        bool HasContextualTextEntries);
+        bool HasContextualTextEntries,
+        string? LatestGenerationStatus,
+        bool HasActiveIngestionJob,
+        bool ObservedSourceChanged);
 
     private sealed record CapabilityASemanticPreview(
         string? PreviewText,
@@ -574,4 +585,73 @@ LIMIT @limit;
         IReadOnlyList<string> HypotheticalQuestions,
         double QualityScore,
         AdminRuntimeCapabilityAQualitySignalsDto QualitySignals);
+}
+
+/// <summary>
+/// An allocated generation is not a promise of unfinished work. Observations
+/// qualify the latest attempt, never the unobserved present contents on disk.
+/// </summary>
+internal static class IngestionGenerationDiagnostics
+{
+    // Both readers use the same SQL observation and classification. These aliases
+    // intentionally depend only on the documents alias d, not on profile joins.
+    internal const string ObservationColumnsSql = """
+        generation_job.status AS "LatestGenerationStatus",
+        EXISTS(SELECT 1 FROM ingestion_jobs active_generation
+          WHERE active_generation.tenant_id=d.tenant_id AND active_generation.doc_path=d.doc_path
+            AND active_generation.status IN ('queued','running','paused')) AS "HasActiveIngestionJob",
+        COALESCE(
+          (d.file_size IS NOT NULL AND generation_revision.source_size IS NOT NULL
+            AND d.file_size<>generation_revision.source_size)
+          OR (d.file_mtime IS NOT NULL AND generation_revision.source_mtime IS NOT NULL
+            AND d.file_mtime<>generation_revision.source_mtime)
+          OR (generation_job.source_hash ~ '^[A-Fa-f0-9]{64}$'
+            AND lower(generation_job.source_hash)<>encode(generation_revision.source_hash,'hex')),
+          false) AS "ObservedSourceChanged"
+        """;
+
+    internal const string ObservationJoinsSql = """
+        LEFT JOIN document_revisions generation_revision
+          ON generation_revision.tenant_id=d.tenant_id AND generation_revision.doc_id=d.doc_id
+          AND generation_revision.indexed_version=COALESCE(d.indexed_version,0)
+        LEFT JOIN LATERAL (
+          SELECT j.status, j.payload #>> '{resume,sourceHash}' AS source_hash
+          FROM ingestion_jobs j
+          WHERE j.tenant_id=d.tenant_id AND j.doc_path=d.doc_path
+            AND jsonb_typeof(j.payload->'version')='number'
+            AND j.payload->>'version'=COALESCE(d.ingestion_version,0)::text
+          ORDER BY j.created_at DESC, j.job_id DESC
+          LIMIT 1
+        ) generation_job ON true
+        """;
+
+    internal static string? WorkReason(int allocatedVersion, int publishedVersion, string? latestStatus, bool hasActiveJob)
+    {
+        if (allocatedVersion <= publishedVersion)
+            return null;
+        if (hasActiveJob)
+            return "indexed_version_outdated";
+        return latestStatus?.Trim().ToLowerInvariant() switch
+        {
+            "canceled" or "cancelled" => null,
+            "failed" => "ingestion_attempt_failed",
+            _ => "ingestion_generation_unresolved"
+        };
+    }
+
+    internal static string[] WarningReasons(int allocatedVersion, int publishedVersion,
+        string? latestStatus, bool hasActiveJob, bool observedSourceChanged)
+    {
+        if (allocatedVersion <= publishedVersion)
+            return [];
+        var reasons = new List<string>();
+        if (!hasActiveJob && (latestStatus?.Trim().ToLowerInvariant() is "canceled" or "cancelled"))
+        {
+            reasons.Add("ingestion_generation_abandoned");
+            reasons.Add("source_freshness_unverified");
+        }
+        if (observedSourceChanged)
+            reasons.Add("indexed_version_outdated");
+        return reasons.ToArray();
+    }
 }

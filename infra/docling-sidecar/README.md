@@ -43,6 +43,16 @@ Le backend propage ensuite
 `canonical_table_regional_ocr_repaired` uniquement aux chunks du tableau
 concerné.
 
+## Observation des conversions
+
+`GET /health` expose `conversionTransport` : nombre de transmissions HTTP
+démarrées, actives et terminées, résultats techniques et durée de la dernière
+transmission. Une attente HTTP annulée ne retire pas artificiellement le
+thread de transmission du compteur actif. Ces sondes ne contiennent aucun
+texte, nom ou identifiant documentaire. Elles observent le wrapper ;
+`upstreamModelExecutionCancellationProven=false` signifie qu'elles ne prouvent
+pas l'arrêt du calcul dans Docling Serve après une annulation du client.
+
 ## Configuration
 
 Les variables principales sont :

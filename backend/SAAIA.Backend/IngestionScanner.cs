@@ -35,6 +35,7 @@ sealed class IngestionScanner : BackgroundService
             IngestionOptions opt;
             BootstrapOptions bootstrap;
             RagOptions rag;
+            DocumentIntelligenceOptions documentIntelligence;
             NpgsqlDataSource ds;
             IHttpClientFactory httpFactory;
 
@@ -43,6 +44,7 @@ sealed class IngestionScanner : BackgroundService
                 opt = scope.ServiceProvider.GetRequiredService<IOptions<IngestionOptions>>().Value;
                 bootstrap = scope.ServiceProvider.GetRequiredService<IOptions<BootstrapOptions>>().Value;
                 rag = scope.ServiceProvider.GetRequiredService<IOptions<RagOptions>>().Value;
+                documentIntelligence = scope.ServiceProvider.GetRequiredService<IOptions<DocumentIntelligenceOptions>>().Value;
                 ds = scope.ServiceProvider.GetRequiredService<NpgsqlDataSource>();
                 httpFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
             }
@@ -55,7 +57,7 @@ sealed class IngestionScanner : BackgroundService
 
             try
             {
-                await ScanOnceAsync(ds, httpFactory, rag, opt, bootstrap, ct);
+                await ScanOnceAsync(ds, httpFactory, rag, opt, bootstrap, documentIntelligence, ct);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
             catch (Exception ex)
@@ -74,6 +76,7 @@ sealed class IngestionScanner : BackgroundService
         RagOptions rag,
         IngestionOptions opt,
         BootstrapOptions bootstrap,
+        DocumentIntelligenceOptions documentIntelligence,
         CancellationToken ct)
     {
         var root = opt.DocumentsRoot;
@@ -135,12 +138,14 @@ SELECT
   COALESCE(auto_ingest_paused, false) AS ""AutoIngestPaused"",
   auto_ingest_pause_reason           AS ""AutoIngestPauseReason"",
   auto_ingest_paused_at              AS ""AutoIngestPausedAt""
+  ,ingestion_pipeline_fingerprint    AS ""PipelineFingerprint""
 FROM documents
 WHERE tenant_id = @tenant_id
   AND status <> 'deleted';";
 
         var existing = (await conn.QueryAsync<DocRow>(loadSql, new { tenant_id = tenantId }))
             .ToDictionary(x => x.DocPath, StringComparer.OrdinalIgnoreCase);
+        var pipelineFingerprint = IngestionPipelineIdentity.Compute(rag, opt, documentIntelligence);
 
         const string activeJobsSql = """
 SELECT DISTINCT doc_path
@@ -305,6 +310,8 @@ WHERE tenant_id = @tenant_id
                 categoryChanged;
 
             var normalizedStatus = (row.Status ?? string.Empty).Trim().ToLowerInvariant();
+            var pipelineChanged = row.IndexedVersion > 0
+                && !string.Equals(row.PipelineFingerprint, pipelineFingerprint, StringComparison.Ordinal);
             var hasActiveJob = activeJobPaths.Contains(rel);
             var autoSuppressed = !hasActiveJob
                 && IngestionAutoUpsertGuard.ShouldSuppressAutoUpsert(row.ToAutoUpsertState(), fi.Length, fi.LastWriteTimeUtc);
@@ -317,6 +324,7 @@ WHERE tenant_id = @tenant_id
             var needsReindex =
                 ((!hasActiveJob && forceReindexAll) ||
                  (!hasActiveJob && changed) ||
+                 (!hasActiveJob && pipelineChanged) ||
                  (!hasActiveJob && string.Equals(normalizedStatus, "missing", StringComparison.OrdinalIgnoreCase)) ||
                  pendingOrBrokenWithoutJob)
                 && !autoSuppressed;
@@ -355,8 +363,8 @@ WHERE tenant_id = @tenant_id
                 else
                 {
                     _log.LogInformation(
-                        "Scanner: enqueue upsert for {DocPath} (status={Status}, changed={Changed}, category_changed={CategoryChanged}, hasActiveJob={HasActiveJob}, pendingOrBroken={PendingOrBroken}, forceReindex={Force})",
-                        rel, row.Status, changed, categoryChanged, hasActiveJob, pendingOrBrokenWithoutJob, forceReindexAll);
+                        "Scanner: enqueue upsert for {DocPath} (status={Status}, changed={Changed}, category_changed={CategoryChanged}, pipeline_changed={PipelineChanged}, hasActiveJob={HasActiveJob}, pendingOrBroken={PendingOrBroken}, forceReindex={Force})",
+                        rel, row.Status, changed, categoryChanged, pipelineChanged, hasActiveJob, pendingOrBrokenWithoutJob, forceReindexAll);
                     await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, ct, isAutomatic: true, enqueueSource: "scanner");
                     activeJobPaths.Add(rel);
                     enqUpsert++;
@@ -657,6 +665,7 @@ FROM (
         public string Status { get; set; } = "";
         public DateTime? MissingSince { get; set; }
         public int IndexedVersion { get; set; }
+        public string? PipelineFingerprint { get; set; }
         public bool AutoIngestPaused { get; set; }
         public string? AutoIngestPauseReason { get; set; }
         public DateTime? AutoIngestPausedAt { get; set; }

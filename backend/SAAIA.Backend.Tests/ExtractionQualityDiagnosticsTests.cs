@@ -56,7 +56,7 @@ public sealed class ExtractionQualityDiagnosticsTests
     }
 
     [Fact]
-    public void AssessPage_keeps_image_only_signal_informational_when_text_is_good()
+    public void AssessPage_distinguishes_reliable_text_from_unassessed_image_content()
     {
         var text = string.Join(' ', Enumerable.Range(0, 80).Select(i => $"token{i}"));
         var review = ExtractionQualityDiagnostics.AssessPage(
@@ -67,8 +67,10 @@ public sealed class ExtractionQualityDiagnosticsTests
             suspiciousUnitCount: 0,
             chunkCount: 2);
 
-        Assert.Equal("page_ok_with_images", review.Status);
-        Assert.False(review.ManualReviewRecommended);
+        Assert.Equal("page_partial_ocr_coverage", review.Status);
+        Assert.Equal("ok", review.TextStatus);
+        Assert.Equal("not_assessed", review.OcrCoverageStatus);
+        Assert.True(review.ManualReviewRecommended);
         Assert.False(review.OcrCandidate);
         Assert.Contains("page_contains_images", review.Signals);
     }

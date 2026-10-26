@@ -10,7 +10,10 @@ internal sealed record IngestionStructureResult(CanonicalDocument? CanonicalDocu
     NativeTextCoverageReconciliationSummary? NativeTextReconciliation,
     NativePdfImageInventorySummary? NativeImageInventory,
     IReadOnlyList<ExtractedDocumentSection> Sections, IReadOnlyList<ExtractedDocumentUnit> Units,
-    long CanonicalMilliseconds, long SectionMilliseconds, long UnitMilliseconds);
+    long CanonicalMilliseconds, long SectionMilliseconds, long UnitMilliseconds)
+{
+    internal PdfExtractionResult? CanonicalExtraction { get; init; }
+}
 
 internal sealed record IngestionIndexProjection(IReadOnlyList<ExtractedExactMatchEntry> ExactEntries,
     IReadOnlyList<ProjectedContextualTextEntry> ContextualEntries, long ExactMilliseconds, long ContextualMilliseconds);
@@ -33,7 +36,8 @@ internal static class IngestionProjectionStage
                 canonical = DoclingCanonicalDocumentAdapter.Project(new(request.DocumentId,
                     DocumentFoundationRepo.BuildStableRevisionId(request.TenantId, request.DocumentId, request.Version),
                     request.SourceHash, request.SourceBytes, request.FileName, request.SourceHash, "canonical_projection",
-                    request.Options.EngineVersion, request.Options.DeploymentRevision, request.Conversion.Confidence?.MeanScore), document);
+                    DoclingExecutionMetadataPolicy.DescribeEngine(request.Options, request.Conversion),
+                    request.Options.DeploymentRevision, request.Conversion.Confidence?.MeanScore), document);
                 reconciliation = CanonicalNativeTextCoverageReconciler.Apply(canonical, request.NativeTextLayer,
                     request.Options.NativeTextCoverageReconciliationEnabled, request.Options.NativeTextCoverageMinimumLineCoverage);
                 images = CanonicalNativePdfImageInventoryReconciler.Apply(canonical, request.NativeTextLayer,
@@ -51,19 +55,25 @@ internal static class IngestionProjectionStage
                 : CanonicalDocumentSectionProjector.Project(canonical);
             var sectionMilliseconds = (long)Stopwatch.GetElapsedTime(sectionStarted).TotalMilliseconds;
             var unitStarted = Stopwatch.GetTimestamp();
-            var units = DocumentUnitExtractor.Extract(request.Extraction.Pages, sections);
+            var canonicalExtraction = canonical is null ? null : CanonicalExtractionViewProjector.Project(canonical, request.Extraction.Pages, request.Conversion!.Document.JsonContent!);
+            var units = canonical is null ? DocumentUnitExtractor.Extract(request.Extraction.Pages, sections)
+                : CanonicalExtractionViewProjector.ProjectUnits(canonical, request.Conversion!.Document.JsonContent!);
             var unitMilliseconds = (long)Stopwatch.GetElapsedTime(unitStarted).TotalMilliseconds;
-            probe.Set("pages", request.Extraction.Pages.Count);
+            var effectivePages = canonicalExtraction?.Pages ?? request.Extraction.Pages;
+            probe.Set("pages", effectivePages.Count);
+            if (reconciliation is not null)
+                probe.Set("native_audit_available", reconciliation.Availability == "available");
             probe.Set("sections", sections.Count);
             probe.Set("units", units.Count);
-            probe.Set("page_text_characters", request.Extraction.Pages.Sum(page => (long)page.Text.Length));
+            probe.Set("page_text_characters", effectivePages.Sum(page => (long)page.Text.Length));
+            probe.Set("input_page_text_characters", request.Extraction.Pages.Sum(page => (long)page.Text.Length));
             probe.Set("unit_text_characters", units.Sum(unit => (long)unit.Text.Length));
             probe.Set("canonical_ms", canonicalMilliseconds);
             probe.Set("section_ms", sectionMilliseconds);
             probe.Set("unit_ms", unitMilliseconds);
             probe.Complete();
             return new(canonical, reconciliation, images, sections, units,
-                canonicalMilliseconds, sectionMilliseconds, unitMilliseconds);
+                canonicalMilliseconds, sectionMilliseconds, unitMilliseconds) { CanonicalExtraction = canonicalExtraction };
         }
         catch (Exception exception) { probe.Fail(exception); throw; }
     }

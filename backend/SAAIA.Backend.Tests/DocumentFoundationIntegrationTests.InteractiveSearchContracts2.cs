@@ -1483,7 +1483,7 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
             ],
             exactMatchEntries: [],
             contextualTextEntries: [],
-            CancellationToken.None);
+            CancellationToken.None, leaseOwner: "test-worker");
 
         Assert.True(committed);
 
@@ -1631,7 +1631,7 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
                 [
                     new PdfImagePageOcrDiagnostic(1, "novel_text_applied", OcrWordCount: 90, OcrCharCount: pageOne.Length, ExitCode: 0),
                     new PdfImagePageOcrDiagnostic(2, "skipped", "budget")
-                ]));
+                ]), leaseOwner: "test-worker");
 
         Assert.True(committed);
 

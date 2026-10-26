@@ -84,7 +84,7 @@ async def repair_response_tables(
                 tables[index]["saaia_table_repair_attempt"] = summary
             summaries.append(summary)
         except Exception as exc:  # fail open: preserve the original Docling table
-            LOGGER.exception("Regional table repair failed for %s", source_ref)
+            LOGGER.warning("Regional table repair degraded error_type=%s", type(exc).__name__)
             summary = {
                 "schema_version": REPAIR_SCHEMA_VERSION,
                 "table_ref": source_ref,

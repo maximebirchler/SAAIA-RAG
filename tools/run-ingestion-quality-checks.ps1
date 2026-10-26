@@ -376,8 +376,37 @@ WHERE j.status='failed'
   $categoryFilterJobs
 GROUP BY coalesce(j.category, '')
 UNION ALL
-SELECT 'version_gap_no_active', d.category, 'count', count(*)::text
+SELECT 'version_gap_no_active', d.category,
+       CASE
+         WHEN gap_evidence.source_changed THEN 'observed_source_changed'
+         WHEN gap_job.status IN ('canceled','cancelled') THEN 'abandoned_source_unverified'
+         WHEN gap_job.status='failed' THEN 'failed_attempt'
+         ELSE 'unresolved_generation'
+       END,
+       count(*)::text
 FROM documents d
+LEFT JOIN document_revisions gap_revision
+  ON gap_revision.tenant_id=d.tenant_id AND gap_revision.doc_id=d.doc_id
+  AND gap_revision.indexed_version=d.indexed_version
+LEFT JOIN LATERAL (
+  SELECT j.status, j.payload #>> '{resume,sourceHash}' AS source_hash
+  FROM ingestion_jobs j
+  WHERE j.tenant_id=d.tenant_id AND j.doc_path=d.doc_path
+    AND jsonb_typeof(j.payload->'version')='number'
+    AND j.payload->>'version'=COALESCE(d.ingestion_version,0)::text
+  ORDER BY j.created_at DESC, j.job_id DESC
+  LIMIT 1
+) gap_job ON true
+CROSS JOIN LATERAL (
+  SELECT COALESCE(
+    (d.file_size IS NOT NULL AND gap_revision.source_size IS NOT NULL
+      AND d.file_size<>gap_revision.source_size)
+    OR (d.file_mtime IS NOT NULL AND gap_revision.source_mtime IS NOT NULL
+      AND d.file_mtime<>gap_revision.source_mtime)
+    OR (gap_job.source_hash ~ '^[A-Fa-f0-9]{64}$'
+      AND lower(gap_job.source_hash)<>encode(gap_revision.source_hash,'hex')),
+    false) AS source_changed
+) gap_evidence
 WHERE d.status='indexed'
   AND d.ingestion_version > d.indexed_version
   $categoryFilterDocuments
@@ -387,7 +416,7 @@ WHERE d.status='indexed'
       AND j.doc_path=d.doc_path
       AND j.status IN ('queued','running','paused')
   )
-GROUP BY d.category
+GROUP BY d.category, 3
 UNION ALL
 SELECT 'current_revision_problem', cr.category, 'count', count(*)::text
 FROM current_rev cr
@@ -974,7 +1003,22 @@ foreach ($row in $rows) {
             }
         }
         "version_gap_no_active" {
-            if ($valueNumber -gt 0) { $issues.Add("indexed version gaps without active job: category='$($row.Scope)' count=$valueNumber") }
+            if ($valueNumber -gt 0) {
+                switch ($row.Metric) {
+                    'abandoned_source_unverified' {
+                        $warnings.Add("abandoned ingestion generations: category='$($row.Scope)' count=$valueNumber; no active job, present source not reverified")
+                    }
+                    'failed_attempt' {
+                        $warnings.Add("failed ingestion attempts: category='$($row.Scope)' count=$valueNumber; previous publication remains available")
+                    }
+                    'observed_source_changed' {
+                        $issues.Add("published source differs from observed source metadata or attempt hash: category='$($row.Scope)' count=$valueNumber")
+                    }
+                    default {
+                        $issues.Add("unresolved ingestion generations without active job: category='$($row.Scope)' count=$valueNumber")
+                    }
+                }
+            }
         }
         "current_revision_problem" {
             if ($valueNumber -gt 0) { $issues.Add("current revision problems: category='$($row.Scope)' count=$valueNumber") }

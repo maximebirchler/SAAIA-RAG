@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import subprocess
 import sys
-import tempfile
 import time
 import urllib.request
 import uuid
@@ -15,6 +13,7 @@ from typing import Any
 from .canonical_evaluator import evaluate_canonical_snapshot
 from .evaluator import evaluate_case
 from .fixtures import generate_fixtures
+from .contracts import campaign_report, select_cases, validate_manifest
 
 
 def _post_local(base_url: str, pdf_path: Path, force_ocr: bool) -> dict[str, Any]:
@@ -138,31 +137,6 @@ def _post_remote(
         )
 
 
-def _build_canonical_projector(project_path: Path) -> Path:
-    _run_checked(
-        [
-            "dotnet",
-            "build",
-            str(project_path),
-            "-c",
-            "Release",
-            "--nologo",
-        ]
-    )
-    assembly = (
-        project_path.parent
-        / "bin"
-        / "Release"
-        / "net8.0"
-        / "SAAIA.IngestionGold.dll"
-    )
-    if not assembly.is_file():
-        raise RuntimeError(
-            f"Canonical projection assembly was not produced: {assembly}"
-        )
-    return assembly
-
-
 def _project_canonical(
     assembly_path: Path,
     pdf_path: Path,
@@ -190,12 +164,13 @@ def main() -> int:
     )
     parser.add_argument(
         "--manifest",
-        default="config/ingestion-layout-gold.v1.json",
+        default="config/ingestion-acceptance-gold.v2.json",
     )
     parser.add_argument("--base-url", default="")
     parser.add_argument("--ssh-target", default="")
     parser.add_argument("--request-container", default="infra-docling-1")
-    parser.add_argument("--output", default="")
+    parser.add_argument("--output", required=True)
+    parser.add_argument("--font-path", default="")
     parser.add_argument("--keep-workdir", action="store_true")
     parser.add_argument("--skip-canonical", action="store_true")
     parser.add_argument(
@@ -205,49 +180,27 @@ def main() -> int:
         help="Run only the selected case ID; repeat for several cases.",
     )
     parser.add_argument(
-        "--canonical-project",
-        default=str(
-            Path(__file__).resolve().parent
-            / "canonical_projection"
-            / "SAAIA.IngestionGold.csproj"
-        ),
+        "--canonical-assembly", default="",
+        help="Explicit precompiled SAAIA.IngestionGold.dll; no implicit build or restore.",
     )
     args = parser.parse_args()
     if bool(args.base_url) == bool(args.ssh_target):
         parser.error("Specify exactly one of --base-url or --ssh-target.")
 
     manifest_path = Path(args.manifest).resolve()
-    workdir = Path(tempfile.mkdtemp(prefix="saaia-ingestion-gold-"))
-    output_path = (
-        Path(args.output).resolve()
-        if args.output
-        else workdir / "report.json"
-    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    selected = select_cases(validate_manifest(manifest), args.case_id)
+    output_path = Path(args.output).resolve()
+    workdir = output_path.parent / "sources"
+    if output_path.exists() or workdir.exists():
+        raise FileExistsError("Use a fresh gold campaign output and source directory.")
+    canonical_assembly = None if args.skip_canonical else Path(args.canonical_assembly).resolve()
+    if not args.skip_canonical and (not args.canonical_assembly or not canonical_assembly.is_file()):
+        raise ValueError("A precompiled canonical assembly is required before any document transmission.")
     try:
-        generated = generate_fixtures(manifest_path, workdir)
-        if args.case_id:
-            requested_case_ids = set(args.case_id)
-            generated = [
-                generated_case
-                for generated_case in generated
-                if generated_case["case"]["caseId"] in requested_case_ids
-            ]
-            found_case_ids = {
-                generated_case["case"]["caseId"]
-                for generated_case in generated
-            }
-            missing_case_ids = sorted(requested_case_ids - found_case_ids)
-            if missing_case_ids:
-                raise ValueError(
-                    "Unknown case ID(s): " + ", ".join(missing_case_ids)
-                )
-        canonical_assembly = (
-            None
-            if args.skip_canonical
-            else _build_canonical_projector(
-                Path(args.canonical_project).resolve()
-            )
-        )
+        generated = generate_fixtures(manifest_path, workdir, Path(args.font_path) if args.font_path else None)
+        selected_ids = [case["caseId"] for case in selected]
+        generated = [entry for entry in generated if entry["case"]["caseId"] in selected_ids]
         results: list[dict[str, Any]] = []
         for generated_case in generated:
             case = generated_case["case"]
@@ -313,25 +266,10 @@ def main() -> int:
                     ),
                 }
             )
-        canonical_results = [
-            result["canonical"]
-            for result in results
-            if isinstance(result.get("canonical"), dict)
-        ]
-        report = {
-            "schemaVersion": "ingestion_layout_gold_report_v2",
-            "ok": all(result["ok"] for result in results),
-            "caseCount": len(results),
-            "passedCaseCount": sum(1 for result in results if result["ok"]),
-            "rawPassedCaseCount": sum(
-                1 for result in results if result["raw"]["ok"]
-            ),
-            "canonicalCaseCount": len(canonical_results),
-            "canonicalPassedCaseCount": sum(
-                1 for result in canonical_results if result["ok"]
-            ),
-            "results": results,
-        }
+        report = campaign_report(results, selected_ids, canonical_required=not args.skip_canonical,
+                                 renderer_pinned=all(entry["renderer"]["verified"] is True for entry in generated))
+        report["renderer"] = generated[0]["renderer"]
+        report["sourcesPreserved"] = True
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(
             json.dumps(report, ensure_ascii=False, indent=2) + "\n",
@@ -342,8 +280,6 @@ def main() -> int:
     finally:
         if args.keep_workdir:
             print(f"Fixture workdir kept at {workdir}", file=sys.stderr)
-        else:
-            shutil.rmtree(workdir, ignore_errors=True)
 
 
 if __name__ == "__main__":

@@ -48,29 +48,25 @@ internal static class DocumentExtractionPolicy
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(response);
         ArgumentNullException.ThrowIfNull(extraction);
-        var attemptedPageCount = options.DoOcr
-            ? ResolveDoclingTimingCount(response, "ocr")
-            : 0;
-        return new(
+        response.Timings.TryGetValue("ocr", out var timing);
+        return new PdfOcrDiagnostics(
             Mode: forceOcr ? "docling_force" : "docling_auto",
-            CandidatePageCount: forceOcr ? extraction.Pages.Count : 0,
-            AttemptedPageCount: attemptedPageCount,
+            CandidatePageCount: 0,
+            AttemptedPageCount: 0,
             SkippedPageCount: 0,
             MaxPages: extraction.Pages.Count,
-            CandidatePages: [],
-            AttemptedPages: [],
-            SkippedPages: [],
-            PagesWithOcrText: [],
-            PagesWithNovelText: [],
+            CandidatePages: [], AttemptedPages: [], SkippedPages: [],
+            PagesWithOcrText: [], PagesWithNovelText: [],
             TimeoutSeconds: options.TimeoutSeconds,
-            AppliedReason: attemptedPageCount > 0
-                ? forceOcr
-                    ? "docling_force_ocr_stage_completed"
-                    : "docling_ocr_stage_completed"
-                : options.DoOcr
-                    ? "docling_ocr_stage_not_observed"
-                    : "docling_ocr_disabled",
-            CoverageStatus: options.DoOcr ? "engine_managed" : "disabled");
+            AppliedReason: !options.DoOcr ? "docling_ocr_disabled"
+                : timing is null ? "docling_ocr_task_not_observed"
+                : "docling_ocr_task_observed_output_delta_unknown",
+            CoverageStatus: options.DoOcr ? "engine_managed_page_counts_unknown" : "disabled")
+        {
+            PageCountsAvailable = !options.DoOcr,
+            EngineTimingCount = timing is null ? null : Math.Max(0, timing.Count),
+            EngineTimingScope = timing?.Scope
+        };
     }
 
     internal static bool ResolveDoclingForceOcr(

@@ -5,7 +5,7 @@ using Xunit;
 
 namespace SAAIA.Backend.Tests;
 
-public sealed class CanonicalNativeLayoutReconcilerTests
+public sealed partial class CanonicalNativeLayoutReconcilerTests
 {
     [Fact]
     public void Apply_PreservesAnAlternativeWhenBagMatchesButOrderDisagrees()

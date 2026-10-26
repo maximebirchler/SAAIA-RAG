@@ -1,6 +1,7 @@
 # Normalize line endings to reduce noisy diffs (especially on Windows).
 # We keep Git in control of EOLs for text files.
 * text=auto
+.gitattributes text eol=lf
 
 # Common text formats -> LF
 *.md        text eol=lf
@@ -48,3 +49,6 @@ artifacts/winui-delete-validation-20261025/** -text
 artifacts/winui-journey-completion-20261025/** -text
 artifacts/global-audit-paid-20261025/** -text
 artifacts/luna-live-20261025/** -text
+artifacts/ingestion-ocr-audit-20261025/** -text
+# This pinned corpus manifest is hashed as input; preserve its tested bytes.
+config/ingestion-acceptance-gold.v2.json -text whitespace=cr-at-eol

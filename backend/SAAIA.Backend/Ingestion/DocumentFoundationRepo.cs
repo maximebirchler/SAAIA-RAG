@@ -213,10 +213,13 @@ SET doc_path = EXCLUDED.doc_path,
         PdfExtractionQualitySummary extractionQuality,
         PdfExtractionQualitySummary? nativeExtractionQuality,
         string failureReason,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? leaseOwner = null)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
+        if (!await IngestionLeaseGuard.LockOwnedAsync(conn, tx, jobId, leaseOwner, ct, tenantId, docPath))
+            return false;
 
         const string stateSql = """
 SELECT
@@ -247,7 +250,7 @@ FOR UPDATE;
                 docPath,
                 ingestionVersion,
                 ct,
-                lastError: "superseded_unsearchable_retrieval_publish");
+                lastError: "superseded_unsearchable_retrieval_publish", leaseOwner: leaseOwner);
             return false;
         }
 
@@ -489,10 +492,13 @@ WHERE job_id=@job_id AND status='running';";
         PdfExtractionQualitySummary? nativeExtractionQuality,
         string failureReason,
         CancellationToken ct,
-        IReadOnlyList<ExtractedPdfPage>? extractedPages = null)
+        IReadOnlyList<ExtractedPdfPage>? extractedPages = null,
+        string? leaseOwner = null)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
+        if (!await IngestionLeaseGuard.LockOwnedAsync(conn, tx, jobId, leaseOwner, ct, tenantId, docPath))
+            return false;
 
         const string stateSql = """
 SELECT
@@ -523,7 +529,7 @@ FOR UPDATE;
                 docPath,
                 ingestionVersion,
                 ct,
-                lastError: "superseded_failed_ocr_publish");
+                lastError: "superseded_failed_ocr_publish", leaseOwner: leaseOwner);
             return false;
         }
 
@@ -1648,6 +1654,7 @@ SET char_count = EXCLUDED.char_count,
                 && page.PageNumber <= unit.PageEnd
                 && OcrNoiseFilter.LooksLikeProbableNoisePublishedUnitText(unit.Text));
             var chunksOnPage = retrievalChunks.Count(chunk => chunk.PageStart <= page.PageNumber && page.PageNumber <= chunk.PageEnd);
+            imageDiagnosticsByPage.TryGetValue(page.PageNumber, out var imageDiagnostic);
             var pageReview = ExtractionQualityDiagnostics.AssessPage(
                 page.WordCount,
                 page.CharCount,
@@ -1655,8 +1662,8 @@ SET char_count = EXCLUDED.char_count,
                 unitsOnPage,
                 suspiciousUnitCount,
                 chunksOnPage,
-                pageQuality.Signals);
-            imageDiagnosticsByPage.TryGetValue(page.PageNumber, out var imageDiagnostic);
+                pageQuality.Signals,
+                imageDiagnostic);
             var metadata = SerializePostgresJsonForStorage(new
             {
                 wordCount = page.WordCount,
@@ -1748,6 +1755,8 @@ SET char_count = EXCLUDED.char_count,
             diagnosticVersion = "page_extraction_quality_v2",
             qualityStatus = review.Status,
             extractionConfidence = review.ExtractionConfidence,
+            confidenceKind = review.ConfidenceKind,
+            ocrCoverageStatus = review.OcrCoverageStatus,
             manualReviewRecommended = review.ManualReviewRecommended,
             textStatus = review.TextStatus,
             textEmpty = review.TextEmpty,
@@ -1805,6 +1814,8 @@ SET char_count = EXCLUDED.char_count,
                     chunkCount = chunksOnPage,
                     qualityStatus = review.Status,
                     extractionConfidence = review.ExtractionConfidence,
+            confidenceKind = review.ConfidenceKind,
+            ocrCoverageStatus = review.OcrCoverageStatus,
                     manualReviewRecommended = review.ManualReviewRecommended,
                     textStatus = review.TextStatus,
                     textEmpty = review.TextEmpty,
@@ -1827,15 +1838,18 @@ SET char_count = EXCLUDED.char_count,
         => new
         {
             mode = diagnostics.Mode,
-            candidatePageCount = diagnostics.CandidatePageCount,
-            attemptedPageCount = diagnostics.AttemptedPageCount,
-            skippedPageCount = diagnostics.SkippedPageCount,
+            pageCountsAvailable = diagnostics.PageCountsAvailable,
+            engineTimingCount = diagnostics.EngineTimingCount,
+            engineTimingScope = diagnostics.EngineTimingScope,
+            candidatePageCount = diagnostics.PageCountsAvailable ? (int?)diagnostics.CandidatePageCount : null,
+            attemptedPageCount = diagnostics.PageCountsAvailable ? (int?)diagnostics.AttemptedPageCount : null,
+            skippedPageCount = diagnostics.PageCountsAvailable ? (int?)diagnostics.SkippedPageCount : null,
             maxPages = diagnostics.MaxPages,
-            candidatePages = diagnostics.CandidatePages,
-            attemptedPages = diagnostics.AttemptedPages,
-            skippedPages = diagnostics.SkippedPages,
-            pagesWithOcrText = diagnostics.PagesWithOcrText,
-            pagesWithNovelText = diagnostics.PagesWithNovelText,
+            candidatePages = diagnostics.PageCountsAvailable ? diagnostics.CandidatePages : null,
+            attemptedPages = diagnostics.PageCountsAvailable ? diagnostics.AttemptedPages : null,
+            skippedPages = diagnostics.PageCountsAvailable ? diagnostics.SkippedPages : null,
+            pagesWithOcrText = diagnostics.PageCountsAvailable ? diagnostics.PagesWithOcrText : null,
+            pagesWithNovelText = diagnostics.PageCountsAvailable ? diagnostics.PagesWithNovelText : null,
             exitCode = diagnostics.ExitCode,
             timedOut = diagnostics.TimedOut,
             timeoutSeconds = diagnostics.TimeoutSeconds,
