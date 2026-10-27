@@ -9,14 +9,17 @@ param(
     # Keep -PgLocale C available only for deliberate negative diagnostics.
     [ValidateNotNullOrEmpty()][string]$PgLocale = 'English_United States.1252',
     [string]$BackendOverlayPath = '',
+    [switch]$AllowPlanningIngestionProfile,
+    [switch]$PlanningCloneOnly,
     [switch]$NoBuild
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+if($PlanningCloneOnly -and $BackendOverlayPath){throw 'Planning clone keeps ingestion disabled and cannot use an ingestion overlay.'}
 $ingestionOverlay=$null
 if($BackendOverlayPath){
     . (Join-Path $repo 'tools/validation-ingestion/OwnedIngestionConfig.ps1')
-    $ingestionOverlay=Read-OwnedIngestionOverlay -Path $BackendOverlayPath -RepositoryRoot $repo
+    $ingestionOverlay=Read-OwnedIngestionOverlay -Path $BackendOverlayPath -RepositoryRoot $repo -AllowPlanningIngestionProfile:$AllowPlanningIngestionProfile
 }
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 if (Test-Path -LiteralPath $output) { throw 'Select a new evidence directory; existing runs are never overwritten.' }
@@ -56,6 +59,7 @@ $owner = [ordered]@{ schemaVersion = 'saaia-winui-local-runtime.v1'; runId = $ru
     processes = @(); externalCallsPossible = $false; existingDatabaseModified = $false;
     adapters = @('Real production backend', 'Real PostgreSQL16 isolated cluster', 'Deterministic loopback TEI/Qdrant/LLM fixtures');
     productStatus = 'TESTE_NON_APPROUVE' }
+if($PlanningCloneOnly){$owner['planningCloneOnly']=$true}
 if($ingestionOverlay){
     $owner['ingestionOverlaySha256']=(Get-FileHash -LiteralPath $BackendOverlayPath -Algorithm SHA256).Hash
     $owner['adapters']=@('Real production canonical ingestion worker','Real PostgreSQL16 isolated cluster',
@@ -125,6 +129,7 @@ try {
         OpenTelemetry = @{ Enabled = $false }
         Logging = @{ LogLevel = @{ Default = 'Information'; 'Microsoft.AspNetCore' = 'Warning' } }
     }
+    if($PlanningCloneOnly){$backendConfig['VectorGc']=@{Enabled=$false}}
     if($ingestionOverlay){
         foreach($section in $ingestionOverlay.Keys){
             if(-not $backendConfig.Contains($section)){$backendConfig[$section]=@{}}

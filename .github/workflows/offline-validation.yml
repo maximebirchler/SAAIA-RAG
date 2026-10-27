@@ -31,6 +31,9 @@ jobs:
       - name: Concurrent runtime-probe readiness publication
         shell: pwsh
         run: ./tools/testing/Test-RuntimeProbeReadiness.ps1 -OutputPath artifacts/ci/runtime-probe-readiness.json
+      - name: Offline planning tool contracts without private archives or binaries
+        shell: pwsh
+        run: ./tools/testing/Test-PlanningOffline.ps1 -OutputDirectory artifacts/ci/planning-tools
       - name: Restore WinUI test runtime packages
         shell: pwsh
         run: dotnet restore ./client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj

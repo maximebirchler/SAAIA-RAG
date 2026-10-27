@@ -269,7 +269,11 @@ SELECT jsonb_build_object('schemaVersion','saaia.pg-text-parser-conformance.v1',
 
 function Start-OwnedPaidBackend {
     param([Parameter(Mandatory)][string]$OutputDirectory, [Parameter(Mandatory)][string]$RepositoryRoot,
-        [Parameter(Mandatory)][hashtable]$Profile, [Parameter(Mandatory)][string]$ApiKey, [bool]$WorkerEnabled=$true)
+        [Parameter(Mandatory)][hashtable]$Profile, [Parameter(Mandatory)][AllowEmptyString()][string]$ApiKey, [bool]$WorkerEnabled=$true,
+        [string]$PlanningPreflightBaseUrl='')
+    $planning=$Profile.schemaVersion -ceq 'saaia-local-openai-planning-campaign.v1'
+    if($PlanningPreflightBaseUrl -and -not $planning){throw 'Only the separate planning profile supports the local preflight sink.'}
+    if(-not $PlanningPreflightBaseUrl -and [string]::IsNullOrWhiteSpace($ApiKey)){throw 'An authorized nonempty provider key is required.'}
     $owner = Get-OwnedPaidEnvironment $OutputDirectory
     $parserConformance=Get-OwnedPaidTextParserConformance -OutputDirectory $OutputDirectory
     $port = [int]$Profile.execution.paidBackendPort
@@ -278,7 +282,8 @@ function Start-OwnedPaidBackend {
     if (Test-Path -LiteralPath $runtime) { throw 'A paid worker may only be started once in a fresh campaign.' }
     [IO.Directory]::CreateDirectory($runtime) | Out-Null
     $config = Get-Content -LiteralPath (Join-Path $OutputDirectory 'runtime/deployment.config.json') -Raw | ConvertFrom-Json -AsHashtable
-    $remaining = [decimal]$Profile.budget.authorizedUsd - [decimal]$Profile.budget.priorCampaignCostUsd
+    $prior=if($planning){[decimal]$Profile.budget.baselineCostUsd}else{[decimal]$Profile.budget.priorCampaignCostUsd}
+    $remaining = [decimal]$Profile.budget.authorizedUsd - $prior
     $config.AdvancedAnalysis = @{
         Provider='openai-dev'; LlmLocation='external-service'; LlmBaseUrl=$Profile.provider.baseUrl; LlmModel=$Profile.provider.model;
         LlmApiKeyRef='ENV:SAAIA_ADVANCED_LLM_API_KEY'; ReasoningEffort=$Profile.provider.reasoningEffort; WorkerEnabled=$WorkerEnabled;
@@ -298,6 +303,23 @@ function Start-OwnedPaidBackend {
         MaximumPlanQueries=4; MaximumEvidencePromptCharacters=24000; MaximumEvidenceCharactersTotal=120000;
         MaximumToolCalls=12; MaximumToolElapsedMilliseconds=60000; RetentionDays=1;
         DevelopmentTraceDirectory=(Join-Path $OutputDirectory 'runtime/private-traces'); DevelopmentTraceStrict=$true
+    }
+    if($planning){
+        if(-not (Get-Command Get-PlanningAdvancedOptions -ErrorAction SilentlyContinue)){throw 'Load the reviewed planning profile guards before starting this opt-in runtime.'}
+        $overrides=Get-PlanningAdvancedOptions -Profile $Profile -OutputDirectory $OutputDirectory -RepositoryRoot $RepositoryRoot
+        foreach($name in $overrides.Keys){$config.AdvancedAnalysis[$name]=$overrides[$name]}
+        if($Profile.ContainsKey('realRag')){
+            $config.Rag=Get-OwnedPlanningRealRagOverrides -Profile $Profile -OutputDirectory $OutputDirectory
+            $config.VectorGc=@{Enabled=$false}
+            $config.Ingestion.WorkerEnabled=$false;$config.Ingestion.WatcherEnabled=$false;$config.Ingestion.ScannerEnabled=$false
+        }
+        if($PlanningPreflightBaseUrl){
+            $expected="http://127.0.0.1:$($Profile.execution.preflightProviderPort)/v1"
+            if($PlanningPreflightBaseUrl -cne $expected -or -not [string]::IsNullOrEmpty($ApiKey)){throw 'The preflight must use its exact loopback sink and no provider key.'}
+            $config.AdvancedAnalysis.Provider='customer-server';$config.AdvancedAnalysis.ProviderKey='planning-loopback-preflight';$config.AdvancedAnalysis.LlmLocation='internal'
+            $config.AdvancedAnalysis.LlmBaseUrl=$expected;$config.AdvancedAnalysis.LlmApiKeyRef=$null
+            $config.AdvancedAnalysis.ExternalUsageLedgerPath=(Join-Path $OutputDirectory 'runtime/preflight-usage.jsonl')
+        }
     }
     $configPath = Join-Path $runtime 'deployment.config.json'
     [IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json -Depth 20))

@@ -1,0 +1,2 @@
+# The public v6 bootstrap is admitted by an exact SHA256 on Windows and Linux.
+prepare_owned_linux_bootstrap_v6.py -text

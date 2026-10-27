@@ -25,18 +25,19 @@ function Assert-IngestionLoopbackUrl {
 }
 
 function Read-OwnedIngestionOverlay {
-    param([Parameter(Mandatory)][string]$Path,[Parameter(Mandatory)][string]$RepositoryRoot)
+    param([Parameter(Mandatory)][string]$Path,[Parameter(Mandatory)][string]$RepositoryRoot,
+        [switch]$AllowPlanningIngestionProfile)
     $resolved=[IO.Path]::GetFullPath($Path)
     $allowedRoot=[IO.Path]::GetFullPath((Join-Path $RepositoryRoot 'artifacts')).TrimEnd('\','/')+[IO.Path]::DirectorySeparatorChar
     if(-not $resolved.StartsWith($allowedRoot,[StringComparison]::OrdinalIgnoreCase) -or
        [IO.Path]::GetExtension($resolved) -cne '.json' -or -not [IO.File]::Exists($resolved) -or
        ([IO.FileInfo]::new($resolved)).Length -gt 65536) { throw 'The ingestion overlay must be a small campaign JSON under repository artifacts.' }
     $overlay=[IO.File]::ReadAllText($resolved,[Text.Encoding]::UTF8)|ConvertFrom-Json -AsHashtable
-    return (Assert-OwnedIngestionOverlayValues -Overlay $overlay)
+    return (Assert-OwnedIngestionOverlayValues -Overlay $overlay -AllowPlanningIngestionProfile:$AllowPlanningIngestionProfile)
 }
 
 function Assert-OwnedIngestionOverlayValues {
-    param([Parameter(Mandatory)][object]$Overlay)
+    param([Parameter(Mandatory)][object]$Overlay,[switch]$AllowPlanningIngestionProfile)
     if($overlay -isnot [Collections.IDictionary] -or $overlay.Count -ne 3 -or
        @($overlay.Keys|Where-Object{$_ -cnotin @('Ingestion','Rag','DocumentIntelligence')}).Count) {
         throw 'Only Ingestion, Rag and DocumentIntelligence may be overlaid; authentication and database settings are immutable.'
@@ -55,6 +56,28 @@ function Assert-OwnedIngestionOverlayValues {
             'NativeTextCoverageReconciliationEnabled','NativeTextCoverageMinimumLineCoverage','NativePdfImageInventoryEnabled',
             'Device','NumThreads','ServiceWorkerConcurrency','EngineVersion','ParseEngineVersion','ModelPackageVersion',
             'OcrEngineVersion','DeploymentRevision')
+    }
+    if($AllowPlanningIngestionProfile){
+        $allowed.Ingestion+=@('ChunkMaxWords','ChunkMinWords','ChunkOverlapWords')
+        $allowed.DocumentIntelligence+=@('RegionalTableAlternativeReadingsEnabled','NativeTypographyObservationsEnabled',
+            'DoclingInputGeometryCaptureEnabled','RegionalTextRepairEnabled','RegionalTextRepairMaxRegions',
+            'RegionalTextRepairTotalTimeoutSeconds','RegionalTextRepairRegionTimeoutSeconds','RegionalTextRepairRenderScale',
+            'RegionalTextRepairPaddingPoints','RegionalTextRepairMinimumRapidScore','RegionalTextRepairMinimumSecondaryScore',
+            'RegionalTextRepairMaxRenderedPixels')
+        foreach($name in @('RegionalTableAlternativeReadingsEnabled','NativeTypographyObservationsEnabled','DoclingInputGeometryCaptureEnabled','RegionalTextRepairEnabled')){
+            if($overlay.DocumentIntelligence.Contains($name) -and $overlay.DocumentIntelligence[$name] -isnot [bool]){throw 'Planning observation flags must be actual booleans.'}
+        }
+        # These are the bounded ingestion defaults qualified by the recipe campaign,
+        # not arbitrary chunk tuning supplied through an executable configuration.
+        foreach($entry in @{ChunkMaxWords=200;ChunkMinWords=25;ChunkOverlapWords=0}.GetEnumerator()){
+            if($overlay.Ingestion.Contains($entry.Key) -and ($overlay.Ingestion[$entry.Key] -isnot [int] -or $overlay.Ingestion[$entry.Key] -ne $entry.Value)){throw 'Planning chunk dimensions must remain 200/25/0.'}
+        }
+        foreach($entry in @{RegionalTextRepairMaxRegions=4;RegionalTextRepairTotalTimeoutSeconds=60;
+            RegionalTextRepairRegionTimeoutSeconds=15;RegionalTextRepairRenderScale=4;RegionalTextRepairPaddingPoints=2;
+            RegionalTextRepairMinimumRapidScore=0.98;RegionalTextRepairMinimumSecondaryScore=0.95;
+            RegionalTextRepairMaxRenderedPixels=20000000}.GetEnumerator()){
+            if($overlay.DocumentIntelligence.Contains($entry.Key) -and $overlay.DocumentIntelligence[$entry.Key] -ne $entry.Value){throw 'Planning regional text repair must use the explicit bounded CPU profile.'}
+        }
     }
     foreach($section in $overlay.Keys) {
         if($overlay[$section] -isnot [Collections.IDictionary]){throw 'Overlay sections must be objects.'}
