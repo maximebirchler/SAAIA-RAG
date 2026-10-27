@@ -36,7 +36,7 @@ class CloneRestoreTests(unittest.TestCase):
 
     def test_vector_protocol_changes_only_seal_and_restores_original_seal(self):
         with tempfile.TemporaryDirectory() as folder:
-            root=Path(folder);metadata={"tables":{}}
+            root=Path(folder).resolve();metadata={"tables":{}}
             for name,rows in (("ingestion_vector_plans",[{"plan_id":str(i),"manifest_sealed":True,"target_endpoint":"http://source"} for i in range(4)]),
                               ("ingestion_vector_plan_points",[{"plan_id":"0","ordinal":0,"point_id":"exact"}])):
                 path=root/(name+".jsonl");path.write_text("".join(json.dumps(r)+"\n" for r in rows),encoding="utf8")

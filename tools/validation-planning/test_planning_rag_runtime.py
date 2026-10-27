@@ -38,7 +38,7 @@ class PlanningRagTests(unittest.TestCase):
 
     def test_pinned_dependency_input_cannot_change_after_registration(self):
         with tempfile.TemporaryDirectory() as folder:
-            path=Path(folder)/"profile.json";path.write_bytes(b'{"synthetic":true}')
+            path=Path(folder).resolve()/"profile.json";path.write_bytes(b'{"synthetic":true}')
             entry=rag.pin(path);self.assertEqual(rag.checked(entry),path)
             path.write_bytes(b'{"synthetic":false}')
             with self.assertRaisesRegex(ValueError,"pinned_input_changed"):rag.checked(entry)
