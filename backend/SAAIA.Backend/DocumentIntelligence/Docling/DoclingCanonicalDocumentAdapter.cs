@@ -27,7 +27,7 @@ internal static class DoclingCanonicalDocumentAdapter
 
     public static CanonicalDocument Project(
         DoclingCanonicalProjectionContext context,
-        DoclingDocument source)
+        DoclingDocument source, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(source);
@@ -65,7 +65,7 @@ internal static class DoclingCanonicalDocumentAdapter
         CanonicalRepeatedPageFurnitureClassifier.Apply(pages.Values);
 
         var relations = new List<CanonicalRelation>();
-        ProjectTables(context, source, pages, blockIdsBySourceRef, relations);
+        ProjectTables(context, source, pages, blockIdsBySourceRef, relations, cancellationToken);
         ProjectFigures(context, source, pages, blockIdsBySourceRef, relations);
         var sections = BuildSections(context.SourceSha256, blocks);
 
@@ -209,11 +209,12 @@ internal static class DoclingCanonicalDocumentAdapter
         DoclingDocument source,
         IReadOnlyDictionary<int, CanonicalPage> pages,
         IReadOnlyDictionary<string, string[]> blockIdsBySourceRef,
-        List<CanonicalRelation> relations)
+        List<CanonicalRelation> relations, CancellationToken cancellationToken)
     {
         var ordinalByPage = new Dictionary<int, int>();
-        foreach (var item in source.Tables)
+        for (var tableIndex = 0; tableIndex < source.Tables.Count; tableIndex++)
         {
+            var item = source.Tables[tableIndex];
             if (item.Data.RowCount <= 0 || item.Data.ColumnCount <= 0)
                 throw new InvalidDataException($"Docling table '{item.SelfRef}' has invalid dimensions.");
             // Enforce the existing retrieval-grid budget before the occupancy
@@ -292,6 +293,7 @@ internal static class DoclingCanonicalDocumentAdapter
                         Polygon = ToCanonicalPolygon(cell.BoundingBox, page.Geometry),
                         Text = BuildTextVariants(rawText, cell.Text)
                     });
+                    source.InputGeometryCapture?.Link(tableIndex, item, provenanceIndex, page, cellIndex, tableId, table.Cells[^1], cell, cancellationToken);
                 }
 
                 if (item.TableRepair is not null)

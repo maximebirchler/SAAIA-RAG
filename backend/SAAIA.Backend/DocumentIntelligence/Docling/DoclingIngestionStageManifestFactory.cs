@@ -400,6 +400,8 @@ internal static class DoclingIngestionStageManifestFactory
         if (documentIntelligence.RegionalTableAlternativeReadingsEnabled
             && PdfNativeVectorDiagnosticsStage.Create(nativeVectorExtraction) is { } nativeVectorStage)
             stages.Insert(stages.FindIndex(stage => stage.StageId == "canonical_projection"), nativeVectorStage);
+        if (documentIntelligence.DoclingInputGeometryCaptureEnabled && document.InputGeometryCapture is { } geometry)
+            stages.Add(geometry.CreateStage());
         return stages;
     }
 

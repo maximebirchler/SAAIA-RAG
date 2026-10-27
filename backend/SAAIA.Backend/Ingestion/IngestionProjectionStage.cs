@@ -42,7 +42,7 @@ internal static class IngestionProjectionStage
                     DocumentFoundationRepo.BuildStableRevisionId(request.TenantId, request.DocumentId, request.Version),
                     request.SourceHash, request.SourceBytes, request.FileName, request.SourceHash, "canonical_projection",
                     DoclingExecutionMetadataPolicy.DescribeEngine(request.Options, request.Conversion),
-                    request.Options.DeploymentRevision, request.Conversion.Confidence?.MeanScore), document);
+                    request.Options.DeploymentRevision, request.Conversion.Confidence?.MeanScore), document, ct);
                 if (request.Options.NativeTypographyObservationsEnabled)
                 {
                     typography = CanonicalNativeTypographyProjector.Apply(canonical, request.NativeTextLayer, ct);

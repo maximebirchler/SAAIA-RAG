@@ -1026,7 +1026,7 @@ sealed partial class IngestionWorker : BackgroundService
                     return await RunWithJobHeartbeatAsync(ds, job, workerId, async operationToken =>
                     {
                         using (await _bulkheads.AcquireOcrAsync(operationToken))
-                            return await doclingClient.ConvertPdfAsync(inputPath, operationToken, forceOcr);
+                            return await doclingClient.ConvertPdfAsync(inputPath, operationToken, forceOcr, ingest.CanonicalArtifactsEnabled);
                     }, stageToken);
                 }, _log, ct);
             var useDocling = sourceExtraction.UsesDocling;
@@ -1662,6 +1662,7 @@ sealed partial class IngestionWorker : BackgroundService
             var mtime = sourceSnapshot.SourceLastWriteTimeUtc;
             diagnostics.Begin("canonical_manifest");
             CanonicalIngestionBundle? canonicalBundle = null;
+            DoclingInputGeometryArtifact? inputGeometryArtifact = null;
             if (ingest.CanonicalArtifactsEnabled)
             {
                 var codeRevision = canonicalCodeRevision!;
@@ -1669,6 +1670,8 @@ sealed partial class IngestionWorker : BackgroundService
                 var revisionId = DocumentFoundationRepo.BuildStableRevisionId(tenantId, docId, job.Version);
                 if (doclingConversion is not null)
                 {
+                    inputGeometryArtifact = doclingConversion.Document.JsonContent?.InputGeometryCapture?.Prepare(tenantId, docId, revisionId,
+                        DocumentFoundationRepo.BuildStableProcessingRunId(job.JobId), hashHex, size, codeRevision, documentIntelligence.DeploymentRevision, doclingConversion, ct);
                     var stages = DoclingIngestionStageManifestFactory.Create(
                         documentIntelligence,
                         ingest,
@@ -1700,7 +1703,7 @@ sealed partial class IngestionWorker : BackgroundService
                         ?? throw new InvalidOperationException(
                             "The reconciled canonical document is unavailable."),
                         doclingConversion,
-                        retrievalChunks.Where(ShouldPublishRetrievalChunk).ToArray()), ct);
+                        retrievalChunks.Where(ShouldPublishRetrievalChunk).ToArray()) { InputGeometryArtifact = inputGeometryArtifact }, ct);
                 }
                 else
                 {
@@ -1744,7 +1747,7 @@ sealed partial class IngestionWorker : BackgroundService
                 new(tenantId, job.JobId, relDocPath, hash, size, mtime, job.Version,
                     IngestionPipelineIdentity.Compute(rag, ingest, documentIntelligence), vectorPlanFingerprint, workerId),
                 new(pages, sections, units, retrievalChunks, exactMatchEntries, contextualTextEntries,
-                    canonicalBundle, structuredProfileUnits),
+                    canonicalBundle, structuredProfileUnits) { InputGeometryArtifact = inputGeometryArtifact },
                 new(extraction.Source, ocrAttempted, ocrApplied, ocrLanguages, ocrAttempted ? ocrMs : null,
                     ocrDiagnostics, nativeExtractionQuality, job.CapabilityAProfileSeed), _log, ct);
             swPublish.Stop();

@@ -15,7 +15,10 @@ internal sealed record DoclingCanonicalBundleRequest(
     IReadOnlyList<IngestionStageManifest> Stages,
     CanonicalDocument CanonicalDocument,
     DoclingConvertResponse Conversion,
-    IReadOnlyList<ProjectedRetrievalChunk> RetrievalChunks);
+    IReadOnlyList<ProjectedRetrievalChunk> RetrievalChunks)
+{
+    internal DoclingInputGeometryArtifact? InputGeometryArtifact { get; init; }
+}
 
 internal static class DoclingCanonicalBundleFactory
 {
@@ -69,6 +72,11 @@ internal static class DoclingCanonicalBundleFactory
                 ["doclingDocument"] = $"{source.SchemaName}:{source.Version}"
             }
         };
+        if (request.InputGeometryArtifact is { } geometry)
+        {
+            DoclingInputGeometryArtifactRepo.ValidateIdentity(geometry, geometry.TenantId, request.DocumentId, request.RevisionId, request.ProcessingRunId, request.SourceSha256);
+            manifest.Artifacts.Add(DoclingInputGeometryArtifactRepo.Describe(geometry));
+        }
         var envelope = CanonicalContractJson.CreateEnvelope(manifest);
         var document = request.CanonicalDocument
             ?? throw new InvalidDataException(

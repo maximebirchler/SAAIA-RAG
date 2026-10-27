@@ -39,8 +39,11 @@ internal static class DocumentFoundationRepo
         PdfExtractionQualitySummary? nativeExtractionQuality = null,
         IngestionCapabilityAProfileSeed? capabilityAProfileSeed = null,
         CanonicalIngestionBundle? canonicalBundle = null,
-        IReadOnlyList<ExtractedDocumentUnit>? structuredProfileUnits = null)
+        IReadOnlyList<ExtractedDocumentUnit>? structuredProfileUnits = null,
+        DoclingInputGeometryArtifact? inputGeometryArtifact = null)
     {
+        if (inputGeometryArtifact is not null && canonicalBundle is null)
+            throw new InvalidDataException("input_geometry_canonical_bundle_required");
         var revisionId = BuildStableRevisionId(tenantId, docId, indexedVersionAfter);
         ValidateCanonicalNavigationIdentity(canonicalBundle?.Document, docId, revisionId, sourceHash);
         var extractionQuality = PdfExtractionQualitySummary.FromPages(pages);
@@ -184,6 +187,8 @@ SET doc_path = EXCLUDED.doc_path,
             await CanonicalVisualAssetRepo.StoreAsync(conn, tx, tenantId, canonicalBundle.Document, ct);
             await CanonicalTableObservationRepo.StoreAsync(conn, tx, tenantId, canonicalBundle.Document, ct);
             await CanonicalArtifactRepo.UpsertBundleAsync(conn, tx, tenantId, revisionId, canonicalBundle, ct);
+            if (inputGeometryArtifact is not null)
+                await DoclingInputGeometryArtifactRepo.StoreAsync(conn, tx, tenantId, canonicalBundle, inputGeometryArtifact, ct);
         }
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "page_index", pages, p => $"page:{p.PageNumber}:{p.CharCount}:{Convert.ToHexString(p.Checksum)}", p => p.CharCount, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "sections", sections, s => $"section:{s.Ordinal}:{s.Level}:{s.PageStart}:{s.PageEnd}:{s.Title}", _ => 0, ct);

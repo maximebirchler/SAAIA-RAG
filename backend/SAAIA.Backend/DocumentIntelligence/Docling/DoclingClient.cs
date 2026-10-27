@@ -23,7 +23,7 @@ internal sealed class DoclingClient(
     public async Task<DoclingConvertResponse> ConvertPdfAsync(
         string pdfPath,
         CancellationToken ct,
-        bool? forceOcrOverride = null)
+        bool? forceOcrOverride = null, bool inputGeometryPublicationAllowed = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pdfPath);
         ct.ThrowIfCancellationRequested();
@@ -35,6 +35,7 @@ internal sealed class DoclingClient(
         deadline.CancelAfter(options.ResolveTimeout());
         var slotAcquired = false;
         var attemptCount = 0;
+        var geometryBudget = options.DoclingInputGeometryCaptureEnabled ? new DoclingInputGeometryBudget() : null;
         try
         {
             await _conversionSlots.WaitAsync(deadline.Token);
@@ -54,11 +55,19 @@ internal sealed class DoclingClient(
                 try
                 {
                     var result = await ConvertAttemptAsync(source, Path.GetFileName(pdfPath),
-                        deadline.Token, forceOcrOverride);
+                        deadline.Token, forceOcrOverride, geometryBudget is null ? null : new DoclingInputGeometryCapture(attempt, geometryBudget, inputGeometryPublicationAllowed));
                     deadline.Token.ThrowIfCancellationRequested();
                     DoclingRegionalTextRepairPolicy.RecordDiagnostics(operation, result);
                     DoclingRegionalTableRepairPolicy.RecordDiagnostics(operation, options, result);
                     DoclingTableRegionObservationStage.RecordDiagnostics(operation, options, result);
+                    if (result.Document.JsonContent?.InputGeometryCapture is { } geometryCapture)
+                    {
+                        operation.Set("input_geometry_capture_requested", true);
+                        operation.Set("input_geometry_availability", geometryCapture.Data.Availability);
+                        operation.Set("input_geometry_reason", geometryCapture.Data.Reason ?? "none");
+                        operation.Set("input_geometry_response_bytes", geometryCapture.Data.ResponseBytes);
+                        operation.Set("input_geometry_entity_limit_bytes", DoclingInputGeometryCapture.MaximumEntityBytes);
+                    }
                     attemptProbe.Complete();
                     operation.Set("retry_count", attempt - 1);
                     operation.Complete();
@@ -109,12 +118,12 @@ internal sealed class DoclingClient(
     }
 
     private async Task<DoclingConvertResponse> ConvertAttemptAsync(FileStream source, string fileName,
-        CancellationToken ct, bool? forceOcrOverride)
+        CancellationToken ct, bool? forceOcrOverride, DoclingInputGeometryCapture? geometry)
     {
         var client = httpClientFactory.CreateClient("docling");
         using var request = new HttpRequestMessage(HttpMethod.Post, "v1/convert/file");
         using var form = new MultipartFormDataContent();
-        using var file = new ReplayablePdfContent(source);
+        using var file = new ReplayablePdfContent(source, geometry);
         file.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
         form.Add(file, "files", fileName);
         Add(form, "to_formats", "json");
@@ -176,6 +185,7 @@ internal sealed class DoclingClient(
             throw DoclingRetryPolicy.FailureForResponse(response.StatusCode, bytes);
         }
 
+        geometry?.ObserveResponse(bytes, ct);
         DoclingConvertResponse result;
         try
         {
@@ -197,6 +207,7 @@ internal sealed class DoclingClient(
             throw new InvalidDataException(
                 "docling_schema_unsupported");
 
+        if (result.Document.JsonContent is { } geometryDocument) geometryDocument.InputGeometryCapture = geometry;
         result.RequestedForceOcr = forceOcrOverride ?? options.ForceOcr;
         DoclingExecutionMetadataPolicy.Validate(options, result, result.RequestedForceOcr.Value);
         return result;
@@ -204,7 +215,7 @@ internal sealed class DoclingClient(
 
     // A multipart attempt owns its HttpContent, while the logical conversion owns the source.
     // Disposing an attempt must not dispose the handle needed by the following attempt.
-    private sealed class ReplayablePdfContent(FileStream source) : HttpContent
+    private sealed class ReplayablePdfContent(FileStream source, DoclingInputGeometryCapture? geometry) : HttpContent
     {
         protected override bool TryComputeLength(out long length)
         {
@@ -218,7 +229,8 @@ internal sealed class DoclingClient(
         protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context, CancellationToken cancellationToken)
         {
             source.Position = 0;
-            return source.CopyToAsync(stream, 128 * 1024, cancellationToken);
+            return geometry is null ? source.CopyToAsync(stream, 128 * 1024, cancellationToken)
+                : geometry.SerializePdfAsync(source, stream, cancellationToken);
         }
     }
 

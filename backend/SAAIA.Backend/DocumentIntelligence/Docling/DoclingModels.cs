@@ -97,6 +97,8 @@ internal sealed class DoclingConfidence
 
 internal sealed class DoclingDocument
 {
+    [JsonIgnore]
+    public DoclingInputGeometryCapture? InputGeometryCapture { get; set; }
     [JsonPropertyName("saaia_table_region_observations")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DoclingTableRegionObservationEnvelope? TableRegionObservations { get; set; }

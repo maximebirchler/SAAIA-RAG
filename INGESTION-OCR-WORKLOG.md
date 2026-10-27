@@ -1243,3 +1243,62 @@ Le lecteur Source21 doit encore être qualifié sur les données réellement
 ingérées par Source20. Les résultats Windows et la fin des jobs Linux ne
 certifient ni les formules, ni les fusions de cellules, ni un planning.
 Le statut produit demeure **TESTE_NON_APPROUVE**.
+
+## Lecture Linux Source21 et capture diagnostique des coordonnées Source22
+
+Le lecteur Source21 a été construit dans une nouvelle image Linux et son
+chargement qualifié séparément : cinq composants chargés correspondent aux
+fichiers du backend. Le premier opérateur de lecture a ensuite refusé le
+manifeste Source20 avant Docker et avant SQL, car sa liste de fichiers omettait
+`capture-navigation-v20.py`. L'échec et sa reproduction sont conservés.
+L'opérateur v2 admet uniquement ce nom supplémentaire, déjà lié au manifeste
+par empreinte ; ses 44 contrôles hors ligne incluent les 69 cibles réelles.
+
+La lecture v2 a réellement réussi avec l'image Source21 sur les données
+Source20 : NIST p.5 et p.40, recette p.5, 30 blocs et 156 lignes reconstruits.
+NIST p.5 conserve une capture native indisponible avec comptes inconnus ;
+les sept blocs/69 lignes de p.40 et les 23 blocs/87 lignes de recette sont
+restitués sans perte. L'avertissement de recette conserve son apostrophe U+2019.
+Reader, résolveur et passerelle sont exercés en SQL readonly. Les deux formats
+fournisseur sont sérialisés en mémoire, aux plafonds 14 000/24 000/256 000,
+avec alertes entières et références exactes. Aucun modèle n'est appelé.
+Les digests de publication sont identiques avant/après. Le lecteur et les
+cinq services possédés sont arrêtés, zéro job reste actif et les ports sont
+absents. Ce parcours représentatif ne qualifie pas encore les 104 pages ni
+la fidélité de transcription.
+
+Source22 ajoute une capture interne facultative de la géométrie réellement
+reçue par le backend. Elle conserve les lexèmes numériques JSON avant leur
+conversion en doubles, les bits réellement lus et les points produits,
+avec liaison table/page/provenance/cellule. Les chaînes décodées sont
+distinguées des nombres bruts. L'empreinte PDF porte sur le file-part
+effectivement sérialisé dans la même tentative. Le point observé est l'entité
+HTTP finale après décompression ; ce n'est pas le JSON original amont de
+Docling. Aucun texte, image ou base64 du document n'est copié dans ce payload.
+
+Le flag est OFF par défaut. ON sans stockage canonique ne collecte pas de
+géométrie et produit un motif explicite dans la sonde. Le budget de cinq
+secondes de travail propre est cumulatif et clos avant le manifeste ; les
+attentes réseau n'y sont pas imputées. Les caps de réponse, inventaire, JSON
+et gzip sont explicites. Le carrier préparé est immuable. Le store privé
+utilise la table binaire existante dans la même transaction que le bundle,
+vérifie le tuple de publication, admet une répétition identique et refuse
+une substitution. Rollback et purge de révision ne laissent pas d'orphelin.
+
+Qualification locale Source22 : RED initial à cinq échecs et un témoin
+positif ; ciblé final à 27 PASS sans avertissement ; quatre PostgreSQL
+isolés PASS sans skip ; suite backend complète à 3 393 PASS, deux ignorés
+et zéro échec. Les 2 054 fichiers suivis par le harnais sont identiques
+avant/après. Les 19 sources du lot correspondent au gel contre-relu ; les
+empreintes produit des PostgreSQL correspondent aussi à ce gel. La base
+temporaire est supprimée et son port fermé. La contre-revue ne relève aucun
+défaut matériel ouvert dans ce périmètre. Les contrats et le client sont
+inchangés ; leurs résultats Source20 ne sont pas renommés Source22.
+
+Un témoin synthétique multi-provenance établit huit liens diagnostiques
+distincts avant le refus primaire existant de CellId répétées entre pages.
+Il ne prouve pas un bundle multipage valide et ne justifie aucune réparation
+par ajout de page aux identifiants sans qualifier la correspondance physique.
+La sonde Source22 attend sa construction et sa qualification Linux réelles.
+La navigation NIST reste à 26/27, sans nouvelle tolérance. Le produit demeure
+**TESTE_NON_APPROUVE**, sans essai payant ni planning dans cette campagne.

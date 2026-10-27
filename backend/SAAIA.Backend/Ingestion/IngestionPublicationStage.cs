@@ -9,7 +9,10 @@ internal sealed record IngestionPublicationArtifacts(IReadOnlyList<ExtractedPdfP
     IReadOnlyList<ExtractedDocumentSection> Sections, IReadOnlyList<ExtractedDocumentUnit> Units,
     IReadOnlyList<ProjectedRetrievalChunk> Chunks, IReadOnlyList<ExtractedExactMatchEntry> ExactEntries,
     IReadOnlyList<ProjectedContextualTextEntry> ContextualEntries, CanonicalIngestionBundle? CanonicalBundle,
-    IReadOnlyList<ExtractedDocumentUnit>? ProfileUnits);
+    IReadOnlyList<ExtractedDocumentUnit>? ProfileUnits)
+{
+    internal DoclingInputGeometryArtifact? InputGeometryArtifact { get; init; }
+}
 internal sealed record IngestionExtractionMetadata(string Source, bool OcrAttempted, bool OcrApplied,
     string? OcrLanguages, long? OcrMilliseconds, PdfOcrDiagnostics? OcrDiagnostics,
     PdfExtractionQualitySummary NativeQuality, IngestionCapabilityAProfileSeed? ProfileSeed);
@@ -34,7 +37,7 @@ internal static class IngestionPublicationStage
                 artifacts.ContextualEntries, cancellationToken, extraction.Source, extraction.OcrAttempted,
                 extraction.OcrApplied, extraction.OcrLanguages, extraction.OcrMilliseconds, extraction.OcrDiagnostics,
                 extraction.NativeQuality, extraction.ProfileSeed, artifacts.CanonicalBundle, artifacts.ProfileUnits,
-                identity.PipelineFingerprint, identity.VectorPlanFingerprint, identity.LeaseOwner).ConfigureAwait(false);
+                identity.PipelineFingerprint, identity.VectorPlanFingerprint, identity.LeaseOwner, artifacts.InputGeometryArtifact).ConfigureAwait(false);
             probe.Complete(committed ? "success" : "superseded", committed ? null : "not_published");
             return committed;
         }
