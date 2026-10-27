@@ -1,0 +1,17 @@
+{
+  "services": {
+    "docling": {
+      "cpus": 2.0,
+      "mem_limit": "5g",
+      "environment": {
+        "DOCLING_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2"
+      }
+    },
+    "backend": {
+      "environment": {
+        "DocumentIntelligence__NumThreads": "2"
+      }
+    }
+  }
+}

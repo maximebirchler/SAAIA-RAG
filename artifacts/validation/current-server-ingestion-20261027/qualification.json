@@ -1,0 +1,371 @@
+{
+  "schemaVersion": "saaia-current-server-ingestion-qualification.v1",
+  "recordedAtUtc": "2026-10-27T14:06:05.982388+00:00",
+  "technicalScopeDecision": "QUALIFIED_ON_BOUNDED_REFERENCE_CORPUS",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "fullDocumentFidelityApproved": false,
+  "productionStackDeployed": false,
+  "paidProviderCalls": 0,
+  "newModelsOrGpuTreatment": false,
+  "testedCodeCommit": "f4f5604cbfa129d181ae276fbb25145ca2156816",
+  "buildSourceIdentity": "8ddd79a4226cfcb9f678414a76302a1dc8ab614a4267b237c1cd3e26d62218c0",
+  "buildProofSha256": "83796c02fa2bb44e3f01ce953ed2e457c389699ef001ae6ea22174d4559ae5cc",
+  "localTests": {
+    "backendPassed": 3524,
+    "backendPreexistingSkipped": 2,
+    "postgresPassed": 25
+  },
+  "actualReferenceIngestion": {
+    "documents": 10,
+    "pages": 104,
+    "doneJobs": 10,
+    "attemptsEach": 1,
+    "workerProductionSignatureVerified": true,
+    "canonicalRowsSeeded": false,
+    "originalGlobalFidelityPassed": false,
+    "originalFailureCategoriesRetained": 4,
+    "ownedServicesStopped": 5,
+    "activeJobsAfterCleanup": 0,
+    "oomKilledObserved": false
+  },
+  "primaryContentPreservedBeforeAfterRawChange": {
+    "documentsExact": 10,
+    "pages": 104,
+    "blocks": 2312,
+    "tables": 25,
+    "cells": 789,
+    "chunks": 373,
+    "primaryRetrievalAnchors": 373,
+    "mappedChunkMetadataExact": true,
+    "fullProvenanceExact": false
+  },
+  "rawPayloadQualification": {
+    "schemaVersion": "saaia.raw075-exhaustive-offline-qualification.v1",
+    "passed": true,
+    "scope": "104_captured_RAW_payload_integrity_and_exact_structural_projection_parity",
+    "exportSha256": "9f1240e5274bcbc52312ff6147c424b521add4bd36f880d7953ebde8d180b2e8",
+    "operatorSha256": "9bcf45cb185c0dc5660a627347232da613cacb509d6b52e1583aac0cdca97c97",
+    "canonicalCaptureSha256": "83875b876e35010e9309b7648794c342734d31b857af2396c15ecc1e20f61219",
+    "exportPackageFreezeSha256": "325df667d2638f292b4a420e16572aa3650356234e4cd5842d0234d7f13f719b",
+    "qualifierPackageFreezeSha256": "c8f650cb66d852a66e0b63c8766d4fd5e5ab810b1e0a3dca12a9b40147aee599",
+    "structuralProjectionCompared": true,
+    "binary64BitComparison": true,
+    "literalStringsAndOrderExact": true,
+    "productProjectorExecutedByThisTool": false,
+    "reader104PagesExecuted": false,
+    "newSqlOrNetworkCalls": 0,
+    "mainGlobalPassed": false,
+    "ingestionRecertified": false,
+    "sourceFidelityApproved": false,
+    "sqlSnapshotReadOnlyAttestedByOriginalOperator": true,
+    "documentCount": 10,
+    "pageCount": 104,
+    "observedPages": 47,
+    "unavailablePages": 57,
+    "catalogUtf8Bytes": 29057,
+    "pageUtf8Bytes": 677318,
+    "pageGzipBytes": 213551,
+    "blocks": 736,
+    "lines": 2750
+  },
+  "realReaderMeasurements": [
+    {
+      "caseId": "nist-complex",
+      "physicalPage": 40,
+      "inlineParityValidated": true,
+      "publicationUnchanged": true,
+      "passes": [
+        {
+          "pass": "OFF",
+          "wallSeconds": 0.797761,
+          "blockCount": 7,
+          "lineCount": 69,
+          "fullBundleDecodeCountObserved": null,
+          "pageDecodeCountObserved": null,
+          "pageInflatedBytesObserved": null
+        },
+        {
+          "pass": "ON",
+          "wallSeconds": 0.6044165,
+          "blockCount": 7,
+          "lineCount": 69,
+          "fullBundleDecodeCountObserved": 0,
+          "pageDecodeCountObserved": 143,
+          "pageInflatedBytesObserved": 1197196
+        }
+      ]
+    },
+    {
+      "caseId": "recipe-real-v1",
+      "physicalPage": 5,
+      "inlineParityValidated": true,
+      "publicationUnchanged": true,
+      "passes": [
+        {
+          "pass": "OFF",
+          "wallSeconds": 0.934018,
+          "blockCount": 23,
+          "lineCount": 87,
+          "fullBundleDecodeCountObserved": null,
+          "pageDecodeCountObserved": null,
+          "pageInflatedBytesObserved": null
+        },
+        {
+          "pass": "ON",
+          "wallSeconds": 0.8327334,
+          "blockCount": 23,
+          "lineCount": 87,
+          "fullBundleDecodeCountObserved": 0,
+          "pageDecodeCountObserved": 183,
+          "pageInflatedBytesObserved": 3475902
+        }
+      ]
+    }
+  ],
+  "readerLimits": {
+    "documentsWithRealReaderPageProbe": 2,
+    "distinctBlocks": 30,
+    "distinctLines": 156,
+    "maximumEvidencePromptCharacters": 14000,
+    "maximumEvidenceCharactersPerItem": 24000,
+    "maximumEvidenceCharactersTotal": 256000,
+    "inlineControlFullDecodePerDocumentOutsideMeasuredPasses": 1,
+    "inlineParityChecksInsideWall": true,
+    "offOnOrderFixedCacheMayWarm": true,
+    "causalSpeedupVsHistoricalDataClaimed": false,
+    "finalProviderWireQualified": false
+  },
+  "resources": [
+    {
+      "profile": "reference",
+      "runId": "4b6bc251-e392-4517-8ad5-b30785210e98",
+      "roles": [
+        {
+          "role": "backend",
+          "quotaNanoCpus": 2000000000,
+          "memoryLimitBytes": 2147483648,
+          "memorySwapConfiguredRaw": 4294967296,
+          "maximumSampledMemoryIncludingCacheBytes": 761683968,
+          "observedMetricsSamples": 286,
+          "unavailableMetricsSamples": 0,
+          "throttledPeriodsDelta": 4,
+          "periodsDelta": 7260
+        },
+        {
+          "role": "docling",
+          "quotaNanoCpus": 2000000000,
+          "memoryLimitBytes": 5368709120,
+          "memorySwapConfiguredRaw": 10737418240,
+          "maximumSampledMemoryIncludingCacheBytes": 4504256512,
+          "observedMetricsSamples": 286,
+          "unavailableMetricsSamples": 0,
+          "throttledPeriodsDelta": 4523,
+          "periodsDelta": 6467
+        },
+        {
+          "role": "postgres",
+          "quotaNanoCpus": 1000000000,
+          "memoryLimitBytes": 1073741824,
+          "memorySwapConfiguredRaw": 2147483648,
+          "maximumSampledMemoryIncludingCacheBytes": 462393344,
+          "observedMetricsSamples": 286,
+          "unavailableMetricsSamples": 0,
+          "throttledPeriodsDelta": 1,
+          "periodsDelta": 3024
+        },
+        {
+          "role": "qdrant",
+          "quotaNanoCpus": 1000000000,
+          "memoryLimitBytes": 1073741824,
+          "memorySwapConfiguredRaw": 2147483648,
+          "maximumSampledMemoryIncludingCacheBytes": 32833536,
+          "observedMetricsSamples": 286,
+          "unavailableMetricsSamples": 0,
+          "throttledPeriodsDelta": 0,
+          "periodsDelta": 531
+        },
+        {
+          "role": "tei",
+          "quotaNanoCpus": 2000000000,
+          "memoryLimitBytes": 3221225472,
+          "memorySwapConfiguredRaw": 6442450944,
+          "maximumSampledMemoryIncludingCacheBytes": 2193731584,
+          "observedMetricsSamples": 286,
+          "unavailableMetricsSamples": 0,
+          "throttledPeriodsDelta": 635,
+          "periodsDelta": 7414
+        }
+      ],
+      "continuousPeakKnown": false,
+      "swapConsumptionKnown": false,
+      "samplingDoesNotCoverWholeStartup": true
+    },
+    {
+      "profile": "alternativeNotAdopted",
+      "runId": "2c400475-f1e1-48d6-8c13-77bd240f55c0",
+      "roles": [
+        {
+          "role": "backend",
+          "quotaNanoCpus": 2000000000,
+          "memoryLimitBytes": 2147483648,
+          "memorySwapConfiguredRaw": 4294967296,
+          "maximumSampledMemoryIncludingCacheBytes": 981635072,
+          "observedMetricsSamples": 258,
+          "unavailableMetricsSamples": 0,
+          "throttledPeriodsDelta": 4,
+          "periodsDelta": 6612
+        },
+        {
+          "role": "docling",
+          "quotaNanoCpus": 3000000000,
+          "memoryLimitBytes": 7516192768,
+          "memorySwapConfiguredRaw": 15032385536,
+          "maximumSampledMemoryIncludingCacheBytes": 4957708288,
+          "observedMetricsSamples": 258,
+          "unavailableMetricsSamples": 0,
+          "throttledPeriodsDelta": 3865,
+          "periodsDelta": 5707
+        },
+        {
+          "role": "postgres",
+          "quotaNanoCpus": 1000000000,
+          "memoryLimitBytes": 1073741824,
+          "memorySwapConfiguredRaw": 2147483648,
+          "maximumSampledMemoryIncludingCacheBytes": 457695232,
+          "observedMetricsSamples": 258,
+          "unavailableMetricsSamples": 0,
+          "throttledPeriodsDelta": 0,
+          "periodsDelta": 2830
+        },
+        {
+          "role": "qdrant",
+          "quotaNanoCpus": 1000000000,
+          "memoryLimitBytes": 1073741824,
+          "memorySwapConfiguredRaw": 2147483648,
+          "maximumSampledMemoryIncludingCacheBytes": 34201600,
+          "observedMetricsSamples": 258,
+          "unavailableMetricsSamples": 0,
+          "throttledPeriodsDelta": 0,
+          "periodsDelta": 502
+        },
+        {
+          "role": "tei",
+          "quotaNanoCpus": 2000000000,
+          "memoryLimitBytes": 3221225472,
+          "memorySwapConfiguredRaw": 6442450944,
+          "maximumSampledMemoryIncludingCacheBytes": 2337697792,
+          "observedMetricsSamples": 258,
+          "unavailableMetricsSamples": 0,
+          "throttledPeriodsDelta": 580,
+          "periodsDelta": 6859
+        }
+      ],
+      "continuousPeakKnown": false,
+      "swapConsumptionKnown": false,
+      "samplingDoesNotCoverWholeStartup": true
+    }
+  ],
+  "profileDecision": {
+    "retainedDoclingCpus": 2,
+    "retainedMemoryGiB": 5,
+    "retainedThreadsAndOmp": 2,
+    "signedNumThreadsRequired": 2,
+    "alternativeCpus": 3,
+    "alternativeMemoryGiB": 7,
+    "alternativeAdopted": false,
+    "reason": "Predeclared strict primary polygon and retrieval-anchor coordinate parity failed; no demonstrated visible degradation is inferred.",
+    "primaryPolygonCoordinateDifferences": 494,
+    "primaryAnchorCoordinateDifferences": 48,
+    "chunkTextsMetadataAndQualityExact": true,
+    "runnerWallSeconds": {
+      "availability": "OBSERVED",
+      "beforeSecondsDecimal": "855.573170",
+      "afterSecondsDecimal": "792.748878",
+      "afterMinusBeforeSecondsDecimal": "-62.824292",
+      "candidateNotSlowerObserved": true,
+      "causalSpeedupPercentClaimed": false
+    },
+    "sameHistoricalFailureCategories": true,
+    "cpuOnlyCausalExperiment": false,
+    "resourceOverridePath": "infra/docker-compose.ingestion-reference.yml",
+    "signedConfigFragmentPath": "infra/config/ingestion-reference.fragment.json",
+    "optInOnlyNoDeploymentPerformed": true,
+    "completeComposeCliValidationExecuted": false,
+    "installerWiringImplemented": false,
+    "addedComparatorIndependentlyReviewed": true
+  },
+  "remainingLimits": [
+    "Scanned mathematical formulas remain unqualified.",
+    "Uncorroborated table grids, merged headers and cells remain explicit.",
+    "Alternative reading order has a retained negative oracle.",
+    "Recipe strict punctuation/read criteria retain their historical negative result.",
+    "Native typography capture limit remains; more server capacity alone does not validate fidelity."
+  ],
+  "deferredHeavierScope": [
+    "Larger OCR and vision models",
+    "GPU runtime qualification",
+    "Expanded capture budgets and concurrency after measurement"
+  ],
+  "evidence": {
+    "fullInputsStoredLocallyNotPublished": true,
+    "baseDirectory": "artifacts/ingestion-fidelity-fixes-20261026",
+    "receipts": [
+      {
+        "path": "current-server-ingestion-acceptance-v1.json",
+        "sha256": "90f63d24f3b831d10d91b388d514fb7187abc9faa88d80e04dc15a3c67034158"
+      },
+      {
+        "path": "source27-raw-actual-offline-qualification-v1.json",
+        "sha256": "022b7e1051aa310d20b80a4e0b10730d505a34aaafa6a607b7ca34e87158022d"
+      },
+      {
+        "path": "source27-raw-payload-exhaustive-qualification-v3.json",
+        "sha256": "4ca36f03d023212d9b1084fd52590d4e7f99040a1e2e1d1acf3b096551532a89"
+      },
+      {
+        "path": "source27-raw-payload-actual-readback-v3.json",
+        "sha256": "20ec6fa08985f2057c5718800604a337ff8ea013c923cb75eb13841b7b54210b"
+      },
+      {
+        "path": "raw27-log-author-readback-b-v1.json",
+        "sha256": "d6e056124232284d90d556baa9a7e14a53221339240059dd5a06f982ca6a275d"
+      },
+      {
+        "path": "primary-comparison-source26-source27-v1/receipt-v1.json",
+        "sha256": "324c19cd6bd5d92bc1df576cfa31d57123045231ca16f5efe7c2addab37838a7"
+      },
+      {
+        "path": "primary-comparison-source27-source28-bound-v1/receipt-v1.json",
+        "sha256": "4f0992002facb733eaa9f786bae7513bb94d6a41f68d2a65b8d438fd901b913b"
+      },
+      {
+        "path": "source27-real-resource-analysis-root-v1/resource-analysis.json",
+        "sha256": "1c9d914b24cb266c97329a18fb66d08db5fc8ef8c09083a2221b262ebaf2e0c9"
+      },
+      {
+        "path": "source28-real-resource-analysis-root-v1/resource-analysis.json",
+        "sha256": "ce004eeea87d0ba35c30c8df1bb29a496dfb9bc7835658118868c299b674e731"
+      },
+      {
+        "path": "source27-raw-payload-offline-independent-review-b-v3.json",
+        "sha256": "09ef75e74b1fab681c3cbb2eb41dba27325828aa29c64003700bb1c3fdfb6f18"
+      },
+      {
+        "path": "linux-v28-cpu-profile-independent-review-b-v1.json",
+        "sha256": "f8c140635da02943e1f5f84133b1ac228f869fbb61916d38728a9e2e5208e875"
+      },
+      {
+        "path": "source28-resource-comparison-b-v1/review-result.json",
+        "sha256": "f126966975ad8aa875934297fb82063035ceb7b70cc69cd185a8ef5b8ebc7a8c"
+      },
+      {
+        "path": "primary-comparison27-28-independent-review-b-v1.json",
+        "sha256": "4e4476e61596f795632cffff017cbc6bc52835609f176e1c61e2d88292310fe4"
+      },
+      {
+        "path": "raw075-actual-receipt-author-review-b-v1.json",
+        "sha256": "2f5236e6eb5d9b22f0349fe561800a3f4ce5a200390d0f564646fe4eb40668b6"
+      }
+    ]
+  }
+}

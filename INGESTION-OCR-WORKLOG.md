@@ -1655,3 +1655,175 @@ native_page_validate ; les durées sont inclusives et leurs bytes parent/
 enfant ne s'additionnent pas. Ce lot local ne prouve pas encore son gain
 de performance Linux sur le corpus réel : la construction27, sa publication
 et ses lectures instrumentées neuves restent à qualifier.
+
+### 27 octobre 2026 — publication27 réelle et lecture RAW qualifiée
+
+Le lot RAW est poussé dans `f4f5604`. La construction Linux réelle27
+réutilise une archive assainie de584 fichiers, source
+`8ddd79a4226cfcb9f678414a76302a1dc8ab614a4267b237c1cd3e26d62218c0`.
+La configuration Production est signée et vérifiée sur ce PC ; seule la
+signature est transférée. Les dix documents terminent en une tentative
+chacun, sans erreur de job. Le runner atteint `verification_completed`,
+constate zéro job actif et arrête ses cinq conteneurs sans OOMKilled.
+Le résultat global reste négatif sur les mêmes quatre catégories que26.
+Il ne s'agit pas d'une approbation de fidélité générale.
+
+La comparaison hors ligne26→27 conserve exactement le contenu primaire
+des dix documents :104 pages,2312 blocs,25 tables,789 cellules,373 chunks
+et373 ancres primaires. IDs canoniques et IDs bruts des chunks sont
+identiques. Métadonnées mappées et qualité des chunks sont exactes.
+Le canal provenance reste négatif9/10 : deux durées SMS diffèrent
+(991→989 ms et1837→1798 ms), sans différence de contenu primaire.
+Les canaux auxiliaires et leurs ancres ne sont égaux que4/10 ; ils ne
+sont pas assimilés au primaire. Les captures ne permettent pas cette
+comparaison pour les tables SQL complètes retrieval_units/contextualTexts.
+
+La sonde compilée est chargée dans l'image réelle27, avec cinq composants
+liés aux fichiers du backend. Le contrôle LOAD ne fait ni SQL ni mesure de
+performance. Le paquet lié aux captures réelles est ensuite exécuté en
+trois étapes séquentielles : métadonnées, NISTp40, recettep5. Une première
+préparation locale refusée à cause de logs vides est préservée ; le paquet
+BOUNDv2 les exclut, sans assouplir le vérificateur ni changer le portable.
+
+La vérification SQL en lecture seule constate dix catalogues RAW, zéro
+repli INLINE,104 états de page et zéro orphelin. Parmi ces états,47 ont
+des observations natives et57 déclarent explicitement
+`no_captured_native_observation`. Ce dernier nombre ne signifie pas une
+perte de texte primaire et ne mesure pas la capture typographique.
+Ce contrôle de métadonnées ne décode pas les104 payloads.
+
+| Parcours réel27 | Wall OFF | Wall ON | Décodages de page ON | Octets décompressés ON |
+|---|---:|---:|---:|---:|
+| NISTp40,7 blocs/69 lignes | 0,797761 s | 0,6044165 s | 143 | 1197196 |
+| Recettep5,23 blocs/87 lignes | 0,934018 s | 0,8327334 s | 183 | 3475902 |
+
+Le texte, LineId, offsets, qualité et provenance des156 lignes sont
+confrontés à l'inline de la même publication. La publication est inchangée
+avant/après ; les résultats fonctionnels OFF/ON sont identiques. Un
+contrôle complet par document précède les mesures. Dans les passes ON,
+zéro décodage de bundle complet est observé ; les compteurs détaillés OFF
+restent inconnus par conception. Les326 décodages de page produisent
+4673098 octets, comptés uniquement sur les gzip enfants directs, sans
+addition des octets parent/enfant. Quinze phases, zéro événement invalide,
+perdu ou échec de collecte sur chaque cas. Les trois opérateurs attestent
+l'arrêt du CID de sonde et des cinq services, zéro job et aucun port actif.
+
+Les parités et calculs ont une relecture hors ligne indépendante de
+l'exécution, plus une relecture d'auteur numérique explicitement désignée.
+Ces temps incluent les comparaisons inline ; les durées sont inclusives,
+pas du CPU exclusif. L'ordre OFF puis ON peut chauffer les caches. Aucun
+pourcentage causal de gain contre25/data20, dont les bundles diffèrent,
+ni surcoût non biaisé d'instrumentation n'est affirmé. Cette qualification
+couvre les deux pages représentatives ; elle ne valide pas tout le wire
+LLM ni toutes les structures documentaires.
+
+L'observateur de ressources27 recueille287 rounds/1435 lignes sur environ
+859 s, sans mesure indisponible. Docling atteint une médiane CPU198,14%
+sous quota2CPU et4,195/5GiB de RAM échantillonnée. Les4523/6467 périodes
+CFS throttled motivent une comparaison de profils ; le compteur763,765s
+n'est pas du temps wall récupérable. Deux snapshots courts de l'hôte
+montrent14,6–16,3Go disponibles et aucune pagination active dans leurs
+intervalles ; ils ne prouvent pas l'absence de pression sur toute la
+campagne. Swap consommé par conteneur et pics continus restent inconnus.
+
+Preuves bornées :
+`source27-raw-actual-offline-qualification-v1.json`,
+`raw27-log-author-readback-b-v1.json`,
+`primary-comparison-source26-source27-v1/receipt-v1.json`,
+`source27-resource-actual-review-b-v1/review-result.json`, sous
+`artifacts/ingestion-fidelity-fixes-20261026/`.
+La capture RAW privée a44 pins ; SHA archive
+`d7a2c508d0224d1db1a064babae1c1e7de81af7c1a6ef42b1506461d55d41abf`.
+Le statut produit reste `TESTE_NON_APPROUVE`. Aucun appel payant ni
+nouvelle inférence lourde ; la comparaison CPU28 est un essai séparé.
+
+### 27 octobre 2026 — contrôle des104 payloads et choix du profil actuel
+
+L'export SQL075 réel démarre seulement PostgreSQL27 possédé, effectue une
+transaction repeatable-read/read-only puis le réarrête. Dix catalogues et
+104 payloads sont récupérés :389684 octets d'enveloppe privée, sans clé ni
+configuration. Les métadonnées avant/après concordent ;36 commandes Docker
+sont comptées, zéro job actif et les cinq CID sont indépendamment constatés
+arrêtés, sans port actif. Avant exécution, la revue a corrigé un défaut de
+cleanup (une erreur du contrôle des jobs pouvait empêcher l'arrêt) et deux
+valeurs NOEXEC conservées à tort dans le rapport réel. Les versions
+refusées sont préservées ; le nouveau cleanup tente les trois étapes
+indépendamment. Les témoins causaux puis23 tests passent.
+
+Le contrôle hors ligne V3 des octets réellement exportés réussit pour
+les10 catalogues/104 payloads : SHA, tailles, gzip, UTF8 strict, schéma,
+identités/générations, inventaires et descripteurs. La projection est
+structurellement exacte par rapport au canonique capturé27, avec736 blocs
+natifs et2750 lignes de texte : ordre, raw, provenance, qualité, géométrie
+et bits binary64. Les catalogues représentent29057 octets ; les pages,
+677318 octets UTF8 et213551 octets gzip. Les47 états observed et57 états
+unavailable sont tous vérifiés. Ce contrôle ne réexécute ni le projecteur
+produit ni le Reader sur104 pages ; leurs156 lignes réellement lues dans
+les deux sondes restent une preuve distincte.
+
+La contre-revue a également exposé le token JSON numérique `-0`, perdu par
+un json.loads standard avant la comparaison. L'addendum hors ligne V3 le
+préserve et passe29 tests, dont le RED du parseur précédent et six témoins
+numériques. L'export SQL V2 et ses octets restent inchangés. Le moteur
+primaire historique possédait déjà ce parse_int et n'est pas modifié.
+
+Le profil alternatif28 conserve source, images et modèles27 ; seuls
+quota/threads/marge mémoire Docling passent de2CPU/2threads/5GiB à
+3CPU/3threads/7GiB. Dix jobs terminent en une tentative, worker Production
+signé et cleanup réel conforme. Le wall runner passe de855,573170 à
+792,748878s, soit62,824292s de moins dans cette comparaison unique. Ce
+n'est pas une mesure causale CPU seule : mémoire, threads, caches et
+ordonnancement ne sont pas isolés.
+
+Le texte/pages/ordre/checksums, les373 chunks et leurs métadonnées/qualités
+restent exacts. Toutefois494 coordonnées de tables/figures sur six PDF et
+48 coordonnées d'ancres NIST diffèrent. L'écart maximal observé est environ
+2,619e-7 unité. Cette faible amplitude ne prouve ni une régression visible
+ni une équivalence du rendu ; les points ne satisfont pas le critère
+strict préenregistré. Le profil3/7 n'est donc pas adopté automatiquement.
+Les confiances de provenance diffèrent aussi ; les quatre catégories
+d'échec historiques restent identiques, sans reclassification d'oracle.
+
+La référence retenue reste **2CPU/5GiB/threads2/OMP2**, avec NumThreads2
+dans la configuration signée, et les optimisations RAW27 déjà qualifiées.
+Les259 rounds de ressources28 n'ont ni indisponible, reset, restart ni
+OOM observé. Docling atteint4,617GiB dans un prélèvement, contre4,195GiB
+en27. Ces fenêtres ne couvrent pas tout le démarrage et ne donnent pas
+les pics continus ni le swap consommé. Les snapshots courts ne montrent
+pas de pagination active ; aucune absence de pression continue n'est
+inférée. Aucun quota des services habituels n'a été modifié.
+
+Deux fichiers opt-in reproduisent les seules ressources de référence :
+`infra/docker-compose.ingestion-reference.yml` et
+`infra/config/ingestion-reference.fragment.json`, copiés exactement du
+profil audité (huit tests statiques). Ils n'activent aucun service ni
+modèle et ne changent aucun défaut. Le premier se passe après le Compose
+de base ; le second est un fragment à fusionner dans le document complet
+**avant** nouvelle signature. Un NumThreads déjà signé différent prime
+sur l'environnement. Le moteur doit également rester en mode CPU. Ce
+profil ne reproduit pas toute la stack de qualification et ne constitue
+pas un déploiement validé de la stack habituelle. La validation Compose
+complète sur l'environnement cible et le raccord opt-in au rendu signé
+restent à faire lors d'un futur déploiement ; l'installateur n'est pas
+modifié dans cette mission.
+
+Le contrôle des104 payloads est
+`source27-raw-payload-exhaustive-qualification-v3.json`, SHA
+`4ca36f03d023212d9b1084fd52590d4e7f99040a1e2e1d1acf3b096551532a89`.
+La comparaison est
+`primary-comparison-source27-source28-bound-v1/receipt-v1.json`.
+Ces preuves restent sous `artifacts/ingestion-fidelity-fixes-20261026/`.
+Le périmètre technique actuel est qualifié sur ce corpus ; les formules,
+grilles/en-têtes/fusions non corroborés, ordre alternatif et limites
+typographiques restent explicites. Un serveur plus puissant ne prouve
+pas à lui seul leur fidélité. Le produit reste `TESTE_NON_APPROUVE` et
+aucun planning ni LLM payant n'a été testé dans cette étape.
+
+Le bilan public versionné, sans corpus ni configuration privée, est
+`artifacts/validation/current-server-ingestion-20261027/qualification.json`.
+Il sépare la qualification technique actuelle, les deux pages réellement
+lues, l'intégrité/parité des104 payloads, le profil3/7 non adopté et les
+limites documentaires. Il épingle les reçus locaux et les contre-revues.
+Le lot final ajoute uniquement ce bilan, ce journal et les deux fichiers
+opt-in de ressources ; aucun défaut applicatif ni installateur n'est
+changé après les tests du code `f4f5604`.
