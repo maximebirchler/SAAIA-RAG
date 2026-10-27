@@ -1,4 +1,5 @@
 using SAAIA.Contracts.DocumentIntelligence;
+using System.Text.Json.Serialization;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 using UglyToad.PdfPig.Core;
@@ -6,7 +7,11 @@ using UglyToad.PdfPig.Graphics.Core;
 
 internal sealed record PdfNativeVectorObservation(string SourceSha256, int PhysicalPage,
     double PageWidthPoints, double PageHeightPoints, PdfNativeCoordinateFrame Frame,
-    string Availability, string? Reason, IReadOnlyList<CanonicalTableVectorRule> Rules, int InspectedCommandCount);
+    string Availability, string? Reason, IReadOnlyList<CanonicalTableVectorRule> Rules, int InspectedCommandCount)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PdfNativeVectorDiagnostics? Diagnostics { get; init; }
+}
 
 /// <summary>Bounded source primitives, not a reconstructed grid or a proof of painted visibility.</summary>
 internal static class PdfNativeVectorGeometryObserver
@@ -21,8 +26,10 @@ internal static class PdfNativeVectorGeometryObserver
         ct.ThrowIfCancellationRequested();
         var frame=PdfNativeCoordinateFrame.Observe(page,structure,ct);
         var inspected=0;
+        var diagnostics = new PdfNativeVectorDiagnosticCollector();
         PdfNativeVectorObservation Result(string availability,string? reason,IReadOnlyList<CanonicalTableVectorRule>? rules=null)
-            =>new(sourceSha,page.Number,page.Width,page.Height,frame,availability,reason,rules??[],inspected);
+            =>new(sourceSha,page.Number,page.Width,page.Height,frame,availability,reason,rules??[],inspected)
+            { Diagnostics = diagnostics.Snapshot() };
         if(frame.Availability!="available") return Result("unavailable","native_coordinate_frame_unavailable");
         if(frame.RotationDegrees!=0) return Result("unavailable","unsupported_native_rotation");
         if(frame.CropBoxLeft!=0 || frame.CropBoxBottom!=0 || frame.MediaBoxLeft!=0 || frame.MediaBoxBottom!=0)
@@ -35,6 +42,7 @@ internal static class PdfNativeVectorGeometryObserver
         var rules=new List<CanonicalTableVectorRule>();var partial=false;var pathIndex=0;
         try
         {
+            diagnostics.BeginScan();
             foreach(var path in page.Paths)
             {
                 ct.ThrowIfCancellationRequested();
@@ -44,6 +52,7 @@ internal static class PdfNativeVectorGeometryObserver
                 {
                     ct.ThrowIfCancellationRequested();
                     var primitive=$"page_{page.Number}_path_{currentPath}_subpath_{subIndex++}";
+                    diagnostics.EnterPrimitive();
                     foreach(var command in subpath.Commands)
                     {
                         ct.ThrowIfCancellationRequested();
@@ -51,17 +60,18 @@ internal static class PdfNativeVectorGeometryObserver
                             ?"document_vector_command_limit":"page_vector_command_limit");
                         inspected++;
                     }
-                    if(path.IsClipping) {partial=true;continue;}
+                    diagnostics.InspectedPrimitive();
+                    if(path.IsClipping) {Reject("clipping_path");continue;}
                     if(!path.IsFilled && !path.IsStroked) continue;
                     if(subpath.Commands.Any(c=>c is not (PdfSubpath.Move or PdfSubpath.Line or PdfSubpath.Close)))
-                    {partial=true;continue;}
+                    {Reject("unsupported_command");continue;}
                     var edges=subpath.Commands.OfType<PdfSubpath.Line>().Select(l=>(l.From,l.To)).ToList();
                     var moves=subpath.Commands.OfType<PdfSubpath.Move>().ToArray();
-                    if(moves.Length!=1 || edges.Count==0) {partial=true;continue;}
+                    if(moves.Length!=1 || edges.Count==0) {Reject("unsupported_subpath_shape");continue;}
                     if(subpath.Commands.LastOrDefault() is PdfSubpath.Close && edges[^1].To!=moves[0].Location)
                         edges.Add((edges[^1].To,moves[0].Location));
                     if(edges.Any(e=>!Finite(e.From) || !Finite(e.To) || e.From.X!=e.To.X && e.From.Y!=e.To.Y))
-                    {partial=true;continue;}
+                    {Reject("non_finite_or_non_axis_edges");continue;}
                     if(path.IsFilled && subpath.IsDrawnAsRectangle && edges.Count==4)
                     {
                         var points=edges.SelectMany(e=>new[]{e.From,e.To}).Distinct().ToArray();
@@ -71,44 +81,51 @@ internal static class PdfNativeVectorGeometryObserver
                             var bottom=points.Min(p=>p.Y);var top=points.Max(p=>p.Y);
                             var width=right-left;var height=top-bottom;
                             if(height is >0 and <=2 && width>=10*height)
-                            {Add("h",page.Height-(bottom+top)/2,left,right,height,primitive);continue;}
+                            {Add("h",page.Height-(bottom+top)/2,left,right,height,primitive,subpath);continue;}
                             if(width is >0 and <=2 && height>=10*width)
-                            {Add("v",(left+right)/2,page.Height-top,page.Height-bottom,width,primitive);continue;}
+                            {Add("v",(left+right)/2,page.Height-top,page.Height-bottom,width,primitive,subpath);continue;}
                         }
                     }
-                    if(!path.IsStroked) {if(!subpath.IsDrawnAsRectangle) partial=true;continue;}
+                    if(!path.IsStroked) {if(!subpath.IsDrawnAsRectangle) Reject("unsupported_filled_shape");continue;}
                     if(path.LineDashPattern is {Array.Count:>0} || path.LineCapStyle!=LineCapStyle.Butt)
-                    {partial=true;continue;}
+                    {Reject("dash_or_cap");continue;}
                     var thickness=path.LineWidth;
-                    if(!double.IsFinite(thickness) || thickness<=0) {partial=true;continue;}
+                    if(!double.IsFinite(thickness) || thickness<=0) {Reject("invalid_stroke_width");continue;}
                     if(thickness>2) continue;
                     foreach(var edge in edges)
                     {
                         ct.ThrowIfCancellationRequested();
                         if(edge.From.Y==edge.To.Y) Add("h",page.Height-edge.From.Y,
-                            Math.Min(edge.From.X,edge.To.X),Math.Max(edge.From.X,edge.To.X),thickness,primitive);
+                            Math.Min(edge.From.X,edge.To.X),Math.Max(edge.From.X,edge.To.X),thickness,primitive,subpath);
                         else if(edge.From.X==edge.To.X) Add("v",edge.From.X,
-                            page.Height-Math.Max(edge.From.Y,edge.To.Y),page.Height-Math.Min(edge.From.Y,edge.To.Y),thickness,primitive);
+                            page.Height-Math.Max(edge.From.Y,edge.To.Y),page.Height-Math.Min(edge.From.Y,edge.To.Y),thickness,primitive,subpath);
+                    }
+                    void Reject(string reason)
+                    {
+                        partial = true;
+                        diagnostics.Reject(primitive, reason, subpath);
                     }
                 }
             }
+            diagnostics.CompleteScan();
             return Result(partial?"partial":"observed",partial?"unsupported_native_vector_geometry":null,rules);
         }
         catch(OperationCanceledException){throw;}
         catch {return Result("unavailable","native_vector_observation_failed");}
 
         static bool Finite(PdfPoint p)=>double.IsFinite(p.X)&&double.IsFinite(p.Y);
-        void Add(string axis,double coordinate,double start,double end,double thickness,string primitive)
+        void Add(string axis,double coordinate,double start,double end,double thickness,string primitive,PdfSubpath subpath)
         {
             var spanLimit=axis=="h"?page.Width:page.Height;
             var coordinateLimit=axis=="h"?page.Height:page.Width;
             if(start<0 || end>spanLimit || coordinate<0 || coordinate>coordinateLimit)
-            {partial=true;return;}
+            {partial=true;diagnostics.Reject(primitive,"outside_page_bounds",subpath);return;}
             if(end-start<10*thickness) return;
             var id=CanonicalStableId.Create("native_vector_rule",sourceSha,primitive,axis,
                 coordinate.ToString("R",System.Globalization.CultureInfo.InvariantCulture),
                 start.ToString("R",System.Globalization.CultureInfo.InvariantCulture),end.ToString("R",System.Globalization.CultureInfo.InvariantCulture));
             rules.Add(new(){RuleId=id,Axis=axis,Coordinate=coordinate,Start=start,End=end,Thickness=thickness,PrimitiveIds=[primitive]});
+            diagnostics.RuleEmitted(primitive);
         }
     }
 }

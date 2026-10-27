@@ -33,6 +33,8 @@ internal static class IngestionExtractionStage
                     nativeProbe.Set("vector_pages_partial", native.Pages.Count(p=>p.NativeVectorObservation?.Availability=="partial"));
                     nativeProbe.Set("vector_pages_refused", native.Pages.Count(p=>p.NativeVectorObservation?.Availability=="refused"));
                     nativeProbe.Set("vector_pages_unavailable", native.Pages.Count(p=>p.NativeVectorObservation?.Availability=="unavailable"));
+                    if (options.RegionalTableAlternativeReadingsEnabled)
+                        PdfNativeVectorDiagnosticsStage.RecordDiagnostics(nativeProbe, native);
                     if (options.NativeTypographyObservationsEnabled)
                     {
                         nativeProbe.Set("typography_pages_observed", native.Pages.Count(p=>p.NativeTypographyObservation?.Observation.RunAvailability=="observed"));

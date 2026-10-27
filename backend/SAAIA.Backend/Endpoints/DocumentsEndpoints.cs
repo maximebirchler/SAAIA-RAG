@@ -600,6 +600,7 @@ navigation_rows AS (
         ne.target_chunk_id IS NOT NULL AS ""HasTargetChunk"",
         ne.target_anchor_id IS NOT NULL AS ""HasTargetAnchor"",
         NULL::text AS ""SourceKind"",
+        ne.metadata::text AS ""CanonicalNavigationMetadata"",
         nav_token_match.token_overlap AS ""TokenOverlap"",
         CASE
             WHEN @q IS NULL THEN 2
@@ -645,6 +646,7 @@ anchor_rows AS (
         a.retrieval_chunk_id IS NOT NULL AS ""HasTargetChunk"",
         TRUE AS ""HasTargetAnchor"",
         a.source_kind AS ""SourceKind"",
+        NULL::text AS ""CanonicalNavigationMetadata"",
         anchor_token_match.token_overlap AS ""TokenOverlap"",
         CASE
             WHEN @q IS NULL THEN 2
@@ -705,7 +707,7 @@ LIMIT @lim OFFSET @off;";
             total,
             limit = lim,
             offset = off,
-            items = rows.Select(row => new
+            items = rows.Select(row => AttachCanonicalNavigationMetadata(JsonSerializer.SerializeToNode(new
             {
                 docId = row.DocId,
                 revisionId = row.RevisionId,
@@ -729,7 +731,7 @@ LIMIT @lim OFFSET @off;";
                 hasTargetChunk = row.HasTargetChunk,
                 hasTargetAnchor = row.HasTargetAnchor,
                 sourceKind = row.SourceKind
-            })
+            })!.AsObject(), row.CanonicalNavigationMetadata))
         });
     }
 
@@ -2451,6 +2453,7 @@ WHERE d.tenant_id=@tenant
         public bool HasTargetChunk { get; set; }
         public bool HasTargetAnchor { get; set; }
         public string? SourceKind { get; set; }
+        public string? CanonicalNavigationMetadata { get; set; }
         public int TokenOverlap { get; set; }
         public int RankBucket { get; set; }
         public int Total { get; set; }

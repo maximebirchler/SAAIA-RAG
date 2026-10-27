@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using SAAIA.Contracts.DocumentIntelligence;
 
 internal static partial class DocumentTitleNavigationProjector
 {
@@ -17,12 +18,26 @@ internal static partial class DocumentTitleNavigationProjector
         IReadOnlyList<ExtractedDocumentUnit> units,
         IReadOnlyList<ProjectedRetrievalChunk> targetRetrievalChunks,
         IReadOnlyList<ProjectedRetrievalChunk> navigationSourceRetrievalChunks,
-        ProjectedDocumentProfile documentProfile)
+        ProjectedDocumentProfile documentProfile,
+        CanonicalDocument? canonicalDocument = null,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var anchors = BuildTitleAnchors(sections, targetRetrievalChunks, documentProfile);
-        var navigationEntries = BuildNavigationEntries(units, navigationSourceRetrievalChunks, targetRetrievalChunks, anchors);
+        var canonical = ProjectCanonicalNavigation(canonicalDocument, navigationSourceRetrievalChunks,
+            targetRetrievalChunks, anchors, cancellationToken);
+        var legacySources = canonical is null ? navigationSourceRetrievalChunks
+            : navigationSourceRetrievalChunks.Where(chunk => !IsCanonicalNavigationChunk(chunk)).ToArray();
+        var legacyEntries = BuildNavigationEntries(units, legacySources, targetRetrievalChunks, anchors);
+        if (canonical is null)
+            return new ProjectedDocumentTitleNavigationIndex(anchors, legacyEntries);
+        var navigationEntries = canonical.Entries.Concat(legacyEntries).Take(MaxNavigationEntries)
+            .Select((entry, index) => entry with { EntryIndex = index }).ToArray();
+        if (canonical.Entries.Count + legacyEntries.Count > MaxNavigationEntries)
+            canonical.Audit.Refuse("combined_entry_limit", limit: true, row: false);
 
-        return new ProjectedDocumentTitleNavigationIndex(anchors, navigationEntries);
+        return new ProjectedDocumentTitleNavigationIndex(anchors, navigationEntries)
+        { CanonicalDiagnostics = canonical.Audit.Snapshot() };
     }
 
     private static IReadOnlyList<ProjectedDocumentTitleAnchor> BuildTitleAnchors(
@@ -1124,7 +1139,10 @@ internal static partial class DocumentTitleNavigationProjector
 
 internal sealed record ProjectedDocumentTitleNavigationIndex(
     IReadOnlyList<ProjectedDocumentTitleAnchor> TitleAnchors,
-    IReadOnlyList<ProjectedDocumentNavigationEntry> NavigationEntries);
+    IReadOnlyList<ProjectedDocumentNavigationEntry> NavigationEntries)
+{
+    public CanonicalNavigationDiagnostics? CanonicalDiagnostics { get; init; }
+}
 
 internal sealed record ProjectedDocumentTitleAnchor(
     int AnchorIndex,
@@ -1154,4 +1172,7 @@ internal sealed record ProjectedDocumentNavigationEntry(
     int? TargetAnchorIndex,
     int? TargetChunkIndex,
     string ResolutionMethod,
-    double Confidence);
+    double Confidence)
+{
+    public CanonicalNavigationSourceEvidence? CanonicalSource { get; init; }
+}

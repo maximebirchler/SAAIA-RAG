@@ -1136,3 +1136,71 @@ Elles ne remplacent ni le texte primaire ni les oracles existants. Les essais
 OCR locaux supplémentaires et leurs sorties non approuvées sont conservés
 séparément dans les artefacts privés ; ils ne modifient pas le moteur de
 production. Le statut produit reste **TESTE_NON_APPROUVE**.
+
+## Lecteur Linux Source19 — résultats supplémentaires du 2026-10-27
+
+Le chargement réel des composants du lecteur dans l'image Linux a réussi,
+sans démarrer le backend ni appeler un modèle. L'essai exhaustif suivant sur
+PostgreSQL s'est arrêté au délai coopératif de 360 secondes, pendant une
+lecture native. Aucun bilan partiel durable ne permet d'en déduire que les
+premiers documents étaient validés. Le harnais rechargeait le bundle complet
+pour de nombreuses petites fenêtres ; son volume théorique de décompression
+n'est pas une mesure de la latence normale du produit.
+
+L'essai avec les plafonds documentaires par défaut (14 000 caractères de
+prompt, 24 000 par élément et 256 000 au total) reste également négatif.
+Deux causes sont distinguées : le harnais s'arrêtait après un refus de lot
+de quatre lignes au lieu d'essayer une fenêtre plus petite ; sur NIST, le
+volume des métadonnées pouvait refuser même une ligne. Le rejeu hors ligne
+sur la DLL Source19 montre que les sept lignes de l'avertissement de recette
+sont lisibles une à une dans Chat et Responses, sans changer ces plafonds.
+Ce diagnostic Windows ne constitue pas une répétition Linux réussie.
+
+Les preuves négatives, les captures SQL et les oracles antérieurs sont
+conservés. Le nouveau lot de navigation, de sondes et de budget documentaire
+doit être qualifié séparément ; les résultats Source19 ne le présument pas.
+Les essais Granite sur quatre pages originales n'ont pas fourni une
+alternative suffisamment fidèle et ne modifient pas le moteur de production.
+
+## Navigation canonique, sondes vectorielles et budget documentaire — lot Source20
+
+Les sommaires canoniques utilisent leurs cellules typées et les chunks
+réellement publiés. Les numéros imprimés restent distincts des pages physiques ;
+une cible physique exige un titre canonique unique et corroboré. Les limites,
+ambiguïtés et refus sont persistés, y compris lorsqu'aucune entrée n'est
+produite. Le rejeu hors ligne du sommaire NIST page 5 restitue 26 entrées sur
+27 ; le chevauchement minuscule de la dernière ligne reste un refus explicite.
+Ce résultat ne remplace pas une observation de l'API sur une nouvelle ingestion.
+
+Les sondes vectorielles conservent les causes de rejet, la couverture de
+l'inspection, des compteurs et des échantillons bornés. Les omissions sont
+explicites. Une inspection terminée ne prouve ni la visibilité peinte ni
+l'éligibilité géométrique d'une région. Les règles d'admission restent
+inchangées ; clipping et visibilité effective restent inconnus.
+
+Le budget natif ne recompte plus chaque catalogue partagé comme une nouvelle
+preuve par ligne. Les retours d'outils peuvent référencer les métadonnées
+strictement identiques présentes dans le message courant ; les catalogues ou
+fenêtres divergents restent complets. Les qualités, identités, empreintes et
+curseurs demeurent dans le payload. Le garde sur le JSON final échappé et les
+plafonds 14 000/24 000/256 000 restent inchangés. Sur la capture NIST réelle,
+une ligne entière passe hors ligne dans Chat et Responses ; cela ne garantit
+pas qu'un lot de deux lignes entre dans le même plafond. Ce plafond est une
+contribution documentaire en caractères, pas la taille totale HTTP ni un
+nombre de tokens. L'adaptation quatre/deux/une ligne relève du harnais de test.
+
+Qualification locale de l'ensemble gelé le 2026-10-27 :
+
+- 5 931 tests unitaires PASS, deux ignorés, zéro échec ;
+- sept tests PostgreSQL isolés PASS, sans skip, dont les trois nouveaux cas de navigation ;
+- assemblages PostgreSQL identiques à ceux de la campagne unitaire ;
+- 2 044 fichiers de source identiques avant et après les campagnes ;
+- compilation WinUI Release x64/win-x64 sans hooks, zéro avertissement et zéro erreur ;
+- contre-revues indépendantes des trois lots sans défaut matériel ouvert dans leurs périmètres.
+
+La base PostgreSQL temporaire est supprimée et son port fermé. La compilation
+WinUI ne constitue pas un nouveau parcours visuel. Le gel Linux Source20 et
+ses images ont leur propre identité ; leur qualification réelle est séparée
+de ces résultats locaux. Aucune preuve d'ingestion complète, de réparation
+des prédictions OCR ou de planning réussi n'est déduite de ces tests.
+Le produit reste **TESTE_NON_APPROUVE**, sans appel payant dans cette campagne.

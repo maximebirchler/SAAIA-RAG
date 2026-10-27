@@ -1682,7 +1682,7 @@ sealed partial class IngestionWorker : BackgroundService
                         codeRevision,
                         nativeTextReconciliation,
                         nativePdfImageInventory,
-                        structure.NativeTypography);
+                        structure.NativeTypography, nativeVectorExtraction: nativeTextLayerExtraction);
                     canonicalBundle = DoclingCanonicalBundleFactory.Create(new(
                         docId,
                         revisionId,

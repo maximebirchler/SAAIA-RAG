@@ -42,6 +42,7 @@ internal static class DocumentFoundationRepo
         IReadOnlyList<ExtractedDocumentUnit>? structuredProfileUnits = null)
     {
         var revisionId = BuildStableRevisionId(tenantId, docId, indexedVersionAfter);
+        ValidateCanonicalNavigationIdentity(canonicalBundle?.Document, docId, revisionId, sourceHash);
         var extractionQuality = PdfExtractionQualitySummary.FromPages(pages);
         var retrievalChunkQuality = IngestionWorker.BuildRetrievalChunkQualitySummary(retrievalChunks);
         var publishableRetrievalChunks = retrievalChunks
@@ -164,7 +165,9 @@ SET doc_path = EXCLUDED.doc_path,
             units,
             publishableRetrievalChunks,
             retrievalChunks,
-            documentProfile);
+            documentProfile,
+            canonicalBundle?.Document,
+            ct);
         await UpsertDocumentTitleNavigationIndexAsync(
             conn,
             tx,
@@ -1289,6 +1292,18 @@ SET card_index = EXCLUDED.card_index,
         IReadOnlySet<int> persistedRetrievalChunkIndexes,
         CancellationToken ct)
     {
+        if (index.CanonicalDiagnostics is not null)
+        {
+            // Also persists refusals when no structured entry can be emitted. Counters and
+            // static reason codes contain no source text, path or private coordinates.
+            await conn.ExecuteAsync(new CommandDefinition(@"
+UPDATE document_profiles
+SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{canonicalNavigation}', CAST(@diagnostics AS jsonb), true)
+WHERE tenant_id = @tenant_id AND revision_id = @revision_id AND doc_id = @doc_id;",
+                new { tenant_id = tenantId, revision_id = revisionId, doc_id = docId,
+                    diagnostics = SerializePostgresJsonForStorage(JsonSerializer.SerializeToElement(index.CanonicalDiagnostics,
+                        new JsonSerializerOptions(JsonSerializerDefaults.Web))) }, transaction: tx, cancellationToken: ct));
+        }
         const string purgeNavigationSql = @"
 DELETE FROM document_navigation_entries
 WHERE tenant_id = @tenant_id
@@ -1481,16 +1496,29 @@ SET source_page = EXCLUDED.source_page,
                 targetAnchorId = resolvedAnchorId;
             }
 
-            var metadata = SerializePostgresJsonForStorage(new
+            var metadataFields = new Dictionary<string, object?>
             {
-                generatedBy = "document_title_navigation_projector",
-                schemaVersion = "title_navigation_v1",
-                ingestionVersion,
-                resolutionMethod = NormalizePostgresTextForStorage(entry.ResolutionMethod),
-                targetAnchorIndex = entry.TargetAnchorIndex,
-                targetChunkIndex = entry.TargetChunkIndex,
-                tokenCount = entry.LabelTokens.Count
-            });
+                ["generatedBy"] = "document_title_navigation_projector",
+                ["schemaVersion"] = "title_navigation_v1",
+                ["ingestionVersion"] = ingestionVersion,
+                ["resolutionMethod"] = NormalizePostgresTextForStorage(entry.ResolutionMethod),
+                ["targetAnchorIndex"] = entry.TargetAnchorIndex,
+                ["targetChunkIndex"] = entry.TargetChunkIndex,
+                ["tokenCount"] = entry.LabelTokens.Count
+            };
+            if (entry.CanonicalSource is { } source)
+            {
+                metadataFields["sourceTableId"] = source.SourceTableId;
+                metadataFields["sourceTableOrdinal"] = source.SourceTableOrdinal;
+                metadataFields["sourceRowIndex"] = source.SourceRowIndex;
+                metadataFields["sourceCellIds"] = source.SourceCellIds;
+                metadataFields["sourceChunkIndices"] = source.SourceChunkIndices;
+                metadataFields["printedPageLabel"] = source.PrintedPageLabel;
+                metadataFields["printedPageLabelKind"] = source.PrintedPageLabelKind;
+                metadataFields["targetCanonicalBlockId"] = source.TargetCanonicalBlockId;
+                metadataFields["targetPageSpace"] = "physical";
+            }
+            var metadata = SerializePostgresJsonForStorage(metadataFields);
 
             await conn.ExecuteAsync(new CommandDefinition(navigationSql, new
             {
@@ -1518,6 +1546,13 @@ SET source_page = EXCLUDED.source_page,
                 metadata
             }, transaction: tx, cancellationToken: ct));
         }
+    }
+
+    internal static void ValidateCanonicalNavigationIdentity(CanonicalDocument? document, Guid docId, Guid revisionId, byte[] sourceHash)
+    {
+        if (document is not null && (document.DocumentId != docId || document.RevisionId != revisionId
+            || !string.Equals(document.Source.Sha256, Convert.ToHexString(sourceHash), StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("canonical_navigation_source_identity_mismatch");
     }
 
     private static string BuildContentCardSearchText(DocumentProfileContentCard card)

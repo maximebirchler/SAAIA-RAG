@@ -375,14 +375,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 instruction = "Bounded operational result. Documentary proof is only the current user.evidence excerpts and current user.structuredTables rows with their contributing evidenceIds. Historical source handles belong to their original turn; use current user.evidence handles. Unlisted rows or omitted evidence do not prove corpus absence. Complete table coverage means observed canonical rows, not PDF or visual fidelity."
             };
             var outputNode = JsonSerializer.SerializeToNode(result, JsonOptions)!.AsObject();
+            if (_options.NativeObservationReadEnabled && request?.NativeObservationView is not null)
+                outputNode["instruction"] = "Native audit proof uses whole text in current user.evidence; metadata references below point into this same request. Historical or omitted lines are not proof.";
             var alternative = BuildAlternativeTableReadingsForPrompt(visible.Where(item =>
                 ids.Contains(item.EvidenceId, StringComparer.Ordinal)).ToArray());
             if (alternative is not null)
-                outputNode["alternativeTableReadings"] = JsonSerializer.SerializeToNode(alternative, JsonOptions);
+                outputNode["alternativeTableReadings"] = TableReadingsForNativeToolResult(alternative, request, visible);
             var nativeAlternative = BuildAlternativeNativeReadingsForPrompt(visible.Where(item =>
                 ids.Contains(item.EvidenceId, StringComparer.Ordinal)).ToArray());
             if (nativeAlternative is not null)
-                outputNode["alternativeNativeReadings"] = JsonSerializer.SerializeToNode(nativeAlternative, JsonOptions);
+                outputNode["alternativeNativeReadings"] = NativeReadingsForToolResult(nativeAlternative, visible);
             if (observation?.AlternativeNativeReadings?.Inventory is { } nativeInventory)
                 outputNode["nativeInventory"] = JsonSerializer.SerializeToNode(nativeInventory, JsonOptions);
             if (observation?.AlternativeNativeReadings?.View is { Lines.Count: 0 } nativeWindow)

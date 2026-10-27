@@ -1285,7 +1285,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     ? contentOffset + content.Length : null
             };
             var separatorCharacters = promptEvidence.Count == 0 ? 0 : 1;
-            var serializedCharacters = JsonSerializer.Serialize(observation, JsonOptions).Length
+            var serializedCharacters = MeasurePromptEvidenceCharacters(observation)
                 + separatorCharacters;
             if (observation.SourceOverview?.NativeObservations is not null && serializedCharacters > remaining
                 && item.NativeObservation is null)
@@ -1296,7 +1296,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 // original line. Retain an explicit refusal and its offset.
                 observation = observation with { Content = string.Empty, ContentTruncated = true,
                     NextContentOffset = null, SupportingContentWindows = [] };
-                serializedCharacters = JsonSerializer.Serialize(observation, JsonOptions).Length + separatorCharacters;
+                serializedCharacters = MeasurePromptEvidenceCharacters(observation) + separatorCharacters;
                 if (serializedCharacters > remaining)
                     throw new AdvancedAnalysisProviderException("advanced_secondary_documentary_metadata_budget_exceeded");
                 remaining -= serializedCharacters;
@@ -1315,7 +1315,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         !ReferenceEquals(item, oldest)).ToArray(),
                     SupportingContentWindowsOmittedCount = observation.SupportingContentWindowsOmittedCount + 1
                 };
-                serializedCharacters = JsonSerializer.Serialize(observation, JsonOptions).Length + separatorCharacters;
+                serializedCharacters = MeasurePromptEvidenceCharacters(observation) + separatorCharacters;
             }
             if (serializedCharacters > remaining
                 && observation.SupportingContentWindows.FirstOrDefault(item => item.IsCanonicalPrefix) is { } prefix)
@@ -1334,7 +1334,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     {
                         SupportingContentWindows = [prefix with { Content = prefix.Content[..middle], ContentTruncated = true }]
                     };
-                    if (JsonSerializer.Serialize(bounded, JsonOptions).Length + separatorCharacters <= remaining)
+                    if (MeasurePromptEvidenceCharacters(bounded) + separatorCharacters <= remaining)
                         lowerPrefix = middle;
                     else
                         upperPrefix = middle - 1;
@@ -1343,7 +1343,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 {
                     SupportingContentWindows = [prefix with { Content = prefix.Content[..lowerPrefix], ContentTruncated = true }]
                 };
-                serializedCharacters = JsonSerializer.Serialize(observation, JsonOptions).Length + separatorCharacters;
+                serializedCharacters = MeasurePromptEvidenceCharacters(observation) + separatorCharacters;
             }
             if (serializedCharacters > remaining)
             {
@@ -1359,7 +1359,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         NextContentOffset = contentOffset + middle < originalContentLength
                             ? contentOffset + middle : null
                     };
-                    if (JsonSerializer.Serialize(bounded, JsonOptions).Length + separatorCharacters <= remaining)
+                    if (MeasurePromptEvidenceCharacters(bounded) + separatorCharacters <= remaining)
                         lower = middle;
                     else
                         upper = middle - 1;
@@ -1373,7 +1373,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     NextContentOffset = contentOffset + lower < originalContentLength
                         ? contentOffset + lower : null
                 };
-                serializedCharacters = JsonSerializer.Serialize(observation, JsonOptions).Length
+                serializedCharacters = MeasurePromptEvidenceCharacters(observation)
                     + separatorCharacters;
             }
             remaining -= serializedCharacters;
