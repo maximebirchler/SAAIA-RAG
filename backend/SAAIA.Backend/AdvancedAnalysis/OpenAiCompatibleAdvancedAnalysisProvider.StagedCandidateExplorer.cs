@@ -122,7 +122,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                             coverage,
                             judgeBatch),
                         Math.Clamp(_options.CandidateExplorerMaxTokens, 512, 16_384),
-                        cancellationToken)
+                        cancellationToken,
+                        canonicalProjection: observations)
                     .ConfigureAwait(false);
                 completions.Add(completion);
                 var updates = ParseCandidateJudgeUpdates(
@@ -213,7 +214,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     Math.Clamp(_options.CandidateExplorerMaxTokens, 512, 16_384),
                     cancellationToken,
                     allowNativeResearch: true,
-                    nativeToolTurnMessages: navigatorHistory)
+                    nativeToolTurnMessages: navigatorHistory,
+                    canonicalProjection: observations)
                 .ConfigureAwait(false);
             completions.Add(navigator);
 
@@ -361,6 +363,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     observationsBySearch: navigatorResults,
                     allowResourceLimitFeedback: true)
                 .ConfigureAwait(false);
+            RememberLatestExplicitRead(context, queries, navigatorResults);
             context.ResourceLimit ??= resourceLimit;
             if (navigator.NativeToolCallsJson is { } executedCalls)
                 navigatorTurns.Add(new(executedCalls, queries, navigatorResults,
@@ -423,6 +426,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             judgeFirstInventory,
             focused);
         focused = PrioritizeEvidenceReadWindows(evidence, focused, context.EvidenceReadWindows);
+        focused = PrioritizeLatestExplicitRead(evidence, focused, context.LatestExplicitReadEvidenceIds);
         var observations = BuildPromptEvidenceWithPersistentSourceKeys(
             request,
             evidence,

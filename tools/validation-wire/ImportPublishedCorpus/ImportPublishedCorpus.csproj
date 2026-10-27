@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Existing friend assembly, isolated output; never replaces the ingestion tool. -->
+    <AssemblyName>SAAIA.IngestionGold</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../backend/SAAIA.Backend/SAAIA.Backend.csproj" />
+  </ItemGroup>
+</Project>

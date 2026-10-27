@@ -131,14 +131,8 @@ public sealed partial class ToolAgentOrchestrator
         if (sourceMetadata.PageExtractionConfidence.HasValue)
             parts.Add($"pageExtractionConfidence={sourceMetadata.PageExtractionConfidence.Value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}");
 
-        var qualitySignals = sourceMetadata.QualitySignals?
-            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
-            .Select(static signal => signal.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(6)
-            .ToArray() ?? [];
-        if (qualitySignals.Length > 0)
-            parts.Add("qualitySignals=" + string.Join(",", qualitySignals));
+        parts.AddRange(BuildLiveSummaryQualityPromptFields(sourceMetadata, 6)
+            .Select(field => field.Key + "=" + field.Value));
 
         var profileSignals = FormatLiveSummaryProfileSignalsPrompt(sourceMetadata.ProfileSignals);
         if (!string.IsNullOrWhiteSpace(profileSignals))
@@ -197,26 +191,6 @@ public sealed partial class ToolAgentOrchestrator
             ?? sourceMetadata.DocumentQualityStatus
             ?? sourceMetadata.PageQualityStatus;
 
-        var qualitySignals = sourceMetadata.QualitySignals?
-            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
-            .Select(static signal => signal.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(8)
-            .ToArray() ?? [];
-
-        if (cards.Length == 0
-            && qualitySignals.Length == 0
-            && string.IsNullOrWhiteSpace(quality)
-            && string.IsNullOrWhiteSpace(sourceMetadata.CategoryPath)
-            && string.IsNullOrWhiteSpace(sourceMetadata.CategoryRef)
-            && string.IsNullOrWhiteSpace(sourceMetadata.SourceHash)
-            && string.IsNullOrWhiteSpace(sourceMetadata.DocLanguage)
-            && string.IsNullOrWhiteSpace(sourceMetadata.ProfileLanguage)
-            && ComputeSourceProfileSignalsRichness(sourceMetadata.ProfileSignals) == 0)
-        {
-            return;
-        }
-
         sb.AppendLine("IngestionMetadata:");
         if (!string.IsNullOrWhiteSpace(sourceMetadata.SourceHash))
             sb.AppendLine($"- sourceHash: {sourceMetadata.SourceHash}");
@@ -240,8 +214,8 @@ public sealed partial class ToolAgentOrchestrator
             sb.AppendLine($"- documentExtractionConfidence: {sourceMetadata.DocumentExtractionConfidence.Value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}");
         if (sourceMetadata.PageExtractionConfidence.HasValue)
             sb.AppendLine($"- pageExtractionConfidence: {sourceMetadata.PageExtractionConfidence.Value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}");
-        if (qualitySignals.Length > 0)
-            sb.AppendLine("- qualitySignals: " + string.Join(" | ", qualitySignals));
+        foreach (var field in BuildLiveSummaryQualityPromptFields(sourceMetadata, 8))
+            sb.AppendLine("- " + field.Key + ": " + field.Value);
         var profileSignals = FormatLiveSummaryProfileSignalsPrompt(sourceMetadata.ProfileSignals);
         if (!string.IsNullOrWhiteSpace(profileSignals))
             sb.AppendLine("- " + profileSignals);
@@ -260,6 +234,33 @@ public sealed partial class ToolAgentOrchestrator
         if (cards.Length > 0)
             sb.AppendLine("- contentCards: " + string.Join(" | ", cards));
         sb.AppendLine("- diagnosticFields: sourceHash/categoryRef/chunkId help trace retrieval; do not include these identifiers in the summary unless explicitly asked.");
+    }
+
+    private static IReadOnlyList<KeyValuePair<string, string>> BuildLiveSummaryQualityPromptFields(
+        ToolMemory.SourceRef source, int maximumVisibleSignals)
+    {
+        var fields = new List<KeyValuePair<string, string>>();
+        Add("qualitySignals", "source", ExtractionQualitySignalTransport.Bound(
+            source.QualitySignals, source.QualitySignalsMetadata));
+        Add("chunkQualitySignals", "chunk", ExtractionQualitySignalTransport.Bound(
+            source.ChunkQualitySignals, source.ChunkQualitySignalsMetadata));
+        fields.Add(new("qualityDiagnostics", "Extraction diagnostics only; omitted or unavailable diagnostics "
+            + "do not establish clean or complete source quality."));
+        return fields;
+
+        void Add(string name, string scope, QualitySignalSnapshot snapshot)
+        {
+            var visible = snapshot.Signals.Take(maximumVisibleSignals).ToArray();
+            if (visible.Length > 0)
+                fields.Add(new(name, string.Join(" | ", visible)));
+            fields.Add(new(name + "Metadata", JsonSerializer.Serialize(new
+            {
+                scope,
+                localVisibleCount = visible.Length,
+                localOmittedCount = snapshot.Signals.Count - visible.Length,
+                transportMetadata = snapshot.Metadata
+            }, ClientJson.CamelCase)));
+        }
     }
 
     private static string? FormatLiveSummaryProfileSignalsPrompt(ToolMemory.SourceProfileSignalsRef? profile)
@@ -466,6 +467,6 @@ public sealed partial class ToolAgentOrchestrator
             return null;
 
         var trimmed = Regex.Replace(value.Trim(), @"\s+", " ", RegexOptions.CultureInvariant);
-        return trimmed.Length <= 80 ? trimmed : trimmed[..77] + "...";
+        return trimmed.Length <= 80 ? trimmed : ModelPromptText.Prefix(trimmed, 77) + "...";
     }
 }

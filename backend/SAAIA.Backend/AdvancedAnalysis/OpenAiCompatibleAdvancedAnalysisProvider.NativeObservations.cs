@@ -16,7 +16,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         alternativeNativeReadings references only exact whole text in current
         user.evidence, or user.observations in research review. Cite its
         evidenceId; never reconstruct an omitted line
-        from history. No captured native block means acquisition is unavailable,
+        from history. Per-line nextLineOffset and shared-view nextOffset both
+        resume after the prefix actually admitted to this prompt. A line read
+        by the backend but omitted here is not model evidence and must be read
+        again at that continuation cursor. No captured native block means acquisition is unavailable,
         not known empty. Observed empty raw text is distinct. These readings
         establish no semantic novelty, source order, image pixels or new OCR.
         """;
@@ -49,7 +52,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         if (evidence?.Deserialize<PromptEvidenceItem[]>(JsonOptions) is { } typed)
         {
             if (BuildAlternativeNativeReadingsForPrompt(typed) is { } alternative)
-                node["alternativeNativeReadings"] = NativeViewQualityReferences(alternative, typed, collection);
+            {
+                var projected = NativeViewQualityReferences(alternative, typed, collection);
+                node["alternativeNativeReadings"] = projected;
+                SetNativeModelContinuationCursors(evidence, projected);
+            }
             foreach (var item in evidence.OfType<JsonObject>())
                 if (item["sourceOverview"] is JsonObject overview)
                     overview.Remove("nativeObservations");
@@ -66,6 +73,30 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             instruction = "Do not mix table row or table observation parameters. Whole lines only; a refusal retains its exact offset."
         }, JsonOptions));
         return node.ToJsonString(JsonOptions);
+    }
+
+    private static void SetNativeModelContinuationCursors(JsonArray evidence, JsonNode? alternative)
+    {
+        if (alternative?["views"] is not JsonArray views)
+            return;
+        foreach (var view in views.OfType<JsonObject>())
+            foreach (var item in evidence.OfType<JsonObject>())
+            {
+                if (item["nativeObservation"] is not JsonObject native
+                    || native["reference"] is not JsonObject reference
+                    || !JsonNode.DeepEquals(item["sourceKey"], view["sourceKey"])
+                    || !JsonNode.DeepEquals(reference["physicalPage"], view["physicalPage"])
+                    || !JsonNode.DeepEquals(reference["blockId"], view["blockId"])
+                    || !JsonNode.DeepEquals(reference["rawTextSha256"], view["rawTextSha256"])
+                    || !JsonNode.DeepEquals(native["lineOffset"], view["offset"])
+                    || !JsonNode.DeepEquals(native["lineLimit"], view["limit"]))
+                    continue;
+
+                // This is prompt-only operational metadata. The canonical line
+                // identity, quality and reader DTO stay unchanged. A backend
+                // cursor beyond an omitted line would make the model skip it.
+                native["nextLineOffset"] = view["nextOffset"]?.DeepClone();
+            }
     }
 
     private static object? BuildAlternativeNativeReadingsForPrompt(IReadOnlyList<PromptEvidenceItem> evidence)

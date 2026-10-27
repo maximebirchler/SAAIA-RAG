@@ -333,7 +333,7 @@ internal static class SourceBackedCanonicalContentCardInventory
             var directProof = CollapseWhitespace(direct);
             return directProof.Length <= ProofCharacterLimit
                 ? directProof
-                : directProof[..ProofCharacterLimit].TrimEnd() + "...";
+                : ModelPromptText.Prefix(directProof, ProofCharacterLimit).TrimEnd() + "...";
         }
 
         if (!TryGetProperty(evidence, out var facts, "facts", "factList")
@@ -358,7 +358,7 @@ internal static class SourceBackedCanonicalContentCardInventory
         var proof = string.Join(" / ", values);
         return proof.Length <= ProofCharacterLimit
             ? proof
-            : proof[..ProofCharacterLimit].TrimEnd() + "...";
+            : ModelPromptText.Prefix(proof, ProofCharacterLimit).TrimEnd() + "...";
     }
 
     private static JsonElement? ReadObject(JsonElement element, params string[] names)

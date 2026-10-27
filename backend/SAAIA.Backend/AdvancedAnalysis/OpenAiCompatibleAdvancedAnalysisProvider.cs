@@ -179,7 +179,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                             BuildResearchReviewSystemPrompt(),
                             reviewUserPrompt,
                             Math.Clamp(_options.PlannerMaxTokens, 256, 4_096),
-                            cancellationToken)
+                            cancellationToken,
+                            canonicalProjection: observations)
                         .ConfigureAwait(false);
                     completions.Add(researchReview);
                     IReadOnlyList<AdvancedAnalysisSearchRequest> followUpQueries;
@@ -302,7 +303,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                             writer.Content,
                             promptEvidence),
                         Math.Clamp(_options.WriterMaxTokens, 512, 16_384),
-                        cancellationToken)
+                        cancellationToken,
+                        canonicalProjection: promptEvidence)
                     .ConfigureAwait(false);
                 completions.Add(repair);
                 parsed = ParseResult(repair.Content, evidence, request);
@@ -399,7 +401,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                                     _options.CriticMaxTokens,
                                     512,
                                     16_384),
-                                cancellationToken)
+                                cancellationToken,
+                                canonicalProjection: promptEvidence)
                             .ConfigureAwait(false);
                         completions.Add(criticRepair);
                         try
@@ -511,7 +514,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                         promptEvidence,
                         candidateDossier),
                     Math.Clamp(_options.WriterMaxTokens, 512, 16_384),
-                    cancellationToken)
+                    cancellationToken,
+                    canonicalProjection: promptEvidence)
                 .ConfigureAwait(false);
             completions.Add(recovery);
             var recovered = ParseResult(recovery.Content, evidence, request);
@@ -716,13 +720,29 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         int maximumOutputTokens,
         CancellationToken cancellationToken,
         bool allowNativeResearch = false,
-        IReadOnlyList<object>? nativeToolTurnMessages = null)
+        IReadOnlyList<object>? nativeToolTurnMessages = null,
+        IReadOnlyList<PromptEvidenceItem>? canonicalProjection = null)
     {
         using var callProbe = BackendDiagnostics.Start("llm.call", _logger);
         userPrompt = AddSecondaryTableReadingsToPrompt(userPrompt);
         userPrompt = AddVisualSourcesToPrompt(userPrompt);
         userPrompt = AddNativeObservationsToPrompt(userPrompt);
+        userPrompt = AddEvidenceProjectionToPrompt(userPrompt, canonicalProjection);
         using var sourcePrompt = JsonDocument.Parse(userPrompt);
+        var evidenceProjection = sourcePrompt.RootElement.GetProperty("evidenceProjection");
+        callProbe.Set("evidence_projection_status", ReadString(evidenceProjection, "status"));
+        if (evidenceProjection.TryGetProperty("canonicalProjection", out var canonicalCounts))
+        {
+            callProbe.Set("evidence_projection_input_count", canonicalCounts.GetProperty("inputCount").GetInt32());
+            callProbe.Set("evidence_projection_projected_count", canonicalCounts.GetProperty("projectedCount").GetInt32());
+            callProbe.Set("evidence_projection_omitted_by_budget_count", canonicalCounts.GetProperty("omittedByPromptBudgetCount").GetInt32());
+            var visibleCounts = evidenceProjection.GetProperty("currentCall");
+            callProbe.Set("evidence_projection_visible_count", visibleCounts.GetProperty("visibleCount").GetInt32());
+            callProbe.Set("evidence_projection_not_selected_count", visibleCounts.GetProperty("canonicalProjectedNotSelectedCount").GetInt32());
+            callProbe.Set("evidence_projection_outside_current_count", visibleCounts.GetProperty("outsideCanonicalProjectionCount").GetInt32());
+            callProbe.Set("evidence_projection_truncated_content_count", visibleCounts.GetProperty("truncatedContentCount").GetInt32());
+            callProbe.Set("evidence_projection_supporting_windows_omitted_count", visibleCounts.GetProperty("supportingWindowsOmittedCount").GetInt32());
+        }
         var hasSecondaryReadings = HasSecondaryTableReadings(sourcePrompt.RootElement);
         if (hasSecondaryReadings) systemPrompt += "\n" + SecondaryTableReadingContract;
         var hasNativeReadings = HasNativeObservationRead(sourcePrompt.RootElement);
@@ -782,6 +802,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         {
             var documentaryCharacters = MeasureSecondaryDocumentaryWireCharacters(serializedPayload);
             callProbe.Set("documentary_wire_characters", documentaryCharacters);
+            if (sourcePrompt.RootElement.TryGetProperty("evidence", out var documentaryCollection)
+                || sourcePrompt.RootElement.TryGetProperty("observations", out documentaryCollection))
+                callProbe.Set("documentary_collection_wire_characters",
+                    MeasureEscapedDocumentaryTextCharacters(documentaryCollection.GetRawText()));
             if (documentaryCharacters > Math.Clamp(_options.MaximumEvidencePromptCharacters, 8_000, 1_000_000))
             {
                 throw new AdvancedAnalysisProviderException(hasNativeReadings
@@ -1010,11 +1034,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                                 httpAttemptCount);
                             reservation = null;
                         }
-                        if (nativeResponses || normalizationError is not null || nativeCallsJson is not null)
-                            await WriteDevelopmentTraceAsync(jobId, role, payload, document.RootElement,
-                                completionContent ?? string.Empty, observedModelId, null,
-                                httpAttemptCount, stopwatch.ElapsedMilliseconds, cancellationToken,
-                                nativeResponses ? completionOrigin : "tool_calls.rejected", errorCode).ConfigureAwait(false);
+                        await WriteDevelopmentTraceAsync(jobId, role, payload, document.RootElement,
+                            completionContent ?? string.Empty, observedModelId, null,
+                            httpAttemptCount, stopwatch.ElapsedMilliseconds, cancellationToken,
+                            nativeResponses ? completionOrigin : nativeCallsJson is not null
+                                ? "tool_calls.rejected" : "message.content.rejected", errorCode).ConfigureAwait(false);
                         throw new AdvancedAnalysisProviderException(
                             errorCode);
                     }

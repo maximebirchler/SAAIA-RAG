@@ -1,0 +1,396 @@
+{
+  "schemaVersion": "saaia-model-wire-public-qualification.v1",
+  "recordedAtUtc": "2026-10-27T17:23:29.3061391+01:00",
+  "technicalScopeDecision": "QUALIFIED_ON_CONTROLLED_LOCAL_PROVIDER_PATHS",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "semanticModelQualityApproved": false,
+  "mealPlanningApproved": false,
+  "fullPdfFidelityApproved": false,
+  "paidProviderCalls": 0,
+  "paidProviderCostUsd": 0,
+  "externalCorpusTransmission": false,
+  "testedCodeProvenance": {
+    "baseCommit": "d5482dbbd09b0a16d4235037105dfe6906479680",
+    "workingTreeWasDirtyDuringBuild": true,
+    "identity": "Final source inventories and assembly hashes identify tested uncommitted changes; baseCommit alone does not.",
+    "finalSourceInventoryFileCount": 2103,
+    "finalSourceInventorySha256": "6df6d2d98386af263304f12159c6ffdf7e7ca369c540f85950912f31e0795851",
+    "sourceInventoryStillMatchesAtPublication": true,
+    "backendReleaseAssemblySha256": "4e579fea1447697f38d5a09a17231d4d15add7af4bee4f02a8c0deddc9a40306",
+    "clientReleaseAssemblySha256": "58a7fb137fe4b15e684a204a5eef69b2f8537af1bc9758e7e23f7e61e10b3015"
+  },
+  "actualRuntime": {
+    "environment": "Development",
+    "ownedUnsignedFixtureConfiguration": true,
+    "newOcrExecuted": false,
+    "source27PublishedDocumentsReplayed": 2,
+    "sourceCaptureSha256": "83875b876e35010e9309b7648794c342734d31b857af2396c15ecc1e20f61219",
+    "documentAndRevisionIdsRemapped": false,
+    "fixtureTenantExplicitlyConfigured": true,
+    "derivedFixtureData": [
+      "Token estimates",
+      "Small page index"
+    ],
+    "realComponents": [
+      "Chat session API",
+      "Advanced job API/store/worker",
+      "PostgreSQL16",
+      "Production research gateway",
+      "SQL sparse/canonical retrieval",
+      "Canonical artifact repository",
+      "Loopback HTTP socket"
+    ],
+    "deterministicAdapters": [
+      "TEI",
+      "Qdrant",
+      "LLM provider"
+    ],
+    "protocols": [
+      "chat-completions",
+      "responses"
+    ],
+    "finalVersionRuns": 6,
+    "finalVersionCases": 12,
+    "providerPosts": 128,
+    "exactTraces": 128,
+    "llmCallProbes": 128,
+    "documentaryWireBudgetCharacters": 14000,
+    "existingReservedSharedBudgetCharacters": 7000,
+    "maximumObservedDocumentaryWireCharacters": 13147,
+    "budgetsRaisedDuringFixes": false,
+    "allThreeExpectedNativeLinesReceivedInEachCompletedReadScenario": true,
+    "partialNativeWindowRecoveredOnlyFromObservedCursor": true,
+    "corpusUnchanged": true,
+    "allOwnedRuntimesStopped": true,
+    "diagnosticDroppedMeasurementsMaximum": 0,
+    "diagnosticTruncatedValuesMaximum": 0,
+    "runs": [
+      {
+        "protocol": "chat-completions",
+        "variant": "positive",
+        "caseCount": 2,
+        "providerPosts": 20,
+        "exactApplicationTraces": 20,
+        "llmCallProbes": 20,
+        "maxDocumentaryWireCharacters": 13146,
+        "ownedRuntimeStopped": true,
+        "executionResult": {
+          "path": "artifacts/provider-wire-qualification-20261027/chat-runtime-final-v4/execution-result.json",
+          "sha256": "88136f81e4bb00658554e521a40505f67cc8b270a94c07b672e4049b110e1f7a"
+        },
+        "verification": {
+          "path": "artifacts/provider-wire-qualification-20261027/chat-runtime-final-v4/verification.json",
+          "sha256": "9fcd62250124c033e78f88d6a339441b4711c6f2e9a7301b0f9725aeb7b0b70a"
+        }
+      },
+      {
+        "protocol": "responses",
+        "variant": "positive",
+        "caseCount": 2,
+        "providerPosts": 20,
+        "exactApplicationTraces": 20,
+        "llmCallProbes": 20,
+        "maxDocumentaryWireCharacters": 13147,
+        "ownedRuntimeStopped": true,
+        "executionResult": {
+          "path": "artifacts/provider-wire-qualification-20261027/responses-runtime-final-v2/execution-result.json",
+          "sha256": "2d1eeacb6d5ed7112b8ba7ce0fc8f8d150ccb0a1707be971a9e08d89910df1b4"
+        },
+        "verification": {
+          "path": "artifacts/provider-wire-qualification-20261027/responses-runtime-final-v2/verification.json",
+          "sha256": "9fcd62250124c033e78f88d6a339441b4711c6f2e9a7301b0f9725aeb7b0b70a"
+        }
+      },
+      {
+        "protocol": "chat-completions",
+        "variant": "native-raw-sha-correction",
+        "caseCount": 2,
+        "providerPosts": 22,
+        "exactApplicationTraces": 22,
+        "llmCallProbes": 22,
+        "maxDocumentaryWireCharacters": 13146,
+        "ownedRuntimeStopped": true,
+        "executionResult": {
+          "path": "artifacts/provider-wire-qualification-20261027/chat-native-raw-correction-final-v1/execution-result.json",
+          "sha256": "4fea669a0b840399a19c52b4761ecbe5c8830850838403e39219afd065dd9ed6"
+        },
+        "verification": {
+          "path": "artifacts/provider-wire-qualification-20261027/chat-native-raw-correction-final-v1/verification.json",
+          "sha256": "62080d935aaa818c06dbca4438018d54313b93d98f88efdab92f760cf66f3d14"
+        }
+      },
+      {
+        "protocol": "responses",
+        "variant": "native-raw-sha-correction",
+        "caseCount": 2,
+        "providerPosts": 22,
+        "exactApplicationTraces": 22,
+        "llmCallProbes": 22,
+        "maxDocumentaryWireCharacters": 13147,
+        "ownedRuntimeStopped": true,
+        "executionResult": {
+          "path": "artifacts/provider-wire-qualification-20261027/responses-native-raw-correction-final-v1/execution-result.json",
+          "sha256": "a50057d2969da8791b8af6bcf9e77a9028252c70ff4b86d36292e2598698a990"
+        },
+        "verification": {
+          "path": "artifacts/provider-wire-qualification-20261027/responses-native-raw-correction-final-v1/verification.json",
+          "sha256": "62080d935aaa818c06dbca4438018d54313b93d98f88efdab92f760cf66f3d14"
+        }
+      },
+      {
+        "protocol": "chat-completions",
+        "variant": "invented-citation",
+        "caseCount": 2,
+        "providerPosts": 22,
+        "exactApplicationTraces": 22,
+        "llmCallProbes": 22,
+        "maxDocumentaryWireCharacters": 13146,
+        "ownedRuntimeStopped": true,
+        "executionResult": {
+          "path": "artifacts/provider-wire-qualification-20261027/chat-invented-citation-final-v1/execution-result.json",
+          "sha256": "8a9026f0cc6fb3e194fac578591605e03fe0824e8ba404ec3850dda8c6b66039"
+        },
+        "verification": {
+          "path": "artifacts/provider-wire-qualification-20261027/chat-invented-citation-final-v1/verification.json",
+          "sha256": "da2bd3adff007c84454b202fc62e146d928366d48d9e9456821d79811f059b1d"
+        }
+      },
+      {
+        "protocol": "responses",
+        "variant": "invented-citation",
+        "caseCount": 2,
+        "providerPosts": 22,
+        "exactApplicationTraces": 22,
+        "llmCallProbes": 22,
+        "maxDocumentaryWireCharacters": 13147,
+        "ownedRuntimeStopped": true,
+        "executionResult": {
+          "path": "artifacts/provider-wire-qualification-20261027/responses-invented-citation-final-v1/execution-result.json",
+          "sha256": "0cbdece7879ca4c621d4e0a4ba62371ad045a810b28e89a5ff71394e1bc91fe5"
+        },
+        "verification": {
+          "path": "artifacts/provider-wire-qualification-20261027/responses-invented-citation-final-v1/verification.json",
+          "sha256": "da2bd3adff007c84454b202fc62e146d928366d48d9e9456821d79811f059b1d"
+        }
+      }
+    ]
+  },
+  "separatelyVersionedShortRefusals": {
+    "backendAssemblySha256": "ac4cf3c04639cd76899ee4482d34e00b137f4d9e638853e952c5310db60eba1e",
+    "releaseBuild": "importer-build-v3",
+    "runs": 4,
+    "cases": 8,
+    "providerPosts": 8,
+    "finalDllRuns": false,
+    "scenarios": [
+      "Forged source hash: no provider POST",
+      "Interrupted output: refused despite parseable JSON"
+    ]
+  },
+  "regression": {
+    "unit": {
+      "backendPassed": 3609,
+      "clientPassed": 2485,
+      "clientCorePassed": 82,
+      "contractsPassed": 60,
+      "totalPassed": 6236,
+      "failed": 0,
+      "skipped": 2,
+      "skipReasons": [
+        "Real Linux case-distinct files required",
+        "Real OCR explicitly opt-in"
+      ],
+      "sourceStable": true,
+      "clientAndContractsFilesIndependentlyRecheckedUnchanged": 959,
+      "commonRunReusedForUnchangedProjects": [
+        "Client",
+        "ClientCore",
+        "Contracts"
+      ]
+    },
+    "postgres": {
+      "passed": 418,
+      "failed": 0,
+      "skipped": 2,
+      "sourceStable": true,
+      "skipReasons": [
+        "Historical legacy-retrieval oracle",
+        "Historical deterministic-writer oracle"
+      ],
+      "ownedClusterRemoved": true,
+      "ownedPortClosed": true,
+      "environmentRestored": true,
+      "existingClusterModified": false
+    },
+    "combinedPassed": 6654,
+    "combinedSkipped": 4,
+    "combinedFailed": 0,
+    "providerAndTableTargetedPassed": 649,
+    "targetedSubsetAlreadyIncludedInBackendTotal": true,
+    "clientRealLoopbackTransportTestsPassed": 12,
+    "harnessPurePythonTestsPassed": 37,
+    "harnessPowerShellCasesPassed": 5,
+    "mutationHelperTestsPassed": 7,
+    "verifierMutations": {
+      "passed": 14,
+      "failed": 0,
+      "protocols": 2,
+      "originalsUnchanged": true,
+      "targets": [
+        "Body bytes",
+        "Protocol label",
+        "Native quality",
+        "Native reference",
+        "Exact application trace",
+        "Terminal citation",
+        "Linked tool arguments"
+      ],
+      "deepTransportBindingsRecomputedFor": [
+        "Native quality",
+        "Native reference",
+        "Linked tool arguments"
+      ],
+      "limits": "These fourteen corruptions are rejected; this does not prove absence of all verifier defects."
+    },
+    "winuiProductionBuild": {
+      "configuration": "Release",
+      "platform": "x64",
+      "testHooks": false,
+      "warnings": 0,
+      "errors": 0,
+      "sourceStable": true,
+      "uiLaunched": false
+    }
+  },
+  "fixes": [
+    "UTF-16 windows preserve complete Unicode characters in backend and client prompts",
+    "Responses output fragments preserve their intervening whitespace",
+    "Table and client-summary quality diagnostics retain bounded warnings and explicit omitted/unknown/malformed states",
+    "Projection counts disclose actual input/visible/omitted/truncated evidence per role",
+    "Most recent explicit evidence readings precede older prompt windows",
+    "Documentary budgets measure actual escaped wire representation",
+    "Only exactly identical current inventories/windows use explicit metadata references; divergent content remains complete",
+    "Unobserved RAW locators reject whole batches before Reader execution and permit bounded correction, including legacy JSON",
+    "Model-visible native cursors resume after actually admitted lines, without mutating original Reader DTOs",
+    "Rejected Chat output retains exact development traces"
+  ],
+  "acceptanceGates": [
+    {
+      "id": "causal-regressions",
+      "status": "PASSED_IN_DECLARED_SCOPE"
+    },
+    {
+      "id": "client-transport",
+      "status": "PASSED_IN_DECLARED_SCOPE"
+    },
+    {
+      "id": "published-corpus",
+      "status": "PASSED_IN_DECLARED_SCOPE"
+    },
+    {
+      "id": "actual-job-path",
+      "status": "PASSED_IN_DECLARED_SCOPE"
+    },
+    {
+      "id": "raw-wire",
+      "status": "PASSED_IN_DECLARED_SCOPE"
+    },
+    {
+      "id": "protocol",
+      "status": "PASSED_IN_DECLARED_SCOPE"
+    },
+    {
+      "id": "negative-and-limits",
+      "status": "PASSED_IN_DECLARED_SCOPE"
+    },
+    {
+      "id": "regression",
+      "status": "PASSED_IN_DECLARED_SCOPE"
+    },
+    {
+      "id": "cleanup",
+      "status": "PASSED_IN_DECLARED_SCOPE"
+    }
+  ],
+  "boundaries": [
+    "Two existing publications replayed; no new ingestion or universal PDF/OCR fidelity approval",
+    "Sparse/canonical SQL paths exercised; dense retrieval relevance not qualified",
+    "Fake provider controls requests and answers; no real-model comprehension or meal-planning approval",
+    "Client transport socket and production build qualified; no new interactive WinUI click-through in this campaign",
+    "Nonzero-offset reads exercised, but unseen-tail recovery beyond initial 2400-character snippets is not proven by these short selected chunks",
+    "Loopback destination observed; general production proxy/redirect prohibition not qualified",
+    "Final runtime uses Development owned fixture; no Linux production stack deployed or modified",
+    "Prior ingestion fidelity limits remain applicable; old failures and superseded receipts remain preserved locally"
+  ],
+  "proofStorage": "Referenced captures and receipts remain private local ignored artifacts; no bodies, source text, keys or deployment configuration are published here.",
+  "localProofPins": [
+    {
+      "path": "artifacts/provider-wire-qualification-20261027/acceptance.v1.json",
+      "sha256": "38e7a02561ec5bd2aa585f5025d202d311bc1c9ed38107543ec3202eeb673f0c"
+    },
+    {
+      "path": "artifacts/provider-wire-qualification-20261027/runtime-final-readback-v1.json",
+      "sha256": "eb641d77ca0cb1c642637fb9bdaf4f2b693c219f3972d46c17f04e8e7371320c"
+    },
+    {
+      "path": "artifacts/provider-wire-qualification-20261027/runtime-short-refusals-v3-readback-v1.json",
+      "sha256": "252101396451dd7970e0c9e45f59499ea0a0b635d72539359c6b5936dec72887"
+    },
+    {
+      "path": "artifacts/provider-wire-qualification-20261027/wire-text-owned-freeze-v7.json",
+      "sha256": "9b19f6b770b4b350d8ec72cad1094d8d5300bc094db571cd867ddf40292850b2"
+    },
+    {
+      "path": "artifacts/provider-wire-qualification-20261027/wire-text-independent-review-table-agent-v6.json",
+      "sha256": "f89697ced7d83169fbd0660a0b4db848828faa9c6bdedbc4bd41b957b1ffd7d7"
+    },
+    {
+      "path": "artifacts/provider-wire-qualification-20261027/runtime-harness-freeze-v8.json",
+      "sha256": "95e1b202681c1d5a587f2a6b34e851ba15ce86eb655969b06fba8ca17ceeb8ff"
+    },
+    {
+      "path": "artifacts/provider-wire-qualification-20261027/wire-harness-independent-review-provider-v2.json",
+      "sha256": "30097578bdf310e827a0d70d4d4078700d3efb7da6a31b25ab02dbfe0eca800a"
+    },
+    {
+      "path": "artifacts/provider-wire-qualification-20261027/verifier-mutations-independent-summary-v1.json",
+      "sha256": "b5fc41249643409219c39539a38bf072a4c1d9317765542a44f6ba2adbc37157"
+    },
+    {
+      "path": "artifacts/provider-wire-qualification-20261027/verifier-mutations-source-freeze-v2.json",
+      "sha256": "e028fcab65ecb9b99280df56066b1f5d615aa0d26c062cc2d0c5e63adbe8b1d9"
+    },
+    {
+      "path": "artifacts/provider-wire-qualification-20261027/tests/backend-unit-final-v3/manifest.json",
+      "sha256": "20ffcd64c5f9baf2eefe2e596ec92df93d7304bc83321af518659017dba63cb6"
+    },
+    {
+      "path": "artifacts/provider-wire-qualification-20261027/tests/common-unit-final-v2/manifest.json",
+      "sha256": "cae2b728e5b0db62be05d3de0e64de5692c057ca8a58f9515e109b76f293fc31"
+    },
+    {
+      "path": "artifacts/provider-wire-qualification-20261027/tests/postgres-final-v1/manifest.json",
+      "sha256": "7667ab518cc132b9e1b86f5c59df490f1faffa106208d675bf3a9393a31a9055"
+    },
+    {
+      "path": "artifacts/provider-wire-qualification-20261027/tests/postgres-final-v1/tests/manifest.json",
+      "sha256": "6128453f344ed350dc3f420da2cd90d14ffdf22cc93671232507e27b640c9b21"
+    },
+    {
+      "path": "artifacts/provider-wire-qualification-20261027/tests/winui-release-final-v1/manifest.json",
+      "sha256": "aaa42d41beeb0865c05761e6307b22c803fbf25516ad2b032cd928c3b7d68154"
+    },
+    {
+      "path": "artifacts/provider-wire-qualification-20261027/root-final-source-check-v1.json",
+      "sha256": "cab3c3c88ca5cd3dd8af123e78f2acf0b277bf352c6ed87b8a8b08960bdb035f"
+    },
+    {
+      "path": "artifacts/provider-wire-qualification-20261027/root-cleanup-readback-v1.json",
+      "sha256": "c262f8bfe81df8e1e49fdc5dc13ed12c202f742d4fb175bfda1a985c35e81f81"
+    },
+    {
+      "path": "artifacts/provider-wire-qualification-20261027/root-runtime-final-readback-v1.json",
+      "sha256": "c1b4288e48ae0306c01baabca399c5c939efad7fb907a93317314cd43c41c55f"
+    }
+  ]
+}

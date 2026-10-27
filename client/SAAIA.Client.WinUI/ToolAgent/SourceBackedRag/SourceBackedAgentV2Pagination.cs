@@ -229,7 +229,7 @@ public sealed partial class SourceBackedAgentV2Runner
         var normalized = string.Join(
             " ",
             value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
-        return normalized.Length <= maximum ? normalized : normalized[..maximum].TrimEnd() + "…";
+        return normalized.Length <= maximum ? normalized : ModelPromptText.Prefix(normalized, maximum).TrimEnd() + "…";
     }
 
     private static string TrimPromptBlock(string? value, int maximum)
@@ -242,6 +242,6 @@ public sealed partial class SourceBackedAgentV2Runner
             .Trim();
         return normalized.Length <= maximum
             ? normalized
-            : normalized[..maximum].TrimEnd() + "…";
+            : ModelPromptText.Prefix(normalized, maximum).TrimEnd() + "…";
     }
 }

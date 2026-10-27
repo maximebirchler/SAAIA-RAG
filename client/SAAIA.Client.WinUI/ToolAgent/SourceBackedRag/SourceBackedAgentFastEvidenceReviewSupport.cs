@@ -428,9 +428,9 @@ public sealed partial class SourceBackedAgentV2Runner
             120,
             Math.Max(24, maximumCharacters / 3));
         var headCharacters = maximumCharacters - tailCharacters - 5;
-        return normalized[..headCharacters].TrimEnd()
+        return ModelPromptText.Prefix(normalized, headCharacters).TrimEnd()
                + " ... "
-               + normalized[^tailCharacters..].TrimStart();
+               + ModelPromptText.Suffix(normalized, tailCharacters).TrimStart();
     }
 
 }

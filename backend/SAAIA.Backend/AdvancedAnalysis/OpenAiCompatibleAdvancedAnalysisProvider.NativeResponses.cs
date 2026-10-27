@@ -91,7 +91,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 if (content.EnumerateArray().Any(part => ReadString(part, "type") == "refusal"))
                     return (null, null, null, "response.output.rejected", "advanced_llm_content_filtered", null);
                 text.AddRange(content.EnumerateArray().Where(c => ReadString(c, "type") == "output_text")
-                    .Select(c => ReadString(c, "text")));
+                    .Select(c => c.TryGetProperty("text", out var value) && value.ValueKind == JsonValueKind.String
+                        ? value.GetString() ?? string.Empty : string.Empty));
             }
         }
         if (calls.Count == 0) return (string.Concat(text), null, null, "response.output_text", null, null);

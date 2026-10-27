@@ -104,6 +104,6 @@ internal static class SourceBackedStructuredValueTypeDecisionBatchPrompt
     {
         var normalized = string.Join(" ", (value ?? string.Empty)
             .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
-        return normalized.Length <= maxLength ? normalized : normalized[..maxLength].TrimEnd() + "...";
+        return normalized.Length <= maxLength ? normalized : ModelPromptText.Prefix(normalized, maxLength).TrimEnd() + "...";
     }
 }

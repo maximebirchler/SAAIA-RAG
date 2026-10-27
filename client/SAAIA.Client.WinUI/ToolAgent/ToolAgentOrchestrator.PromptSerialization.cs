@@ -39,6 +39,6 @@ public sealed partial class ToolAgentOrchestrator
         if (maxChars <= 0 || s.Length <= maxChars)
             return s;
 
-        return s[..maxChars].TrimEnd() + "...";
+        return ModelPromptText.Prefix(s, maxChars).TrimEnd() + "...";
     }
 }

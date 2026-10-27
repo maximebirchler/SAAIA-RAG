@@ -1,6 +1,13 @@
 #requires -Version 7.4
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$OutputDirectory, [int]$BackendPort = 5137, [int]$FixturePort = 18089)
+param(
+    [Parameter(Mandatory)][string]$OutputDirectory,
+    [int]$BackendPort = 5137,
+    [int]$FixturePort = 18089,
+    [switch]$WireQualification,
+    [ValidateSet('chat-completions','responses')][string]$NativeResearchApiProtocol = 'chat-completions',
+    [string]$WireControlPath = ''
+)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $output = [IO.Path]::GetFullPath($OutputDirectory)
@@ -19,11 +26,34 @@ $config.AdvancedAnalysis = @{ Provider = 'customer-server'; ProviderKey = 'winui
     AllowExternalProviderContent = $false; AllowExternalProviderMetadata = $false; SemanticCriticEnabled = $false;
     AdaptiveResearchEnabled = $false; NativeResearchToolsEnabled = $false; PollDelayMilliseconds = 250; LeaseSeconds = 30;
     HeartbeatMilliseconds = 1000; MaximumAttempts = 1; LlmMaximumHttpAttempts = 1; LlmTimeoutSeconds = 60; RetentionDays = 1 }
+if ($WireQualification) {
+    $expectedControl = [IO.Path]::GetFullPath((Join-Path $output 'wire-control.json'))
+    if (-not $WireControlPath -or [IO.Path]::GetFullPath($WireControlPath) -ine $expectedControl -or
+        -not (Test-Path -LiteralPath $expectedControl -PathType Leaf)) { throw 'Wire qualification requires its owned control file.' }
+    $config.AdvancedAnalysis.ProviderKey = 'loopback-wire-qualification'
+    $config.AdvancedAnalysis.LlmModel = 'saaia-wire-fixture'
+    $config.AdvancedAnalysis.AdaptiveResearchEnabled = $true
+    $config.AdvancedAnalysis.NativeResearchToolsEnabled = $true
+    $config.AdvancedAnalysis.NativeObservationReadEnabled = $true
+    $config.AdvancedAnalysis.NativeResearchApiProtocol = $NativeResearchApiProtocol
+    $config.AdvancedAnalysis.NativeResearchTopology = 'agent'
+    $config.AdvancedAnalysis.NativeResearchMaximumHistoryCharacters = 65536
+    $config.AdvancedAnalysis.ExternalMaximumCallsPerJob = 16
+    $config.AdvancedAnalysis.MaximumToolCalls = 16
+    $config.AdvancedAnalysis.MaximumAccumulatedEvidenceItems = 128
+    $config.AdvancedAnalysis.MaximumEvidenceCharactersPerItem = 10000
+    $config.AdvancedAnalysis.MaximumEvidenceCharactersTotal = 24000
+    $config.AdvancedAnalysis.MaximumEvidencePromptCharacters = 14000
+    $config.AdvancedAnalysis.MaximumToolElapsedMilliseconds = 120000
+    $config.AdvancedAnalysis.DevelopmentTraceDirectory = Join-Path $output 'wire-application-traces'
+    $config.AdvancedAnalysis.DevelopmentTraceStrict = $true
+}
 $configPath = Join-Path $runtime 'deployment.config.json'
 [IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json -Depth 12))
 Copy-Item -LiteralPath (Join-Path $output 'runtime/Db') -Destination (Join-Path $runtime 'Db') -Recurse
 $control = Join-Path $runtime 'fixture-control.json'
-[IO.File]::WriteAllText($control, '{"mode":"advanced","delaySeconds":2}')
+if ($WireQualification) { $control = $expectedControl }
+else { [IO.File]::WriteAllText($control, '{"mode":"advanced","delaySeconds":2}') }
 function Start-Owned([string]$Executable,[string[]]$Arguments,[string]$Name,[hashtable]$Environment=@{}) {
     $info=[Diagnostics.ProcessStartInfo]::new($Executable)
     $info.UseShellExecute=$false; $info.CreateNoWindow=$true; $info.WindowStyle=[Diagnostics.ProcessWindowStyle]::Hidden
@@ -39,7 +69,13 @@ function Start-Owned([string]$Executable,[string[]]$Arguments,[string]$Name,[has
     $owner|ConvertTo-Json -Depth 10|Set-Content -LiteralPath $ownerPath -Encoding utf8
     return $process
 }
-$fixture=Start-Owned (Get-Command python).Source @((Join-Path $PSScriptRoot 'fixture_http.py'),'--port',"$FixturePort",'--control',$control,'--events',(Join-Path $output 'advanced-fixture-events.jsonl')) 'advanced-fixture-http'
+$fixtureScript = Join-Path $PSScriptRoot 'fixture_http.py'
+$fixtureArguments = @('--port',"$FixturePort",'--control',$control,'--events',(Join-Path $output 'advanced-fixture-events.jsonl'))
+if ($WireQualification) {
+    $fixtureScript = Join-Path $repo 'tools/validation-wire/fixture_wire.py'
+    $fixtureArguments += @('--capture',(Join-Path $output 'wire-captures'))
+}
+$fixture=Start-Owned (Get-Command python).Source (@($fixtureScript) + $fixtureArguments) 'advanced-fixture-http'
 $backendDll=Join-Path $repo 'backend/SAAIA.Backend/bin/Release/net8.0/SAAIA.Backend.dll'
 $spec=@{executable=(Get-Command dotnet).Source;arguments=@($backendDll,'--contentRoot',$runtime,'--urls',"http://127.0.0.1:$BackendPort");stdout=(Join-Path $output 'advanced-backend.stdout.log');stderr=(Join-Path $output 'advanced-backend.stderr.log')}
 $specPath=Join-Path $runtime 'backend-process.json'
@@ -55,7 +91,7 @@ do {
     Start-Sleep -Milliseconds 500
 }while($true)
 @{schemaVersion='saaia-winui-advanced-worker.v1';backendUrl="http://127.0.0.1:$BackendPort";fixtureUrl="http://127.0.0.1:$FixturePort";
-    realWorkerEnabled=$true;realPostgresSharedOnlyWithinOwnedFixture=$true;providerKey='winui-fixture-customer-server';
-    providerIsDeterministicFixture=$true;externalProviderUsed=$false;terminalOutcome='insufficient_documentation';
-    semanticApproval=$false;ready=$ready}|ConvertTo-Json -Depth 12|Set-Content -LiteralPath (Join-Path $output 'advanced-worker.json') -Encoding utf8
+    realWorkerEnabled=$true;realPostgresSharedOnlyWithinOwnedFixture=$true;providerKey=$config.AdvancedAnalysis.ProviderKey;
+    providerIsDeterministicFixture=$true;externalProviderUsed=$false;terminalOutcome=$(if($WireQualification){'controlled_by_wire_scenario'}else{'insufficient_documentation'});
+    semanticApproval=$false;wireQualification=[bool]$WireQualification;nativeResearchApiProtocol=$NativeResearchApiProtocol;ready=$ready}|ConvertTo-Json -Depth 12|Set-Content -LiteralPath (Join-Path $output 'advanced-worker.json') -Encoding utf8
 Write-Output "Real worker with synthetic loopback provider ready on127.0.0.1:$BackendPort."

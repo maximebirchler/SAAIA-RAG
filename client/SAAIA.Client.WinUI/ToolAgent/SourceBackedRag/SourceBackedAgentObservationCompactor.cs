@@ -402,6 +402,6 @@ public static class SourceBackedAgentObservationCompactor
         var cut = normalized.LastIndexOf(' ', maximumCharacters - 1, maximumCharacters);
         if (cut < maximumCharacters / 2)
             cut = maximumCharacters;
-        return normalized[..cut].TrimEnd() + "…";
+        return ModelPromptText.Prefix(normalized, cut).TrimEnd() + "…";
     }
 }

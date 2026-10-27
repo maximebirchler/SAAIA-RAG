@@ -15,7 +15,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     [InlineData("responses", true)]
     public async Task Native_audit_lines_are_discoverable_first_turn_and_current_exact_once_on_actual_wire(string protocol, bool inventoryFirst)
     {
-        var gateway = new NativeAuditGateway();
+        var gateway = new NativeAuditGateway(exposeInitialInventory: !inventoryFirst);
         var arguments = JsonSerializer.Serialize(new
         {
             sourceKey = "internal-source-1", pageStart = 1, pageEnd = 1, topK = 20,
@@ -119,10 +119,14 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var provider = new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null);
         var method = typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetMethod("CompleteJsonAsync",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var emptyProjection = typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetMethod("BuildPromptEvidence",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(provider, new object?[] { BuildDirectRequest(), Array.Empty<AdvancedAnalysisResolvedEvidence>(),
+                new Dictionary<string, HashSet<string>>(), null });
         var history = new object[] { new { role = "tool", tool_call_id = "native-read-1",
             content = JsonSerializer.Serialize(new { operation = "read_source", nativeReadWindow = new { status = new string('"', 9_000) } }) } };
         var task = (Task)method.Invoke(provider, new object?[] { Guid.NewGuid(), "writer", "Return json.",
-            "{\"evidence\":[]}", 128, CancellationToken.None, false, history })!;
+            "{\"evidence\":[]}", 128, CancellationToken.None, false, history, emptyProjection })!;
         var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() => task);
         Assert.Equal("advanced_native_documentary_wire_budget_exceeded", error.ErrorCode);
         Assert.Empty(factory.Requests);
@@ -172,7 +176,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         private readonly AdvancedAnalysisResolvedEvidence[] _native;
         private readonly AdvancedAnalysisAlternativeNativeReadings _readings;
         private bool _read;
-        public NativeAuditGateway()
+        public NativeAuditGateway(bool exposeInitialInventory = false)
         {
             var document = new CanonicalDocument
             {
@@ -191,8 +195,12 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             NativeLines = window.Lines.Select(line => line.Text).ToArray();
             _readings = new(document.DocumentId.ToString("D"), document.RevisionId.ToString("D"), document.Source.Sha256, 1, null, window);
             var overview = new AdvancedAnalysisSourceOverview(1, 1, 2);
-            _primaries = Enumerable.Range(1, 2).Select(index => BuildEvidence("E" + index, index == 1 ? "Le seuil est 17 bar." : "Another primary.",
-                docId: document.DocumentId.ToString("D"), revisionId: document.RevisionId.ToString("D")) with { SourceOverview = overview }).ToArray();
+            _primaries = Enumerable.Range(1, 2).Select(index => new AdvancedAnalysisResolvedEvidence(new()
+            {
+                EvidenceId = "E" + index, DocId = document.DocumentId.ToString("D"), RevisionId = document.RevisionId.ToString("D"),
+                FileName = "menus.pdf", DocPath = "Documents/menus.pdf", SourceHash = document.Source.Sha256,
+                PageStart = 1, PageEnd = 1, ChunkId = Guid.NewGuid().ToString("D")
+            }, index == 1 ? "Le seuil est 17 bar." : "Another primary.", SourceOverview: overview)).ToArray();
             _native = window.Lines.Select((line, index) => new AdvancedAnalysisResolvedEvidence(new()
             {
                 EvidenceId = "N" + index, DocId = document.DocumentId.ToString("D"), RevisionId = document.RevisionId.ToString("D"),
@@ -203,6 +211,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                 NativeObservation = new(line.Source, 2, 0, 2, null, ["canonical_native_audit_literal_not_primary"]),
                 SourceOverview = overview, SourceQuality = new(null, null, ["canonical_native_audit_literal_not_primary"])
             }).ToArray();
+            if (exposeInitialInventory)
+                ExposeInventory();
         }
         public string RawSha { get; }
         public string[] NativeLines { get; }
@@ -214,10 +224,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             Searches.Add(request);
             if (request.NativeObservationView == "inventory")
             {
-                var inventory = _readings with { View = null, Inventory = new("observed", null, 1, 0, null,
-                    [new(_readings.DocId, _readings.RevisionId, _readings.SourceSha256, new string('d', 64), "native-audit",
-                        RawSha, 1, "native_layout_recovery", "PdfPig", "fixture", "native", "fixture", 2, null, [])]) };
-                _primaries = _primaries.Select(item => item with { SourceOverview = item.SourceOverview! with { NativeObservations = inventory } }).ToArray();
+                var inventory = ExposeInventory();
                 return Task.FromResult(new AdvancedAnalysisSearchObservation(request.Query, [], [], 1, Searches.Count, AlternativeNativeReadings: inventory));
             }
             if (request.Operation == "read_source")
@@ -227,6 +234,14 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             }
             return Task.FromResult(new AdvancedAnalysisSearchObservation(request.Query, _read ? _native : _primaries, [], 1, Searches.Count,
                 AlternativeNativeReadings: _read ? _readings : null));
+        }
+        private AdvancedAnalysisAlternativeNativeReadings ExposeInventory()
+        {
+            var inventory = _readings with { View = null, Inventory = new("observed", null, 1, 0, null,
+                [new(_readings.DocId, _readings.RevisionId, _readings.SourceSha256, new string('d', 64), "native-audit",
+                    RawSha, 1, "native_layout_recovery", "PdfPig", "fixture", "native", "fixture", 2, null, [])]) };
+            _primaries = _primaries.Select(item => item with { SourceOverview = item.SourceOverview! with { NativeObservations = inventory } }).ToArray();
+            return inventory;
         }
     }
 }

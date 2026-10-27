@@ -858,15 +858,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         static bool Covers(int outerOffset, int outerLength, int innerOffset, int innerLength)
             => outerOffset <= innerOffset && (long)outerOffset + outerLength >= (long)innerOffset + innerLength;
         var windows = new List<PromptEvidenceWindow>();
-        var prefixLength = Math.Min(2_400, canonicalContent.Length);
+        var prefixLength = BoundEvidenceTextLength(canonicalContent, 0, 2_400);
         if (!Covers(mainOffset, mainLength, 0, prefixLength))
             windows.Add(new PromptEvidenceWindow(0, canonicalContent[..prefixLength],
                 prefixLength < canonicalContent.Length, IsCanonicalPrefix: true));
         foreach (var prior in (requestedWindow.PreviousWindows ?? []).Take(3).Reverse())
         {
-            if (prior.Offset < 0 || prior.Offset >= canonicalContent.Length || prior.Length <= 0)
+            if (prior.Offset < 0 || prior.Offset >= canonicalContent.Length || prior.Length <= 0
+                || !IsEvidenceTextBoundary(canonicalContent, prior.Offset))
                 continue;
-            var length = Math.Min(Math.Min(prior.Length, 8_000), canonicalContent.Length - prior.Offset);
+            var length = BoundEvidenceTextLength(canonicalContent, prior.Offset, Math.Min(prior.Length, 8_000));
             if (Covers(mainOffset, mainLength, prior.Offset, length)
                 || windows.Any(item => Covers(item.ContentOffset, item.Content.Length, prior.Offset, length)))
                 continue;
@@ -899,7 +900,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         const int maximumSectionTitle = 240;
         const int maximumHeadingPath = 500;
         static string? Bound(string? value, int maximum)
-            => value is { Length: > 0 } && value.Length > maximum ? value[..maximum] : value;
+            => value is { Length: > 0 } && value.Length > maximum
+                ? value[..BoundEvidenceTextLength(value, 0, maximum)] : value;
         static string? Code(string? value, int maximum)
             => value is { Length: > 0 } && value.Length <= maximum
                 && value.All(ch => char.IsAsciiLetterOrDigit(ch) || ch is '_' or '-' or '.') ? value : null;
@@ -1184,7 +1186,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         if (evidence.Any(item => item.TableFragment is not null || item.SourceObservation is not null || item.NativeObservation is not null
             || item.SourceOverview?.TableRegionObservations is not null || item.SourceOverview?.NativeObservations is not null))
             remaining = Math.Min(remaining, configuredMaximum / 2);
-        remaining -= 2; // The serialized evidence array brackets consume the same budget.
+        // Reserve the enclosing field and brackets at the same escaping layer.
+        // observations is the longer documentary collection name used by review.
+        remaining -= MeasureDocumentaryProjectionWireOverhead();
         var promptEvidence = new List<PromptEvidenceItem>();
         var sourceKeys = persistentSourceKeys
             ?? new Dictionary<string, string>(StringComparer.Ordinal);
@@ -1217,11 +1221,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             {
                 requestedWindow = window;
                 contentOffset = Math.Clamp(window.Offset, 0, Math.Max(0, content.Length - 1));
+                if (!IsEvidenceTextBoundary(content, contentOffset))
+                    throw new AdvancedAnalysisProviderException("advanced_native_evidence_read_invalid");
                 maximumContentCharacters = window.Length;
                 content = content[contentOffset..];
             }
             if (item.SourceObservation is null && item.NativeObservation is null && content.Length > maximumContentCharacters)
-                content = content[..maximumContentCharacters];
+                content = content[..BoundEvidenceTextLength(content, 0, maximumContentCharacters)];
             var evidenceId = item.Reference.EvidenceId;
             var retrievedFor = evidenceId is not null
                                && retrievalQueriesByEvidenceId.TryGetValue(
@@ -1289,7 +1295,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 + separatorCharacters;
             if (observation.SourceOverview?.NativeObservations is not null && serializedCharacters > remaining
                 && item.NativeObservation is null)
+            {
+                // A later locator must not evict a complete, more recent read.
+                // Omit the whole item and announce it in evidenceProjection.
+                if (promptEvidence.Count > 0)
+                    break;
                 throw new AdvancedAnalysisProviderException("advanced_native_documentary_metadata_budget_exceeded");
+            }
             if ((item.SourceObservation is not null || item.NativeObservation is not null) && serializedCharacters > remaining)
             {
                 // No part of an OCR line is admissible as a surrogate for the
@@ -1298,7 +1310,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     NextContentOffset = null, SupportingContentWindows = [] };
                 serializedCharacters = MeasurePromptEvidenceCharacters(observation) + separatorCharacters;
                 if (serializedCharacters > remaining)
+                {
+                    if (promptEvidence.Count > 0)
+                        break;
                     throw new AdvancedAnalysisProviderException("advanced_secondary_documentary_metadata_budget_exceeded");
+                }
                 remaining -= serializedCharacters;
                 promptEvidence.Add(observation);
                 continue;
@@ -1330,15 +1346,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 while (lowerPrefix < upperPrefix)
                 {
                     var middle = lowerPrefix + (upperPrefix - lowerPrefix + 1) / 2;
+                    var completePrefixLength = BoundEvidenceTextLength(prefix.Content, 0, middle);
                     var bounded = observation with
                     {
-                        SupportingContentWindows = [prefix with { Content = prefix.Content[..middle], ContentTruncated = true }]
+                        SupportingContentWindows = [prefix with { Content = prefix.Content[..completePrefixLength], ContentTruncated = true }]
                     };
                     if (MeasurePromptEvidenceCharacters(bounded) + separatorCharacters <= remaining)
                         lowerPrefix = middle;
                     else
                         upperPrefix = middle - 1;
                 }
+                lowerPrefix = BoundEvidenceTextLength(prefix.Content, 0, lowerPrefix);
                 observation = lowerPrefix == 0 ? withoutPrefix : observation with
                 {
                     SupportingContentWindows = [prefix with { Content = prefix.Content[..lowerPrefix], ContentTruncated = true }]
@@ -1352,18 +1370,20 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 while (lower < upper)
                 {
                     var middle = lower + (upper - lower + 1) / 2;
+                    var completeContentLength = BoundEvidenceTextLength(content, 0, middle);
                     var bounded = observation with
                     {
-                        Content = content[..middle],
-                        ContentTruncated = contentOffset > 0 || middle < originalContentLength,
-                        NextContentOffset = contentOffset + middle < originalContentLength
-                            ? contentOffset + middle : null
+                        Content = content[..completeContentLength],
+                        ContentTruncated = contentOffset > 0 || completeContentLength < originalContentLength,
+                        NextContentOffset = contentOffset + completeContentLength < originalContentLength
+                            ? contentOffset + completeContentLength : null
                     };
                     if (MeasurePromptEvidenceCharacters(bounded) + separatorCharacters <= remaining)
                         lower = middle;
                     else
                         upper = middle - 1;
                 }
+                lower = BoundEvidenceTextLength(content, 0, lower);
                 if (lower == 0)
                     break;
                 observation = observation with
@@ -1379,7 +1399,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             remaining -= serializedCharacters;
             promptEvidence.Add(observation);
         }
-        return promptEvidence;
+        return new PromptEvidenceProjection(promptEvidence, prioritizedEvidence.Count);
     }
 
     internal static int ResolveStructuredEvidencePromptMinimumCharacters(

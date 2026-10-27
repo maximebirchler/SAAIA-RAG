@@ -166,7 +166,7 @@ public sealed record SourceBackedEvidenceWorkspace(
     private static string Trim(string value, int maxLength)
     {
         var text = (value ?? string.Empty).Replace("\r", " ").Replace("\n", " ").Trim();
-        return text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "...";
+        return text.Length <= maxLength ? text : ModelPromptText.Prefix(text, maxLength).TrimEnd() + "...";
     }
 }
 

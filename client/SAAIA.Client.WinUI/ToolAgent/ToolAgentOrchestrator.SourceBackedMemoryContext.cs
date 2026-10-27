@@ -74,6 +74,6 @@ public sealed partial class ToolAgentOrchestrator
                 .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         return text.Length <= maxLength
             ? text
-            : text[..maxLength].TrimEnd() + "...";
+            : ModelPromptText.Prefix(text, maxLength).TrimEnd() + "...";
     }
 }

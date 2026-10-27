@@ -74,7 +74,7 @@ public sealed partial class SourceBackedAgentV2Runner
         var cut = prompt.LastIndexOf('\n', Math.Min(contentLimit, prompt.Length - 1));
         if (cut < maximumCharacters / 2)
             cut = contentLimit;
-        return prompt[..cut].TrimEnd() + marker;
+        return ModelPromptText.Prefix(prompt, cut).TrimEnd() + marker;
     }
 
     private static string BuildMechanicalRepairMessage(SourceVerificationResult verification)

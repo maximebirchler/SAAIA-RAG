@@ -1827,3 +1827,86 @@ limites documentaires. Il épingle les reçus locaux et les contre-revues.
 Le lot final ajoute uniquement ce bilan, ce journal et les deux fichiers
 opt-in de ressources ; aucun défaut applicatif ni installateur n'est
 changé après les tests du code `f4f5604`.
+
+### 27 octobre 2026 — parcours jusqu’au faux fournisseur qualifié
+
+La nouvelle campagne ferme le contrôle du transport documentaire sans appel
+payant. Deux publications réelles source27 (NIST et recettes) sont rejouées
+dans un PostgreSQL16 Windows isolé, avec leurs identités, chunks, métadonnées
+et artefacts canoniques vérifiés. Le repository produit republie les ancres
+et lectures natives. Le runtime exerce réellement API, store, worker,
+gateway, recherche SQL/canonique, outils et socket HTTP loopback. Il ne
+refait ni l’OCR ni une ingestion Linux Production ; TEI/Qdrant sont des
+adaptateurs déterministes, sans qualification de pertinence vectorielle.
+
+Les régressions causales ont corrigé les coupures Unicode backend/client,
+les espaces entre fragments Responses, les avertissements perdus dans les
+tableaux/résumés et les omissions de projection non comptées. Les lectures
+explicitement demandées les plus récentes passent avant les anciennes.
+Le budget mesure le dernier échappement JSON ; les inventaires strictement
+identiques utilisent des références explicites vers leur exemplaire courant,
+avec conservation du contenu complet en cas de divergence. Les lots RAW
+non observés sont refusés avant exécution puis peuvent être corrigés,
+également dans la voie JSON historique. Les refus Chat conservent leur trace.
+
+Une preuve réelle supplémentaire a révélé un curseur Reader à3 alors que
+la projection partielle ne livrait qu’une ligne et annonçait la reprise à2.
+Le prompt aligne désormais les deux curseurs sur le préfixe effectivement
+admis, sans modifier le Reader, les textes, références ou qualités. La
+lecture initiale offset1/limit2 reste inchangée ; le faux fournisseur suit
+seulement le curseur observé pour récupérer la dernière des trois lignes
+obligatoires. Les budgets14000/7000 ne sont pas augmentés. Le maximum final
+observé est13147 caractères documentaires.
+
+Les six campagnes de la DLL Release finale passent : positifs40POST,
+RAW erroné puis corrigé44POST et citations inventées44POST, deux documents
+sur chacun des protocoles Chat Completions/Responses. Soit12cas/128POST,
+avec égalité des octets reçus, traces applicatives et sondes, références,
+qualité/provenance et résultats SQL/API. Les mauvaises citations restent
+refusées, sans réponse persistée. Les diagnostics n’ont aucun compteur
+perdu ou tronqué. Tous les environnements possédés sont arrêtés.
+
+Le vérificateur est éprouvé sur copies :14/14 corruptions rejetées au motif
+exact sur les deux protocoles, originaux inchangés. Qualité, référence et
+arguments sont aussi altérés après recalcul des liaisons SHA/trace/sonde,
+afin d’atteindre les contrôles profonds. Les défauts d’outillage rencontrés
+(copie facultative exigée à tort, chemins Windows longs, faux fournisseur
+qui ne poursuivait pas la pagination) sont corrigés sans assouplir le
+critère des trois lignes ; les anciens refus restent conservés.
+
+Validation finale :3609 tests backend,2485 client,82 cœur client et60
+contrats réussis, soit6236 unitaires sans échec et deux exclusions
+(fichiers Linux et OCR opt-in). Les959 sources client/contrats du lot
+commun déjà vert sont revérifiées identiques. La suite PostgreSQL complète
+passe418 tests, zéro échec et deux anciens oracles explicitement exclus.
+Le cluster temporaire est supprimé, son port fermé, l’environnement
+restauré et le listener habituel5432 inchangé. WinUI production Release
+x64 compile sans options de test, sans avertissement ni erreur, sources
+stables. Les649 tests ciblés fournisseur/table sont inclus dans les3609 ;
+ils ne s’ajoutent pas au total. Harnais37 tests Python et5 cas PowerShell,
+helper de mutations7 tests dont un vrai chemin Windows long.
+
+Le backend Release final a le SHA
+`4e579fea1447697f38d5a09a17231d4d15add7af4bee4f02a8c0deddc9a40306`.
+Les builds ont été exécutés sur un arbre modifié depuis `d5482db` : les
+inventaires de sources et SHA des DLL identifient le code testé, pas le
+seul commit de base. Gel produit v7 :
+`9b19f6b770b4b350d8ec72cad1094d8d5300bc094db571cd867ddf40292850b2` ;
+gel harnais v8 :
+`95e1b202681c1d5a587f2a6b34e851ba15ce86eb655969b06fba8ca17ceeb8ff`.
+Les quatre refus courts antérieurs (source falsifiée et sortie interrompue,
+huit cas/huitPOST) restent attribués à leur DLL v3 et ne sont pas renommés
+en tests de la DLL finale.
+
+Le bilan lisible et le reçu public épinglant les preuves privées sont dans
+`artifacts/validation/model-wire-qualification-20261027/`. Les corps HTTP,
+corpus, clés et configurations privées ne sont pas versionnés. Cette
+qualification démontre ces parcours contrôlés, sans garantir tous les
+PDF, tous les défauts possibles de l’oracle, la pertinence dense, une
+nouvelle visite interactive WinUI ou le raisonnement d’un modèle réel.
+Elle ne prouve pas la récupération d’une fin de chunk invisible au-delà
+de2400 caractères sur ces deux chunks courts. Les limites documentaires
+antérieures restent explicites et le produit reste `TESTE_NON_APPROUVE`.
+Le planning et la qualité sémantique seront évalués séparément avec un
+vrai modèle. Rapports Telegram delta28 puis29 envoyés avec reçus locaux ;
+coût fournisseur de cette campagne :0.

@@ -21,7 +21,26 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 SourceOverview = overview with { TableRegionObservations = null, NativeObservations = null }
             };
         }
-        return JsonSerializer.Serialize(budgetEvidence, JsonOptions).Length;
+        // Excerpts are nested JSON in user.content. Charge the representation
+        // actually sent on the wire, including the second escaping layer.
+        // Shared inventories keep their own reserved budget and final gate.
+        return MeasureEscapedDocumentaryTextCharacters(JsonSerializer.Serialize(budgetEvidence, JsonOptions));
+    }
+
+    private static int MeasureEscapedDocumentaryTextCharacters(string text)
+        => JsonSerializer.Serialize(text, JsonOptions).Length - 2;
+
+    private int MeasureDocumentaryProjectionWireOverhead()
+    {
+        // Use the same enrichers and exact final-wire measurement for the empty
+        // collection and feature capabilities. The operational sibling retains
+        // the separating comma that is present in every real documentary call.
+        var prompt = AddNativeObservationsToPrompt(AddVisualSourcesToPrompt(
+            "{\"observations\":[],\"structuredTables\":[],\"projectionBudgetBaseline\":true}"));
+        return MeasureSecondaryDocumentaryWireCharacters(JsonSerializer.Serialize(new
+        {
+            messages = new[] { new { role = "user", content = prompt } }
+        }, JsonOptions));
     }
 
     private JsonNode? TableReadingsForNativeToolResult(object alternative,
@@ -74,7 +93,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         return result;
     }
 
-    private JsonNode? NativeReadingsForToolResult(object alternative, IReadOnlyList<PromptEvidenceItem> visible)
+    private JsonNode? NativeReadingsForToolResult(object alternative, IReadOnlyList<PromptEvidenceItem> visible,
+        AdvancedAnalysisSearchRequest? request = null)
     {
         var node = JsonSerializer.SerializeToNode(alternative, JsonOptions);
         if (!_options.NativeObservationReadEnabled || node is not JsonObject result
@@ -83,6 +103,22 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
         var current = JsonSerializer.SerializeToNode(BuildAlternativeNativeReadingsForPrompt(visible), JsonOptions);
         var currentViews = current?["views"] as JsonArray;
+        if (result["inventories"] is JsonArray inventories)
+            for (var index = 0; index < inventories.Count; index++)
+            {
+                if (inventories[index] is not JsonObject inventory
+                    || inventory["sourceKey"]?.GetValue<string>() is not { } sourceKey
+                    || inventory["physicalPage"]?.GetValue<int>() is not { } page)
+                    continue;
+                var captured = visible.FirstOrDefault(item => item.SourceKey == sourceKey
+                    && item.SourceOverview?.NativeObservations is { Inventory: not null } native
+                    && native.PhysicalPage == page)?.SourceOverview?.NativeObservations;
+                if (captured is not null && JsonNode.DeepEquals(inventory["inventory"],
+                        JsonSerializer.SerializeToNode(captured.Inventory, JsonOptions))
+                    && NativeInventoryForToolResult(captured, request, visible) is JsonObject reference
+                    && reference.ContainsKey("inventoryReference"))
+                    inventories[index] = reference;
+            }
         foreach (var view in views.OfType<JsonObject>())
         {
             // Compare the complete window, not only its document or source key.
@@ -110,5 +146,53 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             result.Remove("sourceFidelityApproved");
         }
         return result;
+    }
+
+    private JsonNode? NativeInventoryForToolResult(AdvancedAnalysisAlternativeNativeReadings captured,
+        AdvancedAnalysisSearchRequest? request, IReadOnlyList<PromptEvidenceItem> visible)
+    {
+        var full = JsonSerializer.SerializeToNode(captured.Inventory, JsonOptions);
+        if (!_options.NativeObservationReadEnabled || captured.Inventory is null
+            || request?.Operation != "read_source" || request.PageStart != captured.PhysicalPage
+            || request.PageEnd != captured.PhysicalPage
+            || !string.Equals(request.DocId, captured.DocId, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(request.RevisionId, captured.RevisionId, StringComparison.OrdinalIgnoreCase)
+            || request.NativeObservationView == "inventory"
+                && (request.NativeObservationOffset ?? 0) != captured.Inventory.Offset)
+            return full;
+
+        var current = JsonSerializer.SerializeToNode(BuildAlternativeNativeReadingsForPrompt(visible), JsonOptions);
+        if (current?["inventories"] is not JsonArray inventories)
+            return full;
+        foreach (var inventory in inventories.OfType<JsonObject>())
+        {
+            if (inventory["sourceKey"]?.GetValue<string>() is not { } sourceKey
+                || inventory["physicalPage"]?.GetValue<int>() != captured.PhysicalPage
+                || !JsonNode.DeepEquals(inventory["inventory"], full))
+                continue;
+            var sources = visible.Where(item => item.SourceKey == sourceKey
+                && item.SourceOverview?.NativeObservations?.PhysicalPage == captured.PhysicalPage).ToArray();
+            if (sources.Length == 0 || sources.Any(item =>
+                    !string.Equals(item.SourceReference.DocId, captured.DocId, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(item.SourceReference.RevisionId, captured.RevisionId, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(item.SourceReference.SourceHash, captured.SourceSha256, StringComparison.OrdinalIgnoreCase)
+                    || item.SourceOverview?.NativeObservations is not { } native
+                    || !string.Equals(native.DocId, captured.DocId, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(native.RevisionId, captured.RevisionId, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(native.SourceSha256, captured.SourceSha256, StringComparison.OrdinalIgnoreCase)
+                    || !JsonNode.DeepEquals(JsonSerializer.SerializeToNode(native.Inventory, JsonOptions), full)))
+                continue;
+
+            // The complete descriptor catalogue, its quality/provenance and
+            // exact cursor remain in this request's current-user inventory.
+            // Different sources, pages, windows or contents stay self-contained.
+            return JsonSerializer.SerializeToNode(new
+            {
+                sourceKey, captured.DocId, captured.RevisionId, captured.SourceSha256,
+                captured.PhysicalPage, captured.Inventory.Offset,
+                inventoryReference = "current_user.alternativeNativeReadings.inventories[exact_source_page_offset].inventory"
+            }, JsonOptions);
+        }
+        return full;
     }
 }

@@ -51,7 +51,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     view.RowIndices, view.Html, view.EvidenceIds, view.Complete, view.NextRowOffset, view.Status,
                     view.CompletenessBasis, view.SourceFidelityValidated, view.QualitySignals,
                     view.MissingRowIndices, view.MissingRowsOmitted,
-                    instruction = "Rows joined only from this observed canonical grid. Complete means canonical row coverage, not PDF or visual fidelity. Cite every contributing evidenceId needed by a relationship; do not infer absent rows, cell boundaries, captions or graph edges. Use read_source with tableOrdinal/tableRowOffset/tableRowLimit for another row window."
+                    view.QualityMetadataMalformed, view.QualityMetadataTruncated, view.QualitySignalsOmittedCount,
+                    instruction = "Rows joined only from this observed canonical grid. Complete means canonical row coverage, not PDF or visual fidelity. qualityMetadataMalformed or qualityMetadataTruncated means limited diagnostics; qualitySignalsOmittedCount counts known omitted codes, never unknown metadata contents. Cite every contributing evidenceId needed by a relationship; do not infer absent rows, cell boundaries, captions or graph edges. Use read_source with tableOrdinal/tableRowOffset/tableRowLimit for another row window."
                 };
                 var size = JsonSerializer.Serialize(compact, JsonOptions).Length + (result.Count == 0 ? 0 : 1);
                 if (size > remaining)

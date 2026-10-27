@@ -9,7 +9,8 @@ internal sealed record AdvancedAnalysisStructuredTableView(string DocId, string 
     IReadOnlyList<string> CanonicalTableCellIds, bool Complete, int? NextRowOffset, string Status,
     string CompletenessBasis =  "observed_published_canonical_grid_rows", bool SourceFidelityValidated = false,
     IReadOnlyList<string>? QualitySignals = null, IReadOnlyList<int>? MissingRowIndices = null,
-    int MissingRowsOmitted = 0);
+    int MissingRowsOmitted = 0, bool QualityMetadataMalformed = false,
+    bool QualityMetadataTruncated = false, int QualitySignalsOmittedCount = 0);
 
 internal static class AdvancedAnalysisStructuredTableAssembler
 {
@@ -31,6 +32,16 @@ internal static class AdvancedAnalysisStructuredTableAssembler
             if (request?.TableOrdinal is { } wanted && wanted != group.Key.Ordinal) continue;
             var members = group.ToArray();
             var first = members[0].TableFragment!;
+            var qualitySignals = members.SelectMany(item => item.TableFragment!.QualitySignals ?? [])
+                .Distinct(StringComparer.Ordinal).ToArray();
+            const int maximumQualitySignals = 64;
+            // Count known unique codes after union, not duplicated omissions
+            // from each fragment. Unknown contents of refused metadata have no
+            // invented count; the separate truncated/malformed flags carry it.
+            var qualitySignalsOmitted = Math.Max(0, qualitySignals.Length - maximumQualitySignals);
+            var qualityMalformed = members.Any(item => item.TableFragment!.QualityMetadataMalformed);
+            var qualityTruncated = qualitySignalsOmitted > 0
+                || members.Any(item => item.TableFragment!.QualityMetadataTruncated);
             var rows = new SortedDictionary<int, (AdvancedAnalysisTableRow Row, List<AdvancedAnalysisResolvedEvidence> Sources)>();
             var conflict = first.ErrorCode;
             foreach (var item in members)
@@ -116,10 +127,11 @@ internal static class AdvancedAnalysisStructuredTableAssembler
                     sources.Select(item => item.Reference.ChunkId!).Distinct(StringComparer.Ordinal).ToArray(),
                     selectedRows.SelectMany(index => rows[index].Row.CellIds).Distinct(StringComparer.Ordinal).ToArray(),
                     complete, complete ? null : next, error ?? (complete ? "complete" : "partial"),
-                    QualitySignals: members.SelectMany(item => item.TableFragment!.QualitySignals ?? [])
-                        .Distinct(StringComparer.Ordinal).Take(32).ToArray(),
+                    QualitySignals: qualitySignals.Take(maximumQualitySignals).ToArray(),
                     MissingRowIndices: Enumerable.Range(0, first.TotalRows).Where(index => !rows.ContainsKey(index)).Take(200).ToArray(),
-                    MissingRowsOmitted: Math.Max(0, first.TotalRows-rows.Count-200));
+                    MissingRowsOmitted: Math.Max(0, first.TotalRows-rows.Count-200),
+                    QualityMetadataMalformed: qualityMalformed, QualityMetadataTruncated: qualityTruncated,
+                    QualitySignalsOmittedCount: qualitySignalsOmitted);
             }
         }
         return result;

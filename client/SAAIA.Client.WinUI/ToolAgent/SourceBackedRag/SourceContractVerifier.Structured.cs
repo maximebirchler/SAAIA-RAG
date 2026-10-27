@@ -89,7 +89,7 @@ public static partial class SourceContractVerifier
     private static string TrimCellForMessage(string cell)
     {
         cell = Regex.Replace(cell, @"\s+", " ", RegexOptions.CultureInvariant).Trim();
-        return cell.Length <= 80 ? cell : cell[..77] + "...";
+        return cell.Length <= 80 ? cell : ModelPromptText.Prefix(cell, 77) + "...";
     }
 
     private static bool RequiresStructuredAnswer(SourceBackedIntake intake)

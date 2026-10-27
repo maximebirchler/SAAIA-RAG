@@ -69,6 +69,6 @@ internal static class SourceBackedDocumentMetadataHints
         var normalized = (value ?? string.Empty).Trim();
         return normalized.Length <= maximumCharacters
             ? normalized
-            : normalized[..maximumCharacters].TrimEnd() + "...";
+            : ModelPromptText.Prefix(normalized, maximumCharacters).TrimEnd() + "...";
     }
 }

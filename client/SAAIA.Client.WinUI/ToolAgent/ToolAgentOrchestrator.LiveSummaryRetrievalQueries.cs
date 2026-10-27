@@ -467,6 +467,6 @@ public sealed partial class ToolAgentOrchestrator
             return null;
 
         var normalized = Regex.Replace(value.Trim(), @"\s+", " ", RegexOptions.CultureInvariant);
-        return normalized.Length <= 120 ? normalized : normalized[..117] + "...";
+        return normalized.Length <= 120 ? normalized : ModelPromptText.Prefix(normalized, 117) + "...";
     }
 }

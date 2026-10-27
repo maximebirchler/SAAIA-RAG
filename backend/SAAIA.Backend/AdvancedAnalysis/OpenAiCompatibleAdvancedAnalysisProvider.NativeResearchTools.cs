@@ -254,6 +254,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 || names.Any(n => !properties.Contains(n, StringComparer.Ordinal) && !optionalProperties.Contains(n,StringComparer.Ordinal))
                 || properties.Any(n => !names.Contains(n, StringComparer.Ordinal)))
                 throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid");
+            if (name == "read_source")
+                RequireObservedNativeRawLocator(arguments.RootElement, prompt.RootElement);
             var query = JsonNode.Parse(arguments.RootElement.GetRawText())!.AsObject();
             query["operation"] = name;
             queries.Add(query);
@@ -384,9 +386,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var nativeAlternative = BuildAlternativeNativeReadingsForPrompt(visible.Where(item =>
                 ids.Contains(item.EvidenceId, StringComparer.Ordinal)).ToArray());
             if (nativeAlternative is not null)
-                outputNode["alternativeNativeReadings"] = NativeReadingsForToolResult(nativeAlternative, visible);
-            if (observation?.AlternativeNativeReadings?.Inventory is { } nativeInventory)
-                outputNode["nativeInventory"] = JsonSerializer.SerializeToNode(nativeInventory, JsonOptions);
+                outputNode["alternativeNativeReadings"] = NativeReadingsForToolResult(nativeAlternative, visible, request);
+            if (observation?.AlternativeNativeReadings is { Inventory: not null } nativeInventory)
+                outputNode["nativeInventory"] = NativeInventoryForToolResult(nativeInventory, request, visible);
             if (observation?.AlternativeNativeReadings?.View is { Lines.Count: 0 } nativeWindow)
                 outputNode["nativeReadWindow"] = JsonSerializer.SerializeToNode(NativeWindowMetadata(nativeWindow), JsonOptions);
             if (observation?.AlternativeTableReadings?.Inventory is { } secondaryInventory)

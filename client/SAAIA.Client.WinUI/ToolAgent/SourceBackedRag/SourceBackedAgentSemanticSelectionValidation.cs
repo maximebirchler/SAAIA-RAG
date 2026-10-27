@@ -409,7 +409,7 @@ public sealed partial class SourceBackedAgentV2Runner
                 StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
         return normalized.Length <= maximumLength
             ? normalized
-            : normalized[..maximumLength].TrimEnd() + "…";
+            : ModelPromptText.Prefix(normalized, maximumLength).TrimEnd() + "…";
     }
 
     private static string EscapeMarkdownTableCell(string value)

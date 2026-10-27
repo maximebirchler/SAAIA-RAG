@@ -661,7 +661,7 @@ public sealed partial class ToolAgentOrchestrator
 
         var start = Math.Max(0, Math.Min(idx, text.Length) - 760);
         var length = Math.Min(1800, text.Length - start);
-        return TrimAfterLikelyExactItemBoundary(text.Substring(start, length));
+        return TrimAfterLikelyExactItemBoundary(ModelPromptText.Window(text, start, length));
     }
 
     private static string GetFocusedExactItemStructuredEvidenceText(string requestedTitle, RagHitSummary hit)
@@ -686,7 +686,7 @@ public sealed partial class ToolAgentOrchestrator
                 ? Math.Max(0, Math.Min(idx, text.Length) - 760)
                 : Math.Min(idx, text.Length);
             var length = Math.Min(1800, text.Length - start);
-            return TrimAfterLikelyExactItemBoundary(text.Substring(start, length));
+            return TrimAfterLikelyExactItemBoundary(ModelPromptText.Window(text, start, length));
         }
 
         return TrimAfterLikelyExactItemBoundary(text);

@@ -129,7 +129,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
 
     private static async Task<string> CaptureNativeBudgetAsync(string protocol,
         AdvancedAnalysisResolvedEvidence[] evidence, string rawSha, int maximumCharacters = 14_000,
-        AdvancedAnalysisResolvedEvidence[]? returnedEvidence = null, bool researchReview = false)
+        AdvancedAnalysisResolvedEvidence[]? returnedEvidence = null, bool researchReview = false,
+        int nativeOffset = 0, int? nativeLimit = null)
     {
         using var factory = new QueuedHttpClientFactory(protocol == "responses"
             ? NativeResponseAnswer("{\"ok\":true}") : Completion("{\"ok\":true}"));
@@ -149,13 +150,13 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var read = new AdvancedAnalysisSearchRequest("Read retained native literal audit", DocId: evidence[0].Reference.DocId,
             RevisionId: evidence[0].Reference.RevisionId, PageStart: 1, PageEnd: 1, Operation: "read_source",
             NativeObservationView: "raw", NativeObservationBlockId: "native-audit", NativeObservationRawSha256: rawSha,
-            NativeObservationOffset: 0, NativeObservationLimit: evidence.Length);
+            NativeObservationOffset: nativeOffset, NativeObservationLimit: nativeLimit ?? evidence.Length);
         var observation = new AdvancedAnalysisSearchObservation(read.Query, returnedEvidence ?? evidence, [], 0, 1);
         var key = (string)typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetMethod("BuildSearchIdentity", flags)!
             .Invoke(null, new object[] { read })!;
         var arguments = JsonSerializer.Serialize(new { sourceKey = "internal-source-1", nativeObservationView = "raw",
             nativeObservationBlockId = "native-audit", nativeObservationRawSha256 = rawSha,
-            nativeObservationOffset = 0, nativeObservationLimit = evidence.Length, pageStart = 1, pageEnd = 1 });
+            nativeObservationOffset = nativeOffset, nativeObservationLimit = nativeLimit ?? evidence.Length, pageStart = 1, pageEnd = 1 });
         var calls = JsonSerializer.Serialize(new[] { new { id = "catalog-read", type = "function",
             function = new { name = "read_source", arguments } } });
         var outputs = protocol == "responses" ? JsonSerializer.Serialize(new[] { new { type = "function_call",
@@ -169,7 +170,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         try
         {
             await (Task)typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetMethod("CompleteJsonAsync", flags)!.Invoke(provider,
-                new object?[] { Guid.NewGuid(), "writer", "Return JSON.", user, 16, CancellationToken.None, false, history })!;
+                new object?[] { Guid.NewGuid(), "writer", "Return JSON.", user, 16, CancellationToken.None, false, history, projection })!;
         }
         catch (AdvancedAnalysisProviderException)
         {

@@ -1266,7 +1266,7 @@ public sealed partial class ToolAgentOrchestrator
             .Trim();
         return compact.Length <= maxCharacters
             ? compact
-            : compact[..maxCharacters].TrimEnd() + "...";
+            : ModelPromptText.Prefix(compact, maxCharacters).TrimEnd() + "...";
     }
 
     private static string EvidenceOverviewReadString(

@@ -65,6 +65,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             {
                 throw new AdvancedAnalysisProviderException("advanced_native_evidence_read_invalid");
             }
+            if (!IsEvidenceTextBoundary(evidence.Content, window.Offset))
+                throw new AdvancedAnalysisProviderException("advanced_native_evidence_read_invalid",
+                    researchArgumentFeedback: new("read_evidence_offset_splits_unicode_character",
+                        "read_evidence", string.Empty, null, null, 4));
         }
         return updates;
     }
@@ -106,10 +110,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             changedIds.Add(id);
         }
         if (changedIds.Count > 0)
+        {
+            // A newer primary-window request supersedes a previous source read.
+            // Rejected or unchanged requests never mutate this ordering memory.
+            context.LatestExplicitReadEvidenceIds = [];
             context.CandidateInventory = context.CandidateInventory.Select(candidate =>
                 candidate.Status == "needs_body" && candidate.BodyEvidenceIds.Any(changedIds.Contains)
                     ? candidate with { Status = "awaiting_review", TargetRoles = [], SelectedRoles = [] }
                     : candidate).ToArray();
+        }
         return changed;
     }
 
@@ -137,5 +146,32 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var expanded = evidence.Where(item => item.Reference.EvidenceId is { } id && windows.ContainsKey(id)).ToArray();
         var ids = expanded.Select(item => item.Reference.EvidenceId!).ToHashSet(StringComparer.Ordinal);
         return expanded.Concat(focused.Where(item => !ids.Contains(item.Reference.EvidenceId!))).ToArray();
+    }
+
+    private static void RememberLatestExplicitRead(SynthesisResearchContext context,
+        IReadOnlyList<AdvancedAnalysisSearchRequest> requests,
+        IReadOnlyDictionary<string, AdvancedAnalysisSearchObservation> results)
+    {
+        var ids = requests.Where(request => request.Operation is "read_source" or "find_source_text")
+            .SelectMany(request => results.TryGetValue(BuildSearchIdentity(request), out var result)
+                ? result.Evidence : []).Select(item => item.Reference.EvidenceId)
+            .Where(id => !string.IsNullOrEmpty(id)).Cast<string>().Distinct(StringComparer.Ordinal).ToArray();
+        if (ids.Length > 0)
+            context.LatestExplicitReadEvidenceIds = ids;
+    }
+
+    private static IReadOnlyList<AdvancedAnalysisResolvedEvidence> PrioritizeLatestExplicitRead(
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence> focused,
+        IReadOnlyList<string> requestedIds)
+    {
+        if (requestedIds.Count == 0)
+            return focused;
+        var current = evidence.Where(item => item.Reference.EvidenceId is not null)
+            .GroupBy(item => item.Reference.EvidenceId!, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
+        var latest = requestedIds.Where(current.ContainsKey).Select(id => current[id]).ToArray();
+        var ids = latest.Select(item => item.Reference.EvidenceId!).ToHashSet(StringComparer.Ordinal);
+        return latest.Concat(focused.Where(item => !ids.Contains(item.Reference.EvidenceId!))).ToArray();
     }
 }

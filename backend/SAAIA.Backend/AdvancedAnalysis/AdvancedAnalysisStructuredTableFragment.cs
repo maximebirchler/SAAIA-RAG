@@ -16,12 +16,16 @@ internal sealed record AdvancedAnalysisTableFragment(int Ordinal, int TotalRows,
 {
     internal const int MaximumRows = 10_000;
     internal const int MaximumColumns = 128;
+    public bool QualityMetadataMalformed { get; init; }
+    public bool QualityMetadataTruncated { get; init; }
+    public int QualitySignalsOmittedCount { get; init; }
 
     internal static AdvancedAnalysisTableFragment? Parse(string text, string? cellIdsJson, string? qualitySignalsJson = null,
         string? cellMapJson = null)
     {
         var start = text.IndexOf("<table", StringComparison.Ordinal);
         if (start<0) return null;
+        var quality = ReadQualityMetadata(qualitySignalsJson);
         var ordinal = -1;
         try
         {
@@ -46,8 +50,7 @@ internal sealed record AdvancedAnalysisTableFragment(int Ordinal, int TotalRows,
                 indices = ParseRanges(root.Attribute("data-source-row-indices")?.Value, total);
             }
             if (total>MaximumRows || indices.Length != nodes.Length) throw new FormatException();
-            if (cellIdsJson?.Length > 4_000_000 || cellMapJson?.Length > 4_000_000
-                || qualitySignalsJson?.Length > 100_000)
+            if (cellIdsJson?.Length > 4_000_000 || cellMapJson?.Length > 4_000_000)
             {
                 throw new FormatException();
             }
@@ -55,7 +58,7 @@ internal sealed record AdvancedAnalysisTableFragment(int Ordinal, int TotalRows,
             if (ids.Length == 0 || ids.Length>16_384 || ids.Any(id => string.IsNullOrWhiteSpace(id) || id.Length>200)
                  || ids.Distinct(StringComparer.Ordinal).Count() != ids.Length) throw new FormatException();
             if (string.IsNullOrEmpty(cellMapJson) || cellMapJson == "null")
-                return new(ordinal, total, 0, [], "structured_table_cell_map_unavailable");
+                return WithQuality(new(ordinal, total, 0, [], "structured_table_cell_map_unavailable"));
             var map = JsonSerializer.Deserialize<CanonicalTableCellMap>(cellMapJson);
             if (map is null || map.SchemaVersion != CanonicalTableCellMap.CurrentSchemaVersion || map.TableOrdinal != ordinal
                 || map.TotalRows != total || map.TotalColumns is <1 or >MaximumColumns || map.Cells is null || map.Cells.Count != ids.Length
@@ -110,15 +113,48 @@ internal sealed record AdvancedAnalysisTableFragment(int Ordinal, int TotalRows,
                          && cell.Attribute("data-cell-role")?.Value is "column_header" or "column_and_row_header" or "row_and_column_header"), rowEnd));
             }
             if (consumed.Count != ids.Length || width != map.TotalColumns) throw new FormatException();
-            var signals = JsonSerializer.Deserialize<string[]>(qualitySignalsJson ??  "[]") ?? [];
-            return new(ordinal, total, width, rows, QualitySignals: signals.Where(value => !string.IsNullOrWhiteSpace(value) && value.Length <= 200
-                 && value.All(character => char.IsAsciiLetterOrDigit(character) || character is '_' or '-' or '.'))
-                .Distinct(StringComparer.Ordinal).Take(32).ToArray());
+            return WithQuality(new(ordinal, total, width, rows));
         }
         catch (Exception error) when (error is XmlException or FormatException or JsonException or OverflowException)
         {
-            return new(ordinal, 0, 0, [], "structured_table_fragment_invalid");
+            return WithQuality(new(ordinal, 0, 0, [], "structured_table_fragment_invalid"));
         }
+
+        AdvancedAnalysisTableFragment WithQuality(AdvancedAnalysisTableFragment fragment) => fragment with
+        {
+            QualitySignals = quality.Signals,
+            QualityMetadataMalformed = quality.MetadataMalformed,
+            QualityMetadataTruncated = quality.MetadataTruncated,
+            QualitySignalsOmittedCount = quality.SignalsOmittedCount
+        };
+    }
+
+    private static AdvancedAnalysisSourceQuality ReadQualityMetadata(string? signalsJson)
+    {
+        var quality = AdvancedAnalysisSourceQuality.FromMetadata(null, null, signalsJson)
+            ?? new(null, null, []);
+        if (signalsJson is null || signalsJson.Length > 100_000)
+            return quality;
+        try
+        {
+            using var json = JsonDocument.Parse(signalsJson);
+            if (json.RootElement.ValueKind != JsonValueKind.Array)
+                return quality;
+            // Fragments are internal and never projected as documentary text.
+            // Keep the complete, source-bounded set until the assembler unions
+            // fragments; truncating each first would miscount shared omissions.
+            // Use the same code syntax as AdvancedAnalysisSourceQuality.
+            var signals = json.RootElement.EnumerateArray()
+                .Where(item => item.ValueKind == JsonValueKind.String)
+                .Select(item => item.GetString())
+                .Where(value => value is { Length: > 0 and <= 160 }
+                    && value.All(character => char.IsAsciiLetterOrDigit(character)
+                        || character is '_' or '-' or '.' or ':'))
+                .Select(value => value!)
+                .Distinct(StringComparer.Ordinal).ToArray();
+            return quality with { Signals = signals, MetadataTruncated = false, SignalsOmittedCount = 0 };
+        }
+        catch (JsonException) { return quality; }
     }
 
     private static int Span(XElement cell, string name)

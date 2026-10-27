@@ -459,7 +459,7 @@ public sealed partial class ToolAgentOrchestrator
 
         return text.Length <= maxLength
             ? text
-            : text[..maxLength].TrimEnd() + "...";
+            : ModelPromptText.Prefix(text, maxLength).TrimEnd() + "...";
     }
 
     private static string PrepareReadableEvidenceText(string? excerpt)
@@ -514,7 +514,7 @@ public sealed partial class ToolAgentOrchestrator
 
         start = Math.Max(0, start);
         var length = Math.Min(readable.Length - start, Math.Max(maxLength + 120, maxLength));
-        var window = readable.Substring(start, length).Trim();
+        var window = ModelPromptText.Window(readable, start, length).Trim();
         return start > 0 ? "... " + window : window;
     }
 

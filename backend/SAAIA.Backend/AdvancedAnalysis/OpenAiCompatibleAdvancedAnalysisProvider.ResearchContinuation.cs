@@ -20,6 +20,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         public int CandidateInventoryAdmissionBlockedCount { get; set; }
         public HashSet<string> ObservedCandidateEvidenceIds { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, EvidenceReadWindow> EvidenceReadWindows { get; } = new(StringComparer.Ordinal);
+        public IReadOnlyList<string> LatestExplicitReadEvidenceIds { get; set; } = [];
         public Dictionary<string, string> PromptSourceKeys { get; } = new(StringComparer.Ordinal);
         public bool CandidateInventoryCheckpointLoaded { get; set; }
         public CandidateExplorerDossier? CandidateExplorerDossier { get; set; }
@@ -203,6 +204,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (_options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
                 focusedEvidence = PrioritizeActiveProposalEvidence(evidence, context.ActiveProposalEvidenceIds, focusedEvidence);
             focusedEvidence = PrioritizeEvidenceReadWindows(evidence, focusedEvidence, context.EvidenceReadWindows);
+            focusedEvidence = PrioritizeLatestExplicitRead(evidence, focusedEvidence, context.LatestExplicitReadEvidenceIds);
             var observations = BuildPromptEvidenceWithPersistentSourceKeys(
                 request, evidence, context.RetrievalQueriesByEvidenceId,
                 focusedEvidence, context.PromptSourceKeys, context.EvidenceReadWindows);
@@ -335,7 +337,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 systemPrompt, userPrompt, maximumTokens, cancellationToken,
                 allowNativeResearch: true,
                 nativeToolTurnMessages: _options.NativeResearchToolsEnabled
-                    ? BuildNativeToolTurnMessages(context.NativeTurn, observations, UsesNativeResponses) : null).ConfigureAwait(false);
+                    ? BuildNativeToolTurnMessages(context.NativeTurn, observations, UsesNativeResponses) : null,
+                canonicalProjection: observations).ConfigureAwait(false);
             if (!RequestsCorpusResearch(completion.Content))
             {
                 if (candidateExplorer)
@@ -504,11 +507,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (evidenceReadsChanged
                 || candidateInventoryChanged && CandidateInventoryEnabled(request))
                 await SaveCandidateInventoryCheckpointAsync(context, cancellationToken).ConfigureAwait(false);
-            var nativeResults = completion.NativeToolCallsJson is null ? null
-                : new Dictionary<string, AdvancedAnalysisSearchObservation>(StringComparer.OrdinalIgnoreCase);
+            var nativeResults = new Dictionary<string, AdvancedAnalysisSearchObservation>(StringComparer.OrdinalIgnoreCase);
             var resourceLimit = await ExecuteSearchBatchAsync(context.Tools, queries, context.PreviouslyExecuted,
                 context.PriorSearches, context.EvidenceGroups, context.RetrievalQueriesByEvidenceId,
                 cancellationToken, nativeResults, allowResourceLimitFeedback: true).ConfigureAwait(false);
+            RememberLatestExplicitRead(context, queries, nativeResults);
             context.ResourceLimit ??= resourceLimit;
             if (workspaceUpdate is not null) context.Workspace = workspaceUpdate;
             if (completion.NativeToolCallsJson is { } executedCalls)

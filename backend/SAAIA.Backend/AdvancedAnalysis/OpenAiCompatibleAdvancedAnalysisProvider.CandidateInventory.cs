@@ -623,7 +623,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var firstLine = content.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
             .Select(line => line.Trim()).FirstOrDefault(line => line.Length >= 2) ?? content.Trim();
         if (firstLine.Length <= 240) return firstLine;
-        var prefix = firstLine[..240];
+        var prefix = firstLine[..BoundEvidenceTextLength(firstLine, 0, 240)];
         var boundary = prefix.LastIndexOfAny([' ', '\t']);
         return (boundary >= 2 ? prefix[..boundary] : prefix).Trim();
     }
@@ -945,12 +945,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (string.IsNullOrWhiteSpace(id)
                 || !evidenceById.TryGetValue(id, out var body)
                 || window is null || window.Offset < 0 || window.Offset >= body.Content.Length
+                || !IsEvidenceTextBoundary(body.Content, window.Offset)
                 || window.Length is < 256 or > 8_000)
                 Reject();
             var previous = window.PreviousWindows ?? [];
             if (previous.Count > 3 || previous.Any(prior => prior is null
                     || prior.PreviousWindows is { Count: > 0 }
                     || prior.Offset < 0 || prior.Offset >= body.Content.Length
+                    || !IsEvidenceTextBoundary(body.Content, prior.Offset)
                     || prior.Length is < 256 or > 8_000)
                 || previous.Select(prior => (prior.Offset,
                         Length: Math.Min(prior.Length, body.Content.Length - prior.Offset)))

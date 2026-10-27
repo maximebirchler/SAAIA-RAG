@@ -169,6 +169,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     throw new JsonException();
                 try { AdvancedAnalysisNativeObservationReader.ValidateRequest(search); }
                 catch (AdvancedAnalysisToolException) { throw new JsonException(); }
+                if (nativeView == "raw")
+                {
+                    var current = JsonSerializer.SerializeToElement(new
+                    {
+                        evidence = observations,
+                        alternativeNativeReadings = observations is null ? null : BuildAlternativeNativeReadingsForPrompt(observations)
+                    }, JsonOptions);
+                    try { RequireObservedNativeRawLocator(item, current); }
+                    catch (AdvancedAnalysisProviderException error) when (error.ErrorCode == "advanced_native_raw_locator_not_observed")
+                    {
+                        throw new AdvancedAnalysisProviderException("advanced_research_arguments_invalid",
+                            researchArgumentFeedback: new("read_source_native_raw_locator_not_observed",
+                                operation, sourceKey, pageStart, pageEnd, 4));
+                    }
+                }
                 try { AdvancedAnalysisVisualSourceReader.ValidateRequest(search, _options.VisualSourceCitationsEnabled); }
                 catch (AdvancedAnalysisToolException) { throw new JsonException(); }
                 if (observationView is not null && observedSource?.SourceOverview?.TableRegionObservations is null

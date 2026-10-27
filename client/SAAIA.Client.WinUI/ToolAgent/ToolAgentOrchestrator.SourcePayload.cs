@@ -160,7 +160,7 @@ public sealed partial class ToolAgentOrchestrator
     private static string CompactClientProfileSignalValue(string value)
     {
         var trimmed = value.Trim();
-        return trimmed.Length <= 160 ? trimmed : trimmed[..160].TrimEnd();
+        return trimmed.Length <= 160 ? trimmed : ModelPromptText.Prefix(trimmed, 160).TrimEnd();
     }
 
     private static ToolMemory.SourceContentCardRef CloneSourceContentCardRef(ToolMemory.SourceContentCardRef card)
