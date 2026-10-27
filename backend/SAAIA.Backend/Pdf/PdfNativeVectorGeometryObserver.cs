@@ -72,7 +72,10 @@ internal static class PdfNativeVectorGeometryObserver
                         edges.Add((edges[^1].To,moves[0].Location));
                     if(edges.Any(e=>!Finite(e.From) || !Finite(e.To) || e.From.X!=e.To.X && e.From.Y!=e.To.Y))
                     {Reject("non_finite_or_non_axis_edges");continue;}
-                    if(path.IsFilled && subpath.IsDrawnAsRectangle && edges.Count==4)
+                    // Filling implicitly closes a subpath; stroking does not. Recognize
+                    // this additional fill-only geometry without extending stroke edges.
+                    var implicitFillRectangle = path.IsFilled && !path.IsStroked && IsImplicitFillRectangle(subpath);
+                    if(path.IsFilled && (subpath.IsDrawnAsRectangle && edges.Count==4 || implicitFillRectangle))
                     {
                         var points=edges.SelectMany(e=>new[]{e.From,e.To}).Distinct().ToArray();
                         if(points.Length==4)
@@ -86,7 +89,7 @@ internal static class PdfNativeVectorGeometryObserver
                             {Add("v",(left+right)/2,page.Height-top,page.Height-bottom,width,primitive,subpath);continue;}
                         }
                     }
-                    if(!path.IsStroked) {if(!subpath.IsDrawnAsRectangle) Reject("unsupported_filled_shape");continue;}
+                    if(!path.IsStroked) {if(!subpath.IsDrawnAsRectangle && !implicitFillRectangle) Reject("unsupported_filled_shape");continue;}
                     if(path.LineDashPattern is {Array.Count:>0} || path.LineCapStyle!=LineCapStyle.Butt)
                     {Reject("dash_or_cap");continue;}
                     var thickness=path.LineWidth;
@@ -127,5 +130,33 @@ internal static class PdfNativeVectorGeometryObserver
             rules.Add(new(){RuleId=id,Axis=axis,Coordinate=coordinate,Start=start,End=end,Thickness=thickness,PrimitiveIds=[primitive]});
             diagnostics.RuleEmitted(primitive);
         }
+    }
+
+    private static bool IsImplicitFillRectangle(PdfSubpath subpath)
+    {
+        // The bounded form is exactly one move and three connected lines. Four
+        // distinct corners and every cyclic edge must form an axis-aligned box.
+        if (subpath.Commands.Count != 4 || subpath.Commands[0] is not PdfSubpath.Move move
+            || subpath.Commands[1] is not PdfSubpath.Line first
+            || subpath.Commands[2] is not PdfSubpath.Line second
+            || subpath.Commands[3] is not PdfSubpath.Line third
+            || first.From != move.Location || second.From != first.To || third.From != second.To)
+            return false;
+
+        PdfPoint[] corners = [move.Location, first.To, second.To, third.To];
+        if (corners.Any(point => !double.IsFinite(point.X) || !double.IsFinite(point.Y))
+            || corners.Distinct().Count() != 4
+            || corners.Select(point => point.X).Distinct().Count() != 2
+            || corners.Select(point => point.Y).Distinct().Count() != 2)
+            return false;
+
+        for (var index = 0; index < corners.Length; index++)
+        {
+            var from = corners[index];
+            var to = corners[(index + 1) % corners.Length];
+            if (from == to || from.X != to.X && from.Y != to.Y)
+                return false;
+        }
+        return true;
     }
 }

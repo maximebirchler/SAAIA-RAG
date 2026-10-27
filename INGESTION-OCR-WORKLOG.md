@@ -1302,3 +1302,26 @@ par ajout de page aux identifiants sans qualifier la correspondance physique.
 La sonde Source22 attend sa construction et sa qualification Linux réelles.
 La navigation NIST reste à 26/27, sans nouvelle tolérance. Le produit demeure
 **TESTE_NON_APPROUVE**, sans essai payant ni planning dans cette campagne.
+
+## Reconnaissance des rectangles remplis implicitement, Source23
+
+Une capture réelle de NIST p.40, séparée de toute ingestion et sans SQL,
+retrouve 130 chemins, 158 sous-chemins et 746 commandes. Les deux formes
+remplies non supportées sont des rectangles axiaux Move + trois Line,
+sans Close explicite. Leur remplissage ferme implicitement le contour selon
+la sémantique PDF ; leurs hauteurs de 11,52 et 11,46 points dépassent le seuil
+d'une règle fine. Elles ne doivent donc produire aucune nouvelle règle.
+
+Source23 reconnaît cette forme exacte uniquement pour un remplissage sans
+stroke, avec continuité, quatre coins distincts, deux abscisses, deux ordonnées
+et quatre côtés axiaux finis. Les commandes sources restent intactes. Aucun
+segment de fermeture n'est ajouté aux tracés ouverts S ou B ; les clips,
+budgets, seuils et limites de visibilité restent inchangés.
+
+La reproduction avant correction parse douze vrais PDF synthétiques et donne
+trois échecs causaux et neuf témoins positifs. Après correction, 33 contrôles
+ciblés passent, sans avertissement, avec sources stables et les mêmes douze
+empreintes PDF réellement parsées. Ce résultat local ne remplace pas un rejeu
+sur le PDF réel. La page 40 doit conserver ses 64 règles, ses 56 refus de
+clipping et sa géométrie partielle ; la fidélité et la visibilité effective
+ne sont toujours pas approuvées. Aucun appel payant n'est exécuté.
