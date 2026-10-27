@@ -17,12 +17,15 @@ def encoded(value):
 def fixture(count=4, extra_proofs=0):
     days = ["lundi", "mardi", "mercredi", "jeudi", "vendredi"][:count // 4]
     columns = ["petit-déjeuner", "déjeuner", "collation", "souper"]
-    case = {"kind": "one-day-4" if count == 4 else "five-day-20", "question": "Un planning documentaire.",
-            "rowLabels": days, "columns": columns, "answerUnitCount": count, "functionalFiveDayAcceptance": count == 20}
+    policy = "distinct_structured_layout" if count == 4 else "structured_layout"
+    case = {"kind": "one-day-4" if count == 4 else "five-day-20",
+            "question": "Quatre propositions distinctes." if count == 4 else "Un planning documentaire.",
+            "rowLabels": days, "columns": columns, "answerUnitCount": count, "functionalFiveDayAcceptance": count == 20,
+            "selectionPolicy": policy}
     profile = {"case": case, "provider": {"model": "economical-fixture", "apiProtocol": "responses", "reasoningEffort": "low"}}
     load = {"rowLabels": days, "columns": columns, "rowCount": len(days), "columnCount": 4,
             "answerUnitCount": count, "atomicEvidenceCount": count, "structuredLayout": True,
-            "selectionPolicy": "distinct_structured_layout"}
+            "selectionPolicy": policy}
     handoff = {"requestText": case["question"], "transferStage": "before_retrieval", "load": load,
                "researchState": {"evidenceReferences": []}}
     doc_id, revision = "11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"
@@ -289,10 +292,54 @@ class PlanningResultMechanicalTests(unittest.TestCase):
         self.rejects(value, "planning_empty_or_misbound_grid_cell")
 
     def test_new_chunk_id_does_not_make_same_recipe_a_distinct_recipe(self):
-        value = fixture(20)
+        value = fixture(4)
         value["api"]["result"]["claims"][1]["selectedItem"] = "RECETTE--1"
         rebind(value)
         self.rejects(value, "planning_duplicate_recipe_identity")
+
+    def test_historical_grid_reuses_supported_recipe_with_one_source_card_and_reports_cells(self):
+        value = fixture(20)
+        result = value["api"]["result"]
+        reused, original = result["claims"][4], result["claims"][0]
+        reused.update(selectedItem=original["selectedItem"], text=original["text"], evidenceIds=original["evidenceIds"][:])
+        result["answerText"] = result["answerText"].replace("Recette 5 [C5]", "Recette 1 [C5]")
+        result["evidence"] = [row for row in result["evidence"] if row["evidenceId"] != "proof-5"]
+        value["payload"]["evidence"] = [row for row in value["payload"]["evidence"] if row["evidenceId"] != "proof-5"]
+        rebind(value, sync_reader=True)
+        review = evaluate(value)
+        self.assertEqual(20, review["gridCellCount"])
+        self.assertEqual(19, review["distinctSelectedRecipeIdentityCount"])
+        self.assertEqual(19, review["serverReferenceCardCount"])
+        self.assertEqual(1, review["repeatedRecipeReuseCount"])
+        self.assertEqual(["C1", "C5"], review["repeatedRecipeGroups"][0]["claimIds"])
+        self.assertFalse(review["semanticPlanningApproved"])
+
+    def test_missing_or_unknown_selection_policy_cannot_silently_weaken_explicit_case(self):
+        for policy in (None, "unrestricted"):
+            value = fixture()
+            if policy is None:
+                del value["profile"]["case"]["selectionPolicy"]
+            else:
+                value["profile"]["case"]["selectionPolicy"] = policy
+            with self.subTest(policy=policy):
+                self.rejects(value, "planning_case_selection_policy_invalid")
+
+    def test_repeatable_recipe_name_still_requires_its_own_body_in_that_cells_proofs(self):
+        value = fixture(20)
+        result = value["api"]["result"]
+        result["claims"][4].update(selectedItem="Recette 1", text="Recette 1")
+        result["answerText"] = result["answerText"].replace("Recette 5 [C5]", "Recette 1 [C5]")
+        # Keep C5 bound to recipe 5's body: repeatability never transfers the
+        # evidence of a neighbouring recipe or permits a fabricated identity.
+        rebind(value)
+        self.rejects(value, "planning_recipe_has_no_visible_substantive_body_candidate")
+
+    def test_case_policy_cannot_be_strengthened_or_weakened_without_a_new_registered_case(self):
+        for count, policy in ((20, "distinct_structured_layout"), (4, "structured_layout")):
+            value = fixture(count)
+            value["profile"]["case"]["selectionPolicy"] = policy
+            with self.subTest(count=count):
+                self.rejects(value, "planning_case_selection_policy_invalid")
 
     def test_unknown_claim_evidence_and_unused_cards_are_rejected(self):
         value = fixture()

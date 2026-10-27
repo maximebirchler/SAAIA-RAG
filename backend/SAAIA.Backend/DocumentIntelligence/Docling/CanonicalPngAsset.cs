@@ -11,6 +11,33 @@ internal static class CanonicalPngAsset
     internal const long MaximumPixels = 16_000_000;
     private static ReadOnlySpan<byte> Signature => [137, 80, 78, 71, 13, 10, 26, 10];
 
+    // Counts decoded transport bytes without allocating or decoding a PNG.
+    // Pixel/header/CRC validation remains mandatory in ReadEmbedded/Validate.
+    internal static long MeasureEmbeddedByteLength(DoclingImageReference image)
+    {
+        const string prefix = "data:image/png;base64,";
+        if (image.MediaType != "image/png" || string.IsNullOrEmpty(image.Uri) || image.Size is null
+            || !image.Uri.StartsWith(prefix, StringComparison.Ordinal)
+            || image.Uri.Length - prefix.Length > ((MaximumBytes + 2) / 3) * 4)
+            throw new InvalidDataException("canonical_visual_asset_embedded_png_required");
+        var symbols = 0;
+        var padding = 0;
+        foreach (var character in image.Uri.AsSpan(prefix.Length))
+        {
+            if (character is ' ' or '\t' or '\r' or '\n') continue;
+            symbols++;
+            if (character == '=') padding++;
+            else if (padding != 0 || !(character is >= 'A' and <= 'Z' or >= 'a' and <= 'z'
+                     or >= '0' and <= '9' or '+' or '/'))
+                throw new InvalidDataException("canonical_visual_asset_base64_invalid");
+        }
+        if (symbols % 4 != 0 || padding > 2 || (padding > 0 && symbols < 4))
+            throw new InvalidDataException("canonical_visual_asset_base64_invalid");
+        var bytes = (long)symbols / 4 * 3 - padding;
+        if (bytes > MaximumBytes) throw new InvalidDataException("canonical_visual_asset_png_invalid");
+        return bytes;
+    }
+
     internal static ValidatedPngAsset ReadEmbedded(DoclingImageReference image)
     {
         const string prefix = "data:image/png;base64,";

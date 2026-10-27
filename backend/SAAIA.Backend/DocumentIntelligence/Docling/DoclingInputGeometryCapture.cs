@@ -6,9 +6,10 @@ using System.Text.Json;
 using SAAIA.Contracts.DocumentIntelligence;
 
 /// <summary>Auxiliary only. A refusal never changes the primary bytes, DTO or projection.</summary>
-internal sealed class DoclingInputGeometryCapture(int attempt, DoclingInputGeometryBudget budget, bool publicationAllowed)
+internal sealed class DoclingInputGeometryCapture(int attempt, DoclingInputGeometryBudget budget, bool publicationAllowed,
+    long maximumEntityBytes = DocumentIntelligenceOptions.DefaultMaxResponseBytes)
 {
-    internal const int MaximumEntityBytes = 64 * 1024 * 1024;
+    internal const long MaximumEntityBytes = DocumentIntelligenceOptions.DefaultMaxResponseBytes;
     internal const int MaximumJsonBytes = 8 * 1024 * 1024;
     internal const int MaximumGzipBytes = 4 * 1024 * 1024;
     private static readonly JsonSerializerOptions Json = new()
@@ -18,7 +19,8 @@ internal sealed class DoclingInputGeometryCapture(int attempt, DoclingInputGeome
     internal DoclingInputGeometrySnapshot Data { get; } = new()
     {
         Attempt = attempt,
-        Reason = publicationAllowed ? null : "canonical_artifacts_disabled"
+        Reason = publicationAllowed ? null : "canonical_artifacts_disabled",
+        Limits = new() { ResponseEntityBytes = ValidateEntityLimit(maximumEntityBytes) }
     };
     internal DoclingInputGeometryBudget Budget { get; } = budget;
 
@@ -88,7 +90,10 @@ internal sealed class DoclingInputGeometryCapture(int attempt, DoclingInputGeome
             return;
         }
 
-        if (bytes.Length > MaximumEntityBytes)
+        // The primary transport has already admitted these exact bytes. Large
+        // embedded PNG strings are skipped by the token scanner, not copied
+        // into the bounded geometry payload or rewritten before observation.
+        if (bytes.LongLength > Data.Limits.ResponseEntityBytes)
         {
             Refuse("geometry_entity_limit");
             return;
@@ -220,7 +225,7 @@ internal sealed class DoclingInputGeometryCapture(int attempt, DoclingInputGeome
             ["omittedCount"] = Data.OmittedCount?.ToString(CultureInfo.InvariantCulture) ?? "unknown",
             ["responseSha256"] = Data.ResponseSha256 ?? "unavailable",
             ["responseBytes"] = Data.ResponseBytes?.ToString(CultureInfo.InvariantCulture) ?? "unknown",
-            ["entityLimitBytes"] = MaximumEntityBytes.ToString(CultureInfo.InvariantCulture),
+            ["entityLimitBytes"] = Data.Limits.ResponseEntityBytes.ToString(CultureInfo.InvariantCulture),
             ["serializedPdfSha256"] = Data.SerializedPdfSha256 ?? "unavailable",
             ["observerBudgetScope"] = "pre_manifest_own_work_cumulative_retries",
             ["storageChecksWithin5s"] = "false"
@@ -260,6 +265,11 @@ internal sealed class DoclingInputGeometryCapture(int attempt, DoclingInputGeome
         Data.OmittedCount = null;
     }
 
+    private static long ValidateEntityLimit(long maximumEntityBytes)
+        => maximumEntityBytes is >= 1024 * 1024 and <= 2L * 1024 * 1024 * 1024
+            ? maximumEntityBytes
+            : throw new ArgumentOutOfRangeException(nameof(maximumEntityBytes));
+
     private static int Integer(DoclingInputGeometryFields fields, string name) => fields.Fields.TryGetValue(name, out var t) && t.Kind == "Number" && int.TryParse(t.RawToken, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : throw new DoclingInputGeometryRefusal("geometry_projection_binding_invalid");
     private static void MatchInteger(DoclingInputGeometryFields f, string name, int actual)
     {
@@ -279,13 +289,23 @@ internal sealed class DoclingInputGeometryCapture(int attempt, DoclingInputGeome
     private string HashWithinBudget(byte[] bytes, CancellationToken ct)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        for (var offset = 0; offset < bytes.Length; offset += 64 * 1024)
+        for (var offset = 0; offset < bytes.Length;)
         {
             Budget.Check(ct);
-            hash.AppendData(bytes, offset, Math.Min(64 * 1024, bytes.Length - offset));
+            var next = NextHashOffset(offset, bytes.Length);
+            hash.AppendData(bytes, offset, next - offset);
+            offset = next;
         }
 
         return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
+    }
+
+    internal static int NextHashOffset(int offset, int length)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(length);
+        ArgumentOutOfRangeException.ThrowIfNegative(offset);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(offset, length);
+        return checked(offset + Math.Min(64 * 1024, length - offset));
     }
 
     private sealed class LimitedStream(int maximum, DoclingInputGeometryBudget budget, CancellationToken ct) : MemoryStream

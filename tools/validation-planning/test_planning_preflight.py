@@ -12,11 +12,12 @@ from verify_wire import utf16_length
 
 
 class PlanningPreflightPolicyTests(unittest.TestCase):
-    def prepare_inspection(self, root):
-        case = {"question": "planning", "answerUnitCount": 4, "rowLabels": ["lundi"],
-                "columns": ["petit-déjeuner", "déjeuner", "collation", "souper"]}
-        load = dict(case, atomicEvidenceCount=4, rowCount=1, columnCount=4,
-                    structuredLayout=True, selectionPolicy="distinct_structured_layout")
+    def prepare_inspection(self, root, kind="one-day-4"):
+        days = ["lundi"] if kind == "one-day-4" else ["lundi", "mardi", "mercredi", "jeudi", "vendredi"]
+        case = {"kind": kind, "question": "planning", "answerUnitCount": len(days) * 4, "rowLabels": days,
+                "columns": ["petit-déjeuner", "déjeuner", "collation", "souper"],
+                "selectionPolicy": "distinct_structured_layout" if kind == "one-day-4" else "structured_layout"}
+        load = dict(case, atomicEvidenceCount=case["answerUnitCount"], rowCount=len(days), columnCount=4, structuredLayout=True)
         limits = {"maximumEvidencePromptCharacters": 65536, "maximumEvidenceCharactersTotal": 96000,
                   "maximumEvidenceCharactersPerItem": 14000, "maximumHistoryCharacters": 131072,
                   "maximumCallsPerJob": 64, "maximumToolCalls": 128, "writerMaxTokens": 8192,
@@ -91,6 +92,41 @@ class PlanningPreflightPolicyTests(unittest.TestCase):
             value["handoff"]["load"]["answerUnitCount"] = 1
             path.write_text(json.dumps(value), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "planning_handoff_grid_or_initial_evidence_invalid"):
+                inspect(profile, runtime)
+
+    def test_historical_twenty_cell_preflight_preserves_repeatable_policy(self):
+        with tempfile.TemporaryDirectory() as folder:
+            profile, runtime = self.prepare_inspection(pathlib.Path(folder), "five-day-20")
+            self.assertEqual("structured_layout", inspect(profile, runtime)["selectionPolicy"])
+
+    def test_writer_policy_drift_is_rejected_after_wire_trace_and_probe_hashes_are_rebound(self):
+        with tempfile.TemporaryDirectory() as folder:
+            profile, runtime = self.prepare_inspection(pathlib.Path(folder), "five-day-20")
+            captures = runtime / "runtime/planning-wire-captures"
+            metadata_path = captures / "request-0002.http.json"
+            metadata = json.loads(metadata_path.read_bytes())
+            body_path = captures / metadata["bodyFile"]
+            body = json.loads(body_path.read_bytes())
+            payload = json.loads(body["input"][0]["content"])
+            payload["load"]["selectionPolicy"] = "distinct_structured_layout"
+            body["input"][0]["content"] = json.dumps(payload)
+            raw = json.dumps(body).encode("utf-8")
+            request_sha = hashlib.sha256(raw).hexdigest()
+            body_path.write_bytes(raw)
+            metadata.update(bodySha256=request_sha, bodyBytes=len(raw))
+            metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+            trace_path = runtime / "runtime/private-traces/writer.json"
+            trace = json.loads(trace_path.read_bytes())
+            trace.update(requestSha256=request_sha, requestJson=raw.decode("utf-8"))
+            trace_path.write_text(json.dumps(trace), encoding="utf-8")
+            log_path = runtime / "runtime/paid-backend.stdout.log"
+            lines = log_path.read_text(encoding="ascii").splitlines()
+            prefix, measurement = lines[1].split("measurements=", 1)
+            probe = json.loads(measurement)
+            probe.update(request_sha256=request_sha, request_characters=utf16_length(raw.decode("utf-8")))
+            lines[1] = prefix + "measurements=" + json.dumps(probe)
+            log_path.write_bytes(("\n".join(lines)).encode("ascii"))
+            with self.assertRaisesRegex(ValueError, "actual_writer_grid_contract_changed_before_provider"):
                 inspect(profile, runtime)
 
     def test_writer_stops_after_capture_instead_of_faking_a_planning_answer(self):

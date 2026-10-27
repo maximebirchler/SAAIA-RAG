@@ -1,10 +1,44 @@
-"""Pure existing ingestion wire/LLM/Production guards, reused without starting a runner.
+"""Pure ingestion wire/LLM/Production and owned Docker resource guards.
 
-Copied verbatim from validation-ingestion/invoke-linux-ingestion.py; no historical
-runner, OCR evaluator or legacy corpus is imported into the four-book campaign.
+Reuse the ingestion contracts without importing a historical runner, OCR
+evaluator, credential loader or legacy corpus into the four-book campaign.
 """
 from __future__ import annotations
 import uuid
+
+
+def backend_resource_policy(memory_gib: int) -> dict:
+    """Docker limits are owner/inspect evidence, never a signed-config claim."""
+    if type(memory_gib) is not int or memory_gib not in (2, 3):
+        raise ValueError("reviewed_backend_memory_required")
+    return {"schemaVersion": "saaia-owned-backend-resource-policy.v1", "cpuCount": 2,
+            "nanoCpus": 2_000_000_000, "memoryGiB": memory_gib, "memoryBytes": memory_gib * 1024**3,
+            "memorySwapBytes": 3 * 1024**3 if memory_gib == 3 else None,
+            "swapPolicy": "disabled" if memory_gib == 3 else "bootstrap_default_unchanged",
+            "deploymentSignatureCoversDockerResources": False, "doclingCpuOrMemoryChanged": False}
+
+
+def validate_backend_resource_phase(owner: dict, origin: dict, expected: dict) -> None:
+    if (expected != backend_resource_policy(expected.get("memoryGiB"))
+            or owner.get("backendResourcePolicy") != expected or origin.get("backendResourcePolicy") != expected):
+        raise ValueError("backend_resource_policy_changed_between_phases")
+
+
+def validate_backend_resources(owner: dict, backend: dict) -> dict:
+    policy = owner.get("backendResourcePolicy", {})
+    if policy != backend_resource_policy(policy.get("memoryGiB")):
+        raise ValueError("backend_resource_policy_invalid")
+    rows = [row for row in owner.get("containers", []) if row.get("role") == "backend"]
+    host = backend.get("HostConfig", {})
+    if (len(rows) != 1 or backend.get("Id") != rows[0]["id"] or backend.get("Image") != rows[0]["imageId"]
+            or type(host.get("NanoCpus")) is not int or host["NanoCpus"] != policy["nanoCpus"]
+            or type(host.get("Memory")) is not int or host["Memory"] != policy["memoryBytes"]
+            or (policy["swapPolicy"] == "disabled" and
+                (type(host.get("MemorySwap")) is not int or host["MemorySwap"] != policy["memorySwapBytes"]))):
+        raise ValueError("observed_backend_resource_contract_changed")
+    return {"policy": policy, "observedNanoCpus": host["NanoCpus"], "observedMemoryBytes": host["Memory"],
+            "observedMemorySwapBytes": host.get("MemorySwap"), "validated": True,
+            "deploymentSignatureCoversDockerResources": False}
 
 
 def synthetic_admin_headers(key: str) -> dict[str, str]:

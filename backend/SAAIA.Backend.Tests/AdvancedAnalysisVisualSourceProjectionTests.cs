@@ -116,27 +116,29 @@ public sealed class AdvancedAnalysisVisualSourceProjectionTests
     [Fact]
     public void Visual_source_storage_asset_budget_has_an_addressable_last_window_and_does_not_limit_physical_pages()
     {
-        Assert.Equal(512, CanonicalVisualAssetRepo.MaximumDocumentAssets);
-        var last = AdvancedAnalysisVisualSourceProjector.Project(Doc, Revision, Hash, 600, 600,
-            true, 512, [Asset(page: 600)], 511, 64, 20_000);
+        Assert.Equal(1024, CanonicalVisualAssetRepo.MaximumDocumentAssets);
+        var last = AdvancedAnalysisVisualSourceProjector.Project(Doc, Revision, Hash, 1200, 1200,
+            true, 1024, [Asset(page: 1200)], 1023, 64, 20_000);
         Assert.Single(last.Assets!);
         Assert.Null(last.NextAssetOffset);
-        Assert.Equal(511, last.OmittedAssetCount);
+        Assert.Equal(1023, last.OmittedAssetCount);
 
-        var end = AdvancedAnalysisVisualSourceProjector.Project(Doc, Revision, Hash, 600, 600,
-            true, 512, [], 512, 64, 20_000);
+        var end = AdvancedAnalysisVisualSourceProjector.Project(Doc, Revision, Hash, 1200, 1200,
+            true, 1024, [], 1024, 64, 20_000);
         Assert.Empty(end.Assets!);
         Assert.Null(end.NextAssetOffset);
         Assert.Equal("end_of_inventory", end.Status);
+        AdvancedAnalysisVisualSourceReader.ValidateRequest(new AdvancedAnalysisSearchRequest("read", Operation: "read_source",
+            IncludeVisualSources: true, VisualSourceOffset: 1024, VisualSourceLimit: 64), enabled: true);
         Assert.Throws<AdvancedAnalysisToolException>(() => AdvancedAnalysisVisualSourceProjector.Project(
-            Doc, Revision, Hash, 600, 600, true, 513, [Asset(page: 600)], 512, 64, 20_000));
+            Doc, Revision, Hash, 1200, 1200, true, 1025, [Asset(page: 1200)], 1024, 64, 20_000));
     }
 
     [Theory]
     [InlineData(false, "read_source", true, null, null, "visual_source_citations_disabled")]
     [InlineData(true, "search_corpus", true, null, null, "visual_source_request_invalid")]
     [InlineData(true, "read_source", false, 0, null, "visual_source_request_invalid")]
-    [InlineData(true, "read_source", true, 513, null, "visual_source_request_invalid")]
+    [InlineData(true, "read_source", true, 1025, null, "visual_source_request_invalid")]
     public void Visual_source_opt_in_requires_enabled_mode_and_explicit_source_read(
         bool enabled, string operation, bool include, int? offset, int? limit, string code)
     {

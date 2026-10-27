@@ -40,7 +40,14 @@ try{
     Check ($p.corpus.manifestSha256 -ceq (Microsoft.PowerShell.Utility\Get-FileHash -LiteralPath $manifest -Algorithm SHA256).Hash) 'The synthetic backend hash must never replace the actual manifest hash.'
     $handoff=New-PlanningHandoff -Profile $p
     Check ($handoff.load.answerUnitCount -eq 20 -and $handoff.load.rowCount -eq 5 -and $handoff.load.columnCount -eq 4) 'The real planning load must remain five by four.'
-    Check ($handoff.load.selectionPolicy -ceq 'distinct_structured_layout' -and $handoff.researchState.evidenceReferences.Count -eq 0 -and $handoff.transferStage -ceq 'before_retrieval') 'No single-item contract or prepared evidence may replace exploration.'
+    Check ($p.case.selectionPolicy -ceq 'structured_layout' -and $handoff.load.selectionPolicy -ceq $p.case.selectionPolicy -and $handoff.researchState.evidenceReferences.Count -eq 0 -and $handoff.transferStage -ceq 'before_retrieval') 'The historical grid may reuse supported recipes without replacing exploration or coordinates.'
+    $oneDay=Copy-Profile $p;$oneDay.case.kind='one-day-4';$oneDay.case.rowLabels=@('lundi');$oneDay.case.answerUnitCount=4
+    $oneDay.case.functionalFiveDayAcceptance=$false;$oneDay.case.question='Quatre propositions concrètes distinctes.';$oneDay.case.selectionPolicy='distinct_structured_layout'
+    $null=Assert-PlanningProfile -Profile $oneDay -RepositoryRoot $repo
+    Check ((New-PlanningHandoff -Profile $oneDay).load.selectionPolicy -ceq 'distinct_structured_layout') 'The explicit four-distinct diagnostic must retain its diversity requirement.'
+    $q=Copy-Profile $oneDay;$q.case.selectionPolicy='structured_layout';Reject $q 'The explicit distinct diagnostic cannot silently allow repetitions.'
+    $q=Copy-Profile $p;$q.case.Remove('selectionPolicy');Reject $q 'Old profiles without a declared selection policy require a newly frozen profile.'
+    $q=Copy-Profile $p;$q.case.selectionPolicy='distinct_structured_layout';Reject $q 'The historical question cannot silently acquire a twenty-distinct requirement.'
     $options=Get-PlanningAdvancedOptions -Profile $p -OutputDirectory $testRoot -RepositoryRoot $repo
     Check ($options.NativeResearchToolsEnabled -and $options.NativeObservationReadEnabled -and $options.NativeResearchApiProtocol -ceq 'responses') 'Planning must expose the production native/RAW protocol.'
     Check ($options.ExternalBudgetHardLimitUsd -eq [decimal]0.49321314 -and $options.ExternalUsageLedgerPath -eq $p.budget.sharedLedgerPath) 'The durable planning envelope must include the historical baseline exactly once.'

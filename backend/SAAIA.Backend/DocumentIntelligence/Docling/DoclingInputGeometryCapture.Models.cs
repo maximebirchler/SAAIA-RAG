@@ -54,7 +54,7 @@ internal sealed class DoclingInputGeometryTable
 internal sealed record DoclingInputGeometryLink(int SourceTableArrayIndex, string TableId, int PhysicalPage, int ProvenanceIndex, int CellIndex, string CellId, string TextSha256, string? CoordinateOrigin, Dictionary<string, string> InputDoubleBits, string[][]? OutputPointBits);
 internal sealed class DoclingInputGeometrySnapshot
 {
-    public DoclingInputGeometryLimits Limits { get; } = new();
+    public DoclingInputGeometryLimits Limits { get; init; } = new();
     public string SchemaVersion { get; } = "saaia-docling-projection-input-geometry.v1";
     public string CapturePoint { get; } = "final_http_entity_after_httpclient_decompression_before_backend_numeric_conversion";
     public string UploadBasis { get; } = "multipart_pdf_part_successful_serialization_same_attempt";
@@ -91,7 +91,7 @@ internal sealed class DoclingInputGeometrySnapshot
 
 internal sealed class DoclingInputGeometryLimits
 {
-    public int ResponseEntityBytes { get; } = DoclingInputGeometryCapture.MaximumEntityBytes;
+    public long ResponseEntityBytes { get; init; } = DoclingInputGeometryCapture.MaximumEntityBytes;
     public int Pages { get; } = 1024;
     public int Tables { get; } = 1024;
     public int Cells { get; } = 100000;

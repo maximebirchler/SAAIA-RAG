@@ -1,6 +1,8 @@
 # Validation séparée du planning de repas
 
-Ce harnais traite la demande historique complète : cinq jours, quatre créneaux et vingt propositions distinctes. Il ne réemploie pas le contrat du microtest factuel, ses huit pages ou ses quatre appels. Une éventuelle campagne `one-day-4` reste explicitement un diagnostic de quatre cellules et ne valide jamais le planning final.
+Ce harnais traite la demande historique complète : cinq jours, quatre créneaux et vingt cellules concrètes et sourcées. La question demande des sources utiles non dupliquées, sans exiger vingt recettes différentes. Le profil `five-day-20` déclare donc explicitement `selectionPolicy=structured_layout` : une recette documentée peut revenir dans plusieurs cellules adaptées, sous son vrai nom et avec les mêmes preuves dédupliquées. Le reçu indique le nombre réel de recettes distinctes et les coordonnées des répétitions ; il ne les cache pas et ne transforme pas une grille répétée en approbation sémantique. Une cellule vide, un corps non lu, une recette inventée ou une citation incorrecte reste refusé. La pertinence de chaque repas et des répétitions reste à vérifier.
+
+Il ne réemploie pas le contrat du microtest factuel, ses huit pages ou ses quatre appels. Le diagnostic `one-day-4` demande explicitement quatre propositions distinctes et conserve `selectionPolicy=distinct_structured_layout` ; il ne valide jamais le planning final. Ces deux cas exigent une policy présente et cohérente dans le profil, le handoff, le prévol et le dernier message réellement envoyé au modèle. Les anciennes captures/profils sans cette déclaration ne sont pas requalifiés silencieusement : un nouvel essai doit figer son profil et son prévol.
 
 Le profil décrit Responses, `gpt-5.6-luna`, un raisonnement `low`, les outils natifs et les lectures RAW. Ses bornes sont explicites : jusqu'à 64 appels et 128 outils, Writer 8192 tokens, documentaire 65536 caractères, historique 131072. Ces maxima ne sont pas des objectifs de consommation : la réserve monétaire durable peut arrêter le travail avant.
 
@@ -17,6 +19,22 @@ Le prévol emploie le profil technique `customer-server/internal`, nécessaire a
 Le passage `-Execute` exige le profil `AUTHORIZED`, les deux autorisations explicites, le plafond 0,50, un reçu de prévol réussi du même profil et un chemin DPAPI fourni par l'opérateur. Les clés ne sont jamais inscrites dans le profil, les rapports ou les captures. Il faut un nouvel environnement préparé par tentative ; le runner annule ses jobs restants, attend la clôture des réservations et arrête uniquement ses processus vérifiés. Il ne retente jamais automatiquement.
 
 Le résultat reste `TESTE_NON_APPROUVE` jusqu'à la revue des vingt cellules et de leurs preuves. Une réponse `answered`, une insuffisance sûre ou une sortie bornée ne constituent pas à elles seules une acceptation fonctionnelle et sémantique.
+
+## Capacités du profil actuel pour les PDF illustrés
+
+Les images PNG conservées sont bornées à 1 024 ressources et 384 Mio par document,
+avec 16 Mio et 16 millions de pixels par PNG. Ce budget concerne les images
+générées, pas la taille du PDF ou son texte. Chaque provenance est comptée dans
+le volume publié ; partager le décodage ne fusionne aucune identité. Ces bornes
+de qualification restent à éprouver par une ingestion réelle et ne constituent
+pas une capacité universelle. Une capacité configurable et une publication
+progressive des images restent nécessaires pour des documents plus volumineux.
+
+Pour un nouvel owner Linux, `--backend-memory-gib 3` demande explicitement
+2 CPU, 3 Gio de mémoire et aucun swap supplémentaire. Le défaut reste 2 Gio ;
+Docling reste à 3 CPU et 7 Gio. Les ressources sont vérifiées dans les inspections
+Docker et liées à l'owner et à son origine. La signature de la configuration
+Production ne prouve pas, à elle seule, les limites Docker effectivement appliquées.
 
 ## Publication neuve depuis les originaux
 

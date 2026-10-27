@@ -74,17 +74,16 @@ internal static class NativeRouterPrompts
                 questionFocus must be content.
                 """,
             SubmitSourceBackedGridRouteToolName => """
-                This request needs sourced values in repeated row-by-column
-                positions. Expand finite ranges. count = rows.length *
-                columns.length. rowHeader names only the row axis. Axis labels are
-                exact plain visible text without JSON punctuation.
+                Use sourced row-by-column values. Expand finite ranges.
+                count = rows.length * columns.length. rowHeader names only the
+                row axis. Axis labels: exact plain visible text without JSON punctuation.
 
-                sourceItemMode describes completed cells: content_claim for facts
-                about the named row subject; named_item for a new object selected
-                into a row-column slot.
+                sourceItemMode: content_claim for facts about the named row subject;
+                named_item for a new object selected into a cell.
 
-                Distinct-item grid: sourceItemMode=named_item;
-                selectionPolicy=distinct_structured_layout unless repeats allowed.
+                Named-item grid: selectionPolicy=structured_layout by default;
+                distinct_structured_layout only if the user explicitly requires
+                different items in every cell.
 
                 sourceItemType is the answer-bearing item class inside source
                 documents, read and cited before cell placement; never a document,

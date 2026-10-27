@@ -208,9 +208,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            answer the user. Prefer complementary corpus queries that can cover
            every requested output unit. For every structured layout, also refine
            the selection contract:
-           distinct_named_items when cells select new named objects and repeats
-           were not explicitly allowed; repeatable_named_items when the request
-           explicitly allows repeated objects; content_claims when cells state
+           distinct_named_items only when the request or load.selectionPolicy
+           explicitly requires different selected objects; repeatable_named_items
+           by default when cells select named objects without that requirement;
+           content_claims when cells state
            facts about subjects already named by the row axis. Do not inherit an
            incompatible selection contract from the smaller routing model.
            For content_claims about fixed row subjects, also return

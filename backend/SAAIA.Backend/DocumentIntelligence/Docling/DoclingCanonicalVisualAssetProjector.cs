@@ -17,8 +17,20 @@ internal static class DoclingCanonicalVisualAssetProjector
     }
 
     internal static void Apply(CanonicalDocument document, DoclingDocument source)
+        => Apply(document, source, CanonicalVisualAssetBudget.Default);
+
+    internal static void Apply(CanonicalDocument document, DoclingDocument source, CanonicalVisualAssetBudget budget)
     {
-        long totalBytes = 0;
+        var preflight = CanonicalVisualAssetPolicy.MeasureSource(source);
+        if (document.Assets.Count > 0)
+        {
+            var existing = CanonicalVisualAssetPolicy.MeasurePublication(document.Assets);
+            preflight = new(preflight.AssetCount + existing.AssetCount, preflight.LogicalBytes + existing.LogicalBytes,
+                preflight.PageAssets + existing.PageAssets, preflight.FigureAssets + existing.FigureAssets,
+                preflight.UniqueImageReferences + existing.UniqueImageReferences, preflight.UniqueImageBytes + existing.UniqueImageBytes);
+        }
+        CanonicalVisualAssetPolicy.RequireWithinBudget(preflight, budget, "preflight");
+        var decoded = new Dictionary<DoclingImageReference, (ValidatedPngAsset Png, string Hash)>(ReferenceEqualityComparer.Instance);
         var exportedPages = source.Pages.ToDictionary(pair => pair.Value.PageNumber > 0
             ? pair.Value.PageNumber : int.Parse(pair.Key, CultureInfo.InvariantCulture), pair => pair.Value);
         foreach (var page in document.Pages)
@@ -52,11 +64,13 @@ internal static class DoclingCanonicalVisualAssetProjector
 
         CanonicalAsset Add(DoclingImageReference image, int page, string? figure)
         {
-            var png = CanonicalPngAsset.ReadEmbedded(image);
-            totalBytes += png.Bytes.Length;
-            if (document.Assets.Count >= 512 || totalBytes > 128L * 1024 * 1024)
-                throw new InvalidDataException("canonical_visual_asset_document_budget_exceeded");
-            var hash = Convert.ToHexString(SHA256.HashData(png.Bytes)).ToLowerInvariant();
+            if (!decoded.TryGetValue(image, out var retained))
+            {
+                var validated = CanonicalPngAsset.ReadEmbedded(image);
+                retained = (validated, Convert.ToHexString(SHA256.HashData(validated.Bytes)).ToLowerInvariant());
+                decoded.Add(image, retained);
+            }
+            var (png, hash) = retained;
             var assetId = CanonicalStableId.Create("asset", document.RevisionId.ToString("D"), document.Source.Sha256,
                 page.ToString(CultureInfo.InvariantCulture), figure ?? "physical_page", hash);
             var asset = new CanonicalAsset

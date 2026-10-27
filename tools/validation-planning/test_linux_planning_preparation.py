@@ -49,7 +49,8 @@ class LinuxPlanningPreparationTests(unittest.TestCase):
         tree = ast.parse(Path(ingestion.__file__).read_text(encoding="utf-8"))
         names = {node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)
                  and isinstance(node.value, ast.Name) and node.value.id == "helpers"}
-        self.assertEqual(names, {"parse_job_listing", "validate_disabled_llm", "qualification_identity", "synthetic_admin_headers", "validate_full_document_timeouts"})
+        self.assertEqual(names, {"parse_job_listing", "validate_disabled_llm", "qualification_identity", "synthetic_admin_headers", "validate_full_document_timeouts",
+                                "validate_backend_resource_phase", "validate_backend_resources"})
         for name in names:
             self.assertTrue(callable(getattr(contracts, name, None)), name)
 
@@ -159,10 +160,14 @@ class LinuxPlanningPreparationTests(unittest.TestCase):
             "--bootstrap", str(source), "--bootstrap-sha256", sha, "--cache-library", str(source), "--cache-library-sha256", sha,
             "--source-embedding-profile", str(profile), "--source-embedding-profile-sha256", hashlib.sha256(profile.read_bytes()).hexdigest(),
             "--backend-image", "sha256:" + "9" * 64, "--backend-source-revision", "8" * 64]
-        output = io.StringIO()
-        with patch.object(sys, "argv", args), patch.object(bootstrap, "load_module", side_effect=AssertionError("runtime gate crossed")), contextlib.redirect_stdout(output):
-            bootstrap.main()
-        self.assertFalse(json.loads(output.getvalue())["dockerCalled"])
+        for options, expected_memory in (([], 2), (["--backend-memory-gib", "3"], 3)):
+            output = io.StringIO()
+            with patch.object(sys, "argv", args + options), patch.object(bootstrap, "load_module", side_effect=AssertionError("runtime gate crossed")), contextlib.redirect_stdout(output):
+                bootstrap.main()
+            result = json.loads(output.getvalue())
+            self.assertFalse(result["dockerCalled"])
+            self.assertEqual(result["backendResourcePolicy"], contracts.backend_resource_policy(expected_memory))
+            self.assertEqual(result["fullDocumentTimeoutSeconds"], 900)
 
     def test_ingestion_noexecute_reads_no_key_or_pdf_and_constructs_no_docker(self):
         owner_path, profile, manifest = self.fixture_inputs()

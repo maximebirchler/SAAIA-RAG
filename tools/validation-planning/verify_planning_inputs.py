@@ -8,6 +8,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "validation-wire"))
 from verify_wire import extended_windows_path, read_call_probes, require, utf16_length, verify_projection
+from verify_planning_result import selection_policy
 
 
 def digest(path):
@@ -24,12 +25,13 @@ def inspect(profile_path, runtime):
     sql = json.loads((runtime / "runtime/planning-sql-job.private.json").read_bytes())
     load = submission["handoff"]["load"]
     case = profile["case"]
+    policy = selection_policy(case)
     require(submission["handoff"]["transferStage"] == "before_retrieval"
             and submission["handoff"]["requestText"] == case["question"]
             and submission["handoff"]["researchState"]["evidenceReferences"] == []
             and load["answerUnitCount"] == load["atomicEvidenceCount"] == len(case["rowLabels"]) * 4
             and load["rowLabels"] == case["rowLabels"] and load["columns"] == case["columns"]
-            and load["structuredLayout"] is True and load["selectionPolicy"] == "distinct_structured_layout",
+            and load["structuredLayout"] is True and load["selectionPolicy"] == policy,
             "planning_handoff_grid_or_initial_evidence_invalid")
     require(terminal["jobId"] == sql["jobId"] and terminal["status"] == sql["status"] == "failed"
             and terminal.get("result") is None and sql.get("result") is None,
@@ -84,7 +86,7 @@ def inspect(profile_path, runtime):
             require(actual_load["answerUnitCount"] == actual_load["atomicEvidenceCount"] == case["answerUnitCount"]
                     and actual_load["rowCount"] == len(case["rowLabels"]) and actual_load["columnCount"] == 4
                     and actual_load["rowLabels"] == case["rowLabels"] and actual_load["columns"] == case["columns"]
-                    and actual_load["structuredLayout"] is True and actual_load["selectionPolicy"] == "distinct_structured_layout",
+                    and actual_load["structuredLayout"] is True and actual_load["selectionPolicy"] == policy,
                     "actual_writer_grid_contract_changed_before_provider")
             require({"search_corpus", "read_source", "find_source_text", "read_evidence"} <= tools,
                     "planning_writer_native_tools_missing")
@@ -109,6 +111,7 @@ def inspect(profile_path, runtime):
             + Decimal(str(profile["budget"]["baselineCostUsd"])) <= Decimal("0.50"),
             "initial_envelopes_do_not_fit_cumulative_budget")
     return {"schemaVersion": "saaia-planning-envelope-preflight.v1", "profileSha256": digest(profile_path),
+            "selectionPolicy": policy,
             "corpusManifestSha256": profile["corpus"]["manifestSha256"], "writerToolsObserved": True,
             "exactRequestParity": True, "externalProviderUsed": False, "secretUsed": False,
             "preflightPlannerQueryIsScripted": True, "preflightPlannerQuery": "recette",

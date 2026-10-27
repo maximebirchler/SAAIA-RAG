@@ -62,6 +62,18 @@ public sealed partial class DoclingClientTests
         Assert.Equal(JsonValueKind.Null, snapshot.RootElement.GetProperty("responseSha256").ValueKind);
     }
 
+    [Theory]
+    [InlineData(0L, 1L * 1024 * 1024)]
+    [InlineData(128L * 1024 * 1024, 128L * 1024 * 1024)]
+    [InlineData(3L * 1024 * 1024 * 1024, 2L * 1024 * 1024 * 1024)]
+    public async Task Input_geometry_entity_limit_matches_the_effective_primary_response_limit(long configured, long expected)
+    {
+        var response = await GeometryResponse(JsonSerializer.Serialize(BuildResponse()), true, true, true, configured);
+        using var snapshot = GeometrySnapshot(response);
+        Assert.Equal(expected, snapshot.RootElement.GetProperty("limits").GetProperty("responseEntityBytes").GetInt64());
+        Assert.Equal("observed", snapshot.RootElement.GetProperty("availability").GetString());
+    }
+
     [Fact]
     public async Task Input_geometry_retry_binds_only_successful_attempt_and_entity()
     {
@@ -132,9 +144,11 @@ public sealed partial class DoclingClientTests
         return JsonDocument.Parse(json);
     }
 
-    private static async Task<DoclingConvertResponse> GeometryResponse(string body, bool enabled, bool sink, bool consume)
+    private static async Task<DoclingConvertResponse> GeometryResponse(string body, bool enabled, bool sink, bool consume, long? maximumResponseBytes = null)
     {
         var options = new DocumentIntelligenceOptions();
+        if (maximumResponseBytes is { } limit)
+            options.MaxResponseBytes = limit;
         options.GetType().GetProperty("DoclingInputGeometryCaptureEnabled")?.SetValue(options, enabled);
         var factory = new StubHttpClientFactory(async request =>
         {

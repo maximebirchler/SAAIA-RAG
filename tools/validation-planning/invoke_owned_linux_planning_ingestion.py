@@ -72,7 +72,9 @@ def run(args, owner, profile, manifest):
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
 
     def api(role, route, method="GET", body=None):
-        docker.inspect_all()
+        _, observed = docker.inspect_all()
+        current_backend = next(row for row in observed if row["Id"] == next(r["id"] for r in owner["containers"] if r["role"] == "backend"))
+        helpers.validate_backend_resources(owner, current_backend)
         require(route.startswith("/") and not route.startswith("//"), "exact_role_relative_route_required")
         local_headers = {"Content-Type": "application/json"}
         if role == "backend" and headers:
@@ -92,6 +94,10 @@ def run(args, owner, profile, manifest):
         config_path = Path(owner["configurationPath"])
         config = read(config_path)
         backend = next(row for row in actual if row["Id"] == next(r["id"] for r in owner["containers"] if r["role"] == "backend"))
+        origin = read(root / "evidence/planning-bootstrap-origin.json")
+        helpers.validate_backend_resource_phase(owner, origin, owner.get("backendResourcePolicy", {}))
+        record["backendResourcesObserved"] = helpers.validate_backend_resources(owner, backend)
+        record["backendResourcePolicy"] = owner["backendResourcePolicy"]
         helpers.validate_disabled_llm(config, backend)
         timeout_policy = owner.get("fullDocumentTimeoutPolicy")
         if timeout_policy:

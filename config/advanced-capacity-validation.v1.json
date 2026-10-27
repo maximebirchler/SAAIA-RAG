@@ -12,7 +12,7 @@
       "expectedAnswerKind": "source_backed_structured_grid_or_exact_insufficiency",
       "expectedAnswerUnitCount": 20,
       "requiredAnswerTerms": ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "petit-déjeuner", "déjeuner", "collation", "souper"],
-      "validationPoints": "Cinq lignes lundi à vendredi et quatre colonnes petit-déjeuner, déjeuner, collation et souper. | Vingt propositions concrètes, adaptées, distinctes et rattachées à des preuves si le corpus le permet. | Aucune clarification sur des préférences optionnelles. | Aucune invention. | Si vingt cellules ne peuvent pas être prouvées, expliquer exactement les cellules ou types de preuves manquants."
+      "validationPoints": "Cinq lignes lundi à vendredi et quatre colonnes petit-déjeuner, déjeuner, collation et souper. | Vingt cellules concrètes, adaptées et rattachées à des preuves si le corpus le permet ; une recette documentée peut être réutilisée sans être présentée comme différente. | Sources utiles non dupliquées inutilement, y compris lorsqu'une même preuve soutient plusieurs cellules. | Aucune clarification sur des préférences optionnelles. | Aucune invention. | Si vingt cellules ne peuvent pas être prouvées, expliquer exactement les cellules ou types de preuves manquants."
     },
     {
       "id": "A755-ADV-02-five-student-meals-fr",

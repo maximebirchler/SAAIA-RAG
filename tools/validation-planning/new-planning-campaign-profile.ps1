@@ -32,7 +32,8 @@ $profile=@{
         backendAssemblySha256=(Get-FileHash -LiteralPath (Join-Path $repo 'backend/SAAIA.Backend/bin/Release/net8.0/SAAIA.Backend.dll')).Hash};
     corpus=@{manifestPath=$manifest;manifestSha256=(Get-FileHash -LiteralPath $manifest).Hash;completeDocumentsRequired=$true};
     case=@{kind=$CaseKind;question=$question;rowLabels=$days;columns=@('petit-déjeuner','déjeuner','collation','souper');
-        answerUnitCount=($days.Count*4);functionalFiveDayAcceptance=($CaseKind -ceq 'five-day-20')};
+        answerUnitCount=($days.Count*4);functionalFiveDayAcceptance=($CaseKind -ceq 'five-day-20');
+        selectionPolicy=$(if($CaseKind -ceq 'one-day-4'){'distinct_structured_layout'}else{'structured_layout'})};
     spendAuthorization=@{status='PROPOSED';authorizedAtUtc=$null;basis=$null};
     boundaries=@{newIngestionValidated=$false;denseRetrievalValidated=$false;clientUiValidated=$false;semanticApproval='PENDING'}
 }

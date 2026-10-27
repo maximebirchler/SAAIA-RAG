@@ -21,6 +21,7 @@ import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "validation-ingestion"))
 from linux_owned_runtime import OwnedDocker, assert_owned_path, validate_owner
+import linux_planning_contracts as helpers
 
 PARENT = Path("/home/maxime/saaia-ingestion-qualification")
 
@@ -82,10 +83,14 @@ def stop_new_partial(bootstrap, root, docker):
     owner = bootstrap.read_json(root / "owner.json")
     observations = []
     for row in sorted(owner["containers"], key=lambda row: {"backend": 0, "docling": 1, "tei": 2, "qdrant": 3, "postgres": 4}[row["role"]]):
-        actual = bootstrap.verify_container(root, owner, row, docker, require_running=False)
+        # Resource admission must not prevent stopping a container whose exact
+        # owner/image/mount/network identity still passes the pinned verifier.
+        verify = (getattr(bootstrap, "_backend_cleanup_identity_verifier", bootstrap.verify_container)
+                  if row["role"] == "backend" else bootstrap.verify_container)
+        actual = verify(root, owner, row, docker, require_running=False)
         if actual["State"]["Running"]:
             docker.call("stop", "--time", "45", row["id"], timeout=60)
-        actual = bootstrap.verify_container(root, owner, row, docker, require_running=False)
+        actual = verify(root, owner, row, docker, require_running=False)
         require(actual["State"]["Running"] is False, "new_partial_runtime_stop_unconfirmed")
         observations.append({"role": row["role"], "id": row["id"], "stopped": True})
     bootstrap.new_file(root / "evidence/bootstrap-failure-owned-stop.json", bootstrap.json_bytes({"containers": observations, "dataDeleted": False}))
@@ -112,15 +117,51 @@ def configure_full_document_timeout(bootstrap, seconds):
             "maxSyncWaitPackageBoundVerifiedByThisAdapter": False, "cpuAndMemoryChanged": False}
 
 
+def configure_backend_resources(bootstrap, memory_gib):
+    """Only opt-in 3GiB changes the pinned module's in-memory Docker argv."""
+    policy = helpers.backend_resource_policy(memory_gib)
+    require(bootstrap.LIMITS.get("backend") == ("2", "2g") and bootstrap.LIMITS.get("docling") == ("3", "7g"),
+            "pinned_backend_or_docling_resource_baseline_changed")
+    if memory_gib == 2:
+        return policy
+    original_args, original_verify = bootstrap.container_args, bootstrap.verify_container
+    bootstrap.LIMITS = {**bootstrap.LIMITS, "backend": ("2", "3g")}
+
+    def container_args(root, owner, role, image_id):
+        arguments = original_args(root, owner, role, image_id)
+        if role != "backend":
+            return arguments
+        require(owner.get("backendResourcePolicy") == policy, "backend_resource_owner_policy_changed")
+        indices = [index for index, value in enumerate(arguments) if value == image_id]
+        require(len(indices) == 1 and "--memory-swap" not in arguments
+                and arguments.count("--memory") == arguments.count("--cpus") == 1
+                and arguments[arguments.index("--memory") + 1] == "3g"
+                and arguments[arguments.index("--cpus") + 1] == "2", "pinned_backend_resource_arguments_changed")
+        return arguments[:indices[0]] + ["--memory-swap", "3g"] + arguments[indices[0]:]
+
+    def verify_container(root, owner, row, docker, *, require_running=True):
+        actual = original_verify(root, owner, row, docker, require_running=require_running)
+        if row["role"] == "backend":
+            require(owner.get("backendResourcePolicy") == policy, "backend_resource_owner_policy_changed")
+            helpers.validate_backend_resources(owner, actual)
+        return actual
+
+    bootstrap.container_args, bootstrap.verify_container = container_args, verify_container
+    bootstrap._backend_cleanup_identity_verifier = original_verify
+    return policy
+
+
 def execute(args, source, source_bytes):
     bootstrap = load_module(args.bootstrap, args.bootstrap_sha256, "planning_cpu28_bootstrap")
     timeout_policy = configure_full_document_timeout(bootstrap, args.full_document_timeout_seconds)
+    resource_policy = configure_backend_resources(bootstrap, args.backend_memory_gib)
     require(bootstrap.LIMITS["docling"] == ("3", "7g") and bootstrap.REGIONAL_CONFIG["NumThreads"] == 3
             and bootstrap.REGIONAL_CONFIG["RegionalTextRepairEnabled"] is True, "pinned_cpu28_profile_required")
     root = args.root
     if args.phase == "prepare":
         owner = fresh_owner(root, args.port_base, args.network_subnet)
         owner["fullDocumentTimeoutPolicy"] = timeout_policy
+        owner["backendResourcePolicy"] = resource_policy
         source_docker = OwnedDocker(source, execute=True)
         assert_source_unchanged(args.source_owner, source_bytes, source_docker)
         source_root = Path(source["root"])
@@ -168,6 +209,7 @@ def execute(args, source, source_bytes):
             "backendImage": args.backend_image, "backendSourceRevision": args.backend_source_revision,
             "dependencyImagesReused": source["bootstrapPreparation"]["dependencyImages"], "cpuProfile": timeout_policy["profile"],
             "fullDocumentTimeoutPolicy": timeout_policy,
+            "backendResourcePolicy": resource_policy,
             "paidProviderEnabled": False, "newIngestionPerformed": False}))
         return result
     require(root.is_absolute() and root.parent == PARENT and str(uuid.UUID(root.name)) == root.name, "exact_linux_uuid_root_required")
@@ -178,6 +220,7 @@ def execute(args, source, source_bytes):
             "planning_bootstrap_origin_changed")
     require(origin.get("fullDocumentTimeoutPolicy", timeout_policy if args.full_document_timeout_seconds == 900 else None)
             == timeout_policy, "planning_full_document_timeout_policy_changed")
+    helpers.validate_backend_resource_phase(bootstrap.read_json(root / "owner.json"), origin, resource_policy)
     docker = bootstrap.Docker(root)
     try:
         return bootstrap.run(SimpleNamespace(root=root, catalog_root=Path(source["root"]), admission_profile="manual",
@@ -205,6 +248,7 @@ def main():
     parser.add_argument("--port-base", type=int, default=22521)
     parser.add_argument("--network-subnet", default="10.238.29.0/24")
     parser.add_argument("--full-document-timeout-seconds", type=int, choices=(900,3600), default=900)
+    parser.add_argument("--backend-memory-gib", type=int, choices=(2,3), default=2)
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args()
     source_bytes = args.source_owner.read_bytes()
@@ -225,6 +269,7 @@ def main():
         print(json.dumps({"executeRequested": False, "phase": args.phase, "root": str(args.root), "sourceRoot": source["root"],
             "backendImage": args.backend_image, "cpuProfile": "cpu28_3cores_7GiB" if args.full_document_timeout_seconds == 900 else "cpu28_3cores_7GiB_document3600_proxy3900",
             "fullDocumentTimeoutSeconds": args.full_document_timeout_seconds, "privateFilesRead": False,
+            "backendResourcePolicy": helpers.backend_resource_policy(args.backend_memory_gib),
             "dockerCalled": False, "dependenciesStarted": False, "providerCalls": 0}))
         return
     print(json.dumps(execute(args, source, source_bytes)))

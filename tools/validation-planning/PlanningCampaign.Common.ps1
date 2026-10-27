@@ -58,6 +58,8 @@ function Assert-PlanningProfile {
         throw 'An explicit planning case is required.'
     }
     $days=if($p.case.kind -ceq 'five-day-20'){5}else{1}
+    $selectionPolicy=if($p.case.kind -ceq 'one-day-4'){'distinct_structured_layout'}else{'structured_layout'}
+    if($p.case.selectionPolicy -cne $selectionPolicy){throw 'An explicit selection policy matching the registered planning case is required.'}
     if(@($p.case.rowLabels).Count -ne $days -or @($p.case.columns).Count -ne 4 -or
        [int]$p.case.answerUnitCount -ne ($days*4) -or
        ($days -eq 1 -and $p.case.functionalFiveDayAcceptance -ne $false) -or
@@ -92,7 +94,7 @@ function New-PlanningHandoff {
         requestText=$case.question;language='fr';originIntent='rag.answer';reasonCode='paid_local_planning_validation';transferStage='before_retrieval';
         load=@{planKind='structured_layout';deliverable='source_backed_meal_planning';answerUnitCount=[int]$case.answerUnitCount;
             atomicEvidenceCount=[int]$case.answerUnitCount;rowCount=@($case.rowLabels).Count;columnCount=4;structuredLayout=$true;
-            atomicEvidenceType='named_item';atomicEvidenceMode='named_item';selectionPolicy='distinct_structured_layout';questionFocus='content';
+            atomicEvidenceType='named_item';atomicEvidenceMode='named_item';selectionPolicy=$case.selectionPolicy;questionFocus='content';
             requestedDocumentName='';boundedNamedDocumentExtraction=$false;candidateScopePaths=@();rowLabels=@($case.rowLabels);columns=@($case.columns)};
         researchState=@{memoryIsEvidence=$false;evidenceRevalidationRequired=$true;executedTools=@();executedQueries=@();attempts=@();evidenceReferences=@()};
         dataPolicy=@{externalProviderContentAuthorized=$false;externalProviderMetadataAuthorized=$false;authorizationSource='server_controlled'}

@@ -55,7 +55,8 @@ internal sealed class DoclingClient(
                 try
                 {
                     var result = await ConvertAttemptAsync(source, Path.GetFileName(pdfPath),
-                        deadline.Token, forceOcrOverride, geometryBudget is null ? null : new DoclingInputGeometryCapture(attempt, geometryBudget, inputGeometryPublicationAllowed));
+                        deadline.Token, forceOcrOverride, geometryBudget is null ? null : new DoclingInputGeometryCapture(
+                            attempt, geometryBudget, inputGeometryPublicationAllowed, options.ResolveMaxResponseBytes()));
                     deadline.Token.ThrowIfCancellationRequested();
                     DoclingRegionalTextRepairPolicy.RecordDiagnostics(operation, result);
                     DoclingRegionalTableRepairPolicy.RecordDiagnostics(operation, options, result);
@@ -66,7 +67,7 @@ internal sealed class DoclingClient(
                         operation.Set("input_geometry_availability", geometryCapture.Data.Availability);
                         operation.Set("input_geometry_reason", geometryCapture.Data.Reason ?? "none");
                         operation.Set("input_geometry_response_bytes", geometryCapture.Data.ResponseBytes);
-                        operation.Set("input_geometry_entity_limit_bytes", DoclingInputGeometryCapture.MaximumEntityBytes);
+                        operation.Set("input_geometry_entity_limit_bytes", geometryCapture.Data.Limits.ResponseEntityBytes);
                     }
                     attemptProbe.Complete();
                     operation.Set("retry_count", attempt - 1);

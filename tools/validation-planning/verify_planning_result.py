@@ -42,6 +42,12 @@ def contains_name(text, name):
     return bool(normal(name)) and " " + normal(name) + " " in " " + normal(text) + " "
 
 
+def selection_policy(case):
+    expected = {"five-day-20": "structured_layout", "one-day-4": "distinct_structured_layout"}.get(case.get("kind"))
+    require(expected is not None and case.get("selectionPolicy") == expected, "planning_case_selection_policy_invalid")
+    return expected
+
+
 def coordinates(case):
     rows, columns = case["rowLabels"], case["columns"]
     expected_rows = {"one-day-4": 1, "five-day-20": 5}.get(case["kind"])
@@ -374,6 +380,7 @@ def answer_signature(value):
 
 def evaluate(profile, corpus, submission, api, sql, traces, probes):
     case = profile["case"]
+    policy = selection_policy(case)
     expected_coordinates = coordinates(case)
     require(api["jobId"] == sql["jobId"] and api["status"] == sql["status"] == "succeeded"
             and api["attemptCount"] == sql["attemptCount"] == 1 and api["result"] == sql["result"],
@@ -386,7 +393,7 @@ def evaluate(profile, corpus, submission, api, sql, traces, probes):
             "planning_actual_question_or_initial_state_changed")
     expected_load = {"rowLabels": case["rowLabels"], "columns": case["columns"], "rowCount": len(case["rowLabels"]),
                      "columnCount": 4, "answerUnitCount": case["answerUnitCount"], "atomicEvidenceCount": case["answerUnitCount"],
-                     "structuredLayout": True, "selectionPolicy": "distinct_structured_layout"}
+                     "structuredLayout": True, "selectionPolicy": policy}
     require(all(handoff["load"].get(key) == value for key, value in expected_load.items()), "planning_actual_grid_load_changed")
     canonical_hashes = {doc["revisionId"]: doc["canonicalHash"] for doc in corpus["documents"].values()}
     require(len(sql["canonicalHashes"]) == len(canonical_hashes)
@@ -399,7 +406,8 @@ def evaluate(profile, corpus, submission, api, sql, traces, probes):
     require(all(isinstance(claim.get("selectedItem"), str) and normal(claim["selectedItem"]) for claim in claims),
             "planning_selected_recipe_identity_missing")
     identities = [normal(claim["selectedItem"]) for claim in claims]
-    require(len(set(identities)) == len(identities), "planning_duplicate_recipe_identity")
+    if policy == "distinct_structured_layout":
+        require(len(set(identities)) == len(identities), "planning_duplicate_recipe_identity")
     require(references and len({reference["evidenceId"] for reference in references}) == len(references),
             "planning_duplicate_source_card_or_id")
     refs = {reference["evidenceId"]: reference for reference in references}
@@ -514,13 +522,23 @@ def evaluate(profile, corpus, submission, api, sql, traces, probes):
                         "visibleUtf16Characters": sum(proof["visibleUtf16Characters"] for proof in own),
                         "explicitlyTruncatedProofCount": sum(proof["contentTruncated"] for proof in own),
                         "supportingWindowsExplicitlyOmitted": sum(proof["supportingWindowsOmitted"] for proof in own)})
+    repeated = {}
+    for coordinate in expected_coordinates:
+        identity = normal(claims_by_id[coordinate["claimId"]]["selectedItem"])
+        repeated.setdefault(identity, []).append(coordinate)
+    repeat_groups = [{"normalizedSelectedItemSha256": sha(identity.encode("utf-8")),
+                      "claimIds": [cell["claimId"] for cell in locations], "coordinates": locations}
+                     for identity, locations in repeated.items() if len(locations) > 1]
     return {"schemaVersion": "saaia-planning-result-mechanical-review.v1", "jobId": api["jobId"],
             "caseKind": case["kind"], "gridCellCount": len(cells), "distinctSelectedRecipeIdentityCount": len(set(identities)),
+            "selectionPolicy": policy, "distinctSelectionRequired": policy == "distinct_structured_layout",
+            "repeatedRecipeReuseCount": len(identities) - len(set(identities)), "repeatedRecipeGroups": repeat_groups,
             "serverReferenceCardCount": len(refs), "exactApplicationRequestAndProbeParity": True,
             "independentExternalHttpCapture": False, "finalModelRequestSha256": trace["requestSha256"].lower(),
             "canonicalBodiesVisibleInFinalModelInput": True, "qualityAndExplicitOmissionsChecked": True,
             "mechanicalPlanningPassed": True, "manualSemanticReviewRequired": True,
-            "manualReviewTasks": ["Verify each selected name denotes a distinct real recipe, not an alias, heading or component.",
+            "manualReviewTasks": ["Verify each selected name denotes a real recipe, not a heading, component or invented alias; enforce uniqueness only when the selection policy requires it.",
+                "Inspect reported repeat groups and every repeated cell's meal suitability; a mechanically complete repeated grid is not semantic approval.",
                 "Inspect each cited recipe's OWN body in the physical PDF; check mixed pages and neighbouring recipes.",
                 "Check ordinary suitability for its requested meal slot and all factual wording against the visible body.",
                 "Check substantive completeness despite declared truncation/OCR/layout warnings and all source-card usefulness.",

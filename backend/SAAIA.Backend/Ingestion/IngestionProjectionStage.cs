@@ -79,6 +79,8 @@ internal static class IngestionProjectionStage
                 probe.Set("native_added_figures", images.AddedFigureCount);
                 probe.Set("retained_visual_assets", canonical.Assets.Count);
                 probe.Set("retained_visual_bytes", canonical.Assets.Sum(asset => asset.SizeBytes));
+                RecordVisualAssetBudget(probe, CanonicalVisualAssetPolicy.MeasurePublication(canonical.Assets),
+                    CanonicalVisualAssetBudget.Default, "retained");
                 probe.Set("figures_with_pixels", canonical.Pages.SelectMany(page => page.Figures).Count(figure => figure.AssetIds.Count > 0));
                 probe.Set("figures_without_pixels", canonical.Pages.SelectMany(page => page.Figures).Count(figure => figure.AssetIds.Count == 0));
                 probe.Set("native_table_audited_tables", tableCoverage.AuditedTableCount);
@@ -116,6 +118,13 @@ internal static class IngestionProjectionStage
             return new(canonical, reconciliation, images, sections, units,
                 canonicalMilliseconds, sectionMilliseconds, unitMilliseconds)
                 { CanonicalExtraction = canonicalExtraction, NativeTableCoverage = tableCoverage, NativeTypography = typography };
+        }
+        catch (CanonicalVisualAssetBudgetException exception)
+        {
+            RecordVisualAssetBudget(probe, exception.Measurements, exception.Budget, exception.Phase);
+            probe.Set("visual_asset_budget_dimension", exception.Dimension);
+            probe.Fail(exception, exception.Message);
+            throw;
         }
         catch (Exception exception) { probe.Fail(exception); throw; }
     }
@@ -167,5 +176,19 @@ internal static class IngestionProjectionStage
             probe.Set(projection + "_represented_source_unit_characters", units
                 .Where(unit => referencedOrdinals.Contains(unit.Ordinal)).Sum(unit => (long)unit.Text.Length));
         }
+    }
+
+    private static void RecordVisualAssetBudget(BackendDiagnostics.Operation probe,
+        CanonicalVisualAssetMeasurements measurements, CanonicalVisualAssetBudget budget, string phase)
+    {
+        probe.Set("visual_asset_budget_phase", phase);
+        probe.Set("visual_asset_maximum_count", budget.MaximumAssets);
+        probe.Set("visual_asset_maximum_bytes", budget.MaximumBytes);
+        probe.Set("visual_asset_logical_count", measurements.AssetCount);
+        probe.Set("visual_asset_logical_bytes", measurements.LogicalBytes);
+        probe.Set("visual_asset_page_count", measurements.PageAssets);
+        probe.Set("visual_asset_figure_count", measurements.FigureAssets);
+        probe.Set("visual_asset_unique_image_references", measurements.UniqueImageReferences);
+        probe.Set("visual_asset_unique_image_bytes", measurements.UniqueImageBytes);
     }
 }
