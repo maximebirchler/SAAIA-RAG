@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using PdfPig = UglyToad.PdfPig;
 
-static class PdfExtractor
+static partial class PdfExtractor
 {
     public static PdfExtractionResult Extract(string pdfPath)
         => Extract(pdfPath, CancellationToken.None);
@@ -189,7 +189,7 @@ static class PdfExtractor
                 // The original geometry and source text remain available when
                 // the optional word segmenter cannot establish a complete page.
             }
-            return BuildLayoutAwareText(words, fallback);
+            return BuildLayoutAwareText(words, fallback, page.Width, page.Height);
         }
         catch
         {
@@ -272,6 +272,10 @@ static class PdfExtractor
             .Order(StringComparer.Ordinal).SequenceEqual(SplitWords(text).Order(StringComparer.Ordinal));
 
     internal static string BuildLayoutAwareText(IReadOnlyList<PdfLayoutWord> words, string? fallback)
+        => BuildLayoutAwareText(words, fallback, null, null);
+
+    internal static string BuildLayoutAwareText(IReadOnlyList<PdfLayoutWord> words, string? fallback,
+        double? pageWidth, double? pageHeight)
     {
         fallback ??= string.Empty;
         var usableWords = words
@@ -308,7 +312,7 @@ static class PdfExtractor
             sameLineTolerance,
             paragraphGapThreshold,
             medianWidth,
-            wrapBackThreshold).Trim();
+            wrapBackThreshold, pageWidth, pageHeight).Trim();
         if (reconstructed.Length == 0)
             return fallback;
 
@@ -331,7 +335,9 @@ static class PdfExtractor
         double sameLineTolerance,
         double paragraphGapThreshold,
         double medianWidth,
-        double wrapBackThreshold)
+        double wrapBackThreshold,
+        double? pageWidth,
+        double? pageHeight)
     {
         var lines = BuildLayoutLines(words, sameLineTolerance);
         if (lines.Count == 0)
@@ -340,6 +346,9 @@ static class PdfExtractor
         var segments = lines
             .SelectMany((line, index) => SplitLineIntoSegments(line, index, medianWidth))
             .ToArray();
+
+        if (TryBuildParentRegionText(segments, paragraphGapThreshold, medianWidth,
+                pageWidth, pageHeight, out var parentRegions)) return parentRegions;
 
         return TryBuildColumnarText(segments, lines.Count, paragraphGapThreshold, medianWidth, out var columnar)
             ? columnar
@@ -596,7 +605,8 @@ static class PdfExtractor
         IReadOnlyList<PdfLayoutSegment> segments,
         double paragraphGapThreshold,
         double medianWidth,
-        out string text)
+        out string text,
+        bool parentRegionEstablished = false)
     {
         text = string.Empty;
         if (segments.Count < 7)
@@ -625,7 +635,10 @@ static class PdfExtractor
 
         var stableLeft = stableColumns.Min(static column => column.Min(static segment => segment.Left));
         var stableRight = stableColumns.Max(static column => column.Max(static segment => segment.Right));
-        if (stableRight - stableLeft < Math.Max(120.0d, medianWidth * 6.0d))
+        // A separately established physical parent already proves its region;
+        // long technical identifiers must not require six word-widths inside
+        // it. The original unparented heuristic retains its stronger gate.
+        if (stableRight - stableLeft < Math.Max(120.0d, parentRegionEstablished ? 0d : medianWidth * 6.0d))
             return false;
 
         var firstStableLine = stableColumns
