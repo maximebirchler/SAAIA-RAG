@@ -1,0 +1,399 @@
+{
+  "schemaVersion": "a645_compact_semantic_envelope_candidates_v1",
+  "status": "DESIGN_ONLY_NOT_APPROVED_NOT_MEASURED_WITH_NATIVE_TOKENIZER",
+  "constraints": {
+    "runtimeContextTokens": 4096,
+    "mechanicalSafetyReserveTokens": 64,
+    "operationalHeadroomTokens": 128,
+    "controllerMaximumOutputTokens": 512,
+    "reviewerMaximumOutputTokens": 256,
+    "controllerMaximumInputTokens": 3392,
+    "reviewerMaximumInputTokens": 3648,
+    "parallelToolCalls": false,
+    "temperature": 0,
+    "llmOwnsSemanticDecision": true,
+    "codeMayOnlyValidateMechanically": true
+  },
+  "compactSnapshot": {
+    "version": 2,
+    "fields": [
+      "question",
+      "language",
+      "focus",
+      "plan",
+      "document",
+      "evidence",
+      "rejected",
+      "actions",
+      "capabilities",
+      "budget",
+      "cycle"
+    ],
+    "evidenceFields": [
+      "id",
+      "docId",
+      "revision",
+      "sourceHash",
+      "pages",
+      "kind",
+      "excerpt",
+      "locator"
+    ],
+    "capabilityEncoding": "compact_parameter_contract_not_repeated_full_json_schema",
+    "rules": [
+      "EvidenceBundle remains canonical; this is only its deterministic model view.",
+      "No evidence identity, revision, source hash, page or locator may be dropped.",
+      "The model sees available capability names and compact argument contracts.",
+      "The code validates returned action arguments against the authoritative capability schema.",
+      "Observation signatures and draft hashes are bound by the invocation and never need to be echoed by the model."
+    ]
+  },
+  "historicalRejectedVariant": {
+    "id": "V0_A639_TEN_NATIVE_TOOLS_SHARED_PREFIX",
+    "toolCountPerCall": 10,
+    "controllerMaximumOutputTokens": 640,
+    "maximumInputTokensBeforeCodeBlock": 3392,
+    "observedCandidateRuns": 25,
+    "observedContextBudgetBlocks": 25,
+    "observedModelCalls": 0,
+    "actualInputTokenCountRecorded": false,
+    "provenLowerBoundInputTokens": 3393,
+    "status": "REJECTED_A644_DO_NOT_RECONSTRUCT_AS_EXACT_MEASUREMENT"
+  },
+  "variants": [
+    {
+      "id": "V1_SHARED_SINGLE_ENVELOPE_PREFIX",
+      "hypothesis": "One shared native tool preserves a controller-to-reviewer prefix while removing nine tool wrappers and duplicated reviewer action schemas.",
+      "controllerSystemPrompt": "You are the semantic controller and independent reviewer of a source-backed RAG pipeline. You decide meaning; code only validates schema, identities, provenance, budgets and progress. Use only evidence IDs in SNAPSHOT and never invent a source. At CONTROLLER choose answer_draft, search, context, clarify or insufficient. At REVIEW choose accept, search, context, clarify or block and never rewrite a draft. Search and context are executable actions, not terminal labels. Submit exactly one decision.",
+      "controllerInstruction": "STAGE=CONTROLLER. Read SNAPSHOT and submit exactly one valid next decision.",
+      "reviewerInstruction": "STAGE=REVIEW. Independently inspect the same SNAPSHOT, frozen draft and verifier result. Submit exactly one review decision.",
+      "reviewerRequestMode": "controller_request_byte_prefix_plus_frozen_tool_call_and_verifier_result",
+      "controllerTools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "submit_source_backed_decision",
+            "description": "Choose one source-backed next decision. Fields invalid for the current stage fail closed.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "decision": {
+                  "type": "string",
+                  "enum": [
+                    "answer_draft",
+                    "search",
+                    "context",
+                    "clarify",
+                    "insufficient",
+                    "accept",
+                    "block"
+                  ]
+                },
+                "title": {
+                  "type": "string",
+                  "maxLength": 160
+                },
+                "presentation": {
+                  "type": "string",
+                  "enum": [
+                    "paragraphs",
+                    "bullets",
+                    "table"
+                  ]
+                },
+                "claims": {
+                  "type": "array",
+                  "maxItems": 16,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "text": {
+                        "type": "string",
+                        "maxLength": 1000
+                      },
+                      "evidenceIds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "uniqueItems": true
+                      }
+                    },
+                    "required": [
+                      "text",
+                      "evidenceIds"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "capability": {
+                  "type": "string"
+                },
+                "actionArguments": {
+                  "type": "object"
+                },
+                "gap": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "uniqueItems": true
+                },
+                "evidenceIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "uniqueItems": true
+                },
+                "anchorEvidenceId": {
+                  "type": "string"
+                },
+                "contextMode": {
+                  "type": "string",
+                  "enum": [
+                    "before",
+                    "after",
+                    "around",
+                    "referenced"
+                  ]
+                },
+                "maximumPages": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4
+                },
+                "message": {
+                  "type": "string",
+                  "maxLength": 1000
+                }
+              },
+              "required": [
+                "decision"
+              ],
+              "additionalProperties": false
+            }
+          }
+        }
+      ],
+      "reviewerUsesControllerToolsByteForByte": true,
+      "stageValidity": {
+        "CONTROLLER": [
+          "answer_draft",
+          "search",
+          "context",
+          "clarify",
+          "insufficient"
+        ],
+        "REVIEW": [
+          "accept",
+          "search",
+          "context",
+          "clarify",
+          "block"
+        ]
+      }
+    },
+    {
+      "id": "V2_STAGE_SPECIFIC_INDEPENDENT_ENVELOPES",
+      "hypothesis": "One tool per stage minimizes both requests; an independent reviewer receives the same compact snapshot, frozen draft and verifier errors without replaying the controller transcript.",
+      "controllerSystemPrompt": "You are the semantic controller of a source-backed RAG pipeline. You decide meaning; code only validates schema, identities, provenance, budgets and progress. Use only evidence IDs in SNAPSHOT and never invent a source. Choose answer_draft, search, context, clarify or insufficient. Search and context are executable actions, not terminal labels. Submit exactly one decision.",
+      "reviewerSystemPrompt": "You are an independent source-backed answer reviewer. Decide whether the frozen draft is supported by SNAPSHOT and satisfies the user request. Code only validates schema, identities, provenance and budgets. Never rewrite the draft. Choose accept, search, context, clarify or block. Submit exactly one decision.",
+      "controllerInstruction": "Read SNAPSHOT and submit exactly one controller decision.",
+      "reviewerInstruction": "Read SNAPSHOT, FROZEN_DRAFT and VERIFIER_RESULT and submit exactly one independent review decision.",
+      "reviewerRequestMode": "independent_stage_specific_request_with_same_snapshot_and_frozen_draft",
+      "controllerTools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "submit_source_backed_controller_decision",
+            "description": "Choose one next source-backed decision. Missing or invalid fields fail closed.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "decision": {
+                  "type": "string",
+                  "enum": [
+                    "answer_draft",
+                    "search",
+                    "context",
+                    "clarify",
+                    "insufficient"
+                  ]
+                },
+                "title": {
+                  "type": "string",
+                  "maxLength": 160
+                },
+                "presentation": {
+                  "type": "string",
+                  "enum": [
+                    "paragraphs",
+                    "bullets",
+                    "table"
+                  ]
+                },
+                "claims": {
+                  "type": "array",
+                  "maxItems": 16,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "text": {
+                        "type": "string",
+                        "maxLength": 1000
+                      },
+                      "evidenceIds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "uniqueItems": true
+                      }
+                    },
+                    "required": [
+                      "text",
+                      "evidenceIds"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "capability": {
+                  "type": "string"
+                },
+                "actionArguments": {
+                  "type": "object"
+                },
+                "gap": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "uniqueItems": true
+                },
+                "evidenceIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "uniqueItems": true
+                },
+                "anchorEvidenceId": {
+                  "type": "string"
+                },
+                "contextMode": {
+                  "type": "string",
+                  "enum": [
+                    "before",
+                    "after",
+                    "around",
+                    "referenced"
+                  ]
+                },
+                "maximumPages": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4
+                },
+                "message": {
+                  "type": "string",
+                  "maxLength": 1000
+                }
+              },
+              "required": [
+                "decision"
+              ],
+              "additionalProperties": false
+            }
+          }
+        }
+      ],
+      "reviewerTools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "submit_source_backed_review_decision",
+            "description": "Accept the frozen draft or choose one safe redirection. Never rewrite the draft.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "decision": {
+                  "type": "string",
+                  "enum": [
+                    "accept",
+                    "search",
+                    "context",
+                    "clarify",
+                    "block"
+                  ]
+                },
+                "capability": {
+                  "type": "string"
+                },
+                "actionArguments": {
+                  "type": "object"
+                },
+                "gap": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "uniqueItems": true
+                },
+                "evidenceIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "uniqueItems": true
+                },
+                "anchorEvidenceId": {
+                  "type": "string"
+                },
+                "contextMode": {
+                  "type": "string",
+                  "enum": [
+                    "before",
+                    "after",
+                    "around",
+                    "referenced"
+                  ]
+                },
+                "maximumPages": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4
+                },
+                "message": {
+                  "type": "string",
+                  "maxLength": 1000
+                }
+              },
+              "required": [
+                "decision"
+              ],
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "V3_STAGE_SPECIFIC_STRUCTURED_OUTPUT_CONTROL",
+      "hypothesis": "Strict structured output may remove native tool wrappers but must prove local runtime support, exact token counting and no hidden fallback before it can compete.",
+      "controllerSystemPrompt": "You are the semantic controller of a source-backed RAG pipeline. Decide meaning from SNAPSHOT and return one schema-valid decision. Never invent an evidence ID or source. Search and context are executable actions, not terminal labels.",
+      "reviewerSystemPrompt": "You are an independent source-backed answer reviewer. Inspect SNAPSHOT, FROZEN_DRAFT and VERIFIER_RESULT. Never rewrite the draft. Return one schema-valid accept or safe redirection decision.",
+      "controllerContractSource": "V2_STAGE_SPECIFIC_INDEPENDENT_ENVELOPES.controllerTools[0].function.parameters",
+      "reviewerContractSource": "V2_STAGE_SPECIFIC_INDEPENDENT_ENVELOPES.reviewerTools[0].function.parameters",
+      "toolCountPerCall": 0,
+      "requirementsBeforeEligibility": [
+        "input_tokens endpoint must count response_format schema bytes with the actual Qwen chat template",
+        "llama-server must accept the strict schema without retrying through json_object or prompt-only fallback",
+        "schema-valid rate must be measured independently before any product integration"
+      ],
+      "status": "CONTROL_NOT_LEADING_UNTIL_RUNTIME_SUPPORT_IS_PROVEN"
+    }
+  ]
+}

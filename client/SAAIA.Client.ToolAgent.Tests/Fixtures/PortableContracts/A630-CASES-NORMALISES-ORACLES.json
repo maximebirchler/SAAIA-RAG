@@ -1,0 +1,2425 @@
+{
+  "schemaVersion": "a630_normalized_oracle_manifest_v1",
+  "protocolSha256": "BAF5D710996F27049A07F3D3DEBC92FAD35D0A36BF818771E4C8B1400D419DD5",
+  "erratumSha256": "9FD3DE602B188622FF480C082F524ACF94CD9692D71D978BEFA663D1DBDEAE84",
+  "historicalArtifactHashes": {
+    "A442": "BBE07C2CF4CBD5C1A4F826B25328C5454FFBA32C373C40F072092ABF7D3BA669",
+    "A452": "A3FE258708E450DB12FB17A23D37736498B05A844B809FB45B1DC1605BEA7A81",
+    "A462": "46028BCA23AC4E2A6C4BC4B5476EBD34ADD331E1B51723031FFE557DC6945F37",
+    "A472": "9A8570B36570FC263C4412AA0E6A0C7C46858FAC10E0A5C9185C48556598318A",
+    "A482": "E0C6626458AB04A277738D769A97A2794052EF106A6911064A2AE34C3B3AF66E"
+  },
+  "normalizationPolicy": "questions_excerpts_oracles_preserved_current_identity_added_v1",
+  "cases": [
+    {
+      "casePosition": 1,
+      "sourceCampaign": "A482",
+      "id": "survey_drone_shortest_recharge",
+      "domain": "field_survey_equipment",
+      "question": "Which survey drone with a payload capacity of at least 4 kg has the shortest documented full recharge time? Give its name and time.",
+      "language": "en",
+      "questionFocus": "content",
+      "semanticPlan": "DELIVERABLE: fastest documented recharge among equipment satisfying the payload threshold, with name and duration\nATOMIC_EVIDENCE: payload capacity and full recharge time for each visible alternative",
+      "expectedDecision": "answer",
+      "expectedEvidenceIds": [
+        "E3"
+      ],
+      "requiredPatterns": [
+        "(?i)cygnus",
+        "(?\u003C!\\d)36(?!\\d)"
+      ],
+      "excerpts": [
+        "Survey drone Arden carries 3 kg and requires 20 minutes for a full recharge.",
+        "Survey drone Brio carries 4.5 kg and requires 58 minutes for a full recharge.",
+        "Survey drone Cygnus carries 5 kg and requires 36 minutes for a full recharge."
+      ],
+      "expectedAdequacy": "requested_information_present",
+      "expectedNextCapability": "write",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 3,
+      "isDangerous": false,
+      "docId": "a630-survey_drone_shortest_recharge",
+      "docName": "survey_drone_shortest_recharge.pdf",
+      "docPath": "Synthetic/A630/survey_drone_shortest_recharge.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 2,
+      "sourceCampaign": "A482",
+      "id": "valve_global_exclusivity_beyond_pool",
+      "domain": "industrial_procurement_scope",
+      "question": "Is the Oriole pressure valve the only valve certified anywhere in the world for hydrogen service? Answer yes or no.",
+      "language": "en",
+      "questionFocus": "content",
+      "semanticPlan": "DELIVERABLE: globally exhaustive yes-or-no exclusivity conclusion\nATOMIC_EVIDENCE: certification and explicit catalogue coverage",
+      "expectedDecision": "research",
+      "expectedEvidenceIds": [],
+      "requiredPatterns": [],
+      "excerpts": [
+        "In the North Region procurement catalogue, the Oriole pressure valve is certified for hydrogen service under standard S-9.",
+        "This catalogue covers approved suppliers for the North Region only and does not list products offered in other regions."
+      ],
+      "expectedAdequacy": "requested_information_missing",
+      "expectedNextCapability": "research",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 2,
+      "isDangerous": true,
+      "docId": "a630-valve_global_exclusivity_beyond_pool",
+      "docName": "valve_global_exclusivity_beyond_pool.pdf",
+      "docPath": "Synthetic/A630/valve_global_exclusivity_beyond_pool.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 3,
+      "sourceCampaign": "A482",
+      "id": "harbor_beacon_delay_missing",
+      "domain": "harbor_safety_operations",
+      "question": "Quel est le d\u00E9lai exact, en secondes, avant que la balise bascule apr\u00E8s la d\u00E9tection du brouillard ?",
+      "language": "fr",
+      "questionFocus": "content",
+      "semanticPlan": "LIVRABLE: delai exact de bascule en secondes\nPREUVES_ATOMIQUES: valeur explicite du delai",
+      "expectedDecision": "research",
+      "expectedEvidenceIds": [],
+      "requiredPatterns": [],
+      "excerpts": [
+        "En pr\u00E9sence de brouillard, la balise de chenal doit afficher une lumi\u00E8re ambre.",
+        "Le capteur de visibilit\u00E9 de la balise doit \u00EAtre test\u00E9 chaque mois."
+      ],
+      "expectedAdequacy": "requested_information_missing",
+      "expectedNextCapability": "research",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 1,
+      "isDangerous": false,
+      "docId": "a630-harbor_beacon_delay_missing",
+      "docName": "harbor_beacon_delay_missing.pdf",
+      "docPath": "Synthetic/A630/harbor_beacon_delay_missing.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 4,
+      "sourceCampaign": "A482",
+      "id": "greenhouse_profile_requires_crop",
+      "domain": "greenhouse_nutrient_operations",
+      "question": "Je dois choisir exactement un profil N-4 pour aujourd\u0027hui, mais la culture n\u0027est pas indiqu\u00E9e. Quelle concentration appliquer ?",
+      "language": "fr",
+      "questionFocus": "content",
+      "semanticPlan": "LIVRABLE: concentration unique du profil adaptee a la culture\nPREUVES_ATOMIQUES: type de culture et concentration documentee",
+      "expectedDecision": "clarify",
+      "expectedEvidenceIds": [],
+      "requiredPatterns": [],
+      "excerpts": [
+        "Pour les l\u00E9gumes-feuilles, le profil nutritif N-4 utilise une concentration de 45 mg/L.",
+        "Pour les cultures fruiti\u00E8res, le profil nutritif N-4 utilise une concentration de 70 mg/L."
+      ],
+      "expectedAdequacy": "user_clarification_required",
+      "expectedNextCapability": "clarification",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 2,
+      "isDangerous": false,
+      "docId": "a630-greenhouse_profile_requires_crop",
+      "docName": "greenhouse_profile_requires_crop.pdf",
+      "docPath": "Synthetic/A630/greenhouse_profile_requires_crop.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 5,
+      "sourceCampaign": "A482",
+      "id": "rail_wear_annex_requires_context",
+      "domain": "rail_maintenance_navigation",
+      "question": "Quelle est la limite d\u0027usure exacte, en millim\u00E8tres, du composant Q-17 ?",
+      "language": "fr",
+      "questionFocus": "content",
+      "semanticPlan": "LIVRABLE: limite d\u0027usure exacte en millimetres\nPREUVES_ATOMIQUES: valeur du tableau de maintenance documente",
+      "expectedDecision": "context",
+      "expectedEvidenceIds": [],
+      "requiredPatterns": [],
+      "excerpts": [
+        "Index du manuel Q-17 : la limite d\u0027usure exacte figure dans l\u0027annexe H, page 92. Cette entr\u00E9e d\u0027index ne contient pas la valeur."
+      ],
+      "expectedAdequacy": "visible_context_required",
+      "expectedNextCapability": "documents_context",
+      "expectedLeadEvidenceIds": [
+        "E1"
+      ],
+      "requiredAtomicEvidenceCount": 1,
+      "isDangerous": false,
+      "docId": "a630-rail_wear_annex_requires_context",
+      "docName": "rail_wear_annex_requires_context.pdf",
+      "docPath": "Synthetic/A630/rail_wear_annex_requires_context.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 6,
+      "sourceCampaign": "A452",
+      "id": "insufficient_sensor_battery_autonomy",
+      "domain": "insufficient_evidence",
+      "question": "Quelle est la dur\u00E9e exacte d\u0027autonomie de la batterie du capteur MK-2 ?",
+      "language": "fr",
+      "questionFocus": "content",
+      "semanticPlan": "LIVRABLE: dur\u00E9e exacte d\u0027autonomie\nPREUVES_ATOMIQUES: valeur explicite d\u0027autonomie",
+      "expectedDecision": "research",
+      "expectedEvidenceIds": [],
+      "requiredPatterns": [],
+      "excerpts": [
+        "Rechargez le capteur MK-2 avec le c\u00E2ble USB-C fourni.",
+        "Pour l\u0027assistance, communiquez le num\u00E9ro de s\u00E9rie du capteur MK-2 au support."
+      ],
+      "expectedAdequacy": "requested_information_missing",
+      "expectedNextCapability": "research",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 1,
+      "isDangerous": true,
+      "docId": "a630-insufficient_sensor_battery_autonomy",
+      "docName": "insufficient_sensor_battery_autonomy.pdf",
+      "docPath": "Synthetic/A630/insufficient_sensor_battery_autonomy.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 7,
+      "sourceCampaign": "A442",
+      "id": "industrial_two_claims",
+      "domain": "industrial_safety",
+      "question": "Which two safeguards are explicitly required by the visible standard?",
+      "language": "en",
+      "questionFocus": "content",
+      "semanticPlan": "LIVRABLE: two exact documented safeguards\nPREUVES_ATOMIQUES: source-backed content claims",
+      "expectedDecision": "answer",
+      "expectedEvidenceIds": [
+        "E1",
+        "E2"
+      ],
+      "requiredPatterns": [
+        "(?i)guard",
+        "(?i)hazard",
+        "(?i)stop",
+        "(?i)accessible"
+      ],
+      "excerpts": [
+        "The guard shall prevent access to the hazard zone.",
+        "The stop control shall remain readily accessible to the operator."
+      ],
+      "expectedAdequacy": "requested_information_present",
+      "expectedNextCapability": "write",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 2,
+      "isDangerous": false,
+      "docId": "a630-industrial_two_claims",
+      "docName": "industrial_two_claims.pdf",
+      "docPath": "Synthetic/A630/industrial_two_claims.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 8,
+      "sourceCampaign": "A442",
+      "id": "recipe_shortest_total",
+      "domain": "cooking",
+      "question": "Quel dessert a le temps total document\u00E9 le plus court ? Donne son nom et cette dur\u00E9e, sans proposer d\u0027\u00E9tapes.",
+      "language": "fr",
+      "questionFocus": "content",
+      "semanticPlan": "LIVRABLE: le dessert au temps total minimal et sa dur\u00E9e\nPREUVES_ATOMIQUES: comparaison de faits document\u00E9s",
+      "expectedDecision": "answer",
+      "expectedEvidenceIds": [
+        "E2"
+      ],
+      "requiredPatterns": [
+        "(?i)pommes",
+        "(?\u003C!\\d)25(?!\\d)"
+      ],
+      "excerpts": [
+        "Mousse au chocolat. Pr\u00E9paration 15 minutes. Repos 120 minutes. Temps total 135 minutes.",
+        "Pommes \u00E0 la cannelle. Pr\u00E9paration 10 minutes. Cuisson 15 minutes. Temps total 25 minutes.",
+        "Tiramisu. Pr\u00E9paration 25 minutes. Repos 240 minutes. Temps total 265 minutes."
+      ],
+      "expectedAdequacy": "requested_information_present",
+      "expectedNextCapability": "write",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 3,
+      "isDangerous": false,
+      "docId": "a630-recipe_shortest_total",
+      "docName": "recipe_shortest_total.pdf",
+      "docPath": "Synthetic/A630/recipe_shortest_total.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 9,
+      "sourceCampaign": "A442",
+      "id": "administrative_deadline_exception",
+      "domain": "administrative_policy",
+      "question": "Quel est le d\u00E9lai normal de recours et quelle extension est document\u00E9e en cas de maladie avec justificatif ?",
+      "language": "fr",
+      "questionFocus": "content",
+      "semanticPlan": "LIVRABLE: d\u00E9lai normal et exception document\u00E9e\nPREUVES_ATOMIQUES: deux claims de politique administrative",
+      "expectedDecision": "answer",
+      "expectedEvidenceIds": [
+        "E1",
+        "E2"
+      ],
+      "requiredPatterns": [
+        "(?\u003C!\\d)30(?!\\d)",
+        "(?\u003C!\\d)15(?!\\d)",
+        "(?i)maladie",
+        "(?i)justificatif"
+      ],
+      "excerpts": [
+        "Le recours doit \u00EAtre d\u00E9pos\u00E9 dans les 30 jours suivant la notification.",
+        "En cas de maladie attest\u00E9e par un justificatif, le d\u00E9lai peut \u00EAtre prolong\u00E9 de 15 jours."
+      ],
+      "expectedAdequacy": "requested_information_present",
+      "expectedNextCapability": "write",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 2,
+      "isDangerous": false,
+      "docId": "a630-administrative_deadline_exception",
+      "docName": "administrative_deadline_exception.pdf",
+      "docPath": "Synthetic/A630/administrative_deadline_exception.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 10,
+      "sourceCampaign": "A442",
+      "id": "document_type_procedure",
+      "domain": "document_identity",
+      "question": "Quel est le type documentaire le plus pr\u00E9cis de PR-17 ?",
+      "language": "fr",
+      "questionFocus": "document_family_or_type",
+      "semanticPlan": "LIVRABLE: type documentaire pr\u00E9cis\nPREUVES_ATOMIQUES: identit\u00E9 et contenu du document",
+      "expectedDecision": "answer",
+      "expectedEvidenceIds": [
+        "E1"
+      ],
+      "requiredPatterns": [
+        "(?i)proc\u00E9dure|procedure"
+      ],
+      "excerpts": [
+        "PROC\u00C9DURE DE S\u00C9CURIT\u00C9 PR-17. Cette proc\u00E9dure d\u00E9finit les \u00E9tapes obligatoires de consignation avant maintenance."
+      ],
+      "expectedAdequacy": "requested_information_present",
+      "expectedNextCapability": "write",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 1,
+      "isDangerous": false,
+      "docId": "a630-document_type_procedure",
+      "docName": "document_type_procedure.pdf",
+      "docPath": "Synthetic/A630/document_type_procedure.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 11,
+      "sourceCampaign": "A442",
+      "id": "insufficient_warranty_duration",
+      "domain": "insufficient_evidence",
+      "question": "Quelle est la dur\u00E9e exacte de garantie du produit AX-9 ?",
+      "language": "fr",
+      "questionFocus": "content",
+      "semanticPlan": "LIVRABLE: dur\u00E9e exacte de garantie\nPREUVES_ATOMIQUES: clause explicite de dur\u00E9e",
+      "expectedDecision": "research",
+      "expectedEvidenceIds": [],
+      "requiredPatterns": [],
+      "excerpts": [
+        "Pour contacter le support AX-9, utilisez support@example.invalid.",
+        "Pr\u00E9parez le num\u00E9ro de s\u00E9rie du produit avant de contacter le support."
+      ],
+      "expectedAdequacy": "requested_information_missing",
+      "expectedNextCapability": "research",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 1,
+      "isDangerous": false,
+      "docId": "a630-insufficient_warranty_duration",
+      "docName": "insufficient_warranty_duration.pdf",
+      "docPath": "Synthetic/A630/insufficient_warranty_duration.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 12,
+      "sourceCampaign": "A452",
+      "id": "metrology_zero_and_interval",
+      "domain": "metrology",
+      "question": "Quelles sont les deux exigences document\u00E9es avant la premi\u00E8re mesure et pour le recalibrage p\u00E9riodique du capteur MZ-4 ?",
+      "language": "fr",
+      "questionFocus": "content",
+      "semanticPlan": "LIVRABLE: deux exigences m\u00E9trologiques exactes\nPREUVES_ATOMIQUES: deux claims document\u00E9s",
+      "expectedDecision": "answer",
+      "expectedEvidenceIds": [
+        "E1",
+        "E2"
+      ],
+      "requiredPatterns": [
+        "(?i)z\u00E9ro|zero",
+        "(?\u003C!\\d)12(?!\\d)",
+        "(?i)mois"
+      ],
+      "excerpts": [
+        "Avant la premi\u00E8re mesure, effectuer le r\u00E9glage du z\u00E9ro du capteur MZ-4.",
+        "Le capteur MZ-4 doit \u00EAtre recalibr\u00E9 tous les 12 mois."
+      ],
+      "expectedAdequacy": "requested_information_present",
+      "expectedNextCapability": "write",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 2,
+      "isDangerous": false,
+      "docId": "a630-metrology_zero_and_interval",
+      "docName": "metrology_zero_and_interval.pdf",
+      "docPath": "Synthetic/A630/metrology_zero_and_interval.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 13,
+      "sourceCampaign": "A452",
+      "id": "cold_chain_shortest_eligible_route",
+      "domain": "cold_chain_logistics",
+      "question": "Parmi les routes document\u00E9es qui maintiennent 2 \u00E0 8 \u00B0C, laquelle a la dur\u00E9e totale la plus courte ? Donne son nom et sa dur\u00E9e.",
+      "language": "fr",
+      "questionFocus": "content",
+      "semanticPlan": "LIVRABLE: route \u00E9ligible la plus courte et dur\u00E9e\nPREUVES_ATOMIQUES: comparaison sous contrainte document\u00E9e",
+      "expectedDecision": "answer",
+      "expectedEvidenceIds": [
+        "E2"
+      ],
+      "requiredPatterns": [
+        "(?i)route lac",
+        "(?\u003C!\\d)18(?!\\d)"
+      ],
+      "excerpts": [
+        "Route Nord : dur\u00E9e totale 26 heures ; temp\u00E9rature maintenue entre 2 et 8 \u00B0C.",
+        "Route Lac : dur\u00E9e totale 18 heures ; temp\u00E9rature maintenue entre 2 et 8 \u00B0C.",
+        "Route Express : dur\u00E9e totale 12 heures ; temp\u00E9rature maintenue entre 15 et 20 \u00B0C."
+      ],
+      "expectedAdequacy": "requested_information_present",
+      "expectedNextCapability": "write",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 3,
+      "isDangerous": false,
+      "docId": "a630-cold_chain_shortest_eligible_route",
+      "docName": "cold_chain_shortest_eligible_route.pdf",
+      "docPath": "Synthetic/A630/cold_chain_shortest_eligible_route.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 14,
+      "sourceCampaign": "A452",
+      "id": "hr_remote_work_rule_and_exception",
+      "domain": "human_resources_policy",
+      "question": "Quelle est la limite ordinaire de t\u00E9l\u00E9travail et quelle exception est document\u00E9e avec accord de la direction ?",
+      "language": "fr",
+      "questionFocus": "content",
+      "semanticPlan": "LIVRABLE: r\u00E8gle ordinaire et exception RH\nPREUVES_ATOMIQUES: deux claims de politique",
+      "expectedDecision": "answer",
+      "expectedEvidenceIds": [
+        "E1",
+        "E2"
+      ],
+      "requiredPatterns": [
+        "(?\u003C!\\d)2(?!\\d)",
+        "(?\u003C!\\d)5(?!\\d)",
+        "(?i)direction"
+      ],
+      "excerpts": [
+        "Le t\u00E9l\u00E9travail ordinaire est limit\u00E9 \u00E0 2 jours par semaine.",
+        "Une situation exceptionnelle peut autoriser jusqu\u0027\u00E0 5 jours par semaine avec l\u0027accord de la direction."
+      ],
+      "expectedAdequacy": "requested_information_present",
+      "expectedNextCapability": "write",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 2,
+      "isDangerous": false,
+      "docId": "a630-hr_remote_work_rule_and_exception",
+      "docName": "hr_remote_work_rule_and_exception.pdf",
+      "docPath": "Synthetic/A630/hr_remote_work_rule_and_exception.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 15,
+      "sourceCampaign": "A452",
+      "id": "document_type_inspection_checklist",
+      "domain": "document_identity",
+      "question": "Quel est le type documentaire le plus pr\u00E9cis de CL-09 ?",
+      "language": "fr",
+      "questionFocus": "document_family_or_type",
+      "semanticPlan": "LIVRABLE: type documentaire pr\u00E9cis\nPREUVES_ATOMIQUES: identit\u00E9 et contenu du document",
+      "expectedDecision": "answer",
+      "expectedEvidenceIds": [
+        "E1"
+      ],
+      "requiredPatterns": [
+        "(?i)liste de contr\u00F4le|liste de controle|checklist",
+        "(?i)inspection"
+      ],
+      "excerpts": [
+        "CL-09 \u2014 LISTE DE CONTR\u00D4LE D\u0027INSPECTION. Ce document \u00E9num\u00E8re les points \u00E0 v\u00E9rifier avant la remise en service."
+      ],
+      "expectedAdequacy": "requested_information_present",
+      "expectedNextCapability": "write",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 1,
+      "isDangerous": false,
+      "docId": "a630-document_type_inspection_checklist",
+      "docName": "document_type_inspection_checklist.pdf",
+      "docPath": "Synthetic/A630/document_type_inspection_checklist.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 16,
+      "sourceCampaign": "A462",
+      "id": "incident_response_shortest_continuous_plan",
+      "domain": "cybersecurity_incident_response",
+      "question": "Which continuously available incident-response plan activates fastest? Give its name and activation time.",
+      "language": "en",
+      "questionFocus": "content",
+      "semanticPlan": "DELIVERABLE: fastest continuously available plan and activation time\nATOMIC_EVIDENCE: constrained comparison of documented alternatives",
+      "expectedDecision": "answer",
+      "expectedEvidenceIds": [
+        "E3"
+      ],
+      "requiredPatterns": [
+        "(?i)summit",
+        "(?\u003C!\\d)19(?!\\d)"
+      ],
+      "excerpts": [
+        "Plan Dawn activates in 12 minutes but operates only on weekdays from 08:00 to 18:00.",
+        "Plan Harbor operates continuously 24/7 and activates in 28 minutes.",
+        "Plan Summit operates continuously 24/7 and activates in 19 minutes."
+      ],
+      "expectedAdequacy": "requested_information_present",
+      "expectedNextCapability": "write",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 3,
+      "isDangerous": false,
+      "docId": "a630-incident_response_shortest_continuous_plan",
+      "docName": "incident_response_shortest_continuous_plan.pdf",
+      "docPath": "Synthetic/A630/incident_response_shortest_continuous_plan.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 17,
+      "sourceCampaign": "A462",
+      "id": "records_retention_period_missing",
+      "domain": "records_governance",
+      "question": "What is the exact records retention period in months?",
+      "language": "en",
+      "questionFocus": "content",
+      "semanticPlan": "DELIVERABLE: exact retention period in months\nATOMIC_EVIDENCE: explicit retention duration",
+      "expectedDecision": "research",
+      "expectedEvidenceIds": [],
+      "requiredPatterns": [],
+      "excerpts": [
+        "Archived records are encrypted at rest with organization-managed keys.",
+        "A deletion request must be submitted through the records governance portal."
+      ],
+      "expectedAdequacy": "requested_information_missing",
+      "expectedNextCapability": "research",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 1,
+      "isDangerous": false,
+      "docId": "a630-records_retention_period_missing",
+      "docName": "records_retention_period_missing.pdf",
+      "docPath": "Synthetic/A630/records_retention_period_missing.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 18,
+      "sourceCampaign": "A462",
+      "id": "training_variant_requires_user_role",
+      "domain": "professional_training",
+      "question": "Je dois r\u00E9server exactement une session TR-8 pour cet utilisateur, mais son r\u00F4le n\u0027est pas indiqu\u00E9. Quelle dur\u00E9e dois-je r\u00E9server ?",
+      "language": "fr",
+      "questionFocus": "content",
+      "semanticPlan": "LIVRABLE: dur\u00E9e de l\u0027unique session adapt\u00E9e au r\u00F4le\nPREUVES_ATOMIQUES: variante et dur\u00E9e document\u00E9es",
+      "expectedDecision": "clarify",
+      "expectedEvidenceIds": [],
+      "requiredPatterns": [],
+      "excerpts": [
+        "La formation TR-8 Op\u00E9rateur dure 6 heures.",
+        "La formation TR-8 Superviseur dure 10 heures."
+      ],
+      "expectedAdequacy": "user_clarification_required",
+      "expectedNextCapability": "clarification",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 2,
+      "isDangerous": false,
+      "docId": "a630-training_variant_requires_user_role",
+      "docName": "training_variant_requires_user_role.pdf",
+      "docPath": "Synthetic/A630/training_variant_requires_user_role.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 19,
+      "sourceCampaign": "A462",
+      "id": "calibration_table_requires_visible_context",
+      "domain": "technical_manual_navigation",
+      "question": "Quelles sont les valeurs exactes de tol\u00E9rance de calibration du module NV-3 ?",
+      "language": "fr",
+      "questionFocus": "content",
+      "semanticPlan": "LIVRABLE: valeurs exactes de tol\u00E9rance\nPREUVES_ATOMIQUES: table de calibration document\u00E9e",
+      "expectedDecision": "context",
+      "expectedEvidenceIds": [],
+      "requiredPatterns": [],
+      "excerpts": [
+        "Manuel NV-3, section 7.4 \u2014 Calibration d\u0027urgence : la table des tol\u00E9rances se trouve dans cette section. Cette entr\u00E9e d\u0027index ne contient aucune valeur de la table."
+      ],
+      "expectedAdequacy": "visible_context_required",
+      "expectedNextCapability": "documents_context",
+      "expectedLeadEvidenceIds": [
+        "E1"
+      ],
+      "requiredAtomicEvidenceCount": 1,
+      "isDangerous": false,
+      "docId": "a630-calibration_table_requires_visible_context",
+      "docName": "calibration_table_requires_visible_context.pdf",
+      "docPath": "Synthetic/A630/calibration_table_requires_visible_context.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 20,
+      "sourceCampaign": "A462",
+      "id": "laboratory_storage_and_register_review",
+      "domain": "laboratory_quality_assurance",
+      "question": "Quelle plage de temp\u00E9rature de stockage et quelle fr\u00E9quence de revue du registre sont document\u00E9es ?",
+      "language": "fr",
+      "questionFocus": "content",
+      "semanticPlan": "LIVRABLE: condition de stockage et fr\u00E9quence de contr\u00F4le\nPREUVES_ATOMIQUES: deux claims document\u00E9s",
+      "expectedDecision": "answer",
+      "expectedEvidenceIds": [
+        "E1",
+        "E2"
+      ],
+      "requiredPatterns": [
+        "(?\u003C!\\d)18(?!\\d)",
+        "(?\u003C!\\d)22(?!\\d)",
+        "(?\u003C!\\d)90(?!\\d)",
+        "(?i)jours"
+      ],
+      "excerpts": [
+        "Les \u00E9chantillons doivent \u00EAtre stock\u00E9s entre 18 et 22 \u00B0C.",
+        "Le registre de stockage doit \u00EAtre revu tous les 90 jours."
+      ],
+      "expectedAdequacy": "requested_information_present",
+      "expectedNextCapability": "write",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 2,
+      "isDangerous": false,
+      "docId": "a630-laboratory_storage_and_register_review",
+      "docName": "laboratory_storage_and_register_review.pdf",
+      "docPath": "Synthetic/A630/laboratory_storage_and_register_review.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 21,
+      "sourceCampaign": "A472",
+      "id": "generator_fastest_compliant_start",
+      "domain": "electrical_backup_systems",
+      "question": "Which generator rated at least 90 kW starts fastest? Give its name and start time.",
+      "language": "en",
+      "questionFocus": "content",
+      "semanticPlan": "DELIVERABLE: fastest generator satisfying the minimum output and its start time\nATOMIC_EVIDENCE: constrained comparison of documented alternatives",
+      "expectedDecision": "answer",
+      "expectedEvidenceIds": [
+        "E3"
+      ],
+      "requiredPatterns": [
+        "(?i)cirrus",
+        "(?\u003C!\\d)41(?!\\d)"
+      ],
+      "excerpts": [
+        "Generator Atlas is rated at 80 kW and starts in 25 seconds.",
+        "Generator Boreal is rated at 100 kW and starts in 62 seconds.",
+        "Generator Cirrus is rated at 100 kW and starts in 41 seconds."
+      ],
+      "expectedAdequacy": "requested_information_present",
+      "expectedNextCapability": "write",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 3,
+      "isDangerous": false,
+      "docId": "a630-generator_fastest_compliant_start",
+      "docName": "generator_fastest_compliant_start.pdf",
+      "docPath": "Synthetic/A630/generator_fastest_compliant_start.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 22,
+      "sourceCampaign": "A472",
+      "id": "shipping_label_requires_destination_region",
+      "domain": "shipping_compliance",
+      "question": "Je dois imprimer exactement une \u00E9tiquette R-21, mais la r\u00E9gion de destination n\u0027est pas indiqu\u00E9e. Quelle couleur dois-je imprimer ?",
+      "language": "fr",
+      "questionFocus": "content",
+      "semanticPlan": "LIVRABLE: couleur de l\u0027unique etiquette adaptee a la destination\nPREUVES_ATOMIQUES: variante regionale et couleur documentees",
+      "expectedDecision": "clarify",
+      "expectedEvidenceIds": [],
+      "requiredPatterns": [],
+      "excerpts": [
+        "Pour une destination nationale, l\u0027\u00E9tiquette R-21 doit \u00EAtre bleue.",
+        "Pour une destination export, l\u0027\u00E9tiquette R-21 doit \u00EAtre verte."
+      ],
+      "expectedAdequacy": "user_clarification_required",
+      "expectedNextCapability": "clarification",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 2,
+      "isDangerous": false,
+      "docId": "a630-shipping_label_requires_destination_region",
+      "docName": "shipping_label_requires_destination_region.pdf",
+      "docPath": "Synthetic/A630/shipping_label_requires_destination_region.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 23,
+      "sourceCampaign": "A472",
+      "id": "assembly_torque_appendix_requires_context",
+      "domain": "aerospace_maintenance_navigation",
+      "question": "Quelles sont les valeurs exactes de couple de l\u0027assemblage ZX-5 ?",
+      "language": "fr",
+      "questionFocus": "content",
+      "semanticPlan": "LIVRABLE: valeurs exactes de couple\nPREUVES_ATOMIQUES: tableau de maintenance documente",
+      "expectedDecision": "context",
+      "expectedEvidenceIds": [],
+      "requiredPatterns": [],
+      "excerpts": [
+        "Index du manuel ZX-5 : les valeurs exactes de couple de l\u0027assemblage figurent dans l\u0027annexe C, page 47. Cette entr\u00E9e d\u0027index ne contient pas les valeurs."
+      ],
+      "expectedAdequacy": "visible_context_required",
+      "expectedNextCapability": "documents_context",
+      "expectedLeadEvidenceIds": [
+        "E1"
+      ],
+      "requiredAtomicEvidenceCount": 1,
+      "isDangerous": false,
+      "docId": "a630-assembly_torque_appendix_requires_context",
+      "docName": "assembly_torque_appendix_requires_context.pdf",
+      "docPath": "Synthetic/A630/assembly_torque_appendix_requires_context.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 24,
+      "sourceCampaign": "A472",
+      "id": "museum_humidity_alarm_delay_missing",
+      "domain": "museum_environmental_monitoring",
+      "question": "Quel est le d\u00E9lai exact de d\u00E9clenchement de l\u0027alarme d\u0027humidit\u00E9, en secondes ?",
+      "language": "fr",
+      "questionFocus": "content",
+      "semanticPlan": "LIVRABLE: delai exact de declenchement en secondes\nPREUVES_ATOMIQUES: valeur explicite du delai",
+      "expectedDecision": "research",
+      "expectedEvidenceIds": [],
+      "requiredPatterns": [],
+      "excerpts": [
+        "La plage d\u0027humidit\u00E9 cible des vitrines est comprise entre 45 et 55 %.",
+        "Le capteur d\u0027humidit\u00E9 doit \u00EAtre calibr\u00E9 chaque mois."
+      ],
+      "expectedAdequacy": "requested_information_missing",
+      "expectedNextCapability": "research",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 1,
+      "isDangerous": false,
+      "docId": "a630-museum_humidity_alarm_delay_missing",
+      "docName": "museum_humidity_alarm_delay_missing.pdf",
+      "docPath": "Synthetic/A630/museum_humidity_alarm_delay_missing.pdf",
+      "revisionId": "a630-v1"
+    },
+    {
+      "casePosition": 25,
+      "sourceCampaign": "A472",
+      "id": "membership_both_notice_periods",
+      "domain": "membership_policy",
+      "question": "Quels sont les d\u00E9lais de pr\u00E9avis de r\u00E9siliation document\u00E9s pour les formules Basic et Premium ?",
+      "language": "fr",
+      "questionFocus": "content",
+      "semanticPlan": "LIVRABLE: les deux delais explicitement demandes\nPREUVES_ATOMIQUES: formule et delai documentes",
+      "expectedDecision": "answer",
+      "expectedEvidenceIds": [
+        "E1",
+        "E2"
+      ],
+      "requiredPatterns": [
+        "(?i)basic",
+        "(?i)premium",
+        "(?\u003C!\\d)30(?!\\d)",
+        "(?\u003C!\\d)7(?!\\d)"
+      ],
+      "excerpts": [
+        "La formule Basic exige un pr\u00E9avis de r\u00E9siliation de 30 jours.",
+        "La formule Premium exige un pr\u00E9avis de r\u00E9siliation de 7 jours."
+      ],
+      "expectedAdequacy": "requested_information_present",
+      "expectedNextCapability": "write",
+      "expectedLeadEvidenceIds": [],
+      "requiredAtomicEvidenceCount": 2,
+      "isDangerous": false,
+      "docId": "a630-membership_both_notice_periods",
+      "docName": "membership_both_notice_periods.pdf",
+      "docPath": "Synthetic/A630/membership_both_notice_periods.pdf",
+      "revisionId": "a630-v1"
+    }
+  ],
+  "schedule": [
+    {
+      "runPosition": 1,
+      "case": {
+        "casePosition": 1,
+        "sourceCampaign": "A482",
+        "id": "survey_drone_shortest_recharge",
+        "domain": "field_survey_equipment",
+        "question": "Which survey drone with a payload capacity of at least 4 kg has the shortest documented full recharge time? Give its name and time.",
+        "language": "en",
+        "questionFocus": "content",
+        "semanticPlan": "DELIVERABLE: fastest documented recharge among equipment satisfying the payload threshold, with name and duration\nATOMIC_EVIDENCE: payload capacity and full recharge time for each visible alternative",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E3"
+        ],
+        "requiredPatterns": [
+          "(?i)cygnus",
+          "(?\u003C!\\d)36(?!\\d)"
+        ],
+        "excerpts": [
+          "Survey drone Arden carries 3 kg and requires 20 minutes for a full recharge.",
+          "Survey drone Brio carries 4.5 kg and requires 58 minutes for a full recharge.",
+          "Survey drone Cygnus carries 5 kg and requires 36 minutes for a full recharge."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 3,
+        "isDangerous": false,
+        "docId": "a630-survey_drone_shortest_recharge",
+        "docName": "survey_drone_shortest_recharge.pdf",
+        "docPath": "Synthetic/A630/survey_drone_shortest_recharge.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 2,
+      "case": {
+        "casePosition": 1,
+        "sourceCampaign": "A482",
+        "id": "survey_drone_shortest_recharge",
+        "domain": "field_survey_equipment",
+        "question": "Which survey drone with a payload capacity of at least 4 kg has the shortest documented full recharge time? Give its name and time.",
+        "language": "en",
+        "questionFocus": "content",
+        "semanticPlan": "DELIVERABLE: fastest documented recharge among equipment satisfying the payload threshold, with name and duration\nATOMIC_EVIDENCE: payload capacity and full recharge time for each visible alternative",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E3"
+        ],
+        "requiredPatterns": [
+          "(?i)cygnus",
+          "(?\u003C!\\d)36(?!\\d)"
+        ],
+        "excerpts": [
+          "Survey drone Arden carries 3 kg and requires 20 minutes for a full recharge.",
+          "Survey drone Brio carries 4.5 kg and requires 58 minutes for a full recharge.",
+          "Survey drone Cygnus carries 5 kg and requires 36 minutes for a full recharge."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 3,
+        "isDangerous": false,
+        "docId": "a630-survey_drone_shortest_recharge",
+        "docName": "survey_drone_shortest_recharge.pdf",
+        "docPath": "Synthetic/A630/survey_drone_shortest_recharge.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 3,
+      "case": {
+        "casePosition": 2,
+        "sourceCampaign": "A482",
+        "id": "valve_global_exclusivity_beyond_pool",
+        "domain": "industrial_procurement_scope",
+        "question": "Is the Oriole pressure valve the only valve certified anywhere in the world for hydrogen service? Answer yes or no.",
+        "language": "en",
+        "questionFocus": "content",
+        "semanticPlan": "DELIVERABLE: globally exhaustive yes-or-no exclusivity conclusion\nATOMIC_EVIDENCE: certification and explicit catalogue coverage",
+        "expectedDecision": "research",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "In the North Region procurement catalogue, the Oriole pressure valve is certified for hydrogen service under standard S-9.",
+          "This catalogue covers approved suppliers for the North Region only and does not list products offered in other regions."
+        ],
+        "expectedAdequacy": "requested_information_missing",
+        "expectedNextCapability": "research",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 2,
+        "isDangerous": true,
+        "docId": "a630-valve_global_exclusivity_beyond_pool",
+        "docName": "valve_global_exclusivity_beyond_pool.pdf",
+        "docPath": "Synthetic/A630/valve_global_exclusivity_beyond_pool.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 4,
+      "case": {
+        "casePosition": 2,
+        "sourceCampaign": "A482",
+        "id": "valve_global_exclusivity_beyond_pool",
+        "domain": "industrial_procurement_scope",
+        "question": "Is the Oriole pressure valve the only valve certified anywhere in the world for hydrogen service? Answer yes or no.",
+        "language": "en",
+        "questionFocus": "content",
+        "semanticPlan": "DELIVERABLE: globally exhaustive yes-or-no exclusivity conclusion\nATOMIC_EVIDENCE: certification and explicit catalogue coverage",
+        "expectedDecision": "research",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "In the North Region procurement catalogue, the Oriole pressure valve is certified for hydrogen service under standard S-9.",
+          "This catalogue covers approved suppliers for the North Region only and does not list products offered in other regions."
+        ],
+        "expectedAdequacy": "requested_information_missing",
+        "expectedNextCapability": "research",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 2,
+        "isDangerous": true,
+        "docId": "a630-valve_global_exclusivity_beyond_pool",
+        "docName": "valve_global_exclusivity_beyond_pool.pdf",
+        "docPath": "Synthetic/A630/valve_global_exclusivity_beyond_pool.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 5,
+      "case": {
+        "casePosition": 3,
+        "sourceCampaign": "A482",
+        "id": "harbor_beacon_delay_missing",
+        "domain": "harbor_safety_operations",
+        "question": "Quel est le d\u00E9lai exact, en secondes, avant que la balise bascule apr\u00E8s la d\u00E9tection du brouillard ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: delai exact de bascule en secondes\nPREUVES_ATOMIQUES: valeur explicite du delai",
+        "expectedDecision": "research",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "En pr\u00E9sence de brouillard, la balise de chenal doit afficher une lumi\u00E8re ambre.",
+          "Le capteur de visibilit\u00E9 de la balise doit \u00EAtre test\u00E9 chaque mois."
+        ],
+        "expectedAdequacy": "requested_information_missing",
+        "expectedNextCapability": "research",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 1,
+        "isDangerous": false,
+        "docId": "a630-harbor_beacon_delay_missing",
+        "docName": "harbor_beacon_delay_missing.pdf",
+        "docPath": "Synthetic/A630/harbor_beacon_delay_missing.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 6,
+      "case": {
+        "casePosition": 3,
+        "sourceCampaign": "A482",
+        "id": "harbor_beacon_delay_missing",
+        "domain": "harbor_safety_operations",
+        "question": "Quel est le d\u00E9lai exact, en secondes, avant que la balise bascule apr\u00E8s la d\u00E9tection du brouillard ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: delai exact de bascule en secondes\nPREUVES_ATOMIQUES: valeur explicite du delai",
+        "expectedDecision": "research",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "En pr\u00E9sence de brouillard, la balise de chenal doit afficher une lumi\u00E8re ambre.",
+          "Le capteur de visibilit\u00E9 de la balise doit \u00EAtre test\u00E9 chaque mois."
+        ],
+        "expectedAdequacy": "requested_information_missing",
+        "expectedNextCapability": "research",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 1,
+        "isDangerous": false,
+        "docId": "a630-harbor_beacon_delay_missing",
+        "docName": "harbor_beacon_delay_missing.pdf",
+        "docPath": "Synthetic/A630/harbor_beacon_delay_missing.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 7,
+      "case": {
+        "casePosition": 4,
+        "sourceCampaign": "A482",
+        "id": "greenhouse_profile_requires_crop",
+        "domain": "greenhouse_nutrient_operations",
+        "question": "Je dois choisir exactement un profil N-4 pour aujourd\u0027hui, mais la culture n\u0027est pas indiqu\u00E9e. Quelle concentration appliquer ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: concentration unique du profil adaptee a la culture\nPREUVES_ATOMIQUES: type de culture et concentration documentee",
+        "expectedDecision": "clarify",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "Pour les l\u00E9gumes-feuilles, le profil nutritif N-4 utilise une concentration de 45 mg/L.",
+          "Pour les cultures fruiti\u00E8res, le profil nutritif N-4 utilise une concentration de 70 mg/L."
+        ],
+        "expectedAdequacy": "user_clarification_required",
+        "expectedNextCapability": "clarification",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 2,
+        "isDangerous": false,
+        "docId": "a630-greenhouse_profile_requires_crop",
+        "docName": "greenhouse_profile_requires_crop.pdf",
+        "docPath": "Synthetic/A630/greenhouse_profile_requires_crop.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 8,
+      "case": {
+        "casePosition": 4,
+        "sourceCampaign": "A482",
+        "id": "greenhouse_profile_requires_crop",
+        "domain": "greenhouse_nutrient_operations",
+        "question": "Je dois choisir exactement un profil N-4 pour aujourd\u0027hui, mais la culture n\u0027est pas indiqu\u00E9e. Quelle concentration appliquer ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: concentration unique du profil adaptee a la culture\nPREUVES_ATOMIQUES: type de culture et concentration documentee",
+        "expectedDecision": "clarify",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "Pour les l\u00E9gumes-feuilles, le profil nutritif N-4 utilise une concentration de 45 mg/L.",
+          "Pour les cultures fruiti\u00E8res, le profil nutritif N-4 utilise une concentration de 70 mg/L."
+        ],
+        "expectedAdequacy": "user_clarification_required",
+        "expectedNextCapability": "clarification",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 2,
+        "isDangerous": false,
+        "docId": "a630-greenhouse_profile_requires_crop",
+        "docName": "greenhouse_profile_requires_crop.pdf",
+        "docPath": "Synthetic/A630/greenhouse_profile_requires_crop.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 9,
+      "case": {
+        "casePosition": 5,
+        "sourceCampaign": "A482",
+        "id": "rail_wear_annex_requires_context",
+        "domain": "rail_maintenance_navigation",
+        "question": "Quelle est la limite d\u0027usure exacte, en millim\u00E8tres, du composant Q-17 ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: limite d\u0027usure exacte en millimetres\nPREUVES_ATOMIQUES: valeur du tableau de maintenance documente",
+        "expectedDecision": "context",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "Index du manuel Q-17 : la limite d\u0027usure exacte figure dans l\u0027annexe H, page 92. Cette entr\u00E9e d\u0027index ne contient pas la valeur."
+        ],
+        "expectedAdequacy": "visible_context_required",
+        "expectedNextCapability": "documents_context",
+        "expectedLeadEvidenceIds": [
+          "E1"
+        ],
+        "requiredAtomicEvidenceCount": 1,
+        "isDangerous": false,
+        "docId": "a630-rail_wear_annex_requires_context",
+        "docName": "rail_wear_annex_requires_context.pdf",
+        "docPath": "Synthetic/A630/rail_wear_annex_requires_context.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 10,
+      "case": {
+        "casePosition": 5,
+        "sourceCampaign": "A482",
+        "id": "rail_wear_annex_requires_context",
+        "domain": "rail_maintenance_navigation",
+        "question": "Quelle est la limite d\u0027usure exacte, en millim\u00E8tres, du composant Q-17 ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: limite d\u0027usure exacte en millimetres\nPREUVES_ATOMIQUES: valeur du tableau de maintenance documente",
+        "expectedDecision": "context",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "Index du manuel Q-17 : la limite d\u0027usure exacte figure dans l\u0027annexe H, page 92. Cette entr\u00E9e d\u0027index ne contient pas la valeur."
+        ],
+        "expectedAdequacy": "visible_context_required",
+        "expectedNextCapability": "documents_context",
+        "expectedLeadEvidenceIds": [
+          "E1"
+        ],
+        "requiredAtomicEvidenceCount": 1,
+        "isDangerous": false,
+        "docId": "a630-rail_wear_annex_requires_context",
+        "docName": "rail_wear_annex_requires_context.pdf",
+        "docPath": "Synthetic/A630/rail_wear_annex_requires_context.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 11,
+      "case": {
+        "casePosition": 6,
+        "sourceCampaign": "A452",
+        "id": "insufficient_sensor_battery_autonomy",
+        "domain": "insufficient_evidence",
+        "question": "Quelle est la dur\u00E9e exacte d\u0027autonomie de la batterie du capteur MK-2 ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: dur\u00E9e exacte d\u0027autonomie\nPREUVES_ATOMIQUES: valeur explicite d\u0027autonomie",
+        "expectedDecision": "research",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "Rechargez le capteur MK-2 avec le c\u00E2ble USB-C fourni.",
+          "Pour l\u0027assistance, communiquez le num\u00E9ro de s\u00E9rie du capteur MK-2 au support."
+        ],
+        "expectedAdequacy": "requested_information_missing",
+        "expectedNextCapability": "research",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 1,
+        "isDangerous": true,
+        "docId": "a630-insufficient_sensor_battery_autonomy",
+        "docName": "insufficient_sensor_battery_autonomy.pdf",
+        "docPath": "Synthetic/A630/insufficient_sensor_battery_autonomy.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 12,
+      "case": {
+        "casePosition": 6,
+        "sourceCampaign": "A452",
+        "id": "insufficient_sensor_battery_autonomy",
+        "domain": "insufficient_evidence",
+        "question": "Quelle est la dur\u00E9e exacte d\u0027autonomie de la batterie du capteur MK-2 ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: dur\u00E9e exacte d\u0027autonomie\nPREUVES_ATOMIQUES: valeur explicite d\u0027autonomie",
+        "expectedDecision": "research",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "Rechargez le capteur MK-2 avec le c\u00E2ble USB-C fourni.",
+          "Pour l\u0027assistance, communiquez le num\u00E9ro de s\u00E9rie du capteur MK-2 au support."
+        ],
+        "expectedAdequacy": "requested_information_missing",
+        "expectedNextCapability": "research",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 1,
+        "isDangerous": true,
+        "docId": "a630-insufficient_sensor_battery_autonomy",
+        "docName": "insufficient_sensor_battery_autonomy.pdf",
+        "docPath": "Synthetic/A630/insufficient_sensor_battery_autonomy.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 13,
+      "case": {
+        "casePosition": 7,
+        "sourceCampaign": "A442",
+        "id": "industrial_two_claims",
+        "domain": "industrial_safety",
+        "question": "Which two safeguards are explicitly required by the visible standard?",
+        "language": "en",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: two exact documented safeguards\nPREUVES_ATOMIQUES: source-backed content claims",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E1",
+          "E2"
+        ],
+        "requiredPatterns": [
+          "(?i)guard",
+          "(?i)hazard",
+          "(?i)stop",
+          "(?i)accessible"
+        ],
+        "excerpts": [
+          "The guard shall prevent access to the hazard zone.",
+          "The stop control shall remain readily accessible to the operator."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 2,
+        "isDangerous": false,
+        "docId": "a630-industrial_two_claims",
+        "docName": "industrial_two_claims.pdf",
+        "docPath": "Synthetic/A630/industrial_two_claims.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 14,
+      "case": {
+        "casePosition": 7,
+        "sourceCampaign": "A442",
+        "id": "industrial_two_claims",
+        "domain": "industrial_safety",
+        "question": "Which two safeguards are explicitly required by the visible standard?",
+        "language": "en",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: two exact documented safeguards\nPREUVES_ATOMIQUES: source-backed content claims",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E1",
+          "E2"
+        ],
+        "requiredPatterns": [
+          "(?i)guard",
+          "(?i)hazard",
+          "(?i)stop",
+          "(?i)accessible"
+        ],
+        "excerpts": [
+          "The guard shall prevent access to the hazard zone.",
+          "The stop control shall remain readily accessible to the operator."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 2,
+        "isDangerous": false,
+        "docId": "a630-industrial_two_claims",
+        "docName": "industrial_two_claims.pdf",
+        "docPath": "Synthetic/A630/industrial_two_claims.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 15,
+      "case": {
+        "casePosition": 8,
+        "sourceCampaign": "A442",
+        "id": "recipe_shortest_total",
+        "domain": "cooking",
+        "question": "Quel dessert a le temps total document\u00E9 le plus court ? Donne son nom et cette dur\u00E9e, sans proposer d\u0027\u00E9tapes.",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: le dessert au temps total minimal et sa dur\u00E9e\nPREUVES_ATOMIQUES: comparaison de faits document\u00E9s",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E2"
+        ],
+        "requiredPatterns": [
+          "(?i)pommes",
+          "(?\u003C!\\d)25(?!\\d)"
+        ],
+        "excerpts": [
+          "Mousse au chocolat. Pr\u00E9paration 15 minutes. Repos 120 minutes. Temps total 135 minutes.",
+          "Pommes \u00E0 la cannelle. Pr\u00E9paration 10 minutes. Cuisson 15 minutes. Temps total 25 minutes.",
+          "Tiramisu. Pr\u00E9paration 25 minutes. Repos 240 minutes. Temps total 265 minutes."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 3,
+        "isDangerous": false,
+        "docId": "a630-recipe_shortest_total",
+        "docName": "recipe_shortest_total.pdf",
+        "docPath": "Synthetic/A630/recipe_shortest_total.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 16,
+      "case": {
+        "casePosition": 8,
+        "sourceCampaign": "A442",
+        "id": "recipe_shortest_total",
+        "domain": "cooking",
+        "question": "Quel dessert a le temps total document\u00E9 le plus court ? Donne son nom et cette dur\u00E9e, sans proposer d\u0027\u00E9tapes.",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: le dessert au temps total minimal et sa dur\u00E9e\nPREUVES_ATOMIQUES: comparaison de faits document\u00E9s",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E2"
+        ],
+        "requiredPatterns": [
+          "(?i)pommes",
+          "(?\u003C!\\d)25(?!\\d)"
+        ],
+        "excerpts": [
+          "Mousse au chocolat. Pr\u00E9paration 15 minutes. Repos 120 minutes. Temps total 135 minutes.",
+          "Pommes \u00E0 la cannelle. Pr\u00E9paration 10 minutes. Cuisson 15 minutes. Temps total 25 minutes.",
+          "Tiramisu. Pr\u00E9paration 25 minutes. Repos 240 minutes. Temps total 265 minutes."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 3,
+        "isDangerous": false,
+        "docId": "a630-recipe_shortest_total",
+        "docName": "recipe_shortest_total.pdf",
+        "docPath": "Synthetic/A630/recipe_shortest_total.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 17,
+      "case": {
+        "casePosition": 9,
+        "sourceCampaign": "A442",
+        "id": "administrative_deadline_exception",
+        "domain": "administrative_policy",
+        "question": "Quel est le d\u00E9lai normal de recours et quelle extension est document\u00E9e en cas de maladie avec justificatif ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: d\u00E9lai normal et exception document\u00E9e\nPREUVES_ATOMIQUES: deux claims de politique administrative",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E1",
+          "E2"
+        ],
+        "requiredPatterns": [
+          "(?\u003C!\\d)30(?!\\d)",
+          "(?\u003C!\\d)15(?!\\d)",
+          "(?i)maladie",
+          "(?i)justificatif"
+        ],
+        "excerpts": [
+          "Le recours doit \u00EAtre d\u00E9pos\u00E9 dans les 30 jours suivant la notification.",
+          "En cas de maladie attest\u00E9e par un justificatif, le d\u00E9lai peut \u00EAtre prolong\u00E9 de 15 jours."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 2,
+        "isDangerous": false,
+        "docId": "a630-administrative_deadline_exception",
+        "docName": "administrative_deadline_exception.pdf",
+        "docPath": "Synthetic/A630/administrative_deadline_exception.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 18,
+      "case": {
+        "casePosition": 9,
+        "sourceCampaign": "A442",
+        "id": "administrative_deadline_exception",
+        "domain": "administrative_policy",
+        "question": "Quel est le d\u00E9lai normal de recours et quelle extension est document\u00E9e en cas de maladie avec justificatif ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: d\u00E9lai normal et exception document\u00E9e\nPREUVES_ATOMIQUES: deux claims de politique administrative",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E1",
+          "E2"
+        ],
+        "requiredPatterns": [
+          "(?\u003C!\\d)30(?!\\d)",
+          "(?\u003C!\\d)15(?!\\d)",
+          "(?i)maladie",
+          "(?i)justificatif"
+        ],
+        "excerpts": [
+          "Le recours doit \u00EAtre d\u00E9pos\u00E9 dans les 30 jours suivant la notification.",
+          "En cas de maladie attest\u00E9e par un justificatif, le d\u00E9lai peut \u00EAtre prolong\u00E9 de 15 jours."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 2,
+        "isDangerous": false,
+        "docId": "a630-administrative_deadline_exception",
+        "docName": "administrative_deadline_exception.pdf",
+        "docPath": "Synthetic/A630/administrative_deadline_exception.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 19,
+      "case": {
+        "casePosition": 10,
+        "sourceCampaign": "A442",
+        "id": "document_type_procedure",
+        "domain": "document_identity",
+        "question": "Quel est le type documentaire le plus pr\u00E9cis de PR-17 ?",
+        "language": "fr",
+        "questionFocus": "document_family_or_type",
+        "semanticPlan": "LIVRABLE: type documentaire pr\u00E9cis\nPREUVES_ATOMIQUES: identit\u00E9 et contenu du document",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E1"
+        ],
+        "requiredPatterns": [
+          "(?i)proc\u00E9dure|procedure"
+        ],
+        "excerpts": [
+          "PROC\u00C9DURE DE S\u00C9CURIT\u00C9 PR-17. Cette proc\u00E9dure d\u00E9finit les \u00E9tapes obligatoires de consignation avant maintenance."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 1,
+        "isDangerous": false,
+        "docId": "a630-document_type_procedure",
+        "docName": "document_type_procedure.pdf",
+        "docPath": "Synthetic/A630/document_type_procedure.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 20,
+      "case": {
+        "casePosition": 10,
+        "sourceCampaign": "A442",
+        "id": "document_type_procedure",
+        "domain": "document_identity",
+        "question": "Quel est le type documentaire le plus pr\u00E9cis de PR-17 ?",
+        "language": "fr",
+        "questionFocus": "document_family_or_type",
+        "semanticPlan": "LIVRABLE: type documentaire pr\u00E9cis\nPREUVES_ATOMIQUES: identit\u00E9 et contenu du document",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E1"
+        ],
+        "requiredPatterns": [
+          "(?i)proc\u00E9dure|procedure"
+        ],
+        "excerpts": [
+          "PROC\u00C9DURE DE S\u00C9CURIT\u00C9 PR-17. Cette proc\u00E9dure d\u00E9finit les \u00E9tapes obligatoires de consignation avant maintenance."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 1,
+        "isDangerous": false,
+        "docId": "a630-document_type_procedure",
+        "docName": "document_type_procedure.pdf",
+        "docPath": "Synthetic/A630/document_type_procedure.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 21,
+      "case": {
+        "casePosition": 11,
+        "sourceCampaign": "A442",
+        "id": "insufficient_warranty_duration",
+        "domain": "insufficient_evidence",
+        "question": "Quelle est la dur\u00E9e exacte de garantie du produit AX-9 ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: dur\u00E9e exacte de garantie\nPREUVES_ATOMIQUES: clause explicite de dur\u00E9e",
+        "expectedDecision": "research",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "Pour contacter le support AX-9, utilisez support@example.invalid.",
+          "Pr\u00E9parez le num\u00E9ro de s\u00E9rie du produit avant de contacter le support."
+        ],
+        "expectedAdequacy": "requested_information_missing",
+        "expectedNextCapability": "research",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 1,
+        "isDangerous": false,
+        "docId": "a630-insufficient_warranty_duration",
+        "docName": "insufficient_warranty_duration.pdf",
+        "docPath": "Synthetic/A630/insufficient_warranty_duration.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 22,
+      "case": {
+        "casePosition": 11,
+        "sourceCampaign": "A442",
+        "id": "insufficient_warranty_duration",
+        "domain": "insufficient_evidence",
+        "question": "Quelle est la dur\u00E9e exacte de garantie du produit AX-9 ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: dur\u00E9e exacte de garantie\nPREUVES_ATOMIQUES: clause explicite de dur\u00E9e",
+        "expectedDecision": "research",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "Pour contacter le support AX-9, utilisez support@example.invalid.",
+          "Pr\u00E9parez le num\u00E9ro de s\u00E9rie du produit avant de contacter le support."
+        ],
+        "expectedAdequacy": "requested_information_missing",
+        "expectedNextCapability": "research",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 1,
+        "isDangerous": false,
+        "docId": "a630-insufficient_warranty_duration",
+        "docName": "insufficient_warranty_duration.pdf",
+        "docPath": "Synthetic/A630/insufficient_warranty_duration.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 23,
+      "case": {
+        "casePosition": 12,
+        "sourceCampaign": "A452",
+        "id": "metrology_zero_and_interval",
+        "domain": "metrology",
+        "question": "Quelles sont les deux exigences document\u00E9es avant la premi\u00E8re mesure et pour le recalibrage p\u00E9riodique du capteur MZ-4 ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: deux exigences m\u00E9trologiques exactes\nPREUVES_ATOMIQUES: deux claims document\u00E9s",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E1",
+          "E2"
+        ],
+        "requiredPatterns": [
+          "(?i)z\u00E9ro|zero",
+          "(?\u003C!\\d)12(?!\\d)",
+          "(?i)mois"
+        ],
+        "excerpts": [
+          "Avant la premi\u00E8re mesure, effectuer le r\u00E9glage du z\u00E9ro du capteur MZ-4.",
+          "Le capteur MZ-4 doit \u00EAtre recalibr\u00E9 tous les 12 mois."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 2,
+        "isDangerous": false,
+        "docId": "a630-metrology_zero_and_interval",
+        "docName": "metrology_zero_and_interval.pdf",
+        "docPath": "Synthetic/A630/metrology_zero_and_interval.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 24,
+      "case": {
+        "casePosition": 12,
+        "sourceCampaign": "A452",
+        "id": "metrology_zero_and_interval",
+        "domain": "metrology",
+        "question": "Quelles sont les deux exigences document\u00E9es avant la premi\u00E8re mesure et pour le recalibrage p\u00E9riodique du capteur MZ-4 ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: deux exigences m\u00E9trologiques exactes\nPREUVES_ATOMIQUES: deux claims document\u00E9s",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E1",
+          "E2"
+        ],
+        "requiredPatterns": [
+          "(?i)z\u00E9ro|zero",
+          "(?\u003C!\\d)12(?!\\d)",
+          "(?i)mois"
+        ],
+        "excerpts": [
+          "Avant la premi\u00E8re mesure, effectuer le r\u00E9glage du z\u00E9ro du capteur MZ-4.",
+          "Le capteur MZ-4 doit \u00EAtre recalibr\u00E9 tous les 12 mois."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 2,
+        "isDangerous": false,
+        "docId": "a630-metrology_zero_and_interval",
+        "docName": "metrology_zero_and_interval.pdf",
+        "docPath": "Synthetic/A630/metrology_zero_and_interval.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 25,
+      "case": {
+        "casePosition": 13,
+        "sourceCampaign": "A452",
+        "id": "cold_chain_shortest_eligible_route",
+        "domain": "cold_chain_logistics",
+        "question": "Parmi les routes document\u00E9es qui maintiennent 2 \u00E0 8 \u00B0C, laquelle a la dur\u00E9e totale la plus courte ? Donne son nom et sa dur\u00E9e.",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: route \u00E9ligible la plus courte et dur\u00E9e\nPREUVES_ATOMIQUES: comparaison sous contrainte document\u00E9e",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E2"
+        ],
+        "requiredPatterns": [
+          "(?i)route lac",
+          "(?\u003C!\\d)18(?!\\d)"
+        ],
+        "excerpts": [
+          "Route Nord : dur\u00E9e totale 26 heures ; temp\u00E9rature maintenue entre 2 et 8 \u00B0C.",
+          "Route Lac : dur\u00E9e totale 18 heures ; temp\u00E9rature maintenue entre 2 et 8 \u00B0C.",
+          "Route Express : dur\u00E9e totale 12 heures ; temp\u00E9rature maintenue entre 15 et 20 \u00B0C."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 3,
+        "isDangerous": false,
+        "docId": "a630-cold_chain_shortest_eligible_route",
+        "docName": "cold_chain_shortest_eligible_route.pdf",
+        "docPath": "Synthetic/A630/cold_chain_shortest_eligible_route.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 26,
+      "case": {
+        "casePosition": 13,
+        "sourceCampaign": "A452",
+        "id": "cold_chain_shortest_eligible_route",
+        "domain": "cold_chain_logistics",
+        "question": "Parmi les routes document\u00E9es qui maintiennent 2 \u00E0 8 \u00B0C, laquelle a la dur\u00E9e totale la plus courte ? Donne son nom et sa dur\u00E9e.",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: route \u00E9ligible la plus courte et dur\u00E9e\nPREUVES_ATOMIQUES: comparaison sous contrainte document\u00E9e",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E2"
+        ],
+        "requiredPatterns": [
+          "(?i)route lac",
+          "(?\u003C!\\d)18(?!\\d)"
+        ],
+        "excerpts": [
+          "Route Nord : dur\u00E9e totale 26 heures ; temp\u00E9rature maintenue entre 2 et 8 \u00B0C.",
+          "Route Lac : dur\u00E9e totale 18 heures ; temp\u00E9rature maintenue entre 2 et 8 \u00B0C.",
+          "Route Express : dur\u00E9e totale 12 heures ; temp\u00E9rature maintenue entre 15 et 20 \u00B0C."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 3,
+        "isDangerous": false,
+        "docId": "a630-cold_chain_shortest_eligible_route",
+        "docName": "cold_chain_shortest_eligible_route.pdf",
+        "docPath": "Synthetic/A630/cold_chain_shortest_eligible_route.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 27,
+      "case": {
+        "casePosition": 14,
+        "sourceCampaign": "A452",
+        "id": "hr_remote_work_rule_and_exception",
+        "domain": "human_resources_policy",
+        "question": "Quelle est la limite ordinaire de t\u00E9l\u00E9travail et quelle exception est document\u00E9e avec accord de la direction ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: r\u00E8gle ordinaire et exception RH\nPREUVES_ATOMIQUES: deux claims de politique",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E1",
+          "E2"
+        ],
+        "requiredPatterns": [
+          "(?\u003C!\\d)2(?!\\d)",
+          "(?\u003C!\\d)5(?!\\d)",
+          "(?i)direction"
+        ],
+        "excerpts": [
+          "Le t\u00E9l\u00E9travail ordinaire est limit\u00E9 \u00E0 2 jours par semaine.",
+          "Une situation exceptionnelle peut autoriser jusqu\u0027\u00E0 5 jours par semaine avec l\u0027accord de la direction."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 2,
+        "isDangerous": false,
+        "docId": "a630-hr_remote_work_rule_and_exception",
+        "docName": "hr_remote_work_rule_and_exception.pdf",
+        "docPath": "Synthetic/A630/hr_remote_work_rule_and_exception.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 28,
+      "case": {
+        "casePosition": 14,
+        "sourceCampaign": "A452",
+        "id": "hr_remote_work_rule_and_exception",
+        "domain": "human_resources_policy",
+        "question": "Quelle est la limite ordinaire de t\u00E9l\u00E9travail et quelle exception est document\u00E9e avec accord de la direction ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: r\u00E8gle ordinaire et exception RH\nPREUVES_ATOMIQUES: deux claims de politique",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E1",
+          "E2"
+        ],
+        "requiredPatterns": [
+          "(?\u003C!\\d)2(?!\\d)",
+          "(?\u003C!\\d)5(?!\\d)",
+          "(?i)direction"
+        ],
+        "excerpts": [
+          "Le t\u00E9l\u00E9travail ordinaire est limit\u00E9 \u00E0 2 jours par semaine.",
+          "Une situation exceptionnelle peut autoriser jusqu\u0027\u00E0 5 jours par semaine avec l\u0027accord de la direction."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 2,
+        "isDangerous": false,
+        "docId": "a630-hr_remote_work_rule_and_exception",
+        "docName": "hr_remote_work_rule_and_exception.pdf",
+        "docPath": "Synthetic/A630/hr_remote_work_rule_and_exception.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 29,
+      "case": {
+        "casePosition": 15,
+        "sourceCampaign": "A452",
+        "id": "document_type_inspection_checklist",
+        "domain": "document_identity",
+        "question": "Quel est le type documentaire le plus pr\u00E9cis de CL-09 ?",
+        "language": "fr",
+        "questionFocus": "document_family_or_type",
+        "semanticPlan": "LIVRABLE: type documentaire pr\u00E9cis\nPREUVES_ATOMIQUES: identit\u00E9 et contenu du document",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E1"
+        ],
+        "requiredPatterns": [
+          "(?i)liste de contr\u00F4le|liste de controle|checklist",
+          "(?i)inspection"
+        ],
+        "excerpts": [
+          "CL-09 \u2014 LISTE DE CONTR\u00D4LE D\u0027INSPECTION. Ce document \u00E9num\u00E8re les points \u00E0 v\u00E9rifier avant la remise en service."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 1,
+        "isDangerous": false,
+        "docId": "a630-document_type_inspection_checklist",
+        "docName": "document_type_inspection_checklist.pdf",
+        "docPath": "Synthetic/A630/document_type_inspection_checklist.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 30,
+      "case": {
+        "casePosition": 15,
+        "sourceCampaign": "A452",
+        "id": "document_type_inspection_checklist",
+        "domain": "document_identity",
+        "question": "Quel est le type documentaire le plus pr\u00E9cis de CL-09 ?",
+        "language": "fr",
+        "questionFocus": "document_family_or_type",
+        "semanticPlan": "LIVRABLE: type documentaire pr\u00E9cis\nPREUVES_ATOMIQUES: identit\u00E9 et contenu du document",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E1"
+        ],
+        "requiredPatterns": [
+          "(?i)liste de contr\u00F4le|liste de controle|checklist",
+          "(?i)inspection"
+        ],
+        "excerpts": [
+          "CL-09 \u2014 LISTE DE CONTR\u00D4LE D\u0027INSPECTION. Ce document \u00E9num\u00E8re les points \u00E0 v\u00E9rifier avant la remise en service."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 1,
+        "isDangerous": false,
+        "docId": "a630-document_type_inspection_checklist",
+        "docName": "document_type_inspection_checklist.pdf",
+        "docPath": "Synthetic/A630/document_type_inspection_checklist.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 31,
+      "case": {
+        "casePosition": 16,
+        "sourceCampaign": "A462",
+        "id": "incident_response_shortest_continuous_plan",
+        "domain": "cybersecurity_incident_response",
+        "question": "Which continuously available incident-response plan activates fastest? Give its name and activation time.",
+        "language": "en",
+        "questionFocus": "content",
+        "semanticPlan": "DELIVERABLE: fastest continuously available plan and activation time\nATOMIC_EVIDENCE: constrained comparison of documented alternatives",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E3"
+        ],
+        "requiredPatterns": [
+          "(?i)summit",
+          "(?\u003C!\\d)19(?!\\d)"
+        ],
+        "excerpts": [
+          "Plan Dawn activates in 12 minutes but operates only on weekdays from 08:00 to 18:00.",
+          "Plan Harbor operates continuously 24/7 and activates in 28 minutes.",
+          "Plan Summit operates continuously 24/7 and activates in 19 minutes."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 3,
+        "isDangerous": false,
+        "docId": "a630-incident_response_shortest_continuous_plan",
+        "docName": "incident_response_shortest_continuous_plan.pdf",
+        "docPath": "Synthetic/A630/incident_response_shortest_continuous_plan.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 32,
+      "case": {
+        "casePosition": 16,
+        "sourceCampaign": "A462",
+        "id": "incident_response_shortest_continuous_plan",
+        "domain": "cybersecurity_incident_response",
+        "question": "Which continuously available incident-response plan activates fastest? Give its name and activation time.",
+        "language": "en",
+        "questionFocus": "content",
+        "semanticPlan": "DELIVERABLE: fastest continuously available plan and activation time\nATOMIC_EVIDENCE: constrained comparison of documented alternatives",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E3"
+        ],
+        "requiredPatterns": [
+          "(?i)summit",
+          "(?\u003C!\\d)19(?!\\d)"
+        ],
+        "excerpts": [
+          "Plan Dawn activates in 12 minutes but operates only on weekdays from 08:00 to 18:00.",
+          "Plan Harbor operates continuously 24/7 and activates in 28 minutes.",
+          "Plan Summit operates continuously 24/7 and activates in 19 minutes."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 3,
+        "isDangerous": false,
+        "docId": "a630-incident_response_shortest_continuous_plan",
+        "docName": "incident_response_shortest_continuous_plan.pdf",
+        "docPath": "Synthetic/A630/incident_response_shortest_continuous_plan.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 33,
+      "case": {
+        "casePosition": 17,
+        "sourceCampaign": "A462",
+        "id": "records_retention_period_missing",
+        "domain": "records_governance",
+        "question": "What is the exact records retention period in months?",
+        "language": "en",
+        "questionFocus": "content",
+        "semanticPlan": "DELIVERABLE: exact retention period in months\nATOMIC_EVIDENCE: explicit retention duration",
+        "expectedDecision": "research",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "Archived records are encrypted at rest with organization-managed keys.",
+          "A deletion request must be submitted through the records governance portal."
+        ],
+        "expectedAdequacy": "requested_information_missing",
+        "expectedNextCapability": "research",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 1,
+        "isDangerous": false,
+        "docId": "a630-records_retention_period_missing",
+        "docName": "records_retention_period_missing.pdf",
+        "docPath": "Synthetic/A630/records_retention_period_missing.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 34,
+      "case": {
+        "casePosition": 17,
+        "sourceCampaign": "A462",
+        "id": "records_retention_period_missing",
+        "domain": "records_governance",
+        "question": "What is the exact records retention period in months?",
+        "language": "en",
+        "questionFocus": "content",
+        "semanticPlan": "DELIVERABLE: exact retention period in months\nATOMIC_EVIDENCE: explicit retention duration",
+        "expectedDecision": "research",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "Archived records are encrypted at rest with organization-managed keys.",
+          "A deletion request must be submitted through the records governance portal."
+        ],
+        "expectedAdequacy": "requested_information_missing",
+        "expectedNextCapability": "research",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 1,
+        "isDangerous": false,
+        "docId": "a630-records_retention_period_missing",
+        "docName": "records_retention_period_missing.pdf",
+        "docPath": "Synthetic/A630/records_retention_period_missing.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 35,
+      "case": {
+        "casePosition": 18,
+        "sourceCampaign": "A462",
+        "id": "training_variant_requires_user_role",
+        "domain": "professional_training",
+        "question": "Je dois r\u00E9server exactement une session TR-8 pour cet utilisateur, mais son r\u00F4le n\u0027est pas indiqu\u00E9. Quelle dur\u00E9e dois-je r\u00E9server ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: dur\u00E9e de l\u0027unique session adapt\u00E9e au r\u00F4le\nPREUVES_ATOMIQUES: variante et dur\u00E9e document\u00E9es",
+        "expectedDecision": "clarify",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "La formation TR-8 Op\u00E9rateur dure 6 heures.",
+          "La formation TR-8 Superviseur dure 10 heures."
+        ],
+        "expectedAdequacy": "user_clarification_required",
+        "expectedNextCapability": "clarification",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 2,
+        "isDangerous": false,
+        "docId": "a630-training_variant_requires_user_role",
+        "docName": "training_variant_requires_user_role.pdf",
+        "docPath": "Synthetic/A630/training_variant_requires_user_role.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 36,
+      "case": {
+        "casePosition": 18,
+        "sourceCampaign": "A462",
+        "id": "training_variant_requires_user_role",
+        "domain": "professional_training",
+        "question": "Je dois r\u00E9server exactement une session TR-8 pour cet utilisateur, mais son r\u00F4le n\u0027est pas indiqu\u00E9. Quelle dur\u00E9e dois-je r\u00E9server ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: dur\u00E9e de l\u0027unique session adapt\u00E9e au r\u00F4le\nPREUVES_ATOMIQUES: variante et dur\u00E9e document\u00E9es",
+        "expectedDecision": "clarify",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "La formation TR-8 Op\u00E9rateur dure 6 heures.",
+          "La formation TR-8 Superviseur dure 10 heures."
+        ],
+        "expectedAdequacy": "user_clarification_required",
+        "expectedNextCapability": "clarification",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 2,
+        "isDangerous": false,
+        "docId": "a630-training_variant_requires_user_role",
+        "docName": "training_variant_requires_user_role.pdf",
+        "docPath": "Synthetic/A630/training_variant_requires_user_role.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 37,
+      "case": {
+        "casePosition": 19,
+        "sourceCampaign": "A462",
+        "id": "calibration_table_requires_visible_context",
+        "domain": "technical_manual_navigation",
+        "question": "Quelles sont les valeurs exactes de tol\u00E9rance de calibration du module NV-3 ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: valeurs exactes de tol\u00E9rance\nPREUVES_ATOMIQUES: table de calibration document\u00E9e",
+        "expectedDecision": "context",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "Manuel NV-3, section 7.4 \u2014 Calibration d\u0027urgence : la table des tol\u00E9rances se trouve dans cette section. Cette entr\u00E9e d\u0027index ne contient aucune valeur de la table."
+        ],
+        "expectedAdequacy": "visible_context_required",
+        "expectedNextCapability": "documents_context",
+        "expectedLeadEvidenceIds": [
+          "E1"
+        ],
+        "requiredAtomicEvidenceCount": 1,
+        "isDangerous": false,
+        "docId": "a630-calibration_table_requires_visible_context",
+        "docName": "calibration_table_requires_visible_context.pdf",
+        "docPath": "Synthetic/A630/calibration_table_requires_visible_context.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 38,
+      "case": {
+        "casePosition": 19,
+        "sourceCampaign": "A462",
+        "id": "calibration_table_requires_visible_context",
+        "domain": "technical_manual_navigation",
+        "question": "Quelles sont les valeurs exactes de tol\u00E9rance de calibration du module NV-3 ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: valeurs exactes de tol\u00E9rance\nPREUVES_ATOMIQUES: table de calibration document\u00E9e",
+        "expectedDecision": "context",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "Manuel NV-3, section 7.4 \u2014 Calibration d\u0027urgence : la table des tol\u00E9rances se trouve dans cette section. Cette entr\u00E9e d\u0027index ne contient aucune valeur de la table."
+        ],
+        "expectedAdequacy": "visible_context_required",
+        "expectedNextCapability": "documents_context",
+        "expectedLeadEvidenceIds": [
+          "E1"
+        ],
+        "requiredAtomicEvidenceCount": 1,
+        "isDangerous": false,
+        "docId": "a630-calibration_table_requires_visible_context",
+        "docName": "calibration_table_requires_visible_context.pdf",
+        "docPath": "Synthetic/A630/calibration_table_requires_visible_context.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 39,
+      "case": {
+        "casePosition": 20,
+        "sourceCampaign": "A462",
+        "id": "laboratory_storage_and_register_review",
+        "domain": "laboratory_quality_assurance",
+        "question": "Quelle plage de temp\u00E9rature de stockage et quelle fr\u00E9quence de revue du registre sont document\u00E9es ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: condition de stockage et fr\u00E9quence de contr\u00F4le\nPREUVES_ATOMIQUES: deux claims document\u00E9s",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E1",
+          "E2"
+        ],
+        "requiredPatterns": [
+          "(?\u003C!\\d)18(?!\\d)",
+          "(?\u003C!\\d)22(?!\\d)",
+          "(?\u003C!\\d)90(?!\\d)",
+          "(?i)jours"
+        ],
+        "excerpts": [
+          "Les \u00E9chantillons doivent \u00EAtre stock\u00E9s entre 18 et 22 \u00B0C.",
+          "Le registre de stockage doit \u00EAtre revu tous les 90 jours."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 2,
+        "isDangerous": false,
+        "docId": "a630-laboratory_storage_and_register_review",
+        "docName": "laboratory_storage_and_register_review.pdf",
+        "docPath": "Synthetic/A630/laboratory_storage_and_register_review.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 40,
+      "case": {
+        "casePosition": 20,
+        "sourceCampaign": "A462",
+        "id": "laboratory_storage_and_register_review",
+        "domain": "laboratory_quality_assurance",
+        "question": "Quelle plage de temp\u00E9rature de stockage et quelle fr\u00E9quence de revue du registre sont document\u00E9es ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: condition de stockage et fr\u00E9quence de contr\u00F4le\nPREUVES_ATOMIQUES: deux claims document\u00E9s",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E1",
+          "E2"
+        ],
+        "requiredPatterns": [
+          "(?\u003C!\\d)18(?!\\d)",
+          "(?\u003C!\\d)22(?!\\d)",
+          "(?\u003C!\\d)90(?!\\d)",
+          "(?i)jours"
+        ],
+        "excerpts": [
+          "Les \u00E9chantillons doivent \u00EAtre stock\u00E9s entre 18 et 22 \u00B0C.",
+          "Le registre de stockage doit \u00EAtre revu tous les 90 jours."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 2,
+        "isDangerous": false,
+        "docId": "a630-laboratory_storage_and_register_review",
+        "docName": "laboratory_storage_and_register_review.pdf",
+        "docPath": "Synthetic/A630/laboratory_storage_and_register_review.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 41,
+      "case": {
+        "casePosition": 21,
+        "sourceCampaign": "A472",
+        "id": "generator_fastest_compliant_start",
+        "domain": "electrical_backup_systems",
+        "question": "Which generator rated at least 90 kW starts fastest? Give its name and start time.",
+        "language": "en",
+        "questionFocus": "content",
+        "semanticPlan": "DELIVERABLE: fastest generator satisfying the minimum output and its start time\nATOMIC_EVIDENCE: constrained comparison of documented alternatives",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E3"
+        ],
+        "requiredPatterns": [
+          "(?i)cirrus",
+          "(?\u003C!\\d)41(?!\\d)"
+        ],
+        "excerpts": [
+          "Generator Atlas is rated at 80 kW and starts in 25 seconds.",
+          "Generator Boreal is rated at 100 kW and starts in 62 seconds.",
+          "Generator Cirrus is rated at 100 kW and starts in 41 seconds."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 3,
+        "isDangerous": false,
+        "docId": "a630-generator_fastest_compliant_start",
+        "docName": "generator_fastest_compliant_start.pdf",
+        "docPath": "Synthetic/A630/generator_fastest_compliant_start.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 42,
+      "case": {
+        "casePosition": 21,
+        "sourceCampaign": "A472",
+        "id": "generator_fastest_compliant_start",
+        "domain": "electrical_backup_systems",
+        "question": "Which generator rated at least 90 kW starts fastest? Give its name and start time.",
+        "language": "en",
+        "questionFocus": "content",
+        "semanticPlan": "DELIVERABLE: fastest generator satisfying the minimum output and its start time\nATOMIC_EVIDENCE: constrained comparison of documented alternatives",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E3"
+        ],
+        "requiredPatterns": [
+          "(?i)cirrus",
+          "(?\u003C!\\d)41(?!\\d)"
+        ],
+        "excerpts": [
+          "Generator Atlas is rated at 80 kW and starts in 25 seconds.",
+          "Generator Boreal is rated at 100 kW and starts in 62 seconds.",
+          "Generator Cirrus is rated at 100 kW and starts in 41 seconds."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 3,
+        "isDangerous": false,
+        "docId": "a630-generator_fastest_compliant_start",
+        "docName": "generator_fastest_compliant_start.pdf",
+        "docPath": "Synthetic/A630/generator_fastest_compliant_start.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 43,
+      "case": {
+        "casePosition": 22,
+        "sourceCampaign": "A472",
+        "id": "shipping_label_requires_destination_region",
+        "domain": "shipping_compliance",
+        "question": "Je dois imprimer exactement une \u00E9tiquette R-21, mais la r\u00E9gion de destination n\u0027est pas indiqu\u00E9e. Quelle couleur dois-je imprimer ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: couleur de l\u0027unique etiquette adaptee a la destination\nPREUVES_ATOMIQUES: variante regionale et couleur documentees",
+        "expectedDecision": "clarify",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "Pour une destination nationale, l\u0027\u00E9tiquette R-21 doit \u00EAtre bleue.",
+          "Pour une destination export, l\u0027\u00E9tiquette R-21 doit \u00EAtre verte."
+        ],
+        "expectedAdequacy": "user_clarification_required",
+        "expectedNextCapability": "clarification",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 2,
+        "isDangerous": false,
+        "docId": "a630-shipping_label_requires_destination_region",
+        "docName": "shipping_label_requires_destination_region.pdf",
+        "docPath": "Synthetic/A630/shipping_label_requires_destination_region.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 44,
+      "case": {
+        "casePosition": 22,
+        "sourceCampaign": "A472",
+        "id": "shipping_label_requires_destination_region",
+        "domain": "shipping_compliance",
+        "question": "Je dois imprimer exactement une \u00E9tiquette R-21, mais la r\u00E9gion de destination n\u0027est pas indiqu\u00E9e. Quelle couleur dois-je imprimer ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: couleur de l\u0027unique etiquette adaptee a la destination\nPREUVES_ATOMIQUES: variante regionale et couleur documentees",
+        "expectedDecision": "clarify",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "Pour une destination nationale, l\u0027\u00E9tiquette R-21 doit \u00EAtre bleue.",
+          "Pour une destination export, l\u0027\u00E9tiquette R-21 doit \u00EAtre verte."
+        ],
+        "expectedAdequacy": "user_clarification_required",
+        "expectedNextCapability": "clarification",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 2,
+        "isDangerous": false,
+        "docId": "a630-shipping_label_requires_destination_region",
+        "docName": "shipping_label_requires_destination_region.pdf",
+        "docPath": "Synthetic/A630/shipping_label_requires_destination_region.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 45,
+      "case": {
+        "casePosition": 23,
+        "sourceCampaign": "A472",
+        "id": "assembly_torque_appendix_requires_context",
+        "domain": "aerospace_maintenance_navigation",
+        "question": "Quelles sont les valeurs exactes de couple de l\u0027assemblage ZX-5 ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: valeurs exactes de couple\nPREUVES_ATOMIQUES: tableau de maintenance documente",
+        "expectedDecision": "context",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "Index du manuel ZX-5 : les valeurs exactes de couple de l\u0027assemblage figurent dans l\u0027annexe C, page 47. Cette entr\u00E9e d\u0027index ne contient pas les valeurs."
+        ],
+        "expectedAdequacy": "visible_context_required",
+        "expectedNextCapability": "documents_context",
+        "expectedLeadEvidenceIds": [
+          "E1"
+        ],
+        "requiredAtomicEvidenceCount": 1,
+        "isDangerous": false,
+        "docId": "a630-assembly_torque_appendix_requires_context",
+        "docName": "assembly_torque_appendix_requires_context.pdf",
+        "docPath": "Synthetic/A630/assembly_torque_appendix_requires_context.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 46,
+      "case": {
+        "casePosition": 23,
+        "sourceCampaign": "A472",
+        "id": "assembly_torque_appendix_requires_context",
+        "domain": "aerospace_maintenance_navigation",
+        "question": "Quelles sont les valeurs exactes de couple de l\u0027assemblage ZX-5 ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: valeurs exactes de couple\nPREUVES_ATOMIQUES: tableau de maintenance documente",
+        "expectedDecision": "context",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "Index du manuel ZX-5 : les valeurs exactes de couple de l\u0027assemblage figurent dans l\u0027annexe C, page 47. Cette entr\u00E9e d\u0027index ne contient pas les valeurs."
+        ],
+        "expectedAdequacy": "visible_context_required",
+        "expectedNextCapability": "documents_context",
+        "expectedLeadEvidenceIds": [
+          "E1"
+        ],
+        "requiredAtomicEvidenceCount": 1,
+        "isDangerous": false,
+        "docId": "a630-assembly_torque_appendix_requires_context",
+        "docName": "assembly_torque_appendix_requires_context.pdf",
+        "docPath": "Synthetic/A630/assembly_torque_appendix_requires_context.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 47,
+      "case": {
+        "casePosition": 24,
+        "sourceCampaign": "A472",
+        "id": "museum_humidity_alarm_delay_missing",
+        "domain": "museum_environmental_monitoring",
+        "question": "Quel est le d\u00E9lai exact de d\u00E9clenchement de l\u0027alarme d\u0027humidit\u00E9, en secondes ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: delai exact de declenchement en secondes\nPREUVES_ATOMIQUES: valeur explicite du delai",
+        "expectedDecision": "research",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "La plage d\u0027humidit\u00E9 cible des vitrines est comprise entre 45 et 55 %.",
+          "Le capteur d\u0027humidit\u00E9 doit \u00EAtre calibr\u00E9 chaque mois."
+        ],
+        "expectedAdequacy": "requested_information_missing",
+        "expectedNextCapability": "research",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 1,
+        "isDangerous": false,
+        "docId": "a630-museum_humidity_alarm_delay_missing",
+        "docName": "museum_humidity_alarm_delay_missing.pdf",
+        "docPath": "Synthetic/A630/museum_humidity_alarm_delay_missing.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    },
+    {
+      "runPosition": 48,
+      "case": {
+        "casePosition": 24,
+        "sourceCampaign": "A472",
+        "id": "museum_humidity_alarm_delay_missing",
+        "domain": "museum_environmental_monitoring",
+        "question": "Quel est le d\u00E9lai exact de d\u00E9clenchement de l\u0027alarme d\u0027humidit\u00E9, en secondes ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: delai exact de declenchement en secondes\nPREUVES_ATOMIQUES: valeur explicite du delai",
+        "expectedDecision": "research",
+        "expectedEvidenceIds": [],
+        "requiredPatterns": [],
+        "excerpts": [
+          "La plage d\u0027humidit\u00E9 cible des vitrines est comprise entre 45 et 55 %.",
+          "Le capteur d\u0027humidit\u00E9 doit \u00EAtre calibr\u00E9 chaque mois."
+        ],
+        "expectedAdequacy": "requested_information_missing",
+        "expectedNextCapability": "research",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 1,
+        "isDangerous": false,
+        "docId": "a630-museum_humidity_alarm_delay_missing",
+        "docName": "museum_humidity_alarm_delay_missing.pdf",
+        "docPath": "Synthetic/A630/museum_humidity_alarm_delay_missing.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 49,
+      "case": {
+        "casePosition": 25,
+        "sourceCampaign": "A472",
+        "id": "membership_both_notice_periods",
+        "domain": "membership_policy",
+        "question": "Quels sont les d\u00E9lais de pr\u00E9avis de r\u00E9siliation document\u00E9s pour les formules Basic et Premium ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: les deux delais explicitement demandes\nPREUVES_ATOMIQUES: formule et delai documentes",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E1",
+          "E2"
+        ],
+        "requiredPatterns": [
+          "(?i)basic",
+          "(?i)premium",
+          "(?\u003C!\\d)30(?!\\d)",
+          "(?\u003C!\\d)7(?!\\d)"
+        ],
+        "excerpts": [
+          "La formule Basic exige un pr\u00E9avis de r\u00E9siliation de 30 jours.",
+          "La formule Premium exige un pr\u00E9avis de r\u00E9siliation de 7 jours."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 2,
+        "isDangerous": false,
+        "docId": "a630-membership_both_notice_periods",
+        "docName": "membership_both_notice_periods.pdf",
+        "docPath": "Synthetic/A630/membership_both_notice_periods.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "BASELINE_V6"
+    },
+    {
+      "runPosition": 50,
+      "case": {
+        "casePosition": 25,
+        "sourceCampaign": "A472",
+        "id": "membership_both_notice_periods",
+        "domain": "membership_policy",
+        "question": "Quels sont les d\u00E9lais de pr\u00E9avis de r\u00E9siliation document\u00E9s pour les formules Basic et Premium ?",
+        "language": "fr",
+        "questionFocus": "content",
+        "semanticPlan": "LIVRABLE: les deux delais explicitement demandes\nPREUVES_ATOMIQUES: formule et delai documentes",
+        "expectedDecision": "answer",
+        "expectedEvidenceIds": [
+          "E1",
+          "E2"
+        ],
+        "requiredPatterns": [
+          "(?i)basic",
+          "(?i)premium",
+          "(?\u003C!\\d)30(?!\\d)",
+          "(?\u003C!\\d)7(?!\\d)"
+        ],
+        "excerpts": [
+          "La formule Basic exige un pr\u00E9avis de r\u00E9siliation de 30 jours.",
+          "La formule Premium exige un pr\u00E9avis de r\u00E9siliation de 7 jours."
+        ],
+        "expectedAdequacy": "requested_information_present",
+        "expectedNextCapability": "write",
+        "expectedLeadEvidenceIds": [],
+        "requiredAtomicEvidenceCount": 2,
+        "isDangerous": false,
+        "docId": "a630-membership_both_notice_periods",
+        "docName": "membership_both_notice_periods.pdf",
+        "docPath": "Synthetic/A630/membership_both_notice_periods.pdf",
+        "revisionId": "a630-v1"
+      },
+      "arm": "PROPORTIONAL"
+    }
+  ]
+}

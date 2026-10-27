@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "saaia-portable-mechanical-replay.v1",
+  "fixtureKind": "portable_mechanical_replay",
+  "historicalSourceSha256": "254D9CD1DC15E522E10DEB42F953DDC2FC5137148757C6F6BF2C9345FC866708",
+  "containsModelPerformanceEvidence": false,
+  "systemPrompt": "You are SAAIA's direct semantic action selector. Never answer. Call\nexactly one available function. Every function is a real read-only\ncapability and its arguments must be executable exactly as submitted.\n\nPreserve every explicit requested facet, constraint, document and\nalternative. Never invent a query term, category, document, axis or\noption. Omit an uncertain scope. Choose the cheapest safe first action.\nSearch for source terms that may occur in evidence; navigate or inspect\ncontext for a named document; enumerate cards or navigation without q\nwhen unknown values for a structured grid must first be discovered.\n\nRequest clarification only when the user must decide before any safe\naction. Respect an explicit instruction to ask before acting. Do not\nclarify uncertainty that a read-only source observation can resolve.",
+  "toolNames": [
+    "documents_navigation",
+    "documents_content_cards",
+    "documents_context",
+    "rag_search",
+    "documents_count",
+    "request_user_clarification"
+  ],
+  "observations": [
+    {
+      "ScenarioId": "compound-noncuisine",
+      "Question": "Dans ANSI B11.0-2023 - Safety of Machinery, retrouve les passages qui parlent de IEC 60204-1 et explique ce qu’ils imposent ou recommandent.",
+      "ToolName": "rag_search",
+      "ArgumentsRaw": "{\"query\": \"IEC 60204-1\", \"categoryPath\": \"Normes\"}"
+    },
+    {
+      "ScenarioId": "ambiguous",
+      "Question": "Prépare-moi le planning à partir des documents.",
+      "ToolName": "documents_count",
+      "ArgumentsRaw": "{\"categoryPath\": \"Planning\"}"
+    },
+    {
+      "ScenarioId": "ambiguous-nongrid",
+      "Question": "Dans les documents, compare soit uniquement les exigences obligatoires, soit aussi les recommandations, mais demande-moi d'abord laquelle des deux portées je veux.",
+      "ToolName": "request_user_clarification",
+      "ArgumentsRaw": "{\"understanding\": \"Je dois déterminer si la comparaison doit se faire uniquement sur les exigences obligatoires ou aussi sur les recommandations.\", \"options\": [{\"label\": \"Exigences obligatoires seulement\", \"userTextAnchor\": \"Comparer uniquement les exigences obligatoires\"}, {\"label\": \"Exigences obligatoires et recommandations\", \"userTextAnchor\": \"Comparer les exigences obligatoires et aussi les recommandations\"}], \"executionImpact\": \"Cela influencera directement le champ de recherche et l'interprétation des résultats.\", \"ambiguityKind\": \"scope\"}"
+    },
+    {
+      "ScenarioId": "simple",
+      "Question": "Dans Cuisine, trouve une recette documentée de ratatouille et cite sa source.",
+      "ToolName": "documents_navigation",
+      "ArgumentsRaw": "{\"path\": \"Cuisine\", \"kind\": \"navigation_entry\"}"
+    },
+    {
+      "ScenarioId": "p1",
+      "Question": "J'ai besoin d'un planning de repas pour la semaine du lundi au vendredi incluant petit-déjeuner, déjeuner, collation et souper. Fais un format clair et professionnel, avec uniquement des sources utiles, non dupliquées inutilement. N'invente rien.",
+      "ToolName": "rag_search",
+      "ArgumentsRaw": "{\"query\": \"planning de repas semaine lundi vendredi petit déjeuner déjeuner collation souper\", \"categoryPath\": \"Cuisine\"}"
+    }
+  ]
+}

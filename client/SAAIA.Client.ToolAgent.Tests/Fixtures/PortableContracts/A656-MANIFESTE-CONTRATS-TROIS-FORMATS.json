@@ -1,0 +1,653 @@
+{
+  "schemaVersion": "a656_three_qwen_formats_v1",
+  "status": "frozen_before_harness_and_qwen",
+  "goalSha256": "6BAE663308460C8F68B0CCEEF3420E8BD30DEDB19B987F9207130DCEF35E63CD",
+  "adrSha256": "A572D008EB0D7C69BAE1E7E16F750AFD26EF5AD4F8C1A19E7DBA94C187C872F2",
+  "caseManifestSha256": "D1CCCA29AC3704B3058D934202379BADBAFEA80CB7865D084520E45CBDC3B7F6",
+  "a655ReportSha256": "9D857D6085F1CC2E8C15DCC28CAA3731E657484EBEB2D0F62DE782B63B487C00",
+  "budgets": {
+    "contextTokens": 4096,
+    "mechanicalReserveTokens": 64,
+    "operationalHeadroomTokens": 128,
+    "controllerMaximumOutputTokens": 512,
+    "controllerMaximumInputTokens": 3392,
+    "reviewerMaximumOutputTokens": 256,
+    "reviewerMaximumInputTokens": 3648,
+    "temperature": 0
+  },
+  "authoritativeDocumentTools": [
+    {
+      "name": "documents_navigation",
+      "internalNames": [
+        "documents.navigation"
+      ],
+      "description": "Explore titres, sommaires, index et pages pour decouvrir des noms inconnus. kind=navigation_entry cible les entrees de sommaire/index; kind=title_anchor cible les autres titres; omettre kind conserve les deux. Retourne des pointeurs non citables a reutiliser ensuite dans une recherche groupee ou une lecture ciblee.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "categoryPath": {
+            "type": "string",
+            "description": "Chemin exact deja retourne par le catalogue ou un outil; sinon omettre ce filtre."
+          },
+          "docRef": {
+            "type": "string"
+          },
+          "docPath": {
+            "type": "string",
+            "description": "Chemin documentaire exact retourne comme docPath. Copier le chemin complet, jamais un alias compact D1/D2."
+          },
+          "q": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "navigation_entry",
+              "title_anchor"
+            ]
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Position dans la pagination du meme outil avec exactement la meme requete et les memes filtres. Utiliser le nextOffset retourne pour cette route; une nouvelle requete commence normalement a 0."
+          }
+        },
+        "additionalProperties": false
+      },
+      "parametersCompactSha256": "6C552D9FEF5DF50E1732D0525A378E24EA146FB8F69BCD9C900E97D6877AAEC4"
+    },
+    {
+      "name": "documents_content_cards",
+      "internalNames": [
+        "documents.content_cards"
+      ],
+      "description": "Parcourt des candidats canoniques ancres par fichier/page. Ils ne sont pas preclasses semantiquement: juge titre, kind, headingPath et evidence. Avec q, filtre lexical. Sans q, inventoryMode=ordered suit l'ordre des sources; representative echantillonne des positions reparties dans chaque document. nextOffset poursuit la pagination stable.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "categoryPath": {
+            "type": "string",
+            "description": "Chemin exact deja retourne par le catalogue ou un outil; sinon omettre ce filtre."
+          },
+          "categoryRef": {
+            "type": "string"
+          },
+          "docRef": {
+            "type": "string"
+          },
+          "docId": {
+            "type": "string",
+            "description": "Identifiant backend opaque retourne explicitement comme docId. Ne jamais y placer un docPath, un nom de fichier ou un alias D1/D2."
+          },
+          "docPath": {
+            "type": "string",
+            "description": "Chemin documentaire exact retourne comme docPath. Copier le chemin complet, jamais un alias compact D1/D2."
+          },
+          "q": {
+            "type": "string"
+          },
+          "inventoryMode": {
+            "type": "string",
+            "enum": [
+              "ordered",
+              "representative"
+            ]
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Position dans la pagination du meme outil avec exactement la meme requete et les memes filtres. Utiliser le nextOffset retourne pour cette route; une nouvelle requete commence normalement a 0."
+          }
+        },
+        "additionalProperties": false
+      },
+      "parametersCompactSha256": "239B34A828197418B25A1BE64BEEFF89E570B7053318F7AFCAE48749004F4395"
+    },
+    {
+      "name": "documents_context",
+      "internalNames": [
+        "documents.context"
+      ],
+      "description": "Lit le passage indexe autour d'un document, de pages ou d'un chunk deja localise. Copie un chunkId observe; sinon utilise les pages observees, sans synthetiser d'identifiant.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "docRef": {
+            "type": "string"
+          },
+          "docId": {
+            "type": "string",
+            "description": "Identifiant backend opaque retourne explicitement comme docId. Ne jamais y placer un docPath, un nom de fichier ou un alias D1/D2."
+          },
+          "docPath": {
+            "type": "string",
+            "description": "Chemin documentaire exact retourne comme docPath. Copier le chemin complet, jamais un alias compact D1/D2."
+          },
+          "chunkId": {
+            "type": "string",
+            "description": "Identifiant exact retourne comme chunkId par une observation. Ne jamais l'inventer. Si aucun chunkId n'est observe, omettre ce champ et reutiliser pageStart/pageEnd observes."
+          },
+          "pageStart": {
+            "type": "integer"
+          },
+          "pageEnd": {
+            "type": "integer"
+          },
+          "before": {
+            "type": "integer"
+          },
+          "after": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Position dans la pagination du meme outil avec exactement la meme requete et les memes filtres. Utiliser le nextOffset retourne pour cette route; une nouvelle requete commence normalement a 0."
+          }
+        },
+        "additionalProperties": false
+      },
+      "parametersCompactSha256": "E4983BF8035A87553BF443CDA7206D0AEFB83DD500CDB8611487A396FD95D068"
+    },
+    {
+      "name": "rag_search",
+      "internalNames": [
+        "rag.search",
+        "rag.multi_search"
+      ],
+      "description": "Recherche des termes susceptibles d'apparaitre dans la source et retourne des preuves citables. Plusieurs EvidenceId d'une meme page partagent le meme groupe_source. query cible une intention; queries regroupe plusieurs intentions. docPath/categoryPath affinent le corpus.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Termes compacts attendus dans la source. Exclure les jours, cases et libelles de mise en page sauf s'ils doivent apparaitre litteralement dans le document."
+          },
+          "topK": {
+            "type": "integer"
+          },
+          "categoryPath": {
+            "type": "string",
+            "description": "Chemin exact deja retourne par le catalogue ou un outil; sinon omettre ce filtre."
+          },
+          "docId": {
+            "type": "string",
+            "description": "Identifiant backend opaque retourne explicitement comme docId. Ne jamais y placer un docPath, un nom de fichier ou un alias D1/D2."
+          },
+          "docPath": {
+            "type": "string",
+            "description": "Chemin documentaire exact retourne comme docPath. Copier le chemin complet, jamais un alias compact D1/D2."
+          },
+          "pageStart": {
+            "type": "integer"
+          },
+          "pageEnd": {
+            "type": "integer"
+          },
+          "maxPerDoc": {
+            "type": "integer"
+          },
+          "maxPerPage": {
+            "type": "integer"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "strict",
+              "standard",
+              "focused",
+              "balanced",
+              "broad"
+            ]
+          },
+          "queries": {
+            "type": "array",
+            "description": "Intentions source complementaires. Chaque intention decrit un contenu a trouver, pas sa future case dans la reponse.",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "diversity": {
+            "type": "number"
+          }
+        },
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "query"
+            ]
+          },
+          {
+            "required": [
+              "queries"
+            ]
+          }
+        ]
+      },
+      "parametersCompactSha256": "40A4B974C7F6FE2F44621F064E54D748AA0BEBBD7C0BF655974BA3BFC33A7CAB"
+    }
+  ],
+  "customSchemas": {
+    "answerDraft": {
+      "type": "object",
+      "properties": {
+        "presentation": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        },
+        "claims": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "evidenceIds": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 20,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^E[1-9][0-9]*$"
+                }
+              }
+            },
+            "required": [
+              "text",
+              "evidenceIds"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "presentation",
+        "claims"
+      ],
+      "additionalProperties": false
+    },
+    "clarification": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 360
+        },
+        "evidenceIds": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^E[1-9][0-9]*$"
+          }
+        }
+      },
+      "required": [
+        "message",
+        "evidenceIds"
+      ],
+      "additionalProperties": false
+    },
+    "insufficiency": {
+      "type": "object",
+      "properties": {
+        "missingFacts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          }
+        },
+        "usefulEvidenceIds": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^E[1-9][0-9]*$"
+          }
+        }
+      },
+      "required": [
+        "missingFacts",
+        "usefulEvidenceIds"
+      ],
+      "additionalProperties": false
+    },
+    "accept": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "block": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 360
+        },
+        "usefulEvidenceIds": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^E[1-9][0-9]*$"
+          }
+        }
+      },
+      "required": [
+        "reason",
+        "usefulEvidenceIds"
+      ],
+      "additionalProperties": false
+    },
+    "controllerRoute": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "answer",
+            "search",
+            "navigation",
+            "content_cards",
+            "context",
+            "clarify",
+            "insufficient"
+          ]
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    },
+    "reviewerRoute": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "accept",
+            "search",
+            "navigation",
+            "content_cards",
+            "context",
+            "clarify",
+            "block"
+          ]
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "grammarSchemas": {
+    "controller": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "answer",
+            "search",
+            "navigation",
+            "content_cards",
+            "context",
+            "clarify",
+            "insufficient"
+          ]
+        },
+        "presentation": {
+          "type": "string"
+        },
+        "claims": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "evidenceIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "text",
+              "evidenceIds"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "documentTool": {
+          "type": "string",
+          "enum": [
+            "",
+            "rag_search",
+            "documents_navigation",
+            "documents_content_cards",
+            "documents_context"
+          ]
+        },
+        "documentArguments": {
+          "type": "object",
+          "properties": {
+            "query": { "type": "string" },
+            "queries": { "type": "array", "items": { "type": "string" } },
+            "topK": { "type": "integer" },
+            "categoryPath": { "type": "string" },
+            "categoryRef": { "type": "string" },
+            "docRef": { "type": "string" },
+            "docId": { "type": "string" },
+            "docPath": { "type": "string" },
+            "path": { "type": "string" },
+            "q": { "type": "string" },
+            "kind": { "type": "string", "enum": ["navigation_entry", "title_anchor"] },
+            "inventoryMode": { "type": "string", "enum": ["ordered", "representative"] },
+            "chunkId": { "type": "string" },
+            "pageStart": { "type": "integer" },
+            "pageEnd": { "type": "integer" },
+            "before": { "type": "integer" },
+            "after": { "type": "integer" },
+            "limit": { "type": "integer" },
+            "offset": { "type": "integer" },
+            "maxPerDoc": { "type": "integer" },
+            "maxPerPage": { "type": "integer" },
+            "diversity": { "type": "number" },
+            "mode": { "type": "string", "enum": ["auto", "strict", "standard", "focused", "balanced", "broad"] }
+          },
+          "additionalProperties": false
+        },
+        "message": {
+          "type": "string"
+        },
+        "missingFacts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "usefulEvidenceIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "action",
+        "presentation",
+        "claims",
+        "documentTool",
+        "documentArguments",
+        "message",
+        "missingFacts",
+        "usefulEvidenceIds"
+      ],
+      "additionalProperties": false
+    },
+    "reviewer": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "accept",
+            "search",
+            "navigation",
+            "content_cards",
+            "context",
+            "clarify",
+            "block"
+          ]
+        },
+        "documentTool": {
+          "type": "string",
+          "enum": [
+            "",
+            "rag_search",
+            "documents_navigation",
+            "documents_content_cards",
+            "documents_context"
+          ]
+        },
+        "documentArguments": {
+          "type": "object",
+          "properties": {
+            "query": { "type": "string" },
+            "queries": { "type": "array", "items": { "type": "string" } },
+            "topK": { "type": "integer" },
+            "categoryPath": { "type": "string" },
+            "categoryRef": { "type": "string" },
+            "docRef": { "type": "string" },
+            "docId": { "type": "string" },
+            "docPath": { "type": "string" },
+            "path": { "type": "string" },
+            "q": { "type": "string" },
+            "kind": { "type": "string", "enum": ["navigation_entry", "title_anchor"] },
+            "inventoryMode": { "type": "string", "enum": ["ordered", "representative"] },
+            "chunkId": { "type": "string" },
+            "pageStart": { "type": "integer" },
+            "pageEnd": { "type": "integer" },
+            "before": { "type": "integer" },
+            "after": { "type": "integer" },
+            "limit": { "type": "integer" },
+            "offset": { "type": "integer" },
+            "maxPerDoc": { "type": "integer" },
+            "maxPerPage": { "type": "integer" },
+            "diversity": { "type": "number" },
+            "mode": { "type": "string", "enum": ["auto", "strict", "standard", "focused", "balanced", "broad"] }
+          },
+          "additionalProperties": false
+        },
+        "message": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "usefulEvidenceIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "action",
+        "documentTool",
+        "documentArguments",
+        "message",
+        "reason",
+        "usefulEvidenceIds"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "variants": [
+    {
+      "id": "DIRECT_NATIVE_PALETTE",
+      "controllerToolSchemaRefs": [
+        "customSchemas.answerDraft",
+        "authoritativeDocumentTools.rag_search",
+        "authoritativeDocumentTools.documents_navigation",
+        "authoritativeDocumentTools.documents_content_cards",
+        "authoritativeDocumentTools.documents_context",
+        "customSchemas.clarification",
+        "customSchemas.insufficiency"
+      ],
+      "reviewerToolSchemaRefs": [
+        "customSchemas.accept",
+        "authoritativeDocumentTools.rag_search",
+        "authoritativeDocumentTools.documents_navigation",
+        "authoritativeDocumentTools.documents_content_cards",
+        "authoritativeDocumentTools.documents_context",
+        "customSchemas.clarification",
+        "customSchemas.block"
+      ],
+      "fallbackAllowed": false
+    },
+    {
+      "id": "ROUTE_THEN_SPECIALIZED_PAYLOAD",
+      "controllerRouteSchemaRef": "customSchemas.controllerRoute",
+      "reviewerRouteSchemaRef": "customSchemas.reviewerRoute",
+      "payloadSchemaRefs": [
+        "customSchemas.answerDraft",
+        "authoritativeDocumentTools.rag_search",
+        "authoritativeDocumentTools.documents_navigation",
+        "authoritativeDocumentTools.documents_content_cards",
+        "authoritativeDocumentTools.documents_context",
+        "customSchemas.clarification",
+        "customSchemas.insufficiency",
+        "customSchemas.accept",
+        "customSchemas.block"
+      ],
+      "fallbackAllowed": false
+    },
+    {
+      "id": "GRAMMAR_CONSTRAINED_JSON",
+      "controllerSchemaRef": "grammarSchemas.controller",
+      "reviewerSchemaRef": "grammarSchemas.reviewer",
+      "responseFormat": "json_schema",
+      "strict": true,
+      "fallbackAllowed": false
+    }
+  ],
+  "forbiddenContractContent": [
+    "case-specific identifiers or questions",
+    "oracle fields or oracle-derived examples",
+    "domain-specific rules"
+  ]
+}

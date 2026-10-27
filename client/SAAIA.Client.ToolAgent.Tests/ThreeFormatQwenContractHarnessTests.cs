@@ -404,7 +404,7 @@ public sealed class ThreeFormatQwenContractHarnessTests
         public Temporary() => Directory.CreateDirectory(Path);
         public void Dispose() { if (Directory.Exists(Path)) Directory.Delete(Path, recursive: true); }
     }
-    private static string Artifact(string name) => Path.Combine(Root(), "artifacts", "goal-rag-product-20260827-1041", "phase5", name);
+    private static string Artifact(string name) => PortableContractFixtures.PathFor(name);
     private static string Root()
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)

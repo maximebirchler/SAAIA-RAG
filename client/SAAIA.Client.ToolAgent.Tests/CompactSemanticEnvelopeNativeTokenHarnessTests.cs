@@ -513,24 +513,7 @@ public sealed class CompactSemanticEnvelopeNativeTokenHarnessTests
         }
     }
 
-    private static string Phase5Root => Path.Combine(
-        FindRepositoryRoot(),
-        "artifacts",
-        "goal-rag-product-20260827-1041",
-        "phase5");
-
-    private static string FindRepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "RAG.sln")))
-                return directory.FullName;
-            directory = directory.Parent;
-        }
-
-        throw new DirectoryNotFoundException("A647_REPOSITORY_ROOT_NOT_FOUND");
-    }
+    private static string Phase5Root => PortableContractFixtures.DirectoryPath;
 
     private sealed class RecordingHandler : HttpMessageHandler
     {

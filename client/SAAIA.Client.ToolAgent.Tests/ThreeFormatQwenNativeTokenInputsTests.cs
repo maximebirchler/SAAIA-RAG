@@ -11,11 +11,8 @@ public sealed class ThreeFormatQwenNativeTokenInputsTests
     [Fact]
     public void A658_exports_every_stage_with_frozen_schemas_and_oracle_free_messages()
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root is not null && !File.Exists(Path.Combine(root.FullName, "RAG.sln"))) root = root.Parent;
-        var phase = Path.Combine(root!.FullName, "artifacts", "goal-rag-product-20260827-1041", "phase5");
-        var inputs = LoadFrozenInputs(Path.Combine(phase, "A656-MANIFESTE-CONTRATS-TROIS-FORMATS.json"),
-            Path.Combine(phase, "A630-CASES-NORMALISES-ORACLES.json"), Path.Combine(phase, "A656-ORDRE-MICROCAMPAGNE-25-CAS.json"));
+        var inputs = LoadFrozenInputs(PortableContractFixtures.PathFor("A656-MANIFESTE-CONTRATS-TROIS-FORMATS.json"),
+            PortableContractFixtures.PathFor("A630-CASES-NORMALISES-ORACLES.json"), PortableContractFixtures.PathFor("A656-ORDRE-MICROCAMPAGNE-25-CAS.json"));
         var rows = new List<object>();
         var requests = new List<Request>();
         var answerCases = 0;

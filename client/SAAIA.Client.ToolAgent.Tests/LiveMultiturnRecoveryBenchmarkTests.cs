@@ -58,12 +58,14 @@ public sealed class LiveMultiturnRecoveryBenchmarkTests(
 
     [Trait("Profile", "Unit")]
     [Fact]
-    public void Frozen_replay_and_feedback_controller_are_mechanically_valid()
+    public void Portable_replay_and_feedback_controller_are_mechanically_valid()
     {
-        var replay = LoadReplay();
+        var replay = ReadReplay(
+            PortableContractFixtures.PathFor("MultiturnRecoveryMechanicalReplay.v1.json"),
+            PortableContractFixtures.MultiturnReplaySha256);
         var tools = LiveDirectCapabilityBoundaryBenchmarkTests.BuildTools();
 
-        Assert.Equal(ExpectedReplaySha256, replay.Sha256);
+        Assert.Equal(PortableContractFixtures.MultiturnReplaySha256, replay.Sha256);
         Assert.Equal(
             LiveDirectCapabilityBoundaryBenchmarkTests.SystemPrompt,
             replay.SystemPrompt);
@@ -1115,10 +1117,14 @@ public sealed class LiveMultiturnRecoveryBenchmarkTests(
     }
 
     private static ReplayArtifact LoadReplay()
+        => ReadReplay(ResolveReplayPath(), ExpectedReplaySha256);
+
+    private static ReplayArtifact ReadReplay(string path, string expectedSha256)
     {
-        var path = ResolveReplayPath();
         var bytes = File.ReadAllBytes(path);
         var sha = Convert.ToHexString(SHA256.HashData(bytes));
+        if (!string.Equals(sha, expectedSha256, StringComparison.Ordinal))
+            throw new InvalidOperationException("EXP-046 replay SHA256 differs from its required fixture identity.");
         using var document = JsonDocument.Parse(bytes);
         var root = document.RootElement;
         var observations = root.GetProperty("observations")

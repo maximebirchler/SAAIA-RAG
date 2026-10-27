@@ -74,11 +74,8 @@ public sealed class ThreeFormatQwenContractHarnessReauditTests
 
     private static FrozenInputs Load()
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root is not null && !File.Exists(Path.Combine(root.FullName, "RAG.sln"))) root = root.Parent;
-        var path = Path.Combine(root!.FullName, "artifacts", "goal-rag-product-20260827-1041", "phase5");
-        return LoadFrozenInputs(Path.Combine(path, "A656-MANIFESTE-CONTRATS-TROIS-FORMATS.json"),
-            Path.Combine(path, "A630-CASES-NORMALISES-ORACLES.json"), Path.Combine(path, "A656-ORDRE-MICROCAMPAGNE-25-CAS.json"));
+        return LoadFrozenInputs(PortableContractFixtures.PathFor("A656-MANIFESTE-CONTRATS-TROIS-FORMATS.json"),
+            PortableContractFixtures.PathFor("A630-CASES-NORMALISES-ORACLES.json"), PortableContractFixtures.PathFor("A656-ORDRE-MICROCAMPAGNE-25-CAS.json"));
     }
 
     [Theory]

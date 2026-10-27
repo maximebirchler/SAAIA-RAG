@@ -1,0 +1,7 @@
+Ces fichiers rendent les tests de contrat unitaires autonomes sur un checkout neuf.
+
+- Les quatre JSON A630/A645/A656 sont des copies octet pour octet des entrées déjà scellées par les tests. Ils contiennent 25 cas entièrement synthétiques, des schémas de capacités et un ordre de campagne. Les chemins documentaires sont `Synthetic/A630/…` ; les identités et pages ne décrivent aucun PDF réel. Les anciens SHA256 restent inchangés.
+- `Calibration-record.pdf` est un PDF synthétique de deux pages généré avec PdfPig : instruments fictifs AMBER et COBALT, mesures 47 et 63 millimètres. Son SHA256 correspond au contrat de citations existant. MSBuild le copie sous `Fixtures/Calibration-record.pdf`, attendu par ce contrat.
+- `MultiturnRecoveryMechanicalReplay.v1.json` conserve seulement le prompt, les noms d'outils et les cinq premières actions nécessaires à la régression mécanique. Les actions proviennent du replay EXP-046 dont le SHA256 est déclaré. Il ne contient ni machine, ni chemin utilisateur, ni métrique du modèle. Son identité distincte ne remplace pas l'archive privée exigée par la campagne LivePaid.
+
+Aucune source documentaire cliente, clé, authentification ni archive complète n'est publiée. Ces fixtures ne prouvent aucune qualité sémantique actuelle d'un modèle ni aucune ingestion réelle. Les tests continuent à refuser les dérives de SHA256, d'identité, de schéma et d'oracle. L'attribut Git `-text` protège les octets JSON scellés des conversions de fin de ligne.
