@@ -23,6 +23,10 @@ async def repair_response_tables(
     *, options: TableRepairOptions | None = None, clock=time.monotonic,
 ) -> list[dict[str, Any]]:
     options = options if options is not None else TableRepairOptions()
+    if getattr(options, "alternative_readings_enabled", False):
+        from .table_region_observations import collect_table_observations
+        return await collect_table_observations(pdf_path, response, engine, options, clock,
+            _has_sparse_grid, repair_sparse_table)
     wrapper = response.get("document")
     document = wrapper.get("json_content") if isinstance(wrapper, dict) else None
     tables = document.get("tables") if isinstance(document, dict) else None

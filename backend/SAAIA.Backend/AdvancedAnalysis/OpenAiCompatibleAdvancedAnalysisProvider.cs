@@ -719,6 +719,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         IReadOnlyList<object>? nativeToolTurnMessages = null)
     {
         using var callProbe = BackendDiagnostics.Start("llm.call", _logger);
+        userPrompt = AddSecondaryTableReadingsToPrompt(userPrompt);
+        using var sourcePrompt = JsonDocument.Parse(userPrompt);
+        var hasSecondaryReadings = HasSecondaryTableReadings(sourcePrompt.RootElement);
+        if (hasSecondaryReadings) systemPrompt += "\n" + SecondaryTableReadingContract;
         callProbe.Set("call_id", Guid.NewGuid().ToString("N"));
         callProbe.Set("job_id", jobId);
         callProbe.Set("role", role);
@@ -770,6 +774,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         }
         if (nativeResponses) ConvertNativePayloadToResponses(payload);
         var serializedPayload = JsonSerializer.Serialize(payload, JsonOptions);
+        if (hasSecondaryReadings)
+        {
+            var documentaryCharacters = MeasureSecondaryDocumentaryWireCharacters(serializedPayload);
+            callProbe.Set("documentary_wire_characters", documentaryCharacters);
+            if (documentaryCharacters > Math.Clamp(_options.MaximumEvidencePromptCharacters, 8_000, 1_000_000))
+                throw new AdvancedAnalysisProviderException("advanced_secondary_documentary_wire_budget_exceeded");
+        }
         callProbe.Set("wire_protocol", nativeResponses ? "responses" : "chat-completions");
         callProbe.Set("request_sha256", Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(serializedPayload))));
         callProbe.Set("request_characters", serializedPayload.Length);

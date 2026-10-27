@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Dapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
@@ -33,7 +34,12 @@ internal sealed record AdvancedAnalysisSearchRequest(
     IReadOnlyList<string>? DegradedRetrievers = null,
     int? TableOrdinal = null,
     int? TableRowOffset = null,
-    int? TableRowLimit = null);
+    int? TableRowLimit = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? TableObservationId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? TableObservationView = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? TableObservationBandOrdinal = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? TableObservationLineOffset = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? TableObservationLineLimit = null);
 
 // A resolved path describes a search filter, never an evidence or read capability.
 internal sealed record AdvancedAnalysisDocumentResolutionDiagnostic(
@@ -60,7 +66,8 @@ internal sealed record AdvancedAnalysisSearchObservation(
     bool NotExecutedAfterResourceLimit = false,
     RagRetrievalDiagnosticsDto? RetrievalDiagnostic = null,
     AdvancedAnalysisDocumentResolutionDiagnostic? DocumentResolution = null,
-    IReadOnlyList<AdvancedAnalysisStructuredTableView>? StructuredTables = null);
+    IReadOnlyList<AdvancedAnalysisStructuredTableView>? StructuredTables = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] AdvancedAnalysisAlternativeTableReadings? AlternativeTableReadings = null);
 
 internal sealed record AdvancedAnalysisResearchResourceLimit(string ReasonCode,
     int? MaximumEvidenceItems, int? ConsumedEvidenceItems, int? RequestedNewEvidenceItems,
@@ -448,6 +455,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             };
             IReadOnlyList<AdvancedAnalysisEvidenceReference> references;
             IReadOnlyList<string> degraded;
+            AdvancedAnalysisAlternativeTableReadings? alternativeReadings = null;
             if (request.Operation == "find_source_text")
             {
                 ValidateObservedReadScope(requestForTrace);
@@ -459,13 +467,29 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             else if (request.Operation == "read_source")
             {
                 ValidateObservedReadScope(requestForTrace);
-                references = await ReadCanonicalPagesAsync(requestForTrace, cancellationToken)
-                    .ConfigureAwait(false);
-                var source = _evidence.First(item=>string.Equals(item.Reference.DocId,request.DocId,StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(item.Reference.RevisionId,request.RevisionId,StringComparison.OrdinalIgnoreCase)).SourceOverview;
+                var observed = _evidence.First(item=>string.Equals(item.Reference.DocId,request.DocId,StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(item.Reference.RevisionId,request.RevisionId,StringComparison.OrdinalIgnoreCase));
+                if (request.TableObservationView is not null)
+                {
+                    var secondary = await AdvancedAnalysisTableObservationReader.ReadAsync(_dataSource, _tenantId,
+                        requestForTrace, observed.Reference, _maximumStructuredTableCharacters, cancellationToken);
+                    references = secondary.References;
+                    alternativeReadings = secondary.Readings;
+                }
+                else
+                {
+                    references = await ReadCanonicalPagesAsync(requestForTrace, cancellationToken).ConfigureAwait(false);
+                    var inventory = await CanonicalTableObservationRepo.ListAsync(_dataSource, _tenantId,
+                        Guid.Parse(request.DocId!), Guid.Parse(request.RevisionId!), observed.Reference.SourceHash,
+                        request.PageStart, request.PageEnd, cancellationToken);
+                    if (inventory is not null) alternativeReadings = new(inventory, null);
+                }
+                var source = observed.SourceOverview;
                 var outside = source is not null && (request.PageStart > source.LastIndexedPhysicalPage || request.PageEnd < source.FirstIndexedPhysicalPage);
                 requestForTrace = requestForTrace with {ReadDiagnostic=new AdvancedAnalysisReadDiagnostic(
-                    outside ? "outside_indexed_page_range" : references.Count == 0 ? "no_canonical_chunks_in_window" : "canonical_chunks_returned",
+                    request.TableObservationView is not null ? "table_observation_" + (alternativeReadings?.View?.Status
+                        ?? (alternativeReadings?.Inventory is null ? "inventory_unavailable" : "inventory_returned"))
+                        : outside ? "outside_indexed_page_range" : references.Count == 0 ? "no_canonical_chunks_in_window" : "canonical_chunks_returned",
                     source?.FirstIndexedPhysicalPage,source?.LastIndexedPhysicalPage,references.Count)};
                 degraded = [];
             }
@@ -542,10 +566,22 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                         item))
                     .ToArray(),
                 "read_source" => revalidated.Evidence
-                    .Select(PromoteLeadingCanonicalReadTitle)
+                    .Select(item => item.SourceObservation is null ? PromoteLeadingCanonicalReadTitle(item) : item)
                     .ToArray(),
                 _ => revalidated.Evidence
             };
+            if (alternativeReadings?.View is { Lines: not null } secondaryView)
+            {
+                var lines = secondaryView.Lines.ToDictionary(line => line.AnchorId, StringComparer.Ordinal);
+                resolvedEvidence = resolvedEvidence.Select(item => item.SourceObservation is { } secondary
+                        && item.Reference.AnchorId is { } anchor && lines.TryGetValue(anchor, out var line)
+                    ? item with { SourceObservation = secondary with
+                    {
+                        View = secondaryView.View, ViewOrdinal = line.ViewOrdinal, BandOrdinal = secondaryView.BandOrdinal,
+                        ViewLineCount = secondaryView.ViewLineCount!.Value, LineOffset = secondaryView.LineOffset,
+                        LineLimit = secondaryView.LineLimit, NextLineOffset = secondaryView.NextLineOffset
+                    }} : item).ToArray();
+            }
             var observationEvidence = new List<AdvancedAnalysisResolvedEvidence>(
                 resolvedEvidence.Count);
             var newEvidence = resolvedEvidence
@@ -602,6 +638,13 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                     var storedIndex=_evidence.FindIndex(item=>CanonicalKey(item.Reference)==key);
                     if (storedIndex>=0) _evidence[storedIndex]=canonical;
                 }
+                if (item.SourceObservation is not null)
+                {
+                    canonical = canonical with { SourceObservation = item.SourceObservation };
+                    _evidenceByCanonicalKey[key] = canonical;
+                    var storedIndex = _evidence.FindIndex(existing => CanonicalKey(existing.Reference) == key);
+                    if (storedIndex >= 0) _evidence[storedIndex] = canonical;
+                }
                 observationEvidence.Add(canonical);
             }
 
@@ -638,7 +681,8 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                 requestForTrace.FindDiagnostic,
                 RetrievalDiagnostic: requestForTrace.RetrievalDiagnostic,
                 DocumentResolution: requestForTrace.DocumentResolution,
-                StructuredTables: structuredTables);
+                StructuredTables: structuredTables,
+                AlternativeTableReadings: alternativeReadings);
         }
         catch (Exception ex)
         {
@@ -957,6 +1001,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
 
     private void ValidateRequest(AdvancedAnalysisSearchRequest request)
     {
+        if (request is not null) AdvancedAnalysisTableObservationReader.ValidateRequest(request);
         if (request is null
             || string.IsNullOrWhiteSpace(request.Query)
             || request.Query.Length > MaximumQueryCharacters)
@@ -1074,6 +1119,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
     private static AdvancedAnalysisResolvedEvidence PromoteLeadingCanonicalReadTitle(
         AdvancedAnalysisResolvedEvidence evidence)
     {
+        if (evidence.SourceObservation is not null) return evidence;
         if (evidence.SourceStructure?.HasUnassignedPhysicalContext == true)
             return evidence;
         if (!string.IsNullOrWhiteSpace(evidence.ExactTitle))

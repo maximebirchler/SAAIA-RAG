@@ -18,6 +18,8 @@ internal sealed record AdvancedAnalysisResolvedEvidence(
     [property: System.Text.Json.Serialization.JsonIgnore] AdvancedAnalysisSearchRequest? TableReadWindow = null)
 {
     public AdvancedAnalysisSourceQuality? SourceQuality { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public AdvancedAnalysisTableObservationLineSource? SourceObservation { get; init; }
 }
 
 internal sealed record AdvancedAnalysisEvidenceStructure(
@@ -40,6 +42,8 @@ internal sealed record AdvancedAnalysisSourceOverview(
     int CanonicalChunkCount)
 {
     public AdvancedAnalysisVisualAvailability? VisualAssets { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public CanonicalTableObservationInventory? TableRegionObservations { get; init; }
 }
 
 internal sealed record AdvancedAnalysisVisualAvailability(string Status, long AvailableAssetCount,

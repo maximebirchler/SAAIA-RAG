@@ -26,6 +26,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The same canonical corpus drives contract and SQL/wire integration tests. -->
+    <Compile Include="..\..\contracts\SAAIA.Contracts.Tests\CanonicalContractFixture.cs" Link="Fixtures\CanonicalContractFixture.cs" />
+    <Compile Include="..\..\contracts\SAAIA.Contracts.Tests\CanonicalTableRegionObservationFixture.cs" Link="Fixtures\CanonicalTableRegionObservationFixture.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Include="Fixtures\ocr-realistic-raster-v1.pdf" LogicalName="SAAIA.Backend.Tests.OcrRealisticRasterV1.pdf" />
     <Content Include="Fixtures\*.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

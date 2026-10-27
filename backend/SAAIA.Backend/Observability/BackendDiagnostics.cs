@@ -14,6 +14,7 @@ internal static class BackendDiagnostics
     internal const string ActivitySourceName = "SAAIA.Backend.Operations";
     internal const string MeterName = "SAAIA.Backend.Operations";
     internal static readonly ActivitySource Source = new(ActivitySourceName);
+    private const string LoggerPropertyName = "saaia.operation.logger";
     private static readonly Meter Meter = new(MeterName);
     private static readonly Histogram<double> Duration = Meter.CreateHistogram<double>("saaia.operation.duration", "ms");
     private static readonly Counter<long> Completed = Meter.CreateCounter<long>("saaia.operation.completed");
@@ -22,7 +23,18 @@ internal static class BackendDiagnostics
     internal static void RecordCollectionFailure() => Interlocked.Increment(ref _collectionFailures);
 
     internal static Operation Start(string operation, ILogger? logger = null, ActivityContext? parent = null)
-        => new(operation, logger ?? NullLogger.Instance, parent);
+        => new(operation, logger ?? InheritedLogger(parent) ?? NullLogger.Instance, parent);
+
+    private static ILogger? InheritedLogger(ActivityContext? explicitParent)
+    {
+        var current = Activity.Current;
+        // An explicitly different trace must not borrow another request's logger.
+        if (explicitParent.HasValue && (explicitParent.Value == default || current is null
+            || explicitParent.Value.TraceId != current.TraceId)) return null;
+        for (var depth = 0; current is not null && depth < 64; depth++, current = current.Parent)
+            if (current.GetCustomProperty(LoggerPropertyName) is ILogger logger) return logger;
+        return null;
+    }
 
     internal sealed class Operation : IDisposable
     {
@@ -67,6 +79,7 @@ internal static class BackendDiagnostics
                 catch (Exception) { RestoreFailedStart(); activity = null; }
             }
             _activity = activity;
+            _activity?.SetCustomProperty(LoggerPropertyName, _logger);
             var inheritedTrace = parent?.TraceId ?? previous?.TraceId ?? default;
             _traceId = (activity?.TraceId is { } trace && trace != default ? trace
                 : inheritedTrace != default ? inheritedTrace : ActivityTraceId.CreateRandom()).ToHexString();

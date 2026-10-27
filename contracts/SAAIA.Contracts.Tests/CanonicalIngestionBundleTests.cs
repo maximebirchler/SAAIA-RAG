@@ -50,7 +50,7 @@ public sealed class CanonicalIngestionBundleTests
                      && issue.Message.Contains("Source artifact hash", StringComparison.Ordinal));
     }
 
-    private static IngestionManifest CreateManifest(CanonicalDocument document)
+    internal static IngestionManifest CreateManifest(CanonicalDocument document)
         => new()
         {
             ProcessingRunId = Guid.Parse("33333333-3333-3333-3333-333333333333"),

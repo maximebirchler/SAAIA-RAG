@@ -13,7 +13,7 @@ public sealed class CanonicalContractException(IReadOnlyList<CanonicalValidation
     public IReadOnlyList<CanonicalValidationIssue> Issues { get; } = issues;
 }
 
-public static class CanonicalContractValidator
+public static partial class CanonicalContractValidator
 {
     public static IReadOnlyList<CanonicalValidationIssue> Validate(CanonicalDocument document)
     {
@@ -117,6 +117,7 @@ public static class CanonicalContractValidator
         }
 
         ValidateReferences(document, allReferenceIds, blockIds, spanIds, sectionIds, issues);
+        issues.AddRange(CanonicalTableRegionObservationValidator.ValidateDocument(document));
         return issues;
     }
 
@@ -125,6 +126,15 @@ public static class CanonicalContractValidator
         ArgumentNullException.ThrowIfNull(anchor);
         ArgumentNullException.ThrowIfNull(document);
         var issues = Validate(document).ToList();
+        issues.AddRange(ValidateAnchorForValidatedDocument(anchor, document, new CanonicalAnchorValidationIndex(document)));
+        return issues;
+    }
+
+    // Bundle validation calls this core after validating the document once.
+    internal static IReadOnlyList<CanonicalValidationIssue> ValidateAnchorForValidatedDocument(
+        SourceAnchor anchor, CanonicalDocument document, CanonicalAnchorValidationIndex anchorIndex)
+    {
+        var issues = new List<CanonicalValidationIssue>();
 
         Require(anchor.SchemaVersion == CanonicalSchema.SourceAnchorVersion, "$.schemaVersion", "schema_version", "Unsupported source anchor schema.", issues);
         Require(!string.IsNullOrWhiteSpace(anchor.AnchorId), "$.anchorId", "required", "Anchor ID is required.", issues);
@@ -141,13 +151,20 @@ public static class CanonicalContractValidator
         {
             var region = anchor.Regions[index];
             var path = $"$.regions[{index}]";
-            var page = document.Pages.SingleOrDefault(item => item.PageNumber == region.PageNumber);
+            anchorIndex.Pages.TryGetValue(region.PageNumber, out var page);
             Require(page is not null, $"{path}.pageNumber", "broken_reference", "Anchor page does not exist.", issues);
             ValidatePolygon(region.Polygon, $"{path}.polygon", issues);
             RequireSha256(region.RawTextSha256, $"{path}.rawTextSha256", issues);
 
             if (page is null)
                 continue;
+
+            if (anchor.ProjectionType == CanonicalTableObservationAnchors.ProjectionType
+                || region.TableRegionObservationId is not null || region.TableRegionObservationLineIds is not null)
+            {
+                ValidateSecondaryAnchorRegion(anchor, region, document, anchorIndex, path, issues);
+                continue;
+            }
 
             ValidateRegionReferences(region.BlockIds, page.Blocks.Select(item => item.BlockId), $"{path}.blockIds", issues);
             ValidateRegionReferences(region.SpanIds, page.Blocks.SelectMany(item => item.Spans).Select(item => item.SpanId), $"{path}.spanIds", issues);
@@ -281,6 +298,7 @@ public static class CanonicalContractValidator
 
     private static void ValidateRegionReferences(IEnumerable<string> values, IEnumerable<string> known, string path, List<CanonicalValidationIssue> issues)
     {
+        if (!values.Any()) return;
         var knownSet = known.ToHashSet(StringComparer.Ordinal);
         foreach (var value in values)
             AddRequiredReference(value, knownSet, path, issues);

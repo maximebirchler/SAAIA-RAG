@@ -19,7 +19,7 @@ internal sealed record DoclingCanonicalBundleRequest(
 
 internal static class DoclingCanonicalBundleFactory
 {
-    public static CanonicalIngestionBundle Create(DoclingCanonicalBundleRequest request)
+    public static CanonicalIngestionBundle Create(DoclingCanonicalBundleRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         var projectionStage = request.Stages.FirstOrDefault(
@@ -103,6 +103,7 @@ internal static class DoclingCanonicalBundleFactory
                 chunk.CanonicalSpanIds,
                 chunk.CanonicalTableCellIds))
             .ToList();
+        anchors.AddRange(CanonicalTableObservationAnchors.Build(document, cancellationToken));
         var bundle = new CanonicalIngestionBundle
         {
             Document = document,

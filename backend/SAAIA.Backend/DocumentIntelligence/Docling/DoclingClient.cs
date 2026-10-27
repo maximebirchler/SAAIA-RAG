@@ -58,6 +58,7 @@ internal sealed class DoclingClient(
                     deadline.Token.ThrowIfCancellationRequested();
                     DoclingRegionalTextRepairPolicy.RecordDiagnostics(operation, result);
                     DoclingRegionalTableRepairPolicy.RecordDiagnostics(operation, options, result);
+                    DoclingTableRegionObservationStage.RecordDiagnostics(operation, options, result);
                     attemptProbe.Complete();
                     operation.Set("retry_count", attempt - 1);
                     operation.Complete();
@@ -123,6 +124,8 @@ internal sealed class DoclingClient(
         Add(form, "pdf_backend", options.PdfBackend);
         Add(form, "table_mode", options.TableMode);
         Add(form, "table_cell_matching", options.TableCellMatching);
+        if (options.RegionalTableAlternativeReadingsEnabled)
+            Add(form, "saaia_table_observations_enabled", true);
         Add(form, "do_table_structure", options.DoTableStructure);
         Add(form, "include_images", options.IncludeImages);
         Add(form, "include_page_images", options.IncludePageImages);

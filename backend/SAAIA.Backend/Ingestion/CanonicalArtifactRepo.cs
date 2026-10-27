@@ -64,6 +64,17 @@ internal static class CanonicalArtifactRepo
         if (bundle.Document.RevisionId != revisionId)
             throw new InvalidOperationException("Canonical bundle revision does not match the publication revision.");
 
+        var ownedRevision = await conn.ExecuteScalarAsync<int?>(new CommandDefinition("""
+            SELECT 1 FROM document_revisions WHERE tenant_id=@tenant AND doc_id=@document
+                AND revision_id=@revision AND source_hash=@source FOR KEY SHARE;
+            """, new
+            {
+                tenant = tenantId, document = bundle.Document.DocumentId, revision = revisionId,
+                source = Convert.FromHexString(bundle.Document.Source.Sha256)
+            }, transaction: tx, cancellationToken: ct));
+        if (ownedRevision != 1)
+            throw new InvalidDataException("canonical_bundle_publication_revision_identity_invalid");
+
         const string artifactSql = """
 INSERT INTO document_revision_binary_artifacts(
     tenant_id,
@@ -117,54 +128,7 @@ SET schema_version=EXCLUDED.schema_version,
             transaction: tx,
             cancellationToken: ct));
 
-        const string anchorSql = """
-INSERT INTO document_source_anchors(
-    tenant_id,
-    revision_id,
-    anchor_id,
-    projection_type,
-    projection_id,
-    precision,
-    page_start,
-    page_end,
-    content_hash,
-    manifest_hash,
-    payload)
-VALUES(
-    @tenant_id,
-    @revision_id,
-    @anchor_id,
-    @projection_type,
-    @projection_id,
-    @precision,
-    @page_start,
-    @page_end,
-    @content_hash,
-    @manifest_hash,
-    CAST(@payload AS jsonb));
-""";
-        foreach (var anchor in bundle.SourceAnchors)
-        {
-            var json = CanonicalContractJson.SerializeCanonical(anchor);
-            await conn.ExecuteAsync(new CommandDefinition(
-                anchorSql,
-                new
-                {
-                    tenant_id = tenantId,
-                    revision_id = revisionId,
-                    anchor_id = anchor.AnchorId,
-                    projection_type = anchor.ProjectionType,
-                    projection_id = anchor.ProjectionId,
-                    precision = anchor.Precision,
-                    page_start = anchor.Regions.Min(static region => region.PageNumber),
-                    page_end = anchor.Regions.Max(static region => region.PageNumber),
-                    content_hash = SHA256.HashData(Encoding.UTF8.GetBytes(json)),
-                    manifest_hash = Convert.FromHexString(anchor.ManifestSha256),
-                    payload = json
-                },
-                transaction: tx,
-                cancellationToken: ct));
-        }
+        await CanonicalSourceAnchorStorage.WriteAsync(conn, tx, tenantId, revisionId, bundle.SourceAnchors, ct);
     }
 
     private static byte[] Compress(byte[] bytes)

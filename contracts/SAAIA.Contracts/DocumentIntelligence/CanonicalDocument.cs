@@ -84,6 +84,10 @@ public sealed class CanonicalPage
 
     [JsonPropertyName("qualityFlags")]
     public List<string> QualityFlags { get; set; } = [];
+
+    [JsonPropertyName("tableRegionObservations")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CanonicalTableRegionObservationSet? TableRegionObservations { get; set; }
 }
 
 public sealed class CanonicalSectionNode

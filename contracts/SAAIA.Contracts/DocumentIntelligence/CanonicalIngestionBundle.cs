@@ -84,10 +84,11 @@ public static class CanonicalIngestionBundleValidator
 
         var anchorIds = new HashSet<string>(StringComparer.Ordinal);
         var projectionKeys = new HashSet<string>(StringComparer.Ordinal);
+        var anchorIndex = new CanonicalAnchorValidationIndex(document);
         for (var index = 0; index < bundle.SourceAnchors.Count; index++)
         {
             var anchor = bundle.SourceAnchors[index];
-            issues.AddRange(CanonicalContractValidator.Validate(anchor, document));
+            issues.AddRange(CanonicalContractValidator.ValidateAnchorForValidatedDocument(anchor, document, anchorIndex));
             if (!anchorIds.Add(anchor.AnchorId))
                 issues.Add(new($"$.sourceAnchors[{index}].anchorId", "duplicate_id", $"Anchor ID '{anchor.AnchorId}' is duplicated."));
 

@@ -483,7 +483,8 @@ internal sealed class AdvancedAnalysisClientService
                     source.RevisionId,
                     source.PageStart,
                     source.PageEnd,
-                    source.SourceHash),
+                    source.SourceHash,
+                    source.ContentRole == "secondary_observation" ? source.AnchorId : string.Empty),
                 StringComparer.OrdinalIgnoreCase)
             .Select(static group => group.First())
             .ToList();
@@ -649,6 +650,16 @@ internal sealed class AdvancedAnalysisClientService
                 return AdvancedAnalysisClientResultValidation.Invalid(
                     "advanced_evidence_duplicate");
             }
+            if (evidence.SourceObservation is { } observation
+                && (string.IsNullOrWhiteSpace(evidence.AnchorId) || !string.IsNullOrWhiteSpace(evidence.ChunkId)
+                    || !string.IsNullOrWhiteSpace(evidence.ContentCardId) || evidence.PageStart != evidence.PageEnd
+                    || !ValidObservationCode(observation.ObservationId, 200) || !ValidObservationCode(observation.TableId, 200)
+                    || !ValidObservationCode(observation.LineId, 200) || observation.RawOrdinal is < 0 or >= 5_000
+                    || !ValidObservationSha(observation.TextSha256) || !ValidObservationSha(observation.RawObservationSha256)
+                    || observation.SemanticAccuracy != "not_verified" || observation.CellMembershipProven
+                    || observation.SemanticParentLinksAsserted || observation.QualitySignals is null
+                    || observation.QualitySignals.Count > 64 || observation.QualitySignals.Any(signal => !ValidObservationCode(signal, 160))))
+                return AdvancedAnalysisClientResultValidation.Invalid("advanced_secondary_observation_invalid");
         }
 
         var claimIds = new HashSet<string>(StringComparer.Ordinal);
@@ -686,6 +697,12 @@ internal sealed class AdvancedAnalysisClientService
 
     private static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    private static bool ValidObservationCode(string value, int maximum)
+        => !string.IsNullOrWhiteSpace(value) && value.Length <= maximum && !value.Any(char.IsControl);
+
+    private static bool ValidObservationSha(string value)
+        => value?.Length == 64 && value.All(Uri.IsHexDigit);
+
     private static bool IsValidAdvancedUsage(int? value)
         => value is null or >= 0;
 
@@ -711,7 +728,11 @@ internal sealed class AdvancedAnalysisClientService
             AnchorId = NullIfBlank(evidence.AnchorId),
             ContentCardId = NullIfBlank(evidence.ContentCardId),
             Label = $"{name} — {pages}",
-            ContentRole = "content"
+            ContentRole = evidence.SourceObservation is null ? "content" : "secondary_observation",
+            QualitySignals = evidence.SourceObservation is { } observation
+                ? ExtractionQualitySignalTransport.Bound(observation.QualitySignals.Concat(
+                    ["secondary_table_observation", "semantic_accuracy_not_verified"]), null).Signals.ToList() : [],
+            QualitySignalsMetadata = evidence.SourceObservation is null ? null : new("unavailable")
         };
     }
 
@@ -723,14 +744,8 @@ internal sealed class AdvancedAnalysisClientService
         => new
         {
             intent = "advanced_analysis.answer",
-            sources = sources.Select(source => new
-            {
-                evidenceId = source.EvidenceId, docId = source.DocId, docPath = source.DocPath,
-                docName = source.DocName, pageStart = source.PageStart, pageEnd = source.PageEnd,
-                label = source.Label, sourceHash = source.SourceHash, revisionId = source.RevisionId,
-                chunkId = source.ChunkId, anchorId = source.AnchorId, contentCardId = source.ContentCardId,
-                contentSignals = new { contentRole = source.ContentRole }
-            }).ToArray(),
+            sources = sources.Select(source => BuildAdvancedAnalysisSourcePayload(source,
+                result?.Evidence.SingleOrDefault(evidence => evidence.EvidenceId == source.EvidenceId)?.SourceObservation)).ToArray(),
             advancedAnalysis = new
             {
                 schemaVersion = "saaia.advanced-analysis-client-state.v1",
@@ -760,6 +775,28 @@ internal sealed class AdvancedAnalysisClientService
                 lastErrorCode = job.LastErrorCode
             }
         };
+
+    private static object BuildAdvancedAnalysisSourcePayload(ToolMemory.SourceRef source,
+        AdvancedAnalysisTableObservationReference? observation)
+    {
+        var legacy = new
+        {
+            evidenceId = source.EvidenceId, docId = source.DocId, docPath = source.DocPath,
+            docName = source.DocName, pageStart = source.PageStart, pageEnd = source.PageEnd,
+            label = source.Label, sourceHash = source.SourceHash, revisionId = source.RevisionId,
+            chunkId = source.ChunkId, anchorId = source.AnchorId, contentCardId = source.ContentCardId,
+            contentSignals = new { contentRole = source.ContentRole }
+        };
+        if (observation is null) return legacy;
+        var node = JsonSerializer.SerializeToNode(legacy, ClientJson.CamelCase)!.AsObject();
+        node["sourceObservation"] = JsonSerializer.SerializeToNode(observation, ClientJson.CamelCase);
+        node["extractionQuality"] = JsonSerializer.SerializeToNode(new
+        {
+            signals = source.QualitySignals, signalsMetadata = source.QualitySignalsMetadata,
+            semanticAccuracy = "not_verified"
+        }, ClientJson.CamelCase);
+        return node;
+    }
 
     private static bool IsTransientAdvancedAnalysisException(Exception exception)
         => AdvancedAnalysisJobPoller.IsTransient(exception);

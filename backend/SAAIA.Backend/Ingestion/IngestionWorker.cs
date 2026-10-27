@@ -1699,7 +1699,7 @@ sealed partial class IngestionWorker : BackgroundService
                         ?? throw new InvalidOperationException(
                             "The reconciled canonical document is unavailable."),
                         doclingConversion,
-                        retrievalChunks.Where(ShouldPublishRetrievalChunk).ToArray()));
+                        retrievalChunks.Where(ShouldPublishRetrievalChunk).ToArray()), ct);
                 }
                 else
                 {

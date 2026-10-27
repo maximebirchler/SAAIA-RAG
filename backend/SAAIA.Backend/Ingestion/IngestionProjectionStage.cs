@@ -41,6 +41,14 @@ internal static class IngestionProjectionStage
                     request.SourceHash, request.SourceBytes, request.FileName, request.SourceHash, "canonical_projection",
                     DoclingExecutionMetadataPolicy.DescribeEngine(request.Options, request.Conversion),
                     request.Options.DeploymentRevision, request.Conversion.Confidence?.MeanScore), document);
+                if (request.Options.RegionalTableAlternativeReadingsEnabled)
+                {
+                    var physical = CanonicalTablePhysicalReadingEnricher.Apply(canonical, request.NativeTextLayer, ct);
+                    probe.Set("secondary_table_observations", physical.ObservationCount);
+                    probe.Set("secondary_table_band_candidates", physical.CandidateCount);
+                    probe.Set("secondary_table_bands_unavailable", physical.UnavailableCount);
+                    probe.Set("secondary_table_bands_refused", physical.RefusedCount);
+                }
                 tableCoverage = CanonicalNativeTableCoverageAuditor.Apply(canonical, request.NativeTextLayer, ct);
                 reconciliation = CanonicalNativeTextCoverageReconciler.Apply(canonical, request.NativeTextLayer,
                     request.Options.NativeTextCoverageReconciliationEnabled, request.Options.NativeTextCoverageMinimumLineCoverage);

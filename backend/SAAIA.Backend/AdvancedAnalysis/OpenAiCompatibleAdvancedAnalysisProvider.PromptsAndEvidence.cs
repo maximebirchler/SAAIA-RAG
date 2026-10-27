@@ -816,6 +816,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         public PromptEvidenceStructure? SourceStructure { get; init; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public AdvancedAnalysisSourceQuality? SourceQuality { get; init; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public AdvancedAnalysisTableObservationLineSource? SourceObservation { get; init; }
         public IReadOnlyList<PromptEvidenceWindow> SupportingContentWindows { get; init; } = [];
         public int SupportingContentWindowsOmittedCount { get; init; }
     }
@@ -1177,7 +1179,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         // A joined source table shares this same serialized evidence budget.
         // Keep canonical fragment identities visible and reserve a bounded part
         // for its row view rather than duplicating two full textual surfaces.
-        if (evidence.Any(item => item.TableFragment is not null))
+        if (evidence.Any(item => item.TableFragment is not null || item.SourceObservation is not null
+            || item.SourceOverview?.TableRegionObservations is not null))
             remaining = Math.Min(remaining, configuredMaximum / 2);
         remaining -= 2; // The serialized evidence array brackets consume the same budget.
         var promptEvidence = new List<PromptEvidenceItem>();
@@ -1206,7 +1209,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var contentOffset = 0;
             var maximumContentCharacters = maximumCharactersPerPromptEvidence;
             EvidenceReadWindow? requestedWindow = null;
-            if (item.Reference.EvidenceId is { } windowId
+            if (item.SourceObservation is null && item.Reference.EvidenceId is { } windowId
                 && evidenceReadWindows is not null
                 && evidenceReadWindows.TryGetValue(windowId, out var window))
             {
@@ -1215,7 +1218,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 maximumContentCharacters = window.Length;
                 content = content[contentOffset..];
             }
-            if (content.Length > maximumContentCharacters)
+            if (item.SourceObservation is null && content.Length > maximumContentCharacters)
                 content = content[..maximumContentCharacters];
             var evidenceId = item.Reference.EvidenceId;
             var retrievedFor = evidenceId is not null
@@ -1244,7 +1247,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 ResolveTargetColumnsForPrompt(
                     request.Handoff.Load,
                     retrievedFor),
-                !string.IsNullOrWhiteSpace(item.Reference.ContentCardId)
+                item.SourceObservation is not null ? "table_region_observation_line"
+                : !string.IsNullOrWhiteSpace(item.Reference.ContentCardId)
                     ? "content_card"
                     : !string.IsNullOrWhiteSpace(item.Reference.ChunkId)
                         ? "source_chunk"
@@ -1256,8 +1260,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 content,
                 originalContentLength,
                 contentOffset > 0 || content.Length < originalContentLength,
-                contentSignal.ContentRole,
-                contentSignal.NavigationReason,
+                item.SourceObservation is not null ? "secondary_observation" : contentSignal.ContentRole,
+                item.SourceObservation is not null ? null : contentSignal.NavigationReason,
                 item.Reference.PageStart,
                 item.Reference.PageEnd,
                 item.SourceOverview,
@@ -1265,18 +1269,32 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             {
                 SourceTableFragment = item.TableFragment,
                 SourceQuality = item.SourceQuality?.Bound(),
+                SourceObservation = item.SourceObservation,
                 TableReadWindow = item.TableReadWindow,
                 ContentOffset = contentOffset,
                 SourceStructure = item.SourceStructure is { } structure
                     ? BuildPromptEvidenceStructure(structure, item.Reference.PageStart, item.Reference.PageEnd) : null,
-                SupportingContentWindows = BuildSupportingEvidenceWindows(
-                    canonicalContent, contentOffset, content.Length, requestedWindow),
+                SupportingContentWindows = item.SourceObservation is null ? BuildSupportingEvidenceWindows(
+                    canonicalContent, contentOffset, content.Length, requestedWindow) : [],
                 NextContentOffset = contentOffset + content.Length < originalContentLength
                     ? contentOffset + content.Length : null
             };
             var separatorCharacters = promptEvidence.Count == 0 ? 0 : 1;
             var serializedCharacters = JsonSerializer.Serialize(observation, JsonOptions).Length
                 + separatorCharacters;
+            if (item.SourceObservation is not null && serializedCharacters > remaining)
+            {
+                // No part of an OCR line is admissible as a surrogate for the
+                // original line. Retain an explicit refusal and its offset.
+                observation = observation with { Content = string.Empty, ContentTruncated = true,
+                    NextContentOffset = null, SupportingContentWindows = [] };
+                serializedCharacters = JsonSerializer.Serialize(observation, JsonOptions).Length + separatorCharacters;
+                if (serializedCharacters > remaining)
+                    throw new AdvancedAnalysisProviderException("advanced_secondary_documentary_metadata_budget_exceeded");
+                remaining -= serializedCharacters;
+                promptEvidence.Add(observation);
+                continue;
+            }
             // Supporting history is useful context, but must never evict the
             // requested current body. Remove the oldest history windows first.
             while (serializedCharacters > remaining

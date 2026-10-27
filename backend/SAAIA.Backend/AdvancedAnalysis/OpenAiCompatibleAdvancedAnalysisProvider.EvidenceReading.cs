@@ -34,6 +34,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var visible = prompt.GetProperty("evidence").EnumerateArray()
             .FirstOrDefault(item => ReadString(item, "evidenceId") == requestedId);
         if (visible.ValueKind != JsonValueKind.Object
+            || visible.TryGetProperty("sourceObservation", out var secondary) && secondary.ValueKind != JsonValueKind.Null
             || !visible.TryGetProperty("originalContentLength", out var originalLength)
             || !originalLength.TryGetInt32(out var maximum)
             || offset >= maximum)

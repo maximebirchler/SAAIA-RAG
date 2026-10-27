@@ -75,6 +75,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 ["topK"] = Count(1, 60)
             }));
         var readableIds = root.GetProperty("evidence").EnumerateArray()
+            .Where(item => !item.TryGetProperty("sourceObservation", out var secondary) || secondary.ValueKind == JsonValueKind.Null)
             .Where(item => item.TryGetProperty("originalContentLength", out var size)
                            && size.TryGetInt32(out var length) && length > 0)
             .Select(item => ReadString(item, "evidenceId"))
@@ -87,14 +88,25 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }));
         if (researchAllowed && sources.Length > 0)
         {
-            functions.Add(Function("read_source", "Read a physical page window of an observed revision. Page bounds are inclusive; at most four pages per request. topK bounds every chunk intersecting the window: if the bounded result reports canonical_read_window_result_limit_exceeded, retry with a smaller window or a larger permitted topK instead of treating the source as absent. Useful for reading bodies located by contents or headings.", new()
+            var readProperties = new Dictionary<string, object>
             {
                 ["sourceKey"] = Choice(sources), ["pageStart"] = Count(1, int.MaxValue),
                 ["pageEnd"] = Count(1, int.MaxValue), ["topK"] = Count(1, 60),
                 ["tableOrdinal"] = OptionalCount(0,int.MaxValue),
                 ["tableRowOffset"] = OptionalCount(0,AdvancedAnalysisTableFragment.MaximumRows-1),
                 ["tableRowLimit"] = OptionalCount(1,AdvancedAnalysisStructuredTableAssembler.MaximumRowLimit)
-            }));
+            };
+            if (HasSecondaryTableReadings(root))
+            {
+                readProperties["tableObservationId"] = new { type = new[] { "string", "null" }, description = "Exact observed ID; null for inventory or primary read." };
+                readProperties["tableObservationView"] = new { type = new[] { "string", "null" }, @enum = new string?[] { null, "inventory", "raw", "physical_band", "unassigned" } };
+                readProperties["tableObservationBandOrdinal"] = OptionalCount(0, 31);
+                readProperties["tableObservationLineOffset"] = OptionalCount(0, 5_000);
+                readProperties["tableObservationLineLimit"] = OptionalCount(1, 64);
+            }
+            functions.Add(Function("read_source", HasSecondaryTableReadings(root)
+                ? "Read an observed physical source window. Primary reads use up to four pages. Secondary observation reads require exactly one page and the explicit observation view; do not mix primary row parameters. A secondary line is indivisible and may be refused when it does not fit. Raw remains readable when physical bands are unavailable."
+                : "Read a physical page window of an observed revision. Page bounds are inclusive; at most four pages per request. topK bounds every chunk intersecting the window: if the bounded result reports canonical_read_window_result_limit_exceeded, retry with a smaller window or a larger permitted topK instead of treating the source as absent. Useful for reading bodies located by contents or headings.", readProperties));
             functions.Add(Function("find_source_text", "Locate literal words or an observed title inside one observed revision. Case and whitespace normalized; punctuation remains literal. Returns canonical excerpts and pagination diagnostics; no semantic search fallback.", new()
             {
                 ["sourceKey"] = Choice(sources), ["query"] = Text("Literal words, between 2 and 512 characters."),
@@ -212,7 +224,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (arguments.RootElement.ValueKind != JsonValueKind.Object)
                 throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid");
             var names = arguments.RootElement.EnumerateObject().Select(p => p.Name).ToArray();
-            var optionalProperties=name=="read_source" ? new[] { "tableOrdinal","tableRowOffset","tableRowLimit" } : [];
+            var optionalProperties=name=="read_source" ? new[] { "tableOrdinal","tableRowOffset","tableRowLimit" }
+                .Concat(HasSecondaryTableReadings(prompt.RootElement) ? new[] { "tableObservationId", "tableObservationView",
+                    "tableObservationBandOrdinal", "tableObservationLineOffset", "tableObservationLineLimit" } : []).ToArray() : [];
             if (names.Distinct(StringComparer.Ordinal).Count() != names.Length
                 || names.Any(n => !properties.Contains(n, StringComparer.Ordinal) && !optionalProperties.Contains(n,StringComparer.Ordinal))
                 || properties.Any(n => !names.Contains(n, StringComparer.Ordinal)))
@@ -338,6 +352,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 instruction = "Bounded operational result. Documentary proof is only the current user.evidence excerpts and current user.structuredTables rows with their contributing evidenceIds. Historical source handles belong to their original turn; use current user.evidence handles. Unlisted rows or omitted evidence do not prove corpus absence. Complete table coverage means observed canonical rows, not PDF or visual fidelity."
             };
             var outputNode = JsonSerializer.SerializeToNode(result, JsonOptions)!.AsObject();
+            var alternative = BuildAlternativeTableReadingsForPrompt(visible.Where(item =>
+                ids.Contains(item.EvidenceId, StringComparer.Ordinal)).ToArray());
+            if (alternative is not null)
+                outputNode["alternativeTableReadings"] = JsonSerializer.SerializeToNode(alternative, JsonOptions);
+            if (observation?.AlternativeTableReadings?.Inventory is { } secondaryInventory)
+                outputNode["secondaryInventory"] = JsonSerializer.SerializeToNode(secondaryInventory, JsonOptions);
+            if (observation?.AlternativeTableReadings?.View is { } emptyView && emptyView.Lines is not { Count: > 0 })
+                outputNode["secondaryReadWindow"] = JsonSerializer.SerializeToNode(new
+                {
+                    emptyView.ObservationId, emptyView.TableId, emptyView.PhysicalPage, emptyView.View,
+                    emptyView.BandOrdinal, emptyView.LineOffset, emptyView.LineLimit, emptyView.RawLineCount,
+                    emptyView.ViewLineCount, emptyView.ReturnedLineCount, emptyView.NextLineOffset,
+                    emptyView.Status, emptyView.PhysicalReadingAvailability, emptyView.QualitySignals,
+                    emptyView.SemanticAccuracy, emptyView.PdfCoverageVerified, emptyView.CanonicalGridRepaired
+                }, JsonOptions);
             foreach (var property in outputNode.Where(property => property.Value is null).ToArray())
                 outputNode.Remove(property.Key);
             if (documentaryInstructionWritten) outputNode.Remove("instruction");

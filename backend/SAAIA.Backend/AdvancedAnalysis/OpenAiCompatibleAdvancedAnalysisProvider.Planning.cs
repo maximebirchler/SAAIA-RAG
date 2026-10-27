@@ -54,6 +54,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 var tableOrdinal=TableOption("tableOrdinal",0,int.MaxValue);
                 var tableRowOffset=TableOption("tableRowOffset",0,AdvancedAnalysisTableFragment.MaximumRows-1);
                 var tableRowLimit=TableOption("tableRowLimit",1,AdvancedAnalysisStructuredTableAssembler.MaximumRowLimit);
+                string? ObservationText(string name)
+                {
+                    if (!item.TryGetProperty(name, out var value) || value.ValueKind == JsonValueKind.Null) return null;
+                    if (!isRead || value.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(value.GetString())) throw new JsonException();
+                    return value.GetString();
+                }
+                var observationId = ObservationText("tableObservationId");
+                var observationView = ObservationText("tableObservationView");
+                var observationBand = TableOption("tableObservationBandOrdinal", 0, 31);
+                var observationOffset = TableOption("tableObservationLineOffset", 0, 5_000);
+                var observationLimit = TableOption("tableObservationLineLimit", 1, 64);
                 if ((tableRowOffset is not null || tableRowLimit is not null) && tableOrdinal is null) throw new JsonException();
                 var query = isFind ? ReadString(item, "query").Trim()
                     : NormalizeCorpusSearchQuery(ReadString(item, "query"));
@@ -129,7 +140,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     PageStart: pageStart, PageEnd: pageEnd,
                     DocumentHint: documentHint.Length == 0 ? null : documentHint,
                     Operation: operation, RevisionId: observedSource?.SourceReference.RevisionId,
-                    Offset: offset,TableOrdinal:tableOrdinal,TableRowOffset:tableRowOffset,TableRowLimit:tableRowLimit);
+                    Offset: offset,TableOrdinal:tableOrdinal,TableRowOffset:tableRowOffset,TableRowLimit:tableRowLimit,
+                    TableObservationId: observationId, TableObservationView: observationView,
+                    TableObservationBandOrdinal: observationBand, TableObservationLineOffset: observationOffset,
+                    TableObservationLineLimit: observationLimit);
+                try { AdvancedAnalysisTableObservationReader.ValidateRequest(search); }
+                catch (AdvancedAnalysisToolException) { throw new JsonException(); }
+                if (observationView is not null && observedSource?.SourceOverview?.TableRegionObservations is null
+                    && observedSource?.SourceObservation is null) throw new JsonException();
                 if (dedupe.Add(BuildSearchIdentity(search)))
                     result.Add(search);
             }
@@ -730,6 +748,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             search.Operation, search.RevisionId, search.Offset,
             search.PageStart, search.PageEnd, search.TopK,
             search.TableOrdinal,search.TableRowOffset,search.TableRowLimit,
+            search.TableObservationId, search.TableObservationView, search.TableObservationBandOrdinal,
+            search.TableObservationLineOffset, search.TableObservationLineLimit,
             search.MaxPerDocument, search.MaxPerPage
         });
 

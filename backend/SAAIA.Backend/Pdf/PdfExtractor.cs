@@ -9,12 +9,18 @@ static class PdfExtractor
         => Extract(pdfPath, CancellationToken.None);
 
     public static PdfExtractionResult Extract(string pdfPath, CancellationToken ct)
+        => Extract(pdfPath, ct, observeNativeVectors: false);
+
+    public static PdfExtractionResult Extract(string pdfPath, CancellationToken ct, bool observeNativeVectors)
     {
         using var source = new FileStream(pdfPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        return Extract(source, ct);
+        return Extract(source, ct, observeNativeVectors);
     }
 
     internal static PdfExtractionResult Extract(Stream source, CancellationToken ct)
+        => Extract(source, ct, observeNativeVectors: false);
+
+    internal static PdfExtractionResult Extract(Stream source, CancellationToken ct, bool observeNativeVectors)
     {
         ct.ThrowIfCancellationRequested();
         var sourceSha = PdfNativeWordExtractor.HashOpenedSource(source, ct);
@@ -28,6 +34,8 @@ static class PdfExtractor
         var nativeLayoutByPage = new Dictionary<int, PdfNativeLayoutExtraction>();
         var nativeImagesByPage = new Dictionary<int, IReadOnlyList<ExtractedPdfImageRegion>>();
         var nativeWordsByPage = new Dictionary<int, PdfNativeWordObservation>();
+        var nativeVectorsByPage = new Dictionary<int, PdfNativeVectorObservation>();
+        var remainingNativeVectorCommands = PdfNativeVectorGeometryObserver.MaximumCommandsPerDocument;
         var remainingNativeWords = PdfNativeWordExtractor.MaximumWordsPerDocument;
 
         using var doc = PdfPig.PdfDocument.Open(source);
@@ -44,6 +52,12 @@ static class PdfExtractor
                 sourceStructure: doc.Structure);
             remainingNativeWords -= Math.Min(remainingNativeWords, nativeWords.InspectedWordCount);
             nativeWordsByPage[page.Number] = nativeWords;
+            if (observeNativeVectors)
+            {
+                var vector = PdfNativeVectorGeometryObserver.Observe(page, doc.Structure, sourceSha, remainingNativeVectorCommands, ct);
+                remainingNativeVectorCommands -= Math.Min(remainingNativeVectorCommands, vector.InspectedCommandCount);
+                nativeVectorsByPage[page.Number] = vector;
+            }
             rawPages.Add((page.Number, text, nativeImages.Count));
             sourceTextByPage[page.Number] = sourceText;
             pageSizeByPage[page.Number] = (page.Width, page.Height);
@@ -99,7 +113,8 @@ static class PdfExtractor
                     out var nativeImages)
                     ? nativeImages
                     : Array.Empty<ExtractedPdfImageRegion>(),
-                NativeWordObservation: nativeWordsByPage[rawPage.PageNumber]));
+                NativeWordObservation: nativeWordsByPage[rawPage.PageNumber],
+                NativeVectorObservation: nativeVectorsByPage.GetValueOrDefault(rawPage.PageNumber)));
         }
 
         if (!string.Equals(sourceSha, PdfNativeWordExtractor.HashOpenedSource(source, ct), StringComparison.Ordinal))

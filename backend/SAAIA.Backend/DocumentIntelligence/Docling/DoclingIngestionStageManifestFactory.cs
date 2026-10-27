@@ -387,6 +387,8 @@ internal static class DoclingIngestionStageManifestFactory
 
         if (DoclingRegionalTableRepairStage.Create(documentIntelligence, response) is { } regionalTableStage)
             stages.Insert(stages.FindIndex(stage => stage.StageId == "canonical_projection"), regionalTableStage);
+        if (DoclingTableRegionObservationStage.Create(documentIntelligence, response) is { } tableObservationStage)
+            stages.Insert(stages.FindIndex(stage => stage.StageId == "canonical_projection"), tableObservationStage);
 
         if (DoclingRegionalTextRepairStage.Create(documentIntelligence, response) is { } regionalTextStage)
             stages.Insert(stages.FindIndex(stage => stage.StageId == "canonical_projection"), regionalTextStage);

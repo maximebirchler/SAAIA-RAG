@@ -14,7 +14,8 @@ sealed record ExtractedPdfPage(
     string? NativeLayoutAlgorithm = null,
     IReadOnlyList<ExtractedPdfImageRegion>? NativeImageRegions = null,
     IReadOnlyList<PdfOcrPageObservation>? OcrObservations = null,
-    PdfNativeWordObservation? NativeWordObservation = null);
+    PdfNativeWordObservation? NativeWordObservation = null,
+    PdfNativeVectorObservation? NativeVectorObservation = null);
 
 sealed record PdfPageExtractionQuality(
     string TextStatus,

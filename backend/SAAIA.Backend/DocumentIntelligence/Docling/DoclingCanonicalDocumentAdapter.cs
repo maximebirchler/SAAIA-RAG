@@ -88,6 +88,7 @@ internal static class DoclingCanonicalDocumentAdapter
         };
 
         DoclingCanonicalVisualAssetProjector.Apply(document, source);
+        DoclingTableRegionObservationBuilder.Apply(document, source);
         CanonicalContractValidator.ValidateOrThrow(document);
         return document;
     }

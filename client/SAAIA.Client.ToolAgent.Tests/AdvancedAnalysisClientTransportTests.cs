@@ -734,6 +734,63 @@ public sealed class AdvancedAnalysisClientTransportTests
             CancellationToken.None);
     }
 
+    [Fact]
+    public async Task Secondary_table_anchor_citation_keeps_its_observation_and_uncertainty_in_client_payload()
+    {
+        var resultNode = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(ValidResult()))!;
+        var evidence = resultNode["evidence"]![0]!;
+        evidence["chunkId"] = null;
+        evidence["anchorId"] = "table-observation-anchor-" + new string('a', 64);
+        evidence["sourceObservation"] = JsonSerializer.SerializeToNode(new AdvancedAnalysisTableObservationReference
+        {
+            ObservationId = "obs-1", TableId = "table-1", LineId = "obs-1-line-0", RawOrdinal = 0,
+            TextSha256 = new string('b', 64), RawObservationSha256 = new string('c', 64),
+            QualitySignals = ["regional_table_observation_secondary", "structured_transcription_not_verified"]
+        }, ClientJson.CamelCase);
+        var handler = new SequenceHandler((_, _, _) => Task.FromResult(Json(HttpStatusCode.OK,
+            Job("succeeded", 1, resultNode))));
+        var result = await ExecuteAsync(handler);
+        Assert.Equal("succeeded", result.Outcome);
+        using var payload = JsonDocument.Parse(JsonSerializer.Serialize(result.SourcesPayload, ClientJson.CamelCase));
+        var source = Assert.Single(payload.RootElement.GetProperty("sources").EnumerateArray());
+        Assert.Equal(JsonValueKind.Null, source.GetProperty("chunkId").ValueKind);
+        Assert.StartsWith("table-observation-anchor-", source.GetProperty("anchorId").GetString());
+        Assert.Equal("secondary_observation", source.GetProperty("contentSignals").GetProperty("contentRole").GetString());
+        var observation = source.GetProperty("sourceObservation");
+        Assert.Equal("obs-1", observation.GetProperty("observationId").GetString());
+        Assert.Equal("obs-1-line-0", observation.GetProperty("lineId").GetString());
+        Assert.Equal("not_verified", observation.GetProperty("semanticAccuracy").GetString());
+        Assert.False(observation.GetProperty("cellMembershipProven").GetBoolean());
+        Assert.Contains("structured_transcription_not_verified", source.GetProperty("extractionQuality").GetRawText());
+    }
+
+    [Fact]
+    public async Task Secondary_table_source_on_a_primary_page_retains_its_distinct_citation_in_transport()
+    {
+        var resultNode = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(ValidResult(samePageDuplicate: true)))!;
+        var evidence = resultNode["evidence"]![1]!;
+        evidence["chunkId"] = null;
+        evidence["anchorId"] = "table-observation-anchor-" + new string('a', 64);
+        evidence["sourceObservation"] = JsonSerializer.SerializeToNode(new AdvancedAnalysisTableObservationReference
+        {
+            ObservationId = "obs-1", TableId = "table-1", LineId = "obs-1-line-0", RawOrdinal = 0,
+            TextSha256 = new string('b', 64), RawObservationSha256 = new string('c', 64),
+            QualitySignals = ["structured_transcription_not_verified"]
+        }, ClientJson.CamelCase);
+        var handler = new SequenceHandler((_, _, _) => Task.FromResult(Json(HttpStatusCode.OK, Job("succeeded", 1, resultNode))));
+        var result = await ExecuteAsync(handler);
+        Assert.Equal("succeeded", result.Outcome);
+        using var payload = JsonDocument.Parse(JsonSerializer.Serialize(result.SourcesPayload, ClientJson.CamelCase));
+        var sources = payload.RootElement.GetProperty("sources").EnumerateArray().ToArray();
+        Assert.Equal(2, sources.Length);
+        var alternative = Assert.Single(sources, source => source.GetProperty("evidenceId").GetString() == "E2");
+        Assert.Equal("obs-1-line-0", alternative.GetProperty("sourceObservation").GetProperty("lineId").GetString());
+        Assert.Equal("secondary_observation", alternative.GetProperty("contentSignals").GetProperty("contentRole").GetString());
+        // A compact same-page UI card is allowed; the source transport itself
+        // must retain the two different proof identities and the warning.
+        Assert.Contains("structured_transcription_not_verified", alternative.GetProperty("extractionQuality").GetRawText());
+    }
+
     private static ApiClient CreateApiClient(HttpMessageHandler handler)
     {
         var api = new ApiClient();

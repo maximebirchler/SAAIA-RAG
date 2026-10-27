@@ -5,6 +5,7 @@ using Dapper;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using SAAIA.Contracts;
+using SAAIA.Contracts.DocumentIntelligence;
 
 namespace SAAIA.Backend.AdvancedAnalysis;
 
@@ -37,6 +38,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
         var resolved = new List<AdvancedAnalysisResolvedEvidence>(references.Count);
         var evidenceIds = new HashSet<string>(StringComparer.Ordinal);
         var totalCharacters = 0;
+        var tableObservationCache = new Dictionary<string, CanonicalTableRegionObservation>(StringComparer.Ordinal);
 
         await using var connection = await _dataSource
             .OpenConnectionAsync(cancellationToken)
@@ -47,6 +49,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                 connection,
                 tenantId,
                 reference,
+                tableObservationCache,
                 cancellationToken).ConfigureAwait(false);
             if (row is null || !MatchesExpectedIdentity(reference, row))
             {
@@ -58,7 +61,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                 ? row.Content
                 : row.CardCanonicalContent
                     ?? BuildGroundedContentCardText(row.ExactTitle, row.EvidenceJson);
-            if (string.IsNullOrWhiteSpace(content)
+            if ((string.IsNullOrWhiteSpace(content) && row.SourceObservation is null)
                 || content.Length > maximumPerItem)
             {
                 return AdvancedAnalysisEvidenceResolution.Invalid(
@@ -96,7 +99,13 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                     PageEnd = row.PageEnd,
                     ChunkId = NullIfBlank(row.ChunkId),
                     AnchorId = NullIfBlank(row.AnchorId),
-                    ContentCardId = NullIfBlank(row.ContentCardId)
+                    ContentCardId = NullIfBlank(row.ContentCardId),
+                    SourceObservation = row.SourceObservation is { } secondary ? new()
+                    {
+                        ObservationId = secondary.ObservationId, TableId = secondary.TableId, LineId = secondary.LineId,
+                        RawOrdinal = secondary.RawOrdinal, TextSha256 = secondary.TextSha256,
+                        RawObservationSha256 = secondary.RawObservationSha256, QualitySignals = secondary.QualitySignals
+                    } : null
                 },
                 content,
                 physicalContext ? null : NullIfBlank(row.ExactTitle),
@@ -115,7 +124,8 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                     ? AdvancedAnalysisTableFragment.Parse(content,row.TableCellIdsJson,row.QualitySignalsJson,row.TableCellMapJson) : null)
             {
                 SourceQuality = row.SourceQuality ?? AdvancedAnalysisSourceQuality.FromMetadata(
-                    row.ExtractionTextStatus, row.ExtractionOcrCandidate, row.QualitySignalsJson)
+                    row.ExtractionTextStatus, row.ExtractionOcrCandidate, row.QualitySignalsJson),
+                SourceObservation = row.SourceObservation
             });
         }
 
@@ -135,6 +145,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                 : item).ToList();
 
             var visualScopes = new Dictionary<(Guid Document, Guid Revision, int First, int Last), CanonicalVisualAssetInventory>();
+            var tableScopes = new Dictionary<(Guid Document, Guid Revision, string Source), CanonicalTableObservationInventory?>();
             for (var index = 0; index < resolved.Count; index++)
             {
                 var item = resolved[index];
@@ -146,12 +157,21 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                         key.Item2, key.PageStart, key.PageEnd, cancellationToken);
                     visualScopes.Add(key, inventory);
                 }
-                var overview = item.SourceOverview ?? new(item.Reference.PageStart, item.Reference.PageEnd, 1);
+                var overview = item.SourceOverview ?? new(item.Reference.PageStart, item.Reference.PageEnd,
+                    item.SourceObservation is null ? 1 : 0);
+                var tableKey = (key.Item1, key.Item2, item.Reference.SourceHash);
+                if (!tableScopes.TryGetValue(tableKey, out var tables))
+                {
+                    tables = await CanonicalTableObservationRepo.ListAsync(connection, tenantId, key.Item1,
+                        key.Item2, item.Reference.SourceHash, null, null, cancellationToken);
+                    tableScopes.Add(tableKey, tables);
+                }
                 resolved[index] = item with { SourceOverview = overview with
                 {
                     VisualAssets = new(inventory.Status, inventory.AvailableAssetCount,
                         inventory.Assets.Select(asset => asset.PageNumber).Distinct().ToArray(), inventory.AssetsOmitted,
-                        inventory.InterpretationStatus, inventory.ImageToolAvailable)
+                        inventory.InterpretationStatus, inventory.ImageToolAvailable),
+                    TableRegionObservations = tables
                 }};
             }
         }
@@ -222,6 +242,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
         NpgsqlConnection connection,
         Guid tenantId,
         AdvancedAnalysisEvidenceReference reference,
+        Dictionary<string, CanonicalTableRegionObservation> tableObservationCache,
         CancellationToken cancellationToken)
     {
         if (Guid.TryParse(reference.ChunkId, out var chunkId))
@@ -237,6 +258,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                 connection,
                 tenantId,
                 reference.AnchorId.Trim(),
+                tableObservationCache,
                 cancellationToken);
         if (Guid.TryParse(reference.RevisionId, out var revisionId)
             && reference.PageStart > 0
@@ -354,8 +376,24 @@ internal sealed class AdvancedAnalysisEvidenceResolver
         NpgsqlConnection connection,
         Guid tenantId,
         string anchorId,
+        Dictionary<string, CanonicalTableRegionObservation> tableObservationCache,
         CancellationToken cancellationToken)
     {
+        var secondary = await AdvancedAnalysisTableObservationReader.ResolveAnchorAsync(connection, tenantId,
+            anchorId, tableObservationCache, cancellationToken);
+        if (secondary is not null)
+        {
+            return new ResolvedEvidenceRow
+            {
+                DocId = secondary.Observation.DocumentId, RevisionId = secondary.Observation.RevisionId,
+                FileName = secondary.FileName, DocPath = secondary.DocPath,
+                SourceHash = secondary.Observation.SourceSha256, PageStart = secondary.Observation.PhysicalPage,
+                PageEnd = secondary.Observation.PhysicalPage, AnchorId = secondary.Anchor.AnchorId,
+                Content = secondary.Line.Text,
+                QualitySignalsJson = JsonSerializer.Serialize(secondary.Observation.QualitySignals),
+                SourceObservation = AdvancedAnalysisTableObservationReader.Source(secondary)
+            };
+        }
         var rows = (await connection.QueryAsync<ResolvedEvidenceRow>(
             new CommandDefinition(
                 $$"""
@@ -584,6 +622,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
         public string? ExtractionTextStatus { get; init; }
         public string? ExtractionOcrCandidate { get; init; }
         public AdvancedAnalysisSourceQuality? SourceQuality { get; init; }
+        public AdvancedAnalysisTableObservationLineSource? SourceObservation { get; init; }
         public bool ContainsUnassignedPhysicalContext { get; init; }
     }
 }

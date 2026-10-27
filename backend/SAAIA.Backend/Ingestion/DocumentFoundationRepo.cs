@@ -179,6 +179,7 @@ SET doc_path = EXCLUDED.doc_path,
         if (canonicalBundle is not null)
         {
             await CanonicalVisualAssetRepo.StoreAsync(conn, tx, tenantId, canonicalBundle.Document, ct);
+            await CanonicalTableObservationRepo.StoreAsync(conn, tx, tenantId, canonicalBundle.Document, ct);
             await CanonicalArtifactRepo.UpsertBundleAsync(conn, tx, tenantId, revisionId, canonicalBundle, ct);
         }
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "page_index", pages, p => $"page:{p.PageNumber}:{p.CharCount}:{Convert.ToHexString(p.Checksum)}", p => p.CharCount, ct);

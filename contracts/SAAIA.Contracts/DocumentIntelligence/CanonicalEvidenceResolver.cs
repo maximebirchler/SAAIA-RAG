@@ -21,6 +21,19 @@ public static class CanonicalEvidenceResolver
         SourceAnchorRegion region,
         CanonicalPage page)
     {
+        if (region.TableRegionObservationId is not null || region.TableRegionObservationLineIds is not null)
+        {
+            var observations = page.TableRegionObservations?.Observations?
+                .Where(item => item.ObservationId == region.TableRegionObservationId).ToArray() ?? [];
+            var requested = (region.TableRegionObservationLineIds ?? []).ToHashSet(StringComparer.Ordinal);
+            // Validation reports broken/mixed references. Never substitute primary
+            // blocks or another observation for a missing secondary reference.
+            var lines = observations.Length == 1
+                ? observations[0].Lines.Where(line => requested.Contains(line.LineId)).OrderBy(line => line.RawOrdinal).ToArray()
+                : [];
+            var literal = string.Join("\n", lines.Select(line => line.Text));
+            return new() { PageNumber = region.PageNumber, RawText = literal, CanonicalText = literal, DisplayText = literal };
+        }
         var requestedBlocks = region.BlockIds.ToHashSet(StringComparer.Ordinal);
         var requestedSpans = region.SpanIds.ToHashSet(StringComparer.Ordinal);
         var requestedCells = region.TableCellIds.ToHashSet(StringComparer.Ordinal);

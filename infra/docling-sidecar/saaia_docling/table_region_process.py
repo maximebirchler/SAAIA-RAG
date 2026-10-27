@@ -1,9 +1,10 @@
 """Table adapter for the same bounded process owner as regional text OCR."""
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 
 from .region_process import BoundedRegionEngine
 from .response_text_repair import validate_source_region
 from .text_region_process import build_region_request, _decode_observation
+from .table_observation_options import base_table_options
 
 
 @dataclass(frozen=True)
@@ -22,7 +23,7 @@ def build_table_region_request(pdf_path, document, table, options, timeout_secon
     validate_source_region(document, item, options, reference_kind="tables")
     request = build_region_request(pdf_path, document, item, options, timeout_seconds, reference_kind="tables")
     request["operation"] = "table_rapid_only"
-    request["options"] = asdict(options)
+    request["options"] = base_table_options(options)
     return request
 
 

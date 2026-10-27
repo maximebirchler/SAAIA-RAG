@@ -97,6 +97,11 @@ internal sealed class DoclingConfidence
 
 internal sealed class DoclingDocument
 {
+    [JsonPropertyName("saaia_table_region_observations")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DoclingTableRegionObservationEnvelope? TableRegionObservations { get; set; }
+    [JsonIgnore]
+    public DoclingTableObservationProjectionReport? TableObservationProjection { get; set; }
     [JsonPropertyName("schema_name")]
     public string SchemaName { get; set; } = "";
 
@@ -421,6 +426,9 @@ internal sealed class DoclingTableRepairSummary
 
 internal sealed class DoclingExecutionMetadata
 {
+    [JsonPropertyName("table_observation_settings")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonElement? TableObservationSettingsJson { get; set; }
     [JsonPropertyName("table_repair_settings")]
     public JsonElement? TableRepairSettingsJson { get; set; }
 

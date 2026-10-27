@@ -54,6 +54,14 @@ public sealed class SourceAnchorRegion
 
     [JsonPropertyName("rawTextSha256")]
     public string RawTextSha256 { get; set; } = "";
+
+    [JsonPropertyName("tableRegionObservationId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TableRegionObservationId { get; set; }
+
+    [JsonPropertyName("tableRegionObservationLineIds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? TableRegionObservationLineIds { get; set; }
 }
 
 public sealed class ResolvedSourceEvidence

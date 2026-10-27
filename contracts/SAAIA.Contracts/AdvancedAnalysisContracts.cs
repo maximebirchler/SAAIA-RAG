@@ -137,6 +137,21 @@ public sealed class AdvancedAnalysisEvidenceReference
     public string? AnchorId { get; init; }
 
     public string? ContentCardId { get; init; }
+
+}
+
+public sealed class AdvancedAnalysisTableObservationReference
+{
+    public string ObservationId { get; init; } = string.Empty;
+    public string TableId { get; init; } = string.Empty;
+    public string LineId { get; init; } = string.Empty;
+    public int RawOrdinal { get; init; }
+    public string TextSha256 { get; init; } = string.Empty;
+    public string RawObservationSha256 { get; init; } = string.Empty;
+    public IReadOnlyList<string> QualitySignals { get; init; } = [];
+    public string SemanticAccuracy { get; init; } = "not_verified";
+    public bool CellMembershipProven { get; init; }
+    public bool SemanticParentLinksAsserted { get; init; }
 }
 
 public sealed class AdvancedAnalysisLocalBudgetSnapshot
@@ -289,6 +304,9 @@ public sealed class AdvancedAnalysisResultEvidence
     public string? AnchorId { get; init; }
 
     public string? ContentCardId { get; init; }
+
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public AdvancedAnalysisTableObservationReference? SourceObservation { get; init; }
 }
 
 public sealed class AdvancedAnalysisResultClaim

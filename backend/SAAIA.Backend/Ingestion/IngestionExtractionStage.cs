@@ -19,15 +19,19 @@ internal static class IngestionExtractionStage
             var usesDocling = DocumentExtractionPolicy.ResolveUseDocling(options);
             PdfExtractionResult? native = null;
             long nativeMilliseconds = 0;
-            if (usesDocling && (options.NativeTextCoverageReconciliationEnabled || options.NativePdfImageInventoryEnabled))
+            if (usesDocling && (options.NativeTextCoverageReconciliationEnabled || options.NativePdfImageInventoryEnabled || options.RegionalTableAlternativeReadingsEnabled))
             {
                 var started = Stopwatch.GetTimestamp();
                 using var nativeProbe = BackendDiagnostics.Start("ingestion.native_text_audit", logger);
                 try
                 {
-                    native = PdfExtractor.Extract(absolutePath, cancellationToken);
+                    native = PdfExtractor.Extract(absolutePath, cancellationToken, options.RegionalTableAlternativeReadingsEnabled);
                     nativeProbe.Set("pages", native.Pages.Count);
                     nativeProbe.Set("tokens", native.Tokens.Count);
+                    nativeProbe.Set("vector_pages_observed", native.Pages.Count(p=>p.NativeVectorObservation?.Availability=="observed"));
+                    nativeProbe.Set("vector_pages_partial", native.Pages.Count(p=>p.NativeVectorObservation?.Availability=="partial"));
+                    nativeProbe.Set("vector_pages_refused", native.Pages.Count(p=>p.NativeVectorObservation?.Availability=="refused"));
+                    nativeProbe.Set("vector_pages_unavailable", native.Pages.Count(p=>p.NativeVectorObservation?.Availability=="unavailable"));
                     nativeProbe.Complete();
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { nativeProbe.Complete("cancelled"); throw; }

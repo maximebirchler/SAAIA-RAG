@@ -24,6 +24,8 @@ sealed class DocumentIntelligenceOptions
     public int HeadingHierarchyMaxLevel { get; set; } = 6;
     public double HeadingHierarchyBookmarkMatchThreshold { get; set; } = 0.8;
     public bool RegionalTableRepairEnabled { get; set; } = true;
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool RegionalTableAlternativeReadingsEnabled { get; set; }
     public double RegionalTableRepairScale { get; set; } = 2.5;
     public double RegionalTableRepairPaddingPoints { get; set; } = 12;
     public double RegionalTableRepairMinimumScore { get; set; } = 0.5;

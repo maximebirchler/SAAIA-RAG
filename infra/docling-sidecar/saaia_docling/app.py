@@ -22,6 +22,7 @@ from .response_text_repair import repair_response_texts
 from .text_region_process import BoundedTextRegionEngine
 from .text_repair_options import TextRepairOptions
 from .region_process import RegionProcessGate
+from .table_observation_options import TableObservationWorkOptions, observation_settings, requested_table_observations
 from .transport_diagnostics import ConversionTransportDiagnostics
 
 
@@ -135,10 +136,14 @@ async def convert_file(request: Request) -> Response:
             if not isinstance(value, UploadFile)
         ]
         _validate_heading_hierarchy_contract(received_fields)
+        try:
+            observe_tables = requested_table_observations(received_fields)
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail="Table observation request invalid.") from error
         fields = [
             (key, value)
             for key, value in received_fields
-            if key not in CONTROL_FIELD_NAMES
+            if key not in CONTROL_FIELD_NAMES and key != "saaia_table_observations_enabled"
         ]
 
         with tempfile.TemporaryDirectory(prefix="saaia-docling-") as directory:
@@ -171,12 +176,14 @@ async def convert_file(request: Request) -> Response:
                     status_code=502,
                     detail="Docling returned an invalid response envelope.",
                 )
-            if REPAIR_ENABLED and payload.get("status") == "success":
+            table_options = TableObservationWorkOptions.from_table_options(
+                TABLE_REPAIR, repair_enabled=REPAIR_ENABLED) if observe_tables else TABLE_REPAIR
+            if (REPAIR_ENABLED or observe_tables) and payload.get("status") == "success":
                 summaries = await repair_response_tables(
                     pdf_path,
                     payload,
                     table_region_engine,
-                    options=TABLE_REPAIR,
+                    options=table_options,
                 )
                 applied = sum(
                     item.get("status") == "applied" for item in summaries
@@ -202,6 +209,7 @@ async def convert_file(request: Request) -> Response:
                 padding_points=PADDING_POINTS, minimum_score=MINIMUM_SCORE,
                 text_repair_settings=TEXT_REPAIR.attestation(),
                 table_repair_settings=TABLE_REPAIR.attestation(),
+                table_observation_settings=observation_settings(table_options) if observe_tables else None,
             )
             return JSONResponse(payload)
 
