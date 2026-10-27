@@ -1204,3 +1204,42 @@ ses images ont leur propre identité ; leur qualification réelle est séparée
 de ces résultats locaux. Aucune preuve d'ingestion complète, de réparation
 des prédictions OCR ou de planning réussi n'est déduite de ces tests.
 Le produit reste **TESTE_NON_APPROUVE**, sans appel payant dans cette campagne.
+
+## Résultats Linux Source20 et références de qualité Source21
+
+La nouvelle ingestion Source20 a réellement traité les dix PDF de référence
+du 2026-10-27T06:29:06Z au 2026-10-27T06:43:04Z. Les dix jobs sont terminés ;
+zéro job actif et cinq conteneurs arrêtés sont constatés après le parcours.
+La signature Production, l'image et la DLL sont liées aux preuves capturées.
+Les 427 fichiers rapatriés sont vérifiés par empreinte. Le vérificateur brut
+reste négatif sur les quatre cas historiques ; aucun oracle n'est modifié.
+
+La nouvelle capture SQL/API confirme 26/27 entrées NIST page 5, avec titres,
+labels imprimés, cellules sources publiées et cibles physiques concordants.
+Sur la page 40, les sondes observent 158 primitives inspectées, 64 supportées
+et 64 règles produites, avec 56 rejets de clipping et deux formes remplies
+non supportées. La géométrie reste partielle. Les 62 lignes OCR secondaires
+sont conservées sans rattachement physique. Ni clip effectif ni coordonnées
+des rejets ne sont prouvés par ces diagnostics.
+
+Le contrôle élargi Source20 révélait encore huit lignes NIST refusées dans
+au moins un protocole. Source21 remplace uniquement une troisième copie
+des alertes de qualité par une référence aux preuves exactes du message
+courant. Chaque ligne, identité, empreinte, borne et tableau d'alertes est
+comparé avant substitution. Les deux tableaux par preuve restent présents ;
+absence, divergence ou fenêtre incomplète conserve le tableau de la vue.
+La référence vise la collection effective `evidence` ou `observations`.
+Le flag OFF et le garde final de 14 000 caractères restent inchangés.
+
+Qualification locale Source21 : 589 tests ciblés PASS et suite backend
+complète à 3 366 PASS, deux ignorés, zéro échec et sources stables. Le rejeu
+des captures réelles Source18 admet 69/69 lignes NIST et 87/87 de recette
+dans Chat et Responses, soit 312 payloads HTTP en mémoire sans refus,
+réseau, SQL ni modèle. Les alertes entières et les références sont contrôlées.
+Ce lot ne change aucun contrat client ni stockage SQL ; les validations
+client et PostgreSQL Source20 restent identifiées comme telles.
+
+Le lecteur Source21 doit encore être qualifié sur les données réellement
+ingérées par Source20. Les résultats Windows et la fin des jobs Linux ne
+certifient ni les formules, ni les fusions de cellules, ni un planning.
+Le statut produit demeure **TESTE_NON_APPROUVE**.

@@ -14,7 +14,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         character offsets. Each line carries Unicode scalar bounds including
         its original CR/LF terminator. Lines are indivisible and never sliced.
         alternativeNativeReadings references only exact whole text in current
-        user.evidence. Cite its evidenceId; never reconstruct an omitted line
+        user.evidence, or user.observations in research review. Cite its
+        evidenceId; never reconstruct an omitted line
         from history. No captured native block means acquisition is unavailable,
         not known empty. Observed empty raw text is distinct. These readings
         establish no semantic novelty, source order, image pixels or new OCR.
@@ -43,11 +44,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             imageToolAvailable = false, modelPixelsProvided = false, semanticAccuracy = "not_verified"
         }, JsonOptions);
         node["nativeObservationReadContract"] = NativeObservationContract;
-        var evidence = node["evidence"] as JsonArray ?? node["observations"] as JsonArray;
+        var collection = node["evidence"] is JsonArray ? "evidence" : "observations";
+        var evidence = node[collection] as JsonArray;
         if (evidence?.Deserialize<PromptEvidenceItem[]>(JsonOptions) is { } typed)
         {
             if (BuildAlternativeNativeReadingsForPrompt(typed) is { } alternative)
-                node["alternativeNativeReadings"] = JsonSerializer.SerializeToNode(alternative, JsonOptions);
+                node["alternativeNativeReadings"] = NativeViewQualityReferences(alternative, typed, collection);
             foreach (var item in evidence.OfType<JsonObject>())
                 if (item["sourceOverview"] is JsonObject overview)
                     overview.Remove("nativeObservations");
@@ -112,7 +114,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         return inventories.Length == 0 && views.Length == 0 && empty.Length == 0 ? null : new
         {
             inventories, views, emptyWindows = empty, semanticAccuracy = "not_verified",
-            sourceFidelityApproved = false, instruction = "Exact literal text occurs once in current evidence; references here supply no additional text."
+            sourceFidelityApproved = false, instruction = "Exact literal text occurs once in the current documentary collection (evidence or observations); references here supply no additional text."
         };
     }
 

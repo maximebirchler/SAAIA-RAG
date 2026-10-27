@@ -53,7 +53,11 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.True(nativeReference.TryGetProperty("metadataReference", out _));
         Assert.Equal(native.Select(item => item.GetProperty("evidenceId").GetString()),
             nativeReference.GetProperty("lines").EnumerateArray().Select(item => item.GetProperty("evidenceId").GetString()));
-        Assert.Equal(codes, currentView.GetProperty("qualitySignals").EnumerateArray().Select(value => value.GetString()));
+        var qualityCodes = currentView.TryGetProperty("qualitySignals", out var directCodes) ? directCodes
+            : Assert.Single(native, item => item.GetProperty("evidenceId").GetString()
+                == currentView.GetProperty("qualitySignalsSourceEvidenceId").GetString())
+                .GetProperty("nativeObservation").GetProperty("qualitySignals");
+        Assert.Equal(codes, qualityCodes.EnumerateArray().Select(value => value.GetString()));
         Assert.InRange(OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(body), 1, 14_000);
     }
 
@@ -125,7 +129,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
 
     private static async Task<string> CaptureNativeBudgetAsync(string protocol,
         AdvancedAnalysisResolvedEvidence[] evidence, string rawSha, int maximumCharacters = 14_000,
-        AdvancedAnalysisResolvedEvidence[]? returnedEvidence = null)
+        AdvancedAnalysisResolvedEvidence[]? returnedEvidence = null, bool researchReview = false)
     {
         using var factory = new QueuedHttpClientFactory(protocol == "responses"
             ? NativeResponseAnswer("{\"ok\":true}") : Completion("{\"ok\":true}"));
@@ -137,7 +141,11 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var json = (JsonSerializerOptions)typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetField("JsonOptions", flags)!.GetValue(null)!;
         var projection = typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetMethod("BuildPromptEvidence", flags)!.Invoke(provider,
             new object?[] { BuildDirectRequest(), evidence, new Dictionary<string, HashSet<string>>(), null })!;
-        var user = JsonSerializer.Serialize(new { evidence = projection, researchTools = new { tools = Array.Empty<object>() } }, json);
+        var user = researchReview
+            ? (string)typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetMethod("BuildResearchReviewUserPrompt", flags)!
+                .Invoke(provider, new object?[] { BuildDirectRequest(), projection, Array.Empty<AdvancedAnalysisSearchRequest>(),
+                    Array.Empty<string>(), 0, 1, null })!
+            : JsonSerializer.Serialize(new { evidence = projection, researchTools = new { tools = Array.Empty<object>() } }, json);
         var read = new AdvancedAnalysisSearchRequest("Read retained native literal audit", DocId: evidence[0].Reference.DocId,
             RevisionId: evidence[0].Reference.RevisionId, PageStart: 1, PageEnd: 1, Operation: "read_source",
             NativeObservationView: "raw", NativeObservationBlockId: "native-audit", NativeObservationRawSha256: rawSha,
