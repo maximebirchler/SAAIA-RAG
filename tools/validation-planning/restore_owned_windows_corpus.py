@@ -7,6 +7,7 @@ compressed canonical artifacts, generated tsvectors and sealed vector manifests.
 from __future__ import annotations
 import argparse
 import hashlib
+import itertools
 import json
 import os
 from pathlib import Path
@@ -20,6 +21,8 @@ import traceback
 sys.path.insert(0, str(Path(__file__).parent / "CloneExport"))
 from clone_contracts import TABLES, DUMP_TABLES, SESSION_SETTINGS, TENANT, inspect_jsonl, readback_query, require, validate_schema
 from export_owned_linux_corpus import SCHEMA_QUERY
+
+STREAM_BLOCK_BYTES = 64 * 1024
 
 
 def digest(path):
@@ -79,19 +82,91 @@ def json_recordset(rows):
     return "convert_from(decode('" + (b"[" + b",".join(line.rstrip(b"\n") for line in rows) + b"]").hex() + "','hex'),'UTF8')::jsonb"
 
 
-def vector_restore_sql(root, metadata):
-    plans = packet_file(root, metadata["tables"]["ingestion_vector_plans"]).read_bytes().splitlines(keepends=True)
-    points = packet_file(root, metadata["tables"]["ingestion_vector_plan_points"]).read_bytes().splitlines(keepends=True)
+def iter_vector_restore_sql(root, metadata):
+    with packet_file(root, metadata["tables"]["ingestion_vector_plans"]).open("rb") as source:
+        plans = list(itertools.islice(source, 5))
     require(len(plans) == 4 and all(json.loads(p)["manifest_sealed"] is True for p in plans), "clone_requires_four_sealed_plans")
     plan_json = json_recordset(plans)
     # The ONLY temporary change is sealed=false, before any point is inserted.
     # The normal seal trigger checks the point count. Original hashes, point
     # identities and all other fields are verified by the final exact readback.
-    sql = "INSERT INTO public.ingestion_vector_plans SELECT (jsonb_populate_record(NULL::public.ingestion_vector_plans, jsonb_set(v,'{manifest_sealed}','false'::jsonb))).* FROM jsonb_array_elements(" + plan_json + ") v;\n"
-    for offset in range(0, len(points), 64):
-        sql += "INSERT INTO public.ingestion_vector_plan_points SELECT * FROM jsonb_populate_recordset(NULL::public.ingestion_vector_plan_points," + json_recordset(points[offset:offset + 64]) + ");\n"
-    sql += "UPDATE public.ingestion_vector_plans t SET manifest_sealed=s.manifest_sealed FROM jsonb_populate_recordset(NULL::public.ingestion_vector_plans," + plan_json + ") s WHERE t.plan_id=s.plan_id;\n"
-    return sql
+    yield "INSERT INTO public.ingestion_vector_plans SELECT (jsonb_populate_record(NULL::public.ingestion_vector_plans, jsonb_set(v,'{manifest_sealed}','false'::jsonb))).* FROM jsonb_array_elements(" + plan_json + ") v;\n"
+    with packet_file(root, metadata["tables"]["ingestion_vector_plan_points"]).open("rb") as source:
+        while batch := list(itertools.islice(source, 64)):
+            yield "INSERT INTO public.ingestion_vector_plan_points SELECT * FROM jsonb_populate_recordset(NULL::public.ingestion_vector_plan_points," + json_recordset(batch) + ");\n"
+    yield "UPDATE public.ingestion_vector_plans t SET manifest_sealed=s.manifest_sealed FROM jsonb_populate_recordset(NULL::public.ingestion_vector_plans," + plan_json + ") s WHERE t.plan_id=s.plan_id;\n"
+
+
+def copy_binary_stream(source, destination):
+    """COPY input is opaque: never decode it or rewrite its physical newlines."""
+    while block := source.read(STREAM_BLOCK_BYTES):
+        destination.write(block)
+
+
+def psql_file_literal(path):
+    value = path.as_posix()
+    require(not any(character in value for character in ("'", "\n", "\r", "\0")), "clone_output_filename_invalid")
+    return "'" + value + "'"
+
+
+def write_restore_script(sql_file, script_file, packet, metadata, descriptors, readback):
+    with script_file.open("xb") as stream:
+        stream.write(b"BEGIN;\n" + SESSION_SETTINGS.encode())
+        with sql_file.open("rb") as source:
+            copy_binary_stream(source, stream)
+        stream.write(b"\n")
+        for statement in iter_vector_restore_sql(packet, metadata):
+            stream.write(statement.encode("utf8"))
+        for name in TABLES:
+            literal = psql_file_literal(readback / (name + ".jsonl"))
+            stream.write(("\\o " + literal + "\n" + readback_query(name, descriptors[name]) + ";\n\\o\n").encode("utf8"))
+        stream.write(b"SELECT 'READY_FOR_CLONE_COMMIT';\n")
+
+
+def await_restore_ready(process, stdout, timeout=600):
+    marker = b"READY_FOR_CLONE_COMMIT"
+    deadline = time.monotonic() + timeout
+    tail = b""
+    with stdout.open("rb") as source:
+        while True:
+            block = source.read(STREAM_BLOCK_BYTES)
+            if block:
+                observed = tail + block
+                if marker in observed:
+                    return
+                tail = observed[-(len(marker) - 1):]
+            require(process.poll() is None and time.monotonic() < deadline, "clone_restore_transaction_failed_before_comparison")
+            if not block:
+                time.sleep(.1)
+
+
+def normalize_psql_jsonl(path):
+    """Remove CR only in a physical CRLF record separator, in bounded blocks.
+
+    JSON string escapes (including literal backslash-r/backslash-n) are opaque.
+    The later strict JSONL/column/PK/hash check still rejects malformed records.
+    """
+    temporary = path.with_name(path.stem + ".normalizing.private.jsonl")
+    changed, pending, last, length = False, b"", b"", 0
+    with path.open("rb") as source, temporary.open("xb") as destination:
+        while block := source.read(STREAM_BLOCK_BYTES):
+            length += len(block); last = block[-1:]
+            value = pending + block
+            pending = b"\r" if value.endswith(b"\r") else b""
+            if pending:
+                value = value[:-1]
+            normalized = value.replace(b"\r\n", b"\n")
+            changed |= normalized != value
+            destination.write(normalized)
+        destination.write(pending)
+    require(not length or last == b"\n", "target_jsonl_separator_invalid")
+    if changed:
+        native = path.with_name(path.stem + ".psql-native.private.jsonl")
+        require(not native.exists(), "fresh_native_jsonl_evidence_required")
+        path.rename(native)
+        temporary.rename(path)
+    else:
+        temporary.unlink()
 
 
 def psql_args(owner):
@@ -135,7 +210,8 @@ def execute(args, metadata, schema, descriptors):
     record = {"schemaVersion": "saaia-owned-documentary-sql-clone-restore.v1", "passed": False,
               "sourceMetadataSha256": args.metadata_sha256, "sourceOwnerRunId": metadata["ownerRunId"],
               "targetOwnerRunId": owner["runId"], "providerCalls": 0, "sourceModified": False,
-              "authImported": False, "committed": False, "exactTables": []}
+              "authImported": False, "committed": False, "commitRequested": False,
+              "commitOutcome": "not_requested", "transactionCleanupAttempted": False, "exactTables": []}
 
     def query(sql, name):
         result = subprocess.run(command, input=("BEGIN READ ONLY;\n" + SESSION_SETTINGS + sql + ";\nROLLBACK;\n").encode(), env=env,
@@ -164,50 +240,53 @@ def execute(args, metadata, schema, descriptors):
         result = subprocess.run([str(restore), "--no-owner", "--no-privileges", "--file", str(sql_file), str(packet_file(args.packet, metadata["dump"]))], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, timeout=300)
         (output / "pg-restore.stderr.private.txt").write_bytes(result.stderr)
         require(result.returncode == 0, "pg_restore_sql_generation_failed")
-        dump_sql = sql_file.read_bytes()
         readback = output / "tables"; readback.mkdir()
-        script = b"BEGIN;\n" + SESSION_SETTINGS.encode() + dump_sql + b"\n" + vector_restore_sql(args.packet, metadata).encode()
-        for name in TABLES:
-            path = (readback / (name + ".jsonl")).as_posix()
-            require("'" not in path and "\n" not in path, "clone_output_filename_invalid")
-            script += ("\\o '" + path + "'\n" + readback_query(name, descriptors[name]) + ";\n\\o\n").encode()
-        script += b"SELECT 'READY_FOR_CLONE_COMMIT';\n"
-        with (output / "restore.stdin.private.sql").open("xb") as stream: stream.write(script)
+        script_file = output / "restore.stdin.private.sql"
+        write_restore_script(sql_file, script_file, args.packet, metadata, descriptors, readback)
         stdout = output / "restore.stdout.private.txt"
         with stdout.open("xb") as out, (output / "restore.stderr.private.txt").open("xb") as error:
             process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=out, stderr=error, env=env)
-            process.stdin.write(script); process.stdin.flush()
-            deadline = time.monotonic() + 600
-            while b"READY_FOR_CLONE_COMMIT" not in stdout.read_bytes():
-                require(process.poll() is None and time.monotonic() < deadline, "clone_restore_transaction_failed_before_comparison")
-                time.sleep(.1)
+            # A small include command keeps stdin open for the later decision.
+            # Sending the multi-GiB script through a pipe could block before
+            # its timeout starts; psql reads the byte-exact owned file itself.
+            process.stdin.write(("\\i " + psql_file_literal(script_file) + "\n").encode("utf8")); process.stdin.flush()
+            await_restore_ready(process, stdout)
             for name in TABLES:
                 entry = metadata["tables"][name]; actual = readback / (name + ".jsonl")
                 # Windows psql writes its record separator as CRLF; remove ONLY
                 # that transport byte, never alter escaped JSON document strings.
-                raw = actual.read_bytes(); lines = raw.splitlines(keepends=True)
-                require(all(v.endswith(b"\r\n") or v.endswith(b"\n") for v in lines), "target_jsonl_separator_invalid")
-                normalized = b"".join(v[:-2] + b"\n" if v.endswith(b"\r\n") else v for v in lines)
-                if raw != normalized:
-                    (readback / (name + ".psql-native.private.jsonl")).write_bytes(raw); actual.write_bytes(normalized)
+                normalize_psql_jsonl(actual)
                 measured = inspect_jsonl(actual, descriptors[name])
                 require(actual.stat().st_size == entry["bytes"] and all(measured[k] == entry[k] for k in measured), "clone_final_table_bytes_differ_" + name)
                 record["exactTables"].append({"name": name, **measured})
+            record.update(commitRequested=True, commitOutcome="unknown")
             process.stdin.write(b"COMMIT;\n"); process.stdin.close(); process.wait(timeout=60)
             require(process.returncode == 0, "clone_commit_failed")
-        record.update(passed=True, committed=True, all32TablesByteExact=True, generatedTsvectorsByteExact=True,
+        record.update(passed=True, committed=True, commitOutcome="confirmed", all32TablesByteExact=True, generatedTsvectorsByteExact=True,
                       temporaryPlanSealOnly=True, pointEndpointsUnchanged=True, winUiRenderingValidated=False)
     except Exception:
         (output / "failure-traceback.private.txt").write_text(traceback.format_exc(), encoding="utf8")
         raise
     finally:
-        if process is not None and process.poll() is None:
-            try:
-                process.stdin.write(b"ROLLBACK;\n"); process.stdin.close(); process.wait(timeout=15)
-            except (BrokenPipeError, OSError, subprocess.TimeoutExpired):
-                process.kill(); process.wait(timeout=5)
-        env.pop("PGPASSWORD", None); secrets = None
-        with (output / "result.json").open("x", encoding="utf8") as stream: json.dump(record, stream, indent=2)
+        try:
+            if process is not None and process.poll() is None:
+                record["transactionCleanupAttempted"] = True
+                try:
+                    if not process.stdin.closed:
+                        process.stdin.write(b"ROLLBACK;\n"); process.stdin.close(); process.wait(timeout=15)
+                    else:
+                        # A sent COMMIT may already have completed. Killing
+                        # our process cannot establish its database outcome.
+                        record["transactionCleanupForcedKill"] = True
+                        process.kill(); process.wait(timeout=5)
+                except (BrokenPipeError, OSError, ValueError, subprocess.TimeoutExpired):
+                    record["transactionCleanupForcedKill"] = True
+                    process.kill(); process.wait(timeout=5)
+        except Exception as error:
+            record["transactionCleanupErrorType"] = type(error).__name__
+        finally:
+            env.pop("PGPASSWORD", None); secrets = None
+            with (output / "result.json").open("x", encoding="utf8") as stream: json.dump(record, stream, indent=2)
     return record
 
 
