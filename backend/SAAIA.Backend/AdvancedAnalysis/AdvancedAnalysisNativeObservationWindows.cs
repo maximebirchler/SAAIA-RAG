@@ -33,10 +33,14 @@ internal static class AdvancedAnalysisNativeObservationWindows
 
     internal static AdvancedAnalysisNativeObservationInventory Inventory(CanonicalDocument document,
         int physicalPage, int offset, int limit, int maximumCharacters, CancellationToken ct = default)
+        => Inventory(NativeObservationPageReadContext.FromInline(Guid.Empty, document, physicalPage), offset, limit, maximumCharacters, ct);
+
+    internal static AdvancedAnalysisNativeObservationInventory Inventory(NativeObservationPageReadContext page,
+        int offset, int limit, int maximumCharacters, CancellationToken ct = default)
     {
-        var page = Page(document, physicalPage);
+        ValidatePage(page);
         WindowArguments(offset, limit, maximumCharacters);
-        var blocks = page.Blocks.Where(CanonicalObservationSelector.IsNativeObservation)
+        var blocks = (page.Blocks ?? []).Where(block => CanonicalObservationSelector.IsNativeObservation(block.BlockType))
             .OrderBy(block => block.ReadingOrder).ThenBy(block => block.Ordinal)
             .ThenBy(block => block.BlockId, StringComparer.Ordinal).ToArray();
         // A missing retained observation says nothing about whether acquisition
@@ -48,13 +52,13 @@ internal static class AdvancedAnalysisNativeObservationWindows
         var selected = blocks.Skip(offset).Take(limit).Select(block =>
         {
             ct.ThrowIfCancellationRequested();
-            var lines = Lines(document, page, block, ct);
-            return new AdvancedAnalysisNativeObservationDescriptor(document.DocumentId.ToString("D"),
-                document.RevisionId.ToString("D"), document.Source.Sha256, document.ManifestSha256,
-                block.BlockId, block.Text.RawSha256, page.PageNumber, block.BlockType,
-                block.Provenance.Engine, block.Provenance.EngineVersion, block.Provenance.Method,
-                block.Provenance.StageId, lines.Count, block.Polygon,
-                page.QualityFlags.Concat(block.QualityFlags).Distinct(StringComparer.Ordinal).ToArray());
+            var lines = Lines(page, block, ct);
+            return new AdvancedAnalysisNativeObservationDescriptor(page.Identity.DocumentId.ToString("D"),
+                page.Identity.RevisionId.ToString("D"), page.Identity.SourceSha256, page.Identity.ManifestSha256,
+                block.BlockId, block.RawSha256, page.PhysicalPage, block.BlockType,
+                block.Engine, block.EngineVersion, block.Method,
+                block.StageId, lines.Count, block.ObservedPolygon,
+                page.PageQualityFlags.Concat(block.QualityFlags).Distinct(StringComparer.Ordinal).ToArray());
         }).ToList();
         var result = Create(null);
         while (Size(result) > maximumCharacters && selected.Count > 0)
@@ -74,11 +78,17 @@ internal static class AdvancedAnalysisNativeObservationWindows
     internal static AdvancedAnalysisNativeObservationWindow Raw(CanonicalDocument document,
         int physicalPage, string blockId, string rawSha256, int offset, int limit, int maximumCharacters,
         CancellationToken ct = default)
+        => Raw(NativeObservationPageReadContext.FromInline(Guid.Empty, document, physicalPage), blockId, rawSha256,
+            offset, limit, maximumCharacters, ct);
+
+    internal static AdvancedAnalysisNativeObservationWindow Raw(NativeObservationPageReadContext page,
+        string blockId, string rawSha256, int offset, int limit, int maximumCharacters,
+        CancellationToken ct = default)
     {
-        var page = Page(document, physicalPage);
+        ValidatePage(page);
         WindowArguments(offset, limit, maximumCharacters);
         var block = Block(page, blockId, rawSha256);
-        var all = Lines(document, page, block, ct);
+        var all = Lines(page, block, ct);
         if (offset > all.Count)
             throw Invalid();
         var selected = all.Skip(offset).Take(limit).ToList();
@@ -94,26 +104,36 @@ internal static class AdvancedAnalysisNativeObservationWindows
         return result;
 
         AdvancedAnalysisNativeObservationWindow Create(string status)
-            => new(block.BlockId, block.Text.RawSha256, physicalPage, "raw_line_ordinal", offset,
+            => new(block.BlockId, block.RawSha256, page.PhysicalPage, "raw_line_ordinal", offset,
                 limit, all.Count, offset + selected.Count < all.Count ? offset + selected.Count : null,
                 status, selected.ToArray());
     }
 
     internal static AdvancedAnalysisNativeObservationLine ResolveLine(CanonicalDocument document,
         AdvancedAnalysisNativeObservationReference reference, CancellationToken ct = default)
+        => ResolveLine(NativeObservationPageReadContext.FromInline(Guid.Empty, document, reference.PhysicalPage), reference, ct);
+
+    internal static AdvancedAnalysisNativeObservationLine ResolveLine(NativeObservationPageReadContext page,
+        AdvancedAnalysisNativeObservationReference reference, CancellationToken ct = default)
     {
         ValidateReference(reference);
-        var page = Page(document, reference.PhysicalPage);
+        ValidatePage(page);
+        if (reference.PhysicalPage != page.PhysicalPage)
+            throw Invalid();
         var block = Block(page, reference.BlockId, reference.RawTextSha256);
-        var lines = Lines(document, page, block, ct);
+        var lines = Lines(page, block, ct);
         return ValidateLine(reference, lines);
     }
 
     internal static IReadOnlyList<AdvancedAnalysisNativeObservationLine> ObservedLines(CanonicalDocument document,
         int physicalPage, string blockId, string rawSha256, CancellationToken ct)
+        => ObservedLines(NativeObservationPageReadContext.FromInline(Guid.Empty, document, physicalPage), blockId, rawSha256, ct);
+
+    internal static IReadOnlyList<AdvancedAnalysisNativeObservationLine> ObservedLines(NativeObservationPageReadContext page,
+        string blockId, string rawSha256, CancellationToken ct)
     {
-        var page = Page(document, physicalPage);
-        return Lines(document, page, Block(page, blockId, rawSha256), ct);
+        ValidatePage(page);
+        return Lines(page, Block(page, blockId, rawSha256), ct);
     }
 
     internal static AdvancedAnalysisNativeObservationLine ValidateLine(AdvancedAnalysisNativeObservationReference reference,
@@ -143,32 +163,30 @@ internal static class AdvancedAnalysisNativeObservationWindows
             throw Invalid();
     }
 
-    private static CanonicalPage Page(CanonicalDocument document, int physicalPage)
+    private static void ValidatePage(NativeObservationPageReadContext page)
     {
-        if (document.DocumentId == Guid.Empty || document.RevisionId == Guid.Empty
-            || document.Source.Sha256.Length != 64 || !document.Source.Sha256.All(char.IsAsciiHexDigit)
-            || document.ManifestSha256.Length != 64 || !document.ManifestSha256.All(char.IsAsciiHexDigit))
+        NativeObservationPageReadContext.ValidateIdentity(page.Identity.DocumentId, page.Identity.RevisionId,
+            page.Identity.SourceSha256, page.Identity.ManifestSha256);
+        if (page.PhysicalPage <= 0 || page.PhysicalPage > page.PageCount)
             throw Invalid();
-        var pages = document.Pages.Where(page => page.PageNumber == physicalPage && physicalPage > 0).ToArray();
-        return pages.Length == 1 ? pages[0] : throw Invalid();
     }
 
-    private static CanonicalBlock Block(CanonicalPage page, string blockId, string rawSha256)
+    private static NativeRawBlockSnapshot Block(NativeObservationPageReadContext page, string blockId, string rawSha256)
     {
-        var matches = page.Blocks.Where(block => block.BlockId == blockId
-            && CanonicalObservationSelector.IsNativeObservation(block)).ToArray();
-        if (matches.Length != 1 || !string.Equals(matches[0].Text.RawSha256, rawSha256, StringComparison.OrdinalIgnoreCase))
+        var matches = (page.Blocks ?? []).Where(block => block.BlockId == blockId
+            && CanonicalObservationSelector.IsNativeObservation(block.BlockType)).ToArray();
+        if (matches.Length != 1 || !string.Equals(matches[0].RawSha256, rawSha256, StringComparison.OrdinalIgnoreCase))
             throw Invalid();
         return matches[0];
     }
 
-    private static IReadOnlyList<AdvancedAnalysisNativeObservationLine> Lines(CanonicalDocument document,
-        CanonicalPage page, CanonicalBlock block, CancellationToken ct)
+    private static IReadOnlyList<AdvancedAnalysisNativeObservationLine> Lines(NativeObservationPageReadContext page,
+        NativeRawBlockSnapshot block, CancellationToken ct)
     {
-        var raw = block.Text.Raw;
+        var raw = block.Raw;
         if (raw.Length > MaximumRawCharacters)
             throw new AdvancedAnalysisToolException("native_observation_source_budget_exceeded");
-        if (!string.Equals(Hash(raw), block.Text.RawSha256, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(Hash(raw), block.RawSha256, StringComparison.OrdinalIgnoreCase))
             throw Invalid();
         var result = new List<AdvancedAnalysisNativeObservationLine>();
         var characterStart = 0;
@@ -204,12 +222,12 @@ internal static class AdvancedAnalysisNativeObservationWindows
             var text = raw[characterStart..cursor];
             var textSha = Hash(text);
             var ordinal = result.Count;
-            var identity = JsonSerializer.Serialize(new object[] { document.DocumentId, document.RevisionId,
-                document.Source.Sha256.ToLowerInvariant(), document.ManifestSha256.ToLowerInvariant(), page.PageNumber,
-                block.BlockId, block.Text.RawSha256.ToLowerInvariant(), ordinal, scalarStart, scalarCursor, textSha });
+            var identity = JsonSerializer.Serialize(new object[] { page.Identity.DocumentId, page.Identity.RevisionId,
+                page.Identity.SourceSha256.ToLowerInvariant(), page.Identity.ManifestSha256.ToLowerInvariant(), page.PhysicalPage,
+                block.BlockId, block.RawSha256.ToLowerInvariant(), ordinal, scalarStart, scalarCursor, textSha });
             result.Add(new(text, new()
             {
-                BlockId = block.BlockId, RawTextSha256 = block.Text.RawSha256, PhysicalPage = page.PageNumber,
+                BlockId = block.BlockId, RawTextSha256 = block.RawSha256, PhysicalPage = page.PhysicalPage,
                 LineId = "native_line_" + Hash(identity), LineOrdinal = ordinal, LineTextSha256 = textSha,
                 UnicodeScalarStart = scalarStart, UnicodeScalarEndExclusive = scalarCursor
             }));

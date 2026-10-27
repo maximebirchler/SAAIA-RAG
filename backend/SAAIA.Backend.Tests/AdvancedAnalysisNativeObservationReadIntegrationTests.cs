@@ -123,6 +123,9 @@ public sealed class AdvancedAnalysisNativeObservationReadIntegrationTests
         var bundle = Bundle("PRIVATE_SENTINEL retained raw text.");
         await Publish(database, tenant, bundle);
         await using var connection = await database.DataSource.OpenConnectionAsync();
+        // This historical witness targets the legacy gzip decoder. A present
+        // derived catalogue instead detects the changed root before that decode.
+        await connection.ExecuteAsync("DELETE FROM document_revision_native_raw_catalog");
         await connection.ExecuteAsync("UPDATE document_revision_binary_artifacts SET content_hash=decode(repeat('ee',32),'hex')");
         var observed = Observed(bundle.Document);
         var failure = await Assert.ThrowsAsync<AdvancedAnalysisToolException>(() => Read(database, tenant, observed,

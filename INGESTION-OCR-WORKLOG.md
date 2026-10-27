@@ -1564,3 +1564,94 @@ de mesures validées. Aucun gain futur de stockage raw par page n'est encore
 mesuré ; ce lot reste séparé de la navigation.
 
 L'état demeure **TESTE_NON_APPROUVE**, sans fournisseur payant ni planning.
+
+### 27 octobre 2026 — cible adaptée au serveur actuel
+
+À la demande explicite de Maxime, la cible devient la meilleure ingestion
+qualifiable avec le matériel existant. Les améliorations nécessitant un
+serveur plus puissant seront qualifiées ultérieurement ; elles ne sont pas
+un prérequis pour livrer les catégories de documents déjà maîtrisées. Cette
+décision ne transforme pas les erreurs de formules ou de structure en succès.
+
+Relevé en lecture seule à 12:25–12:26 Europe/Berlin : i7-9850H, six cœurs,
+douze threads, 33 391 513 600 octets de RAM. Docling26 est volontairement
+limité à deux CPU et 5 GiB, sans périphérique GPU attaché. Une Quadro T2000
+Mobile est présente ; `nvidia-smi` refuse son initialisation NVML pour
+incompatibilité entre pilote et bibliothèque. Aucune correction de pilote,
+augmentation de quota, modification de service ou opération de redémarrage
+n'est exécutée par ce relevé. La VRAM exploitable n'a pas été mesurée.
+
+La mesure de charge intervient après l'arrêt des services26 : elle ne prouve
+pas leur absence de saturation pendant ingestion. Le swap est presque plein,
+mais les deux intervalles vmstat actuels ne montrent pas de pagination ;
+cela ne démontre ni une pénurie RAM actuelle ni son absence pendant le run.
+Les dix jobs26 sont toutefois `done`, une tentative chacun, sans LastError,
+et les cinq conteneurs possédés n'ont aucun OOMKilled. Le contrôle de fidélité
+global reste négatif ; il ne s'agit pas d'un arrêt matériel observé.
+
+Priorités : terminer la lecture RAW par page et mesurer son gain Linux sur
+les mêmes demandes, observer CPU/RAM/throttling pendant la prochaine campagne
+possédée avant tout réglage de concurrence, préserver toutes les sources et
+alertes, et qualifier la fidélité par catégorie de document. Les expériences
+OCR lourdes, le parallélisme accru et l'extension de capture typographique
+restent différables. Davantage de puissance ne prouve pas une meilleure
+transcription à modèle, paramètres et pixels identiques.
+
+Preuves : `artifacts/ingestion-fidelity-fixes-20261026/current-server-ingestion-target-v1.json`
+et les deux observations privées rapatriées dans
+`private/server-capacity-observations-v1/`. Aucun appel payant ni achat.
+
+### 27 octobre 2026 — navigation26 réelle et lecture RAW par page
+
+La construction26 puis l'ingestion réelle terminent entre 12:01 et12:15
+Europe/Berlin. Dix jobs `done`, une tentative chacun, signature Production
+vérifiée, aucun OOMKilled. Les cinq services possédés sont arrêtés et les
+ports publiés absents. Les472 fichiers référencés de l'export ont été
+rapatriés et rehashés. Le premier export a refusé l'absence du reçu root
+`final-state.json` ; il n'a pas été assoupli. Root a réobservé les cinq CID,
+leurs identités/ports et le dernier état des dix jobs, puis écrit ce reçu.
+La seconde exportation réussit ; les premières sorties restent conservées.
+
+La navigation NISTp5 possède réellement27 entrées. Les33 anciennes entrées
+SQL sont identiques, hors leurs dates de création/mise à jour propres à la
+nouvelle exécution ; les151 anciens objets API sont intégralement égaux.
+L'unique ajout, index33, relie le titre sourcep5 à la page physique17 via
+trois slices natifs. Le label imprimé9 reste non corroboré, l'avertissement
+de chevauchement reste présent et chunk/ancre cibles restent null. Les
+digests de publication avant/après capture concordent. Les quatre ensembles
+d'échecs historiques du vérificateur demeurent identiques à25 ; ce succès
+de navigation n'approuve ni le tableau NIST entier ni les formules.
+
+Le nouveau stockage dérivé RAW ajoute la migration075 : catalogue courant
+et pages d'une génération, liés à la source, au root canonique et au
+manifeste. Publication et rotation utilisent la transaction du bundle et
+son verrou existant ; la purge cascade. Aucun champ public ni capture
+supplémentaire n'est ajouté. Les limites sont4MiB par page,32MiB par
+document,1MiB par catalogue et2s de travail coopératif de préparation.
+Un refus prévisible publie un reçu INLINE explicite, sans page partielle.
+
+Reader et résolveur partagent un contexte interne de page et les mêmes
+fonctions de lignes/Unicode/CRLF, SHA, LineId, provenance, qualité et budgets.
+Le cache reste propre à l'appel, limité aux pages demandées avec les bornes
+existantes64 documents/128MiB. Seules absence historique et raison INLINE
+validée autorisent le chemin complet. Corruption, page attendue absente,
+root périmé et rotation observée entre pages sont refusés.
+
+Les tests causaux exposent l'ancienne route complète puis valident la
+nouvelle : sur le cas RAW, zéro décodage de bundle et deux décodages page
+pour Reader+résolveur. Les25 tests PostgreSQL intégrés passent, y compris
+concurrence, rollback, purge, parité et corruptions. Deux défauts de revue
+(géométrie autonome incomplète et ancien inventaire non contigu) ont reçu
+six témoins RED puis correction. Les pages historiques1,4 ne sont pas
+renumérotées ; elles utilisent un repli explicite compatible. Les deux
+contre-revues finales n'ont aucun défaut matériel ouvert dans ce lot.
+
+La suite backend root du27octobre à12:29–12:31 Europe/Berlin donne3524PASS,
+zéro échec et deux skips préexistants. Les2075 sources demeurent stables,
+fingerprint76697B64951D45DA0F1C17CED801C2FEBCA9D75E4A20A5411D4B0E92756EF474.
+Les gels possédés comptent23 fichiers (stockageB11, lecteurC12), rehashés
+par root. Les sondes opt-in ajoutent page_load/page_decode et
+native_page_validate ; les durées sont inclusives et leurs bytes parent/
+enfant ne s'additionnent pas. Ce lot local ne prouve pas encore son gain
+de performance Linux sur le corpus réel : la construction27, sa publication
+et ses lectures instrumentées neuves restent à qualifier.

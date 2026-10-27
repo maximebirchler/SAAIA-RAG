@@ -21,19 +21,22 @@ internal sealed record AdvancedAnalysisNativeObservationLineSource(
     bool SourceFidelityApproved = false);
 
 /// <summary>Reads only immutable captured canonical data. It never extracts, indexes or replaces primary text.</summary>
-internal static class AdvancedAnalysisNativeObservationReader
+internal static partial class AdvancedAnalysisNativeObservationReader
 {
-    internal sealed class Cache
+    internal sealed partial class Cache
     {
         internal readonly Dictionary<(Guid Tenant, Guid Document, Guid Revision, string Source), StoredDocument> Documents = [];
         internal long UncompressedBytes;
     }
 
-    internal sealed class StoredDocument(CanonicalDocument document, string fileName, string docPath)
+    internal sealed class StoredDocument(CanonicalDocument document, string fileName, string docPath,
+        string? canonicalBundleSha256 = null, Guid? processingRunId = null)
     {
         internal CanonicalDocument Document { get; } = document;
         internal string FileName { get; } = fileName;
         internal string DocPath { get; } = docPath;
+        internal string? CanonicalBundleSha256 { get; } = canonicalBundleSha256;
+        internal Guid? ProcessingRunId { get; } = processingRunId;
         private readonly Dictionary<(int Page, string Block, string RawSha), IReadOnlyList<AdvancedAnalysisNativeObservationLine>> lines = [];
 
         internal AdvancedAnalysisNativeObservationLine Resolve(AdvancedAnalysisNativeObservationReference reference, CancellationToken ct)
@@ -116,7 +119,8 @@ internal static class AdvancedAnalysisNativeObservationReader
             await connection.ExecuteAsync(new CommandDefinition("SET TRANSACTION READ ONLY", transaction: transaction, cancellationToken: ct));
             beginPhase?.Complete();
             beginPhase?.Dispose();
-            var stored = await LoadAsync(connection, tenant, document, revision, source, new(), ct, transaction)
+            var stored = await LoadPageAsync(connection, tenant, document, revision, source, request.PageStart!.Value,
+                new(), ct, transaction)
                 ?? throw new AdvancedAnalysisToolException("native_observation_source_unavailable");
             if (!string.IsNullOrWhiteSpace(request.DocPath)
                 && !string.Equals(request.DocPath.Replace('\\', '/'), stored.DocPath.Replace('\\', '/'), StringComparison.OrdinalIgnoreCase))
@@ -126,10 +130,10 @@ internal static class AdvancedAnalysisNativeObservationReader
             using (var phase = detail?.Phase("native_window"))
             {
                 if (request.NativeObservationView == "inventory")
-                    inventory = AdvancedAnalysisNativeObservationWindows.Inventory(stored.Document, request.PageStart!.Value,
+                    inventory = AdvancedAnalysisNativeObservationWindows.Inventory(stored.Context,
                         request.NativeObservationOffset ?? 0, request.NativeObservationLimit ?? 16, maximumCharacters, ct);
                 else
-                    view = AdvancedAnalysisNativeObservationWindows.Raw(stored.Document, request.PageStart!.Value,
+                    view = AdvancedAnalysisNativeObservationWindows.Raw(stored.Context,
                         request.NativeObservationBlockId!, request.NativeObservationRawSha256!, request.NativeObservationOffset ?? 0,
                         request.NativeObservationLimit ?? 16, maximumCharacters, ct);
                 phase?.Complete();
@@ -210,24 +214,27 @@ internal static class AdvancedAnalysisNativeObservationReader
     }
 
     internal static async Task<StoredDocument?> LoadAsync(NpgsqlConnection connection, Guid tenant, Guid document,
-        Guid revision, string source, Cache cache, CancellationToken ct, NpgsqlTransaction? transaction = null)
+        Guid revision, string source, Cache cache, CancellationToken ct, NpgsqlTransaction? transaction = null,
+        string? expectedCanonicalBundleSha256 = null)
     {
         using var detail = NativeReadDiagnostics.Start("native.bundle_load");
         try
         {
             if (tenant == Guid.Empty || document == Guid.Empty || revision == Guid.Empty
-                || source.Length != 64 || !source.All(char.IsAsciiHexDigit))
+                || source is not { Length: 64 } || !source.All(char.IsAsciiHexDigit))
                 throw new AdvancedAnalysisToolException("native_observation_source_identity_invalid");
             var key = (tenant, document, revision, source.ToLowerInvariant());
             if (cache.Documents.TryGetValue(key, out var captured))
             {
+                if (expectedCanonicalBundleSha256 is not null
+                    && !string.Equals(captured.CanonicalBundleSha256, expectedCanonicalBundleSha256, StringComparison.OrdinalIgnoreCase))
+                    throw new AdvancedAnalysisToolException("native_observation_generation_changed");
                 detail?.CacheLookup(true);
                 detail?.Complete();
                 return captured;
             }
             detail?.CacheLookup(false);
-            if (cache.Documents.Count >= 64)
-                throw new AdvancedAnalysisToolException("native_observation_cache_budget_exceeded");
+            cache.EnsureDocumentCapacity(key);
             ArtifactRow? row;
             using (var phase = detail?.Phase("sql_fetch_materialize"))
             {
@@ -252,6 +259,10 @@ internal static class AdvancedAnalysisNativeObservationReader
                 detail?.Complete();
                 return null;
             }
+            var canonicalBundleSha256 = Convert.ToHexString(row.ContentHash).ToLowerInvariant();
+            if (expectedCanonicalBundleSha256 is not null
+                && !string.Equals(canonicalBundleSha256, expectedCanonicalBundleSha256, StringComparison.OrdinalIgnoreCase))
+                throw new AdvancedAnalysisToolException("native_observation_generation_changed");
             if (row.ByteSize > 134_217_728 - cache.UncompressedBytes)
                 throw new AdvancedAnalysisToolException("native_observation_cache_budget_exceeded");
             ct.ThrowIfCancellationRequested();
@@ -273,7 +284,8 @@ internal static class AdvancedAnalysisNativeObservationReader
                 || !string.Equals(canonical.Source.Sha256, source, StringComparison.OrdinalIgnoreCase))
                 throw new AdvancedAnalysisToolException("native_observation_source_identity_invalid");
             ct.ThrowIfCancellationRequested();
-            captured = new(canonical, row.FileName, row.DocPath);
+            captured = new(canonical, row.FileName, row.DocPath, canonicalBundleSha256,
+                bundle.ManifestEnvelope.Manifest.ProcessingRunId);
             cache.Documents.Add(key, captured);
             cache.UncompressedBytes += row.ByteSize;
             detail?.Complete();

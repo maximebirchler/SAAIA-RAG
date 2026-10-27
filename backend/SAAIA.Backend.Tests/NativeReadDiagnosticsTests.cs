@@ -16,6 +16,42 @@ public sealed class NativeReadDiagnosticsTests
     private const string OptIn = "saaia.native_read.detail.enabled";
 
     [Theory]
+    [InlineData("native.page_load")]
+    [InlineData("native.page_decode")]
+    public void Derived_page_operations_and_validation_are_explicitly_admitted_with_content_free_bytes(string operation)
+    {
+        var logger = new DiagnosticRecordingLogger<NativeReadDiagnosticsTests>();
+        using (var parent = EnabledParent(logger))
+        {
+            using var detail = NativeReadDiagnostics.Start(operation);
+            Assert.NotNull(detail);
+            using var validation = detail.Phase("native_page_validate");
+            Assert.NotNull(validation);
+            validation.Set("inflated_bytes_produced", 123);
+            validation.Complete();
+            detail.Complete();
+            parent.Complete();
+        }
+        Assert.Single(Details(logger), entry => Equals(entry.Values["Operation"], operation));
+        var phase = Assert.Single(Phases(logger));
+        Assert.Equal("native_page_validate", FieldPhase(phase));
+        using var fields = Fields(phase);
+        Assert.Equal(123, fields.RootElement.GetProperty("inflated_bytes_produced").GetInt64());
+        Assert.Equal(JsonValueKind.Null, fields.RootElement.GetProperty("payload_bytes_materialized").ValueKind);
+        Assert.Equal("inclusive_monotonic_wall", fields.RootElement.GetProperty("duration_scope").GetString());
+    }
+
+    [Fact]
+    public void Derived_page_diagnostics_remain_absent_when_detail_is_off()
+    {
+        var logger = new DiagnosticRecordingLogger<NativeReadDiagnosticsTests>();
+        using var parent = BackendDiagnostics.Start("test.native_page_off", logger);
+        Assert.Null(NativeReadDiagnostics.Start("native.page_load"));
+        Assert.Null(NativeReadDiagnostics.Start("native.page_decode"));
+        Assert.Empty(Details(logger));
+    }
+
+    [Theory]
     [InlineData(null)]
     [InlineData(false)]
     public void Disabled_context_keeps_bundle_bytes_and_emits_no_detail(bool? enabled)
@@ -257,7 +293,9 @@ public sealed class NativeReadDiagnosticsTests
 
     private static DiagnosticRecordingLogger<NativeReadDiagnosticsTests>.Entry[] Details(DiagnosticRecordingLogger<NativeReadDiagnosticsTests> logger)
         => logger.Events.Where(entry => Equals(entry.Values["Operation"], "native.read.phase")
-            || Equals(entry.Values["Operation"], "canonical.bundle_decode")).ToArray();
+            || Equals(entry.Values["Operation"], "canonical.bundle_decode")
+            || Equals(entry.Values["Operation"], "native.page_load")
+            || Equals(entry.Values["Operation"], "native.page_decode")).ToArray();
     private static DiagnosticRecordingLogger<NativeReadDiagnosticsTests>.Entry[] Phases(DiagnosticRecordingLogger<NativeReadDiagnosticsTests> logger)
         => Details(logger).Where(entry => Equals(entry.Values["Operation"], "native.read.phase")).ToArray();
     private static JsonDocument Fields(DiagnosticRecordingLogger<NativeReadDiagnosticsTests>.Entry entry)

@@ -13,13 +13,14 @@ internal sealed partial class AdvancedAnalysisEvidenceResolver
         try
         {
             var native = reference.NativeObservation!;
+            AdvancedAnalysisNativeObservationWindows.ValidateReference(native);
             if (!Guid.TryParse(reference.DocId, out var document) || !Guid.TryParse(reference.RevisionId, out var revision)
                 || reference.SourceHash is not { Length: 64 } source || !source.All(char.IsAsciiHexDigit)
                 || reference.PageStart != native.PhysicalPage || reference.PageEnd != native.PhysicalPage
                 || reference.ChunkId is not null || reference.AnchorId is not null || reference.ContentCardId is not null)
                 throw new AdvancedAnalysisToolException("native_observation_source_identity_invalid");
-            var stored = await AdvancedAnalysisNativeObservationReader.LoadAsync(connection, tenant, document,
-                revision, source, cache, ct);
+            var stored = await AdvancedAnalysisNativeObservationReader.LoadPageAsync(connection, tenant, document,
+                revision, source, native.PhysicalPage, cache, ct);
             if (stored is null)
             {
                 detail?.Complete();
@@ -32,7 +33,7 @@ internal sealed partial class AdvancedAnalysisEvidenceResolver
             {
                 DocId = document,
                 RevisionId = revision,
-                SourceHash = stored.Document.Source.Sha256,
+                SourceHash = stored.Context.Identity.SourceSha256,
                 DocPath = stored.DocPath,
                 FileName = stored.FileName,
                 PageStart = native.PhysicalPage,

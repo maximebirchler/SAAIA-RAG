@@ -7,13 +7,14 @@ internal static class NativeReadDiagnostics
 {
     internal const string OptInProperty = "saaia.native_read.detail.enabled";
     private static readonly HashSet<string> Operations = new(StringComparer.Ordinal)
-        { "native.reader", "native.bundle_load", "native.resolver", "native.line_resolve", "canonical.bundle_decode" };
+        { "native.reader", "native.bundle_load", "native.resolver", "native.line_resolve", "canonical.bundle_decode",
+          "native.page_load", "native.page_decode" };
     private static readonly HashSet<string> Phases = new(StringComparer.Ordinal)
     {
         "connection_open", "transaction_begin_readonly", "transaction_commit", "sql_fetch_materialize",
         "gzip_inflate_copy", "hash_validate", "utf8_decode", "json_deserialize", "bundle_validate",
         "native_window", "window_bound_serialize", "reference_loop", "overview_sql",
-        "visual_inventory", "table_inventory", "line_validate"
+        "visual_inventory", "table_inventory", "line_validate", "native_page_validate"
     };
     private static readonly string[] ByteFields =
     [

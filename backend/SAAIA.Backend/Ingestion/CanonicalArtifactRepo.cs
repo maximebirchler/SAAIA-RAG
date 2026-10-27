@@ -163,6 +163,8 @@ SET schema_version=EXCLUDED.schema_version,
             transaction: tx,
             cancellationToken: ct));
 
+        await CanonicalNativeRawPageRepo.PublishAsync(conn, tx, tenantId, bundle, artifact, ct);
+
         await conn.ExecuteAsync(new CommandDefinition(
             "DELETE FROM document_source_anchors WHERE revision_id=@revision_id;",
             new { revision_id = revisionId },

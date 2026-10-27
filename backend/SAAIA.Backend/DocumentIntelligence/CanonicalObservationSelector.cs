@@ -98,7 +98,10 @@ internal static class CanonicalObservationSelector
     }
 
     internal static bool IsNativeObservation(CanonicalBlock block)
-        => block.BlockType is CanonicalNativeTextCoverageReconciler.RecoveryBlockType
+        => IsNativeObservation(block.BlockType);
+
+    internal static bool IsNativeObservation(string blockType)
+        => blockType is CanonicalNativeTextCoverageReconciler.RecoveryBlockType
             or CanonicalNativeLayoutReconciler.RecoveryBlockType
             or CanonicalNativeTableCellReconciler.ObservationBlockType;
 
