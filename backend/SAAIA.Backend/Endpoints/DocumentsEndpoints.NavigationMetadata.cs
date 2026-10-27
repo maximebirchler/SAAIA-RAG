@@ -14,7 +14,8 @@ public static partial class DocumentsEndpoints
         // The SQL query binds the row to the current tenant/document/revision/source. Only the
         // new persisted proof fields are added; old responses gain no nullable placeholders.
         foreach (var key in new[] { "printedPageLabel", "printedPageLabelKind", "targetPageSpace", "sourceTableId",
-            "sourceTableOrdinal", "sourceRowIndex", "sourceCellIds", "sourceChunkIndices", "targetCanonicalBlockId" })
+            "sourceTableOrdinal", "sourceRowIndex", "sourceCellIds", "sourceChunkIndices", "targetCanonicalBlockId",
+            "nativeTitleCorroboration" })
             if (metadata.RootElement.TryGetProperty(key, out var value))
                 item[key] = JsonNode.Parse(value.GetRawText());
         return item;

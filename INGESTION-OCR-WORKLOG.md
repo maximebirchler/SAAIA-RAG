@@ -1391,3 +1391,176 @@ Les gels sont contre-relus. La nouvelle archive Linux contient 574 fichiers
 et exactement sept modifications de production depuis22 ; les 34 sources
 du sidecar restent identiques. Sa construction et la nouvelle ingestion
 restent des étapes distinctes. Le produit demeure TESTE_NON_APPROUVE.
+
+## Qualification réelle Source25 et localisation du refus de navigation
+
+La construction Linux25 a terminé avec une image et un binaire identifiés,
+puis une nouvelle configuration a été signée et vérifiée sur le PC. Seule
+la signature est transférée ; la clé privée reste sur le PC. Le runtime
+Production25 exécute réellement les dix jobs en une tentative chacun du
+2026-10-27T09:12:59Z au 09:27:02Z. La signature, le runtime TEI et les
+identités des points Qdrant sont vérifiés. La campagne conserve son verdict
+global négatif : les critères historiques sur colonnes, recette, scan
+mathématique et surfaces NIST ne sont pas tous satisfaits. Les cinq services
+possédés sont arrêtés, sans OOM ni job actif ; 486 fichiers de preuve
+rapatriés sont recontrôlés par empreinte.
+
+La capture géométrique interne produit dix payloads observés, dont quatre
+sans cellule de tableau, zéro refus et zéro canal absent. Les quatre vides
+ne signifient pas que leurs documents sont vides. Les captures readonly de
+navigation et de géométrie conservent les digests de publication avant/après.
+
+Sur NIST p.5, 26 entrées de navigation sont produites. La ligne 12 refusée
+contient déjà le chevauchement dans l'entité reçue du sidecar : le bord droit
+du titre est le token `534.0`, le bord gauche du numéro est
+`533.9999999999999`. Les doubles lus diffèrent d'un ULP ; la normalisation
+par 612 produit un chevauchement de deux ULP. Les 50 liens de cellules sont
+vérifiés entre tokens, conversion et bundle. La conversion C# n'est donc
+pas la cause initiale. Aucune réparation régionale locale n'a été appliquée
+à cette table ; le point amont exact dans Docling reste non prouvé. Aucune
+tolérance de géométrie ni modification des cellules n'est introduite.
+
+Le canal typographique natif de cette page est distinct du canal raw natif
+indisponible dans le lecteur : il contient 3 384 glyphes observés. Le titre
+complet est corroboré par trois runs et une cible heading unique existe
+sur la page physique 17. Le numéro imprimé 9 n'est pas corroboré par ces runs.
+Le bloc cible est présent comme contexte, sans ancre ou chunk retrieval
+direct ; ces références ne doivent pas être fabriquées. Un éventuel lien
+additif doit porter ces qualifications plutôt que certifier une grille ou
+une paire titre-numéro intégralement vérifiée.
+
+La comparaison indépendante 20→25 vérifie l'égalité du contenu primaire des
+dix documents : 104 pages, 2 312 blocs, 25 tables, 789 cellules, 373 chunks
+et 373 ancres primaires. Les références locales à chaque cohorte sont
+mappées explicitement, sans normaliser le texte ni les nombres. Les seules
+différences de provenance canonique résiduelles sont trois durées SMS ;
+l'égalité intégrale de toute provenance reste fausse. Les canaux auxiliaires
+différents ne sont pas effacés pour fabriquer un résultat identique.
+
+Le rejeu réel confirme aussi le correctif23 des remplissages implicites :
+NIST p.40 conserve 158 primitives inspectées et 64 règles. Les deux refus
+`unsupported_filled_shape` ont disparu, les 56 refus `clipping_path`
+restent. La géométrie demeure partielle et la grille physique non approuvée.
+Les observations natives décrivent des primitives inspectées, pas leur
+visibilité peinte démontrée.
+
+## Limite de granularité et essai de sondes25 conservé négatif
+
+Le bundle25 NIST vérifié fait 9 377 836 octets avant gzip. Il conserve
+96 696 glyphes sur 37 pages ; les 16 pages 38–53 refusent les runs avec
+`native_typography_document_glyph_limit`. Les comptes refusés restent
+inconnus. Cette limite du diagnostic typographique ne signifie pas que la
+transcription primaire de ces pages manque. Une projection de stockage par
+page est étudiée ; aucun plafond n'est relevé et aucun cache global ajouté.
+
+Le loader25 a réellement chargé ses cinq composants et préparé quatre
+méthodes de lecture/sondes dans un conteneur isolé sans réseau, sans SQL,
+sans modèle et sans entrypoint backend. Le premier essai SQL OFF/ON porte
+ensuite sur les sept blocs et 69 lignes de NIST p.40, aux mêmes plafonds
+produit 14k/24k/256k. Le processus lecteur termine avec exit0 ; l'opérateur
+refuse sa collecte avec exit2, phase `probe_collect`, et arrête la séquence
+avant la recette. Le nettoyage observe cinq services arrêtés, zéro job
+actif et aucun port publié.
+
+Le readback hors ligne reproduit `instrumentation_residual_value_mismatch`.
+Sur 66 résidus ON, la soustraction de durées presque égales amplifie l'écart
+d'arrondi entre deux ordres de sommation. Les résidus enregistrés égalent
+exactement parent moins somme enregistrée ; une contre-revue vérifie les
+sommes avec une borne rationnelle de l'erreur float64. L'ancien vérificateur
+évaluait sa tolérance sur le petit résidu. L'opérateur négatif et les 11
+preuves rapatriées restent immuables. Un addendum numérique distinct doit
+être testé et contre-relu avant de qualifier les mesures ; il ne modifie
+ni les sondes produit, ni les nombres observés, ni un critère de fidélité.
+
+L'addendum numérique séparé est ensuite qualifié : quinze contrôles incluent
+les 66 témoins réels, le résidu zéro et des corruptions qui restent refusées.
+Le CLI rehash les quinze fichiers de son gel et les onze pins de la capture,
+reproduit le refus original puis valide les mesures hors ligne. Root rejoue
+ce CLI dans un nouveau fichier ; la contre-revue du delta est favorable.
+L'égalité des réponses OFF/ON et des digests de publication est vérifiée.
+La collecte n'a perdu aucun événement et les seize phases ON sont couvertes.
+Le verdict de l'opérateur historique reste faux ; ses contrôles de PDF et
+configuration placés après la collecte n'ont pas été exécutés et restent
+explicitement non qualifiés. Aucun nouveau SQL ou conteneur n'est relancé
+pour cette relecture.
+
+Les mesures NIST portent sur le lecteur25 appliqué aux données20, pas sur
+un nouveau rejeu d'ingestion25. OFF dure 76,835 s, puis ON 76,306 s ; cet
+ordre peut réchauffer les caches et ne mesure pas un surcoût non biaisé.
+ON observe 143 décodages et 1 340 853 514 octets produits. Les phases codec
+cumulées inclusives valent 4,082 s de décompression/copie, 2,463 s de SHA,
+0,897 s d'UTF8, 15,934 s de JSON et 52,300 s de validation de bundle.
+Le fetch et la matérialisation observés prennent 0,294 s. Ce ne sont pas
+des temps CPU ou une mesure séparée du serveur SQL. Une projection dérivée
+raw par page est étudiée pour conserver les validations tout en évitant
+de relire tous les glyphes du document à chaque ligne ; elle n'est pas
+encore implémentée. La mesure recette reste non exécutée à ce checkpoint.
+
+Aucun appel payant, planning ou envoi de corpus à un fournisseur n'est
+effectué par ces travaux. Le produit demeure **TESTE_NON_APPROUVE**.
+
+Un diagnostic raster séparé, hors produit, réutilise dix petits PDF et leur
+oracle analytique préexistant. Les quinze échantillonnages d'encre intérieure
+préparés avant rendu concordent avec Poppler 26.07.0 à 288 dpi. Le cas B
+ouvert confirme aussi une limite : un remplissage soutient des pixels sur
+une fermeture virtuelle sans prouver un trait tracé. Le rendu du vrai NIST
+p.40 trouve des pixels sombres sur tous les points échantillonnés des
+64 anciennes lignes candidates figées, sans chercher ou déplacer leur axe.
+Ce constat ne démontre ni l'attribution des pixels à chaque chemin, ni un
+inventaire complet de règles, ni les relations de cellules. Aucun seuil
+d'adoption, remplacement de l'observer ou changement de grille n'est fait.
+
+## Lien de sommaire corroboré par le titre natif, Source26
+
+Le projecteur conserve le refus de la géométrie de ligne chevauchante. Un
+canal additif peut néanmoins relier un titre littéral natif complet à un
+heading canonique exact et unique. Le repère commun, la source, la révision,
+la page et les hashes du handle sont contrôlés. Les seules normalisations
+sont les blancs ; chiffres, signes, accents et casse ne sont pas égalisés.
+Les slices UTF16 sont entières et les baselines ne deviennent pas des boîtes
+de glyphes. Aucun texte, cellule, point ou style primaire n'est modifié.
+
+La contre-revue et ses témoins causaux ferment plusieurs faux positifs :
+repère canonique non prouvé, préfixe de mot/titre, suffixe dans un autre run,
+glyphe partiellement traversant et duplication d'une ligne source. Un glyphe
+traversant ne peut être écarté du titre que par un propriétaire complet et
+unique dans une autre cellule publiée de la même table et ligne, avec
+texte natif intégral exactement égal au texte de cette cellule. Les autres
+cas restent refusés, sans epsilon. Les preuves et métadonnées sont bornées
+et ne sont jamais tronquées pour tenir dans le budget.
+
+Les nouveaux liens sont ajoutés après les entrées ordinaires et legacy,
+pour conserver leurs indices et IDs. L'API et le sérialiseur SQL partagent
+la preuve facultative ; les champs supplémentaires sont absents lorsqu'elle
+n'existe pas. Le numéro imprimé reste littéral et non corroboré par cette
+preuve de titre ; il ne détermine pas la page cible par un offset supposé.
+
+Qualification locale finale : 79/79 tests ciblés, dont 50 nouveaux, zéro
+avertissement ; cinq PostgreSQL réels, dont deux nouveaux, sans skip et avec
+cluster supprimé. Le rejeu détaché du cœur canonique utilise les 118 ancres
+réellement capturées25 ; ce n'est ni un appel HTTP/SQL du nouveau produit,
+ni un rejeu complet de publication. Les 33 anciennes entrées SQL/API restent
+égales, dont 26 en p.5 et sept en p.6. Le lien ajouté à l'index33 part de
+p.5/row12 vers le bloc heading de la page physique17, sans chunk/ancre cible
+fabriqués. Il conserve trois slices, 1 616 octets de métadonnées et
+`source_row_physical_overlap_observed`. La première tentative rejetée par
+le segment du numéro9 reste conservée ; le numéro était présent dans un
+autre ordre de rendu que les runs du titre.
+
+La suite backend complète passe ensuite 3 473 tests, deux ignorés et aucun
+échec, avec 2 060 sources identiques avant/après. Le gel d'auteur compte
+huit fichiers possédés, six dépendances relues et 21 preuves rehashées par
+root. L'entrée Linux prévue contient 575 fichiers et exactement six
+changements de production depuis25 ; les 34 sources du sidecar demeurent
+identiques. Construction et qualification Production26 restent à exécuter.
+
+L'essai recette de sondes25 termine réellement avec exit0, opérateur positif,
+23 blocs et 87 lignes, postchecks PDF/configuration et cleanup complets.
+Le readback et la contre-revue confirment 183 décodages et 1 972 217 169
+octets produits, avec 65,021 s inclusives de validation et 14,591 s de JSON.
+Ces données20 sont lues par le lecteur25 ; elles ne recertifient pas
+l'ingestion. L'ancien opérateur NIST négatif reste distinct de son addendum
+de mesures validées. Aucun gain futur de stockage raw par page n'est encore
+mesuré ; ce lot reste séparé de la navigation.
+
+L'état demeure **TESTE_NON_APPROUVE**, sans fournisseur payant ni planning.

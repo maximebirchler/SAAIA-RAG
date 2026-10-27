@@ -1285,6 +1285,37 @@ SET card_index = EXCLUDED.card_index,
         }
     }
 
+    // Shared with the projector's admission check: measure the complete stored
+    // metadata (existing IDs and actual UTF8 escaping), not just the new proof.
+    internal static string SerializeNavigationEntryMetadata(ProjectedDocumentNavigationEntry entry, int ingestionVersion)
+    {
+        var fields = new Dictionary<string, object?>
+        {
+            ["generatedBy"] = "document_title_navigation_projector",
+            ["schemaVersion"] = "title_navigation_v1",
+            ["ingestionVersion"] = ingestionVersion,
+            ["resolutionMethod"] = NormalizePostgresTextForStorage(entry.ResolutionMethod),
+            ["targetAnchorIndex"] = entry.TargetAnchorIndex,
+            ["targetChunkIndex"] = entry.TargetChunkIndex,
+            ["tokenCount"] = entry.LabelTokens.Count
+        };
+        if (entry.CanonicalSource is { } source)
+        {
+            fields["sourceTableId"] = source.SourceTableId;
+            fields["sourceTableOrdinal"] = source.SourceTableOrdinal;
+            fields["sourceRowIndex"] = source.SourceRowIndex;
+            fields["sourceCellIds"] = source.SourceCellIds;
+            fields["sourceChunkIndices"] = source.SourceChunkIndices;
+            fields["printedPageLabel"] = source.PrintedPageLabel;
+            fields["printedPageLabelKind"] = source.PrintedPageLabelKind;
+            fields["targetCanonicalBlockId"] = source.TargetCanonicalBlockId;
+            fields["targetPageSpace"] = "physical";
+            if (source.NativeTitleCorroboration is { } proof)
+                fields["nativeTitleCorroboration"] = JsonSerializer.SerializeToElement(proof, CanonicalContractJson.Options);
+        }
+        return SerializePostgresJsonForStorage(fields);
+    }
+
     private static async Task UpsertDocumentTitleNavigationIndexAsync(
         NpgsqlConnection conn,
         NpgsqlTransaction tx,
@@ -1501,29 +1532,7 @@ SET source_page = EXCLUDED.source_page,
                 targetAnchorId = resolvedAnchorId;
             }
 
-            var metadataFields = new Dictionary<string, object?>
-            {
-                ["generatedBy"] = "document_title_navigation_projector",
-                ["schemaVersion"] = "title_navigation_v1",
-                ["ingestionVersion"] = ingestionVersion,
-                ["resolutionMethod"] = NormalizePostgresTextForStorage(entry.ResolutionMethod),
-                ["targetAnchorIndex"] = entry.TargetAnchorIndex,
-                ["targetChunkIndex"] = entry.TargetChunkIndex,
-                ["tokenCount"] = entry.LabelTokens.Count
-            };
-            if (entry.CanonicalSource is { } source)
-            {
-                metadataFields["sourceTableId"] = source.SourceTableId;
-                metadataFields["sourceTableOrdinal"] = source.SourceTableOrdinal;
-                metadataFields["sourceRowIndex"] = source.SourceRowIndex;
-                metadataFields["sourceCellIds"] = source.SourceCellIds;
-                metadataFields["sourceChunkIndices"] = source.SourceChunkIndices;
-                metadataFields["printedPageLabel"] = source.PrintedPageLabel;
-                metadataFields["printedPageLabelKind"] = source.PrintedPageLabelKind;
-                metadataFields["targetCanonicalBlockId"] = source.TargetCanonicalBlockId;
-                metadataFields["targetPageSpace"] = "physical";
-            }
-            var metadata = SerializePostgresJsonForStorage(metadataFields);
+            var metadata = SerializeNavigationEntryMetadata(entry, ingestionVersion);
 
             await conn.ExecuteAsync(new CommandDefinition(navigationSql, new
             {

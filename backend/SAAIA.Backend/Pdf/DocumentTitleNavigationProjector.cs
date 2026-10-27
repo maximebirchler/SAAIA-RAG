@@ -31,10 +31,23 @@ internal static partial class DocumentTitleNavigationProjector
         var legacyEntries = BuildNavigationEntries(units, legacySources, targetRetrievalChunks, anchors);
         if (canonical is null)
             return new ProjectedDocumentTitleNavigationIndex(anchors, legacyEntries);
-        var navigationEntries = canonical.Entries.Concat(legacyEntries).Take(MaxNavigationEntries)
+        // Keep every existing entry/index before appending this additional evidence
+        // channel. Inserting a native link among rows would change stable SQL IDs.
+        var ordinary = canonical.Entries.Where(entry => entry.CanonicalSource?.NativeTitleCorroboration is null)
+            .Concat(legacyEntries).Take(MaxNavigationEntries).ToArray();
+        var native = canonical.Entries.Where(entry => entry.CanonicalSource?.NativeTitleCorroboration is not null).ToArray();
+        var admittedNative = native.Take(MaxNavigationEntries - ordinary.Length).ToArray();
+        var navigationEntries = ordinary.Concat(admittedNative)
             .Select((entry, index) => entry with { EntryIndex = index }).ToArray();
         if (canonical.Entries.Count + legacyEntries.Count > MaxNavigationEntries)
             canonical.Audit.Refuse("combined_entry_limit", limit: true, row: false);
+        if (native.Length != admittedNative.Length)
+        {
+            var omitted = native.Length - admittedNative.Length;
+            canonical.Audit.Produced -= omitted;
+            canonical.Audit.Resolved -= omitted;
+            canonical.Audit.NativeTitles?.RefuseCombinedLimit(omitted);
+        }
 
         return new ProjectedDocumentTitleNavigationIndex(anchors, navigationEntries)
         { CanonicalDiagnostics = canonical.Audit.Snapshot() };

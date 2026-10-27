@@ -79,6 +79,8 @@ internal static partial class DocumentTitleNavigationProjector
             }
         }
         var targets = ReadCanonicalNavigationTargets(document, ct, audit);
+        var nativeTitles = new NativeTitleNavigationContext(document, cellChunks, ct);
+        audit.NativeTitles = nativeTitles;
         foreach (var (page, table) in tables)
         {
             ct.ThrowIfCancellationRequested();
@@ -94,20 +96,35 @@ internal static partial class DocumentTitleNavigationProjector
                 var ordered = row.OrderBy(cell => cell.ColumnIndex).ThenBy(cell => cell.CellId, StringComparer.Ordinal).ToArray();
                 if (ordered.Any(cell => !cellChunks.ContainsKey(cell.CellId)))
                 { audit.Refuse("unpublished_row_cell"); continue; }
-                string title, pageLabel, pageKind, refusal;
+                CanonicalNavigationRowEvidence? evidence;
+                string refusal;
                 try
                 {
-                    if (!TryReadCanonicalNavigationRow(ordered, out title, out pageLabel, out pageKind, out refusal))
+                    if (!TryReadCanonicalNavigationRow(ordered, out evidence, out refusal))
                     { audit.Refuse(refusal, limit: refusal.EndsWith("_limit", StringComparison.Ordinal)); continue; }
                 }
                 catch (RegexMatchTimeoutException)
                 { audit.Refuse("source_row_parser_timeout"); continue; }
+                var title = evidence!.Title;
                 var matchingTargets = targets?.GetValueOrDefault(title);
                 var target = matchingTargets is { Count: 1 } ? matchingTargets[0] : null;
                 var method = target is not null ? "canonical_title_exact" : matchingTargets is { Count: > 1 }
                     ? "canonical_title_ambiguous" : "canonical_title_unresolved";
+                CanonicalNavigationNativeTitleEvidence? nativeProof = null;
+                if (evidence.PhysicalOverlapObserved)
+                {
+                    // The geometric row is still refused. An independently corroborated
+                    // title may support a page link; it never repairs the row or its label.
+                    audit.Refuse("ambiguous_source_row");
+                    if (!nativeTitles.TryCorroborate(page, evidence, target, targets is not null, out nativeProof))
+                        continue;
+                    method = "canonical_title_native_corroborated";
+                }
                 var anchor = target is null ? null : anchors.FirstOrDefault(candidate => candidate.PageStart == target.Page
                     && string.Equals(CanonicalNavigationWhitespace(candidate.Title), title, StringComparison.Ordinal));
+                // Legacy title anchors do not carry the canonical block identity needed
+                // by this additional proof. Leave them absent instead of fabricating one.
+                if (nativeProof is not null) anchor = null;
                 var targetChunk = target is null ? null : published.Where(chunk => !IsNavigationChunk(chunk)
                     && chunk.PageStart <= target.Page && target.Page <= chunk.PageEnd
                     && chunk.CanonicalBlockIds?.Contains(target.BlockId, StringComparer.Ordinal) == true)
@@ -115,13 +132,27 @@ internal static partial class DocumentTitleNavigationProjector
                 // A minimal supporting set is sufficient: each full cell is proven in one
                 // published chunk. Repeated headers must not amplify metadata to thousands of IDs.
                 var chunkIndices = ordered.Select(cell => cellChunks[cell.CellId].Min()).Distinct().Order().ToArray();
-                entries.Add(new ProjectedDocumentNavigationEntry(entries.Count, page.PageNumber, chunkIndices[0], null,
+                var entry = new ProjectedDocumentNavigationEntry(entries.Count, page.PageNumber, chunkIndices[0], null,
                     title, TitleAnchorNormalizer.NormalizeTitle(title), TitleAnchorNormalizer.BuildTitleTokens(title),
                     target?.Page, target?.Page, anchor?.AnchorIndex, targetChunk?.ChunkIndex, method, target is null ? 0 : 1)
                 {
                     CanonicalSource = new(table.TableId, table.Ordinal, row.Key, ordered.Select(cell => cell.CellId).ToArray(),
-                        chunkIndices, pageLabel, pageKind, target?.BlockId)
-                });
+                        chunkIndices, evidence.PrintedPageLabel, evidence.PrintedPageKind, target?.BlockId)
+                    { NativeTitleCorroboration = nativeProof }
+                };
+                if (nativeProof is not null)
+                {
+                    // Reserve the widest positive ingestion-version spelling. Storage
+                    // uses this exact serializer; a cap refusal cannot truncate proof.
+                    var metadata = DocumentFoundationRepo.SerializeNavigationEntryMetadata(entry, int.MaxValue);
+                    if (System.Text.Encoding.UTF8.GetByteCount(metadata) > 16 * 1024)
+                    {
+                        nativeTitles.RefuseMetadata();
+                        continue;
+                    }
+                    nativeTitles.RecordLink();
+                }
+                entries.Add(entry);
                 audit.Produced++;
                 if (target is null) { audit.Unresolved++; audit.Note(method); } else audit.Resolved++;
             }
@@ -129,10 +160,13 @@ internal static partial class DocumentTitleNavigationProjector
         return result;
     }
 
-    private static bool TryReadCanonicalNavigationRow(CanonicalTableCell[] cells, out string title,
-        out string pageLabel, out string pageKind, out string refusal)
+    private sealed record CanonicalNavigationRowEvidence(string Title, string PrintedPageLabel, string PrintedPageKind,
+        bool PhysicalOverlapObserved, IReadOnlyList<CanonicalTableCell> TitleCells);
+
+    private static bool TryReadCanonicalNavigationRow(CanonicalTableCell[] cells,
+        out CanonicalNavigationRowEvidence? evidence, out string refusal)
     {
-        title = pageLabel = pageKind = "";
+        evidence = null;
         refusal = "ambiguous_source_row";
         if (cells.Length > MaxCanonicalRowCells) { refusal = "source_row_cell_limit"; return false; }
         if (cells.Length == 0 || cells.Any(cell => cell.RowSpan != 1 || cell.ColumnSpan < 1))
@@ -145,14 +179,15 @@ internal static partial class DocumentTitleNavigationProjector
             if (!TryNavigationBox(cell.Polygon, out var box)) { refusal = "source_row_geometry_unavailable"; return false; }
             boxes.Add(box);
         }
+        var physicalOverlap = false;
         for (var i = 0; i < cells.Length; i++)
         for (var j = i + 1; j < cells.Length; j++)
         {
             if (boxes[i].L >= boxes[j].L) return false;
             if (Math.Min(boxes[i].R, boxes[j].R) > Math.Max(boxes[i].L, boxes[j].L)
-                && Math.Min(boxes[i].B, boxes[j].B) > Math.Max(boxes[i].T, boxes[j].T)) return false;
+                && Math.Min(boxes[i].B, boxes[j].B) > Math.Max(boxes[i].T, boxes[j].T)) physicalOverlap = true;
             if ((long)cells[i].ColumnIndex + cells[i].ColumnSpan > cells[j].ColumnIndex
-                && (boxes[i].R > boxes[j].L || Math.Min(boxes[i].B, boxes[j].B) <= Math.Max(boxes[i].T, boxes[j].T)))
+                && Math.Min(boxes[i].B, boxes[j].B) <= Math.Max(boxes[i].T, boxes[j].T))
                 return false;
         }
         // Every fragment must share a vertical interval with an earlier fragment. A wrapped
@@ -167,13 +202,17 @@ internal static partial class DocumentTitleNavigationProjector
         var match = Regex.Match(text, @"(?<label>.+?)(?:[.·•]{2,}\s*|\s+)(?<page>[0-9]{1,12}|[IVXLCDMivxlcdm]{1,15})$", RegexOptions.CultureInvariant,
             TimeSpan.FromMilliseconds(100));
         if (!match.Success) { refusal = "printed_page_label_unavailable"; return false; }
-        title = Regex.Replace(match.Groups["label"].Value, @"[.·•]+$", "", RegexOptions.CultureInvariant).Trim();
-        pageLabel = match.Groups["page"].Value;
+        var title = Regex.Replace(match.Groups["label"].Value, @"[.·•]+$", "", RegexOptions.CultureInvariant).Trim();
+        var pageLabel = match.Groups["page"].Value;
+        string pageKind;
         if (title.Length < 2 || !title.Any(char.IsLetter)) return false;
         if (pageLabel.All(char.IsAsciiDigit)) pageKind = "arabic";
         else if (Regex.IsMatch(pageLabel, @"^(?=.+)M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100))) pageKind = "roman";
         else { refusal = "invalid_printed_page_label"; return false; }
+        var titleCells = cells.Where((cell, index) => index != cells.Length - 1 || cells.Length == 1
+            || CanonicalNavigationWhitespace(cell.Text.Raw) != pageLabel).ToArray();
+        evidence = new(title, pageLabel, pageKind, physicalOverlap, titleCells);
         return true;
     }
 
@@ -197,12 +236,13 @@ internal static partial class DocumentTitleNavigationProjector
         internal int Chunks, Tables, Rows, Produced, Resolved, Unresolved, Refused;
         internal bool Limit;
         internal bool ChunkInventoryComplete = true;
+        internal NativeTitleNavigationContext? NativeTitles;
         private readonly Dictionary<string, int> reasons = new(StringComparer.Ordinal);
         internal void Note(string reason) => reasons[reason] = reasons.GetValueOrDefault(reason) + 1;
         internal void Refuse(string reason, bool limit = false, bool row = true) { if (row) Refused++; Limit |= limit; Note(reason); }
         internal CanonicalNavigationDiagnostics Snapshot() => new(Chunks, Tables, Rows, Produced, Resolved, Unresolved, Refused,
             Limit, new Dictionary<string, int>(reasons, StringComparer.Ordinal))
         { Availability = Produced == 0 && reasons.Count > 0 ? "unavailable" : Limit || Refused > 0 || Unresolved > 0 ? "partial" : "observed",
-            SourceChunkInventoryComplete = ChunkInventoryComplete };
+            SourceChunkInventoryComplete = ChunkInventoryComplete, NativeTitleCorroboration = NativeTitles?.Snapshot() };
     }
 }

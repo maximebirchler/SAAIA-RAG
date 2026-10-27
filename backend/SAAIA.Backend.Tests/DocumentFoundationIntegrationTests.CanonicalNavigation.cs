@@ -26,13 +26,24 @@ public sealed partial class DocumentFoundationIntegrationTests
     public async Task Canonical_navigation_pg_persists_diagnostics_even_when_row_is_refused()
         => await VerifyCanonicalNavigationStorageAsync(resolveTarget: false, refuseRow: true);
 
-    private static async Task VerifyCanonicalNavigationStorageAsync(bool resolveTarget, bool refuseRow = false)
+    [Trait("Profile", "IntegrationPg")]
+    [InlineData(false)]
+    [InlineData(true)]
+    [ProfileTheory("IntegrationPg")]
+    public async Task Native_title_navigation_pg_preserves_qualification_and_never_fabricates_target(bool contextOnly)
+        => await VerifyCanonicalNavigationStorageAsync(resolveTarget: true, nativeTitle: true, contextOnly: contextOnly);
+
+    private static async Task VerifyCanonicalNavigationStorageAsync(bool resolveTarget, bool refuseRow = false,
+        bool nativeTitle = false, bool contextOnly = false)
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         Assert.NotNull(db);
         var tenant = Guid.NewGuid(); var docId = Guid.NewGuid(); var job = Guid.NewGuid();
         const string path = "Synthetic/Canonical-navigation.pdf";
-        var (document, chunks, sections) = DocumentTitleNavigationCanonicalTests.Fixture("VII");
+        var (document, chunks, sections) = nativeTitle
+            ? DocumentTitleNavigationCanonicalTests.NativeFixture(.6, printedPage: "VII")
+            : DocumentTitleNavigationCanonicalTests.Fixture("VII");
+        if (contextOnly) chunks[2] = chunks[2] with { CanonicalBlockIds = [], CanonicalContextBlockIds = ["heading"] };
         if (!resolveTarget) document.Pages[1].Blocks.Clear();
         if (refuseRow) document.Pages[0].Tables[0].Cells[1].Polygon!.Points[0].X = .6; // nonrectangle: explicit unavailable
         var sourceHash = Enumerable.Repeat((byte)0xaa, 32).ToArray();
@@ -46,6 +57,8 @@ public sealed partial class DocumentFoundationIntegrationTests
         var revision = await connection.ExecuteScalarAsync<Guid>(
             "SELECT revision_id FROM document_revisions WHERE tenant_id=@tenant AND doc_id=@docId AND indexed_version=1;", new { tenant, docId });
         document.DocumentId = docId; document.RevisionId = revision;
+        if (document.Pages[0].NativeTypographyObservations is { } native)
+        { native.DocumentId = docId; native.RevisionId = revision; }
         DocumentFoundationRepo.ValidateCanonicalNavigationIdentity(document, docId, revision, sourceHash);
         var profile = DocumentProfileProjector.Project(path, pages, sections, [], []);
         var index = DocumentTitleNavigationProjector.Project(sections, [], chunks, chunks, profile, document);
@@ -60,7 +73,7 @@ public sealed partial class DocumentFoundationIntegrationTests
         var diagnostics = await connection.ExecuteScalarAsync<string>(
             "SELECT (metadata->'canonicalNavigation')::text FROM document_profiles WHERE tenant_id=@tenant AND revision_id=@revision;", new { tenant, revision });
         using var diagnosticJson = JsonDocument.Parse(diagnostics!);
-        Assert.Equal(refuseRow ? 1 : 0, diagnosticJson.RootElement.GetProperty("rowsRefused").GetInt32());
+        Assert.Equal(refuseRow || nativeTitle ? 1 : 0, diagnosticJson.RootElement.GetProperty("rowsRefused").GetInt32());
         Assert.Equal(refuseRow ? 0 : 1, diagnosticJson.RootElement.GetProperty("entriesProduced").GetInt32());
         var metadata = await connection.QueryAsync<string>(
             "SELECT metadata::text FROM document_navigation_entries WHERE tenant_id=@tenant AND revision_id=@revision;", new { tenant, revision });
@@ -71,6 +84,13 @@ public sealed partial class DocumentFoundationIntegrationTests
             Assert.Equal("VII", stored.RootElement.GetProperty("printedPageLabel").GetString());
             Assert.Equal(new[] { "title", "page" }, stored.RootElement.GetProperty("sourceCellIds").EnumerateArray().Select(x => x.GetString()));
             Assert.Equal("physical", stored.RootElement.GetProperty("targetPageSpace").GetString());
+            if (nativeTitle)
+            {
+                var proof = stored.RootElement.GetProperty("nativeTitleCorroboration");
+                Assert.Equal("source_row_physical_overlap_observed", proof.GetProperty("geometryWarning").GetString());
+                Assert.Equal("not_corroborated", proof.GetProperty("printedPageLabelCorroboration").GetString());
+                Assert.True(System.Text.Encoding.UTF8.GetByteCount(stored.RootElement.GetRawText()) <= 16 * 1024);
+            }
         }
         // Executes the real route handler and serializer against PostgreSQL; this is not an
         // HTTP transport claim and does not publish a canonical bundle to the artifact store.
@@ -94,6 +114,14 @@ public sealed partial class DocumentFoundationIntegrationTests
             {
                 Assert.Equal(7, item.GetProperty("targetPageStart").GetInt32());
                 Assert.Equal("heading", item.GetProperty("targetCanonicalBlockId").GetString());
+                if (nativeTitle)
+                {
+                    Assert.Equal("canonical_title_native_corroborated", item.GetProperty("resolutionMethod").GetString());
+                    Assert.Equal("not_corroborated", item.GetProperty("nativeTitleCorroboration")
+                        .GetProperty("printedPageLabelCorroboration").GetString());
+                    Assert.Equal(JsonValueKind.Null, item.GetProperty("targetAnchorId").ValueKind);
+                    if (contextOnly) Assert.Equal(JsonValueKind.Null, item.GetProperty("targetChunkId").ValueKind);
+                }
             }
             else
             {
