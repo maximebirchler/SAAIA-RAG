@@ -11,6 +11,9 @@ jobs:
     env:
       SAAIA_TEST_PROFILE: Unit
       DOTNET_NOLOGO: '1'
+      # Keep the real bootstrapper, but never wait for a runtime acquisition
+      # dialog in a noninteractive test host.
+      WindowsAppSDKBootstrapAutoInitializeOptions_None: 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -28,6 +31,12 @@ jobs:
       - name: Concurrent runtime-probe readiness publication
         shell: pwsh
         run: ./tools/testing/Test-RuntimeProbeReadiness.ps1 -OutputPath artifacts/ci/runtime-probe-readiness.json
+      - name: Restore WinUI test runtime packages
+        shell: pwsh
+        run: dotnet restore ./client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj
+      - name: Register restored WinUI runtime for hosted test user
+        shell: pwsh
+        run: ./tools/testing/Initialize-HostedWinUiRuntime.ps1 -OutputPath artifacts/ci/winui-runtime.json -Execute
       - name: Offline project suites
         shell: pwsh
         run: ./tools/test-project.ps1 -Profile Unit -OutputPath artifacts/ci/tests/manifest.json
