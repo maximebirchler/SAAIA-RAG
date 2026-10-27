@@ -25,6 +25,9 @@ jobs:
       - name: Behavioral tests for runtime probes
         shell: pwsh
         run: ./tools/testing/Test-RuntimeProbes.ps1 -OutputPath artifacts/ci/runtime-probe-tests.json
+      - name: Concurrent runtime-probe readiness publication
+        shell: pwsh
+        run: ./tools/testing/Test-RuntimeProbeReadiness.ps1 -OutputPath artifacts/ci/runtime-probe-readiness.json
       - name: Offline project suites
         shell: pwsh
         run: ./tools/test-project.ps1 -Profile Unit -OutputPath artifacts/ci/tests/manifest.json

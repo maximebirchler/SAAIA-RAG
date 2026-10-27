@@ -1,6 +1,7 @@
 """Bounded loopback fixture for probe tests. Never contacts a model/provider."""
 import argparse
 import json
+import os
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -51,5 +52,15 @@ parser.add_argument("--ready-file", required=True)
 args = parser.parse_args()
 server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
 server.daemon_threads = True
-Path(args.ready_file).write_text(str(server.server_port), encoding="utf-8")
+ready = Path(args.ready_file)
+if ready.exists():
+    raise ValueError("The readiness publication must not already exist")
+private = ready.with_name(ready.name + ".publishing")
+with private.open("x", encoding="ascii") as stream:
+    stream.write(str(server.server_port))
+    stream.flush()
+    os.fsync(stream.fileno())
+# The reader never observes an open writer or an incomplete port. Both paths
+# share a directory so publication is one same-volume rename after close.
+private.replace(ready)
 server.serve_forever()

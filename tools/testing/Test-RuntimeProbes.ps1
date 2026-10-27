@@ -102,7 +102,9 @@ Assert-Probe 'outlier exceeds tolerance' (-not (Test-Reproducibility -Runs @(@{
                 tokPerSec = 20
             }
         )).ok)
-$readyFile = [IO.Path]::GetTempFileName()
+$readyDirectory = Join-Path ([IO.Path]::GetTempPath()) ('saaia-runtime-probe-' + [Guid]::NewGuid().ToString('N'))
+[IO.Directory]::CreateDirectory($readyDirectory) | Out-Null
+$readyFile = Join-Path $readyDirectory 'ready-port.txt'
 $server = $null
 try {
     $start = [Diagnostics.ProcessStartInfo]::new('python')
@@ -113,9 +115,19 @@ try {
     $start.ArgumentList.Add($readyFile)
     $server = [Diagnostics.Process]::Start($start)
     $deadline = [DateTimeOffset]::UtcNow.AddSeconds(5)
+    $port = $null
     do {
-        $port = [IO.File]::ReadAllText($readyFile)
-        if ($port) {
+        if ([IO.File]::Exists($readyFile)) {
+            # The producer publishes this immutable path only after closing its
+            # private writer. Do not swallow real read/permission failures.
+            $published = [IO.File]::ReadAllText($readyFile)
+            $parsedPort = 0
+            if (-not [int]::TryParse($published, [Globalization.NumberStyles]::None,
+                    [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedPort) -or
+                $parsedPort -lt 1 -or $parsedPort -gt 65535) {
+                throw 'Loopback fixture published an invalid complete port.'
+            }
+            $port = $parsedPort
             break
         }
 
@@ -145,12 +157,14 @@ try {
     if ($null -ne $server) {
         if (-not $server.HasExited) {
             $server.Kill($true)
+            if (-not $server.WaitForExit(5000)) { throw 'Owned loopback fixture did not stop within its cleanup deadline.' }
         }
 
         $server.Dispose()
     }
 
-    Remove-Item -LiteralPath $readyFile -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $readyFile, ($readyFile + '.publishing') -ErrorAction SilentlyContinue
+    [IO.Directory]::Delete($readyDirectory)
     if ($OutputPath) {
         [IO.Directory]::CreateDirectory((Split-Path -Parent ([IO.Path]::GetFullPath($OutputPath)))) | Out-Null
         @{
