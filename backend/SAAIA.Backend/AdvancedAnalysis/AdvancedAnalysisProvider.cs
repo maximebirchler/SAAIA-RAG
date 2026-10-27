@@ -20,6 +20,8 @@ internal sealed record AdvancedAnalysisResolvedEvidence(
     public AdvancedAnalysisSourceQuality? SourceQuality { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public AdvancedAnalysisTableObservationLineSource? SourceObservation { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public AdvancedAnalysisNativeObservationLineSource? NativeObservation { get; init; }
 }
 
 internal sealed record AdvancedAnalysisEvidenceStructure(
@@ -46,6 +48,8 @@ internal sealed record AdvancedAnalysisSourceOverview(
     public CanonicalTableObservationInventory? TableRegionObservations { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public AdvancedAnalysisVisualSources? VisualSources { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public AdvancedAnalysisAlternativeNativeReadings? NativeObservations { get; init; }
 }
 
 internal sealed record AdvancedAnalysisVisualAvailability(string Status, long AvailableAssetCount,

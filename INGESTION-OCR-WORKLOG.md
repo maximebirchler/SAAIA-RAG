@@ -1096,3 +1096,43 @@ le supplément de lecture des canaux a pour SHA-256
 `e49c863672a78b1abb64ce16d0ff04830e8c03f607c104ea7c66c8afd84bc82e`.
 Les PDF tiers, captures privées, clés et poids de modèles ne sont pas inclus
 dans le dépôt public.
+
+## Lecture littérale des audits natifs — qualification locale du 2026-10-27
+
+L'option `AdvancedAnalysis.NativeObservationReadEnabled`, désactivée par
+défaut, expose désormais l'inventaire et les lignes des observations natives
+déjà conservées dans le bundle canonique. Le modèle découvre cette capacité
+dès le premier prompt. Les lignes sont revalidées depuis le stockage avec
+tenant, document, révision, SHA source, manifeste, bloc et empreinte littérale.
+Leur référence ne fabrique ni chunk indexé, ni ancre, ni relation de cellule.
+
+Le lecteur conserve les caractères et terminateurs de lignes exacts. Son
+curseur est un ordinal de ligne ; les bornes de citation comptent des scalaires
+Unicode. Une ligne indivisible hors budget est refusée sans avancer le curseur.
+Les textes figurent une seule fois dans les preuves du prompt ; les inventaires
+et sorties d'outils portent des métadonnées et références. Le budget inclut le
+JSON effectivement échappé dans les payloads Chat et Responses. L'absence
+d'observation capturée reste inconnue, distincte d'un texte capturé vide.
+
+Le gel de ce lot comprend 21 fichiers, dont les tests. Vérifications locales :
+
+- 577 tests ciblés PASS ; les quatre cas PostgreSQL sont exécutés séparément ;
+- quatre tests PostgreSQL isolés PASS, sur la DLL finale du lot ;
+- 5 884 tests unitaires globaux PASS, deux ignorés et aucun échec ;
+- 2 032 sources de campagne identiques avant et après la suite globale ;
+- build WinUI Release x64 sans hooks de test, zéro avertissement et zéro erreur ;
+- contre-revue indépendante du lot sans défaut matériel ouvert dans son périmètre.
+
+Le build Linux du lecteur est distinct de la publication d'ingestion : identité
+source `aef763fb4c928e5ba057e920f573ec35a1e686972a818fd5f6fc59feeeb2bf76`.
+Il ne remplace pas l'identité du worker Source18 et ne prouve pas une nouvelle
+ingestion. La qualification Linux de ce lecteur sur les données Source18 fait
+l'objet d'un supplément séparé ; les résultats locaux ci-dessus ne la présument
+pas. Aucun nouveau parcours visuel WinUI, viewer de référence native, pixel
+fourni au modèle ou appel LLM payant n'est qualifié par ces tests.
+
+Ces lectures restent secondaires et leur fidélité sémantique non vérifiée.
+Elles ne remplacent ni le texte primaire ni les oracles existants. Les essais
+OCR locaux supplémentaires et leurs sorties non approuvées sont conservés
+séparément dans les artefacts privés ; ils ne modifient pas le moteur de
+production. Le statut produit reste **TESTE_NON_APPROUVE**.

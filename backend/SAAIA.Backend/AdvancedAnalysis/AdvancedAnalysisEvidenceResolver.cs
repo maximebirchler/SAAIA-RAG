@@ -9,7 +9,7 @@ using SAAIA.Contracts.DocumentIntelligence;
 
 namespace SAAIA.Backend.AdvancedAnalysis;
 
-internal sealed class AdvancedAnalysisEvidenceResolver
+internal sealed partial class AdvancedAnalysisEvidenceResolver
 {
     private readonly NpgsqlDataSource _dataSource;
     private readonly AdvancedAnalysisOptions _options;
@@ -39,13 +39,18 @@ internal sealed class AdvancedAnalysisEvidenceResolver
         var evidenceIds = new HashSet<string>(StringComparer.Ordinal);
         var totalCharacters = 0;
         var tableObservationCache = new Dictionary<string, CanonicalTableRegionObservation>(StringComparer.Ordinal);
+        var nativeObservationCache = new AdvancedAnalysisNativeObservationReader.Cache();
 
         await using var connection = await _dataSource
             .OpenConnectionAsync(cancellationToken)
             .ConfigureAwait(false);
         foreach (var reference in references)
         {
-            var row = await ResolveOneAsync(
+            if (reference.NativeObservation is not null && !_options.NativeObservationReadEnabled)
+                return AdvancedAnalysisEvidenceResolution.Invalid("native_observation_read_disabled");
+            var row = reference.NativeObservation is not null
+                ? await ResolveNativeAsync(connection, tenantId, reference, nativeObservationCache, cancellationToken)
+                : await ResolveOneAsync(
                 connection,
                 tenantId,
                 reference,
@@ -61,7 +66,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                 ? row.Content
                 : row.CardCanonicalContent
                     ?? BuildGroundedContentCardText(row.ExactTitle, row.EvidenceJson);
-            if ((string.IsNullOrWhiteSpace(content) && row.SourceObservation is null)
+            if ((string.IsNullOrWhiteSpace(content) && row.SourceObservation is null && row.NativeObservation is null)
                 || content.Length > maximumPerItem)
             {
                 return AdvancedAnalysisEvidenceResolution.Invalid(
@@ -100,6 +105,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                     ChunkId = NullIfBlank(row.ChunkId),
                     AnchorId = NullIfBlank(row.AnchorId),
                     ContentCardId = NullIfBlank(row.ContentCardId),
+                    NativeObservation = row.NativeObservation?.Reference,
                     SourceObservation = row.SourceObservation is { } secondary ? new()
                     {
                         ObservationId = secondary.ObservationId, TableId = secondary.TableId, LineId = secondary.LineId,
@@ -125,7 +131,8 @@ internal sealed class AdvancedAnalysisEvidenceResolver
             {
                 SourceQuality = row.SourceQuality ?? AdvancedAnalysisSourceQuality.FromMetadata(
                     row.ExtractionTextStatus, row.ExtractionOcrCandidate, row.QualitySignalsJson),
-                SourceObservation = row.SourceObservation
+                SourceObservation = row.SourceObservation,
+                NativeObservation = row.NativeObservation
             });
         }
 
@@ -158,7 +165,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                     visualScopes.Add(key, inventory);
                 }
                 var overview = item.SourceOverview ?? new(item.Reference.PageStart, item.Reference.PageEnd,
-                    item.SourceObservation is null ? 1 : 0);
+                    item.SourceObservation is null && item.NativeObservation is null ? 1 : 0);
                 var tableKey = (key.Item1, key.Item2, item.Reference.SourceHash);
                 if (!tableScopes.TryGetValue(tableKey, out var tables))
                 {
@@ -576,6 +583,8 @@ internal sealed class AdvancedAnalysisEvidenceResolver
 
     private static string BuildEvidenceId(ResolvedEvidenceRow row)
     {
+        if (row.NativeObservation is { } native)
+            return "advanced-native-evidence-" + native.Reference.LineId["native_line_".Length..];
         var identity = string.Join(
             "|",
             row.DocId.ToString("D"),
@@ -623,6 +632,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
         public string? ExtractionOcrCandidate { get; init; }
         public AdvancedAnalysisSourceQuality? SourceQuality { get; init; }
         public AdvancedAnalysisTableObservationLineSource? SourceObservation { get; init; }
+        public AdvancedAnalysisNativeObservationLineSource? NativeObservation { get; init; }
         public bool ContainsUnassignedPhysicalContext { get; init; }
     }
 }

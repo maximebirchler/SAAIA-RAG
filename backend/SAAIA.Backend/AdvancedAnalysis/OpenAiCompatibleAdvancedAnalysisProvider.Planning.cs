@@ -65,6 +65,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 var observationBand = TableOption("tableObservationBandOrdinal", 0, 31);
                 var observationOffset = TableOption("tableObservationLineOffset", 0, 5_000);
                 var observationLimit = TableOption("tableObservationLineLimit", 1, 64);
+                var nativeView = ObservationText("nativeObservationView");
+                var nativeBlock = ObservationText("nativeObservationBlockId");
+                var nativeRawSha = ObservationText("nativeObservationRawSha256");
+                var nativeOffset = TableOption("nativeObservationOffset", 0, int.MaxValue);
+                var nativeLimit = TableOption("nativeObservationLimit", 1, 64);
                 var includeVisuals = false;
                 if (item.TryGetProperty("includeVisualSources", out var visualFlag) && visualFlag.ValueKind != JsonValueKind.Null)
                 {
@@ -154,8 +159,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     TableObservationId: observationId, TableObservationView: observationView,
                     TableObservationBandOrdinal: observationBand, TableObservationLineOffset: observationOffset,
                     TableObservationLineLimit: observationLimit, IncludeVisualSources: includeVisuals,
-                    VisualSourceOffset: visualOffset, VisualSourceLimit: visualLimit);
+                    VisualSourceOffset: visualOffset, VisualSourceLimit: visualLimit,
+                    NativeObservationView: nativeView, NativeObservationBlockId: nativeBlock,
+                    NativeObservationRawSha256: nativeRawSha, NativeObservationOffset: nativeOffset,
+                    NativeObservationLimit: nativeLimit);
                 try { AdvancedAnalysisTableObservationReader.ValidateRequest(search); }
+                catch (AdvancedAnalysisToolException) { throw new JsonException(); }
+                if (AdvancedAnalysisNativeObservationReader.HasRequest(search) && !_options.NativeObservationReadEnabled)
+                    throw new JsonException();
+                try { AdvancedAnalysisNativeObservationReader.ValidateRequest(search); }
                 catch (AdvancedAnalysisToolException) { throw new JsonException(); }
                 try { AdvancedAnalysisVisualSourceReader.ValidateRequest(search, _options.VisualSourceCitationsEnabled); }
                 catch (AdvancedAnalysisToolException) { throw new JsonException(); }
@@ -492,6 +504,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var ordered = new List<AdvancedAnalysisResolvedEvidence>(
             allEvidence.Count);
         var seen = new HashSet<string>(StringComparer.Ordinal);
+        var currentNative = allEvidence.Where(item => item.SourceOverview?.NativeObservations is not null
+                && !string.IsNullOrWhiteSpace(item.Reference.EvidenceId))
+            .GroupBy(item => item.Reference.EvidenceId!, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
         // Groups retain the original text/order. An opt-in visual read can add
         // immutable metadata later, including when it returns no new chunk.
         // Refresh only that field and only for the exact same evidence identity.
@@ -510,6 +526,24 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     continue;
                 var item = group[index];
                 var evidenceId = item.Reference.EvidenceId?.Trim();
+                if (evidenceId is not null && currentNative.TryGetValue(evidenceId, out var native)
+                    && string.Equals(item.Reference.DocId, native.Reference.DocId, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(item.Reference.RevisionId, native.Reference.RevisionId, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(item.Reference.SourceHash, native.Reference.SourceHash, StringComparison.OrdinalIgnoreCase)
+                    && item.Reference.ChunkId == native.Reference.ChunkId
+                    && item.Reference.AnchorId == native.Reference.AnchorId
+                    && item.Reference.ContentCardId == native.Reference.ContentCardId
+                    && item.Reference.NativeObservation?.LineId == native.Reference.NativeObservation?.LineId)
+                {
+                    item = item with
+                    {
+                        SourceOverview = (item.SourceOverview ?? native.SourceOverview!) with
+                        {
+                            NativeObservations = native.SourceOverview!.NativeObservations
+                        },
+                        NativeObservation = native.NativeObservation
+                    };
+                }
                 if (evidenceId is not null && currentVisual.TryGetValue(evidenceId, out var latest)
                     && string.Equals(item.Reference.DocId, latest.Reference.DocId, StringComparison.OrdinalIgnoreCase)
                     && string.Equals(item.Reference.RevisionId, latest.Reference.RevisionId, StringComparison.OrdinalIgnoreCase)
@@ -791,7 +825,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             ? "|visual|" + JsonSerializer.Serialize(new
             {
                 search.IncludeVisualSources, search.VisualSourceOffset, search.VisualSourceLimit
-            }) : "");
+            }) : "") + (AdvancedAnalysisNativeObservationReader.HasRequest(search)
+            ? "|native|" + JsonSerializer.Serialize(new { search.NativeObservationView, search.NativeObservationBlockId,
+                search.NativeObservationRawSha256, search.NativeObservationOffset, search.NativeObservationLimit }) : "");
 
     private static string? ResolvePlannedDocumentHint(
         string query,

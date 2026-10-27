@@ -76,6 +76,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }));
         var readableIds = root.GetProperty("evidence").EnumerateArray()
             .Where(item => !item.TryGetProperty("sourceObservation", out var secondary) || secondary.ValueKind == JsonValueKind.Null)
+            .Where(item => !item.TryGetProperty("nativeObservation", out var native) || native.ValueKind == JsonValueKind.Null)
             .Where(item => item.TryGetProperty("originalContentLength", out var size)
                            && size.TryGetInt32(out var length) && length > 0)
             .Select(item => ReadString(item, "evidenceId"))
@@ -113,6 +114,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 };
                 readProperties["visualSourceOffset"] = OptionalCount(0, CanonicalVisualAssetRepo.MaximumDocumentAssets);
                 readProperties["visualSourceLimit"] = OptionalCount(1, 64);
+            }
+            if (HasNativeObservationRead(root))
+            {
+                readProperties["nativeObservationView"] = new { type = new[] { "string", "null" }, @enum = new string?[] { null, "inventory", "raw" } };
+                readProperties["nativeObservationBlockId"] = new { type = new[] { "string", "null" }, description = "Observed blockId for raw only; null for inventory or primary read." };
+                readProperties["nativeObservationRawSha256"] = new { type = new[] { "string", "null" }, description = "Observed rawTextSha256 for raw only; null for inventory or primary read." };
+                readProperties["nativeObservationOffset"] = OptionalCount(0, int.MaxValue);
+                readProperties["nativeObservationLimit"] = OptionalCount(1, 64);
             }
             functions.Add(Function("read_source", HasSecondaryTableReadings(root)
                 ? "Read an observed physical source window. Primary reads use up to four pages. Secondary observation reads require exactly one page and the explicit observation view; do not mix primary row parameters. A secondary line is indivisible and may be refused when it does not fit. Raw remains readable when physical bands are unavailable."
@@ -238,7 +247,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 .Concat(HasSecondaryTableReadings(prompt.RootElement) ? new[] { "tableObservationId", "tableObservationView",
                     "tableObservationBandOrdinal", "tableObservationLineOffset", "tableObservationLineLimit" } : [])
                 .Concat(HasVisualSourceCitations(prompt.RootElement)
-                    ? new[] { "includeVisualSources", "visualSourceOffset", "visualSourceLimit" } : []).ToArray() : [];
+                    ? new[] { "includeVisualSources", "visualSourceOffset", "visualSourceLimit" } : [])
+                .Concat(HasNativeObservationRead(prompt.RootElement)
+                    ? new[] { "nativeObservationView", "nativeObservationBlockId", "nativeObservationRawSha256", "nativeObservationOffset", "nativeObservationLimit" } : []).ToArray() : [];
             if (names.Distinct(StringComparer.Ordinal).Count() != names.Length
                 || names.Any(n => !properties.Contains(n, StringComparer.Ordinal) && !optionalProperties.Contains(n,StringComparer.Ordinal))
                 || properties.Any(n => !names.Contains(n, StringComparer.Ordinal)))
@@ -368,6 +379,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 ids.Contains(item.EvidenceId, StringComparer.Ordinal)).ToArray());
             if (alternative is not null)
                 outputNode["alternativeTableReadings"] = JsonSerializer.SerializeToNode(alternative, JsonOptions);
+            var nativeAlternative = BuildAlternativeNativeReadingsForPrompt(visible.Where(item =>
+                ids.Contains(item.EvidenceId, StringComparer.Ordinal)).ToArray());
+            if (nativeAlternative is not null)
+                outputNode["alternativeNativeReadings"] = JsonSerializer.SerializeToNode(nativeAlternative, JsonOptions);
+            if (observation?.AlternativeNativeReadings?.Inventory is { } nativeInventory)
+                outputNode["nativeInventory"] = JsonSerializer.SerializeToNode(nativeInventory, JsonOptions);
+            if (observation?.AlternativeNativeReadings?.View is { Lines.Count: 0 } nativeWindow)
+                outputNode["nativeReadWindow"] = JsonSerializer.SerializeToNode(NativeWindowMetadata(nativeWindow), JsonOptions);
             if (observation?.AlternativeTableReadings?.Inventory is { } secondaryInventory)
                 outputNode["secondaryInventory"] = JsonSerializer.SerializeToNode(secondaryInventory, JsonOptions);
             if (observation?.VisualSources is { } visualSources)

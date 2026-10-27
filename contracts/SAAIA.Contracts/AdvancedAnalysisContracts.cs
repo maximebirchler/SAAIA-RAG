@@ -116,6 +116,8 @@ public sealed class AdvancedAnalysisResearchAttempt
 
 public sealed class AdvancedAnalysisEvidenceReference
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public AdvancedAnalysisNativeObservationReference? NativeObservation { get; init; }
     public string? EvidenceId { get; init; }
 
     public string? DocId { get; init; }
@@ -307,6 +309,9 @@ public sealed class AdvancedAnalysisResultEvidence
 
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public AdvancedAnalysisTableObservationReference? SourceObservation { get; init; }
+
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public AdvancedAnalysisNativeObservationReference? NativeObservation { get; init; }
 }
 
 public sealed class AdvancedAnalysisResultClaim

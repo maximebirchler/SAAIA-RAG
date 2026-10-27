@@ -513,7 +513,8 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
                              PageEnd = item.PageEnd,
                              ChunkId = item.ChunkId,
                              AnchorId = item.AnchorId,
-                             ContentCardId = item.ContentCardId
+                             ContentCardId = item.ContentCardId,
+                             NativeObservation = item.NativeObservation
                          })))
         {
             var key = string.Join(
@@ -525,7 +526,8 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
                 reference.ContentCardId ?? string.Empty,
                 reference.PageStart,
                 reference.PageEnd,
-                reference.SourceHash ?? string.Empty);
+                reference.SourceHash ?? string.Empty,
+                reference.NativeObservation?.LineId ?? string.Empty);
             if (keys.Add(key))
                 result.Add(reference);
         }

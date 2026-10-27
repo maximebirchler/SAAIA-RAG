@@ -721,9 +721,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         using var callProbe = BackendDiagnostics.Start("llm.call", _logger);
         userPrompt = AddSecondaryTableReadingsToPrompt(userPrompt);
         userPrompt = AddVisualSourcesToPrompt(userPrompt);
+        userPrompt = AddNativeObservationsToPrompt(userPrompt);
         using var sourcePrompt = JsonDocument.Parse(userPrompt);
         var hasSecondaryReadings = HasSecondaryTableReadings(sourcePrompt.RootElement);
         if (hasSecondaryReadings) systemPrompt += "\n" + SecondaryTableReadingContract;
+        var hasNativeReadings = HasNativeObservationRead(sourcePrompt.RootElement);
+        if (hasNativeReadings) systemPrompt += "\n" + NativeObservationContract;
         callProbe.Set("call_id", Guid.NewGuid().ToString("N"));
         callProbe.Set("job_id", jobId);
         callProbe.Set("role", role);
@@ -775,13 +778,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         }
         if (nativeResponses) ConvertNativePayloadToResponses(payload);
         var serializedPayload = JsonSerializer.Serialize(payload, JsonOptions);
-        if (hasSecondaryReadings || _options.VisualSourceCitationsEnabled)
+        if (hasSecondaryReadings || _options.VisualSourceCitationsEnabled || hasNativeReadings)
         {
             var documentaryCharacters = MeasureSecondaryDocumentaryWireCharacters(serializedPayload);
             callProbe.Set("documentary_wire_characters", documentaryCharacters);
             if (documentaryCharacters > Math.Clamp(_options.MaximumEvidencePromptCharacters, 8_000, 1_000_000))
             {
-                throw new AdvancedAnalysisProviderException(hasSecondaryReadings
+                throw new AdvancedAnalysisProviderException(hasNativeReadings
+                    ? "advanced_native_documentary_wire_budget_exceeded" : hasSecondaryReadings
                     ? "advanced_secondary_documentary_wire_budget_exceeded"
                     : "advanced_visual_documentary_wire_budget_exceeded");
             }

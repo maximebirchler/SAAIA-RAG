@@ -41,6 +41,8 @@ sealed class AdvancedAnalysisOptions
     public bool NativeResearchToolsEnabled { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public bool VisualSourceCitationsEnabled { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool NativeObservationReadEnabled { get; set; }
     public string NativeResearchApiProtocol { get; set; } = "chat-completions";
     public string NativeResearchTopology { get; set; } = "reviewed";
     public int NativeResearchMaximumHistoryCharacters { get; set; } = 16_384;

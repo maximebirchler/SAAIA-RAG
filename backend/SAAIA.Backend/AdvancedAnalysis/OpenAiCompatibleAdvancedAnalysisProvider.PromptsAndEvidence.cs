@@ -818,6 +818,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         public AdvancedAnalysisSourceQuality? SourceQuality { get; init; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public AdvancedAnalysisTableObservationLineSource? SourceObservation { get; init; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public AdvancedAnalysisNativeObservationLineSource? NativeObservation { get; init; }
         public IReadOnlyList<PromptEvidenceWindow> SupportingContentWindows { get; init; } = [];
         public int SupportingContentWindowsOmittedCount { get; init; }
     }
@@ -1179,8 +1181,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         // A joined source table shares this same serialized evidence budget.
         // Keep canonical fragment identities visible and reserve a bounded part
         // for its row view rather than duplicating two full textual surfaces.
-        if (evidence.Any(item => item.TableFragment is not null || item.SourceObservation is not null
-            || item.SourceOverview?.TableRegionObservations is not null))
+        if (evidence.Any(item => item.TableFragment is not null || item.SourceObservation is not null || item.NativeObservation is not null
+            || item.SourceOverview?.TableRegionObservations is not null || item.SourceOverview?.NativeObservations is not null))
             remaining = Math.Min(remaining, configuredMaximum / 2);
         remaining -= 2; // The serialized evidence array brackets consume the same budget.
         var promptEvidence = new List<PromptEvidenceItem>();
@@ -1209,7 +1211,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var contentOffset = 0;
             var maximumContentCharacters = maximumCharactersPerPromptEvidence;
             EvidenceReadWindow? requestedWindow = null;
-            if (item.SourceObservation is null && item.Reference.EvidenceId is { } windowId
+            if (item.SourceObservation is null && item.NativeObservation is null && item.Reference.EvidenceId is { } windowId
                 && evidenceReadWindows is not null
                 && evidenceReadWindows.TryGetValue(windowId, out var window))
             {
@@ -1218,7 +1220,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 maximumContentCharacters = window.Length;
                 content = content[contentOffset..];
             }
-            if (item.SourceObservation is null && content.Length > maximumContentCharacters)
+            if (item.SourceObservation is null && item.NativeObservation is null && content.Length > maximumContentCharacters)
                 content = content[..maximumContentCharacters];
             var evidenceId = item.Reference.EvidenceId;
             var retrievedFor = evidenceId is not null
@@ -1247,7 +1249,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 ResolveTargetColumnsForPrompt(
                     request.Handoff.Load,
                     retrievedFor),
-                item.SourceObservation is not null ? "table_region_observation_line"
+                item.NativeObservation is not null ? "native_audit_observation_line"
+                : item.SourceObservation is not null ? "table_region_observation_line"
                 : !string.IsNullOrWhiteSpace(item.Reference.ContentCardId)
                     ? "content_card"
                     : !string.IsNullOrWhiteSpace(item.Reference.ChunkId)
@@ -1260,21 +1263,23 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 content,
                 originalContentLength,
                 contentOffset > 0 || content.Length < originalContentLength,
-                item.SourceObservation is not null ? "secondary_observation" : contentSignal.ContentRole,
-                item.SourceObservation is not null ? null : contentSignal.NavigationReason,
+                item.NativeObservation is not null ? "secondary_native_audit"
+                    : item.SourceObservation is not null ? "secondary_observation" : contentSignal.ContentRole,
+                item.SourceObservation is not null || item.NativeObservation is not null ? null : contentSignal.NavigationReason,
                 item.Reference.PageStart,
                 item.Reference.PageEnd,
-                item.SourceOverview,
+                NativeOverviewMetadata(item.SourceOverview),
                 item.Reference)
             {
                 SourceTableFragment = item.TableFragment,
                 SourceQuality = item.SourceQuality?.Bound(),
                 SourceObservation = item.SourceObservation,
+                NativeObservation = item.NativeObservation,
                 TableReadWindow = item.TableReadWindow,
                 ContentOffset = contentOffset,
                 SourceStructure = item.SourceStructure is { } structure
                     ? BuildPromptEvidenceStructure(structure, item.Reference.PageStart, item.Reference.PageEnd) : null,
-                SupportingContentWindows = item.SourceObservation is null ? BuildSupportingEvidenceWindows(
+                SupportingContentWindows = item.SourceObservation is null && item.NativeObservation is null ? BuildSupportingEvidenceWindows(
                     canonicalContent, contentOffset, content.Length, requestedWindow) : [],
                 NextContentOffset = contentOffset + content.Length < originalContentLength
                     ? contentOffset + content.Length : null
@@ -1282,7 +1287,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var separatorCharacters = promptEvidence.Count == 0 ? 0 : 1;
             var serializedCharacters = JsonSerializer.Serialize(observation, JsonOptions).Length
                 + separatorCharacters;
-            if (item.SourceObservation is not null && serializedCharacters > remaining)
+            if (observation.SourceOverview?.NativeObservations is not null && serializedCharacters > remaining
+                && item.NativeObservation is null)
+                throw new AdvancedAnalysisProviderException("advanced_native_documentary_metadata_budget_exceeded");
+            if ((item.SourceObservation is not null || item.NativeObservation is not null) && serializedCharacters > remaining)
             {
                 // No part of an OCR line is admissible as a surrogate for the
                 // original line. Retain an explicit refusal and its offset.
