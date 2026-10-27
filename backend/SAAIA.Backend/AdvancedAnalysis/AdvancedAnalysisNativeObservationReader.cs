@@ -93,60 +93,102 @@ internal static class AdvancedAnalysisNativeObservationReader
         int maximumCharacters, CancellationToken ct, int maximumLineCharacters = 200_000,
         int maximumTotalLineCharacters = 2_000_000)
     {
-        ValidateRequest(request);
-        if (!HasRequest(request))
-            throw new AdvancedAnalysisToolException("native_observation_read_window_invalid");
-        if (!Guid.TryParse(request.DocId, out var document) || !Guid.TryParse(request.RevisionId, out var revision)
-            || !Guid.TryParse(observed.DocId, out var observedDocument) || observedDocument != document
-            || !Guid.TryParse(observed.RevisionId, out var observedRevision) || observedRevision != revision
-            || observed.SourceHash is not { Length: 64 } source || !source.All(char.IsAsciiHexDigit))
-            throw new AdvancedAnalysisToolException("native_observation_source_identity_invalid");
-        await using var connection = await dataSource.OpenConnectionAsync(ct);
-        await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct);
-        await connection.ExecuteAsync(new CommandDefinition("SET TRANSACTION READ ONLY", transaction: transaction, cancellationToken: ct));
-        var stored = await LoadAsync(connection, tenant, document, revision, source, new(), ct, transaction)
-            ?? throw new AdvancedAnalysisToolException("native_observation_source_unavailable");
-        if (!string.IsNullOrWhiteSpace(request.DocPath)
-            && !string.Equals(request.DocPath.Replace('\\', '/'), stored.DocPath.Replace('\\', '/'), StringComparison.OrdinalIgnoreCase))
-            throw new AdvancedAnalysisToolException("native_observation_source_identity_invalid");
-        AdvancedAnalysisNativeObservationInventory? inventory = null;
-        AdvancedAnalysisNativeObservationWindow? view = null;
-        if (request.NativeObservationView == "inventory")
-            inventory = AdvancedAnalysisNativeObservationWindows.Inventory(stored.Document, request.PageStart!.Value,
-                request.NativeObservationOffset ?? 0, request.NativeObservationLimit ?? 16, maximumCharacters, ct);
-        else
-            view = AdvancedAnalysisNativeObservationWindows.Raw(stored.Document, request.PageStart!.Value,
-                request.NativeObservationBlockId!, request.NativeObservationRawSha256!, request.NativeObservationOffset ?? 0,
-                request.NativeObservationLimit ?? 16, maximumCharacters, ct);
-        if (view is not null)
-            view = BoundToEvidenceLimits(view, maximumLineCharacters, maximumTotalLineCharacters);
-        var readings = new AdvancedAnalysisAlternativeNativeReadings(document.ToString("D"), revision.ToString("D"),
-            source, request.PageStart!.Value, inventory, view);
-        // Reserve the outer identity wrapper too; whole lines/descriptors are the
-        // only removable units. The provider separately measures its final wire.
-        while (System.Text.Json.JsonSerializer.Serialize(readings, new System.Text.Json.JsonSerializerOptions(
-                   System.Text.Json.JsonSerializerDefaults.Web)).Length > maximumCharacters)
+        using var detail = NativeReadDiagnostics.Start("native.reader");
+        try
         {
-            if (view is { Lines.Count: > 0 })
-                view = view with { Lines = view.Lines.Take(view.Lines.Count - 1).ToArray(),
-                    NextOffset = view.Offset + view.Lines.Count - 1,
-                    Status = view.Lines.Count == 1 ? "line_does_not_fit" : "partial_budget" };
-            else if (inventory is { Observations.Count: > 0 })
-                inventory = inventory with { Observations = inventory.Observations.Take(inventory.Observations.Count - 1).ToArray(),
-                    NextOffset = inventory.Offset + inventory.Observations.Count - 1,
-                    Reason = inventory.Observations.Count == 1 ? "descriptor_does_not_fit" : "partial_budget" };
-            else
-                throw new AdvancedAnalysisToolException("native_observation_budget_diagnostic_does_not_fit");
-            readings = readings with { Inventory = inventory, View = view };
+            ValidateRequest(request);
+            if (!HasRequest(request))
+                throw new AdvancedAnalysisToolException("native_observation_read_window_invalid");
+            if (!Guid.TryParse(request.DocId, out var document) || !Guid.TryParse(request.RevisionId, out var revision)
+                || !Guid.TryParse(observed.DocId, out var observedDocument) || observedDocument != document
+                || !Guid.TryParse(observed.RevisionId, out var observedRevision) || observedRevision != revision
+                || observed.SourceHash is not { Length: 64 } source || !source.All(char.IsAsciiHexDigit))
+                throw new AdvancedAnalysisToolException("native_observation_source_identity_invalid");
+            NpgsqlConnection connection;
+            using (var phase = detail?.Phase("connection_open"))
+            {
+                connection = await dataSource.OpenConnectionAsync(ct);
+                phase?.Complete();
+            }
+            await using var ownedConnection = connection;
+            using var beginPhase = detail?.Phase("transaction_begin_readonly");
+            await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct);
+            await connection.ExecuteAsync(new CommandDefinition("SET TRANSACTION READ ONLY", transaction: transaction, cancellationToken: ct));
+            beginPhase?.Complete();
+            beginPhase?.Dispose();
+            var stored = await LoadAsync(connection, tenant, document, revision, source, new(), ct, transaction)
+                ?? throw new AdvancedAnalysisToolException("native_observation_source_unavailable");
+            if (!string.IsNullOrWhiteSpace(request.DocPath)
+                && !string.Equals(request.DocPath.Replace('\\', '/'), stored.DocPath.Replace('\\', '/'), StringComparison.OrdinalIgnoreCase))
+                throw new AdvancedAnalysisToolException("native_observation_source_identity_invalid");
+            AdvancedAnalysisNativeObservationInventory? inventory = null;
+            AdvancedAnalysisNativeObservationWindow? view = null;
+            using (var phase = detail?.Phase("native_window"))
+            {
+                if (request.NativeObservationView == "inventory")
+                    inventory = AdvancedAnalysisNativeObservationWindows.Inventory(stored.Document, request.PageStart!.Value,
+                        request.NativeObservationOffset ?? 0, request.NativeObservationLimit ?? 16, maximumCharacters, ct);
+                else
+                    view = AdvancedAnalysisNativeObservationWindows.Raw(stored.Document, request.PageStart!.Value,
+                        request.NativeObservationBlockId!, request.NativeObservationRawSha256!, request.NativeObservationOffset ?? 0,
+                        request.NativeObservationLimit ?? 16, maximumCharacters, ct);
+                phase?.Complete();
+            }
+            using var boundPhase = detail?.Phase("window_bound_serialize");
+            if (view is not null)
+                view = BoundToEvidenceLimits(view, maximumLineCharacters, maximumTotalLineCharacters);
+            var readings = new AdvancedAnalysisAlternativeNativeReadings(document.ToString("D"), revision.ToString("D"),
+                source, request.PageStart!.Value, inventory, view);
+            // Reserve the outer identity wrapper too; whole lines/descriptors are the
+            // only removable units. The provider separately measures its final wire.
+            while (System.Text.Json.JsonSerializer.Serialize(readings, new System.Text.Json.JsonSerializerOptions(
+                       System.Text.Json.JsonSerializerDefaults.Web)).Length > maximumCharacters)
+            {
+                if (view is { Lines.Count: > 0 })
+                    view = view with
+                    {
+                        Lines = view.Lines.Take(view.Lines.Count - 1).ToArray(),
+                        NextOffset = view.Offset + view.Lines.Count - 1,
+                        Status = view.Lines.Count == 1 ? "line_does_not_fit" : "partial_budget"
+                    };
+                else if (inventory is { Observations.Count: > 0 })
+                    inventory = inventory with
+                    {
+                        Observations = inventory.Observations.Take(inventory.Observations.Count - 1).ToArray(),
+                        NextOffset = inventory.Offset + inventory.Observations.Count - 1,
+                        Reason = inventory.Observations.Count == 1 ? "descriptor_does_not_fit" : "partial_budget"
+                    };
+                else
+                    throw new AdvancedAnalysisToolException("native_observation_budget_diagnostic_does_not_fit");
+                readings = readings with { Inventory = inventory, View = view };
+            }
+            var references = (view?.Lines ?? []).Select(line => new AdvancedAnalysisEvidenceReference
+            {
+                DocId = document.ToString("D"),
+                RevisionId = revision.ToString("D"),
+                SourceHash = source,
+                DocPath = stored.DocPath,
+                FileName = stored.FileName,
+                PageStart = request.PageStart!.Value,
+                PageEnd = request.PageStart.Value,
+                NativeObservation = line.Source
+            }).ToArray();
+            detail?.Set("returned_reference_count", references.LongLength);
+            boundPhase?.Complete();
+            boundPhase?.Dispose();
+            using (var phase = detail?.Phase("transaction_commit"))
+            {
+                await transaction.CommitAsync(ct);
+                phase?.Complete();
+            }
+            detail?.Complete();
+            return new(readings, references);
         }
-        var references = (view?.Lines ?? []).Select(line => new AdvancedAnalysisEvidenceReference
+        catch (Exception error)
         {
-            DocId = document.ToString("D"), RevisionId = revision.ToString("D"), SourceHash = source,
-            DocPath = stored.DocPath, FileName = stored.FileName, PageStart = request.PageStart!.Value,
-            PageEnd = request.PageStart.Value, NativeObservation = line.Source
-        }).ToArray();
-        await transaction.CommitAsync(ct);
-        return new(readings, references);
+            detail?.Fail(error);
+            throw;
+        }
     }
 
     internal static AdvancedAnalysisNativeObservationWindow BoundToEvidenceLimits(
@@ -170,15 +212,26 @@ internal static class AdvancedAnalysisNativeObservationReader
     internal static async Task<StoredDocument?> LoadAsync(NpgsqlConnection connection, Guid tenant, Guid document,
         Guid revision, string source, Cache cache, CancellationToken ct, NpgsqlTransaction? transaction = null)
     {
-        if (tenant == Guid.Empty || document == Guid.Empty || revision == Guid.Empty
-            || source.Length != 64 || !source.All(char.IsAsciiHexDigit))
-            throw new AdvancedAnalysisToolException("native_observation_source_identity_invalid");
-        var key = (tenant, document, revision, source.ToLowerInvariant());
-        if (cache.Documents.TryGetValue(key, out var captured))
-            return captured;
-        if (cache.Documents.Count >= 64)
-            throw new AdvancedAnalysisToolException("native_observation_cache_budget_exceeded");
-        var row = await connection.QuerySingleOrDefaultAsync<ArtifactRow>(new CommandDefinition("""
+        using var detail = NativeReadDiagnostics.Start("native.bundle_load");
+        try
+        {
+            if (tenant == Guid.Empty || document == Guid.Empty || revision == Guid.Empty
+                || source.Length != 64 || !source.All(char.IsAsciiHexDigit))
+                throw new AdvancedAnalysisToolException("native_observation_source_identity_invalid");
+            var key = (tenant, document, revision, source.ToLowerInvariant());
+            if (cache.Documents.TryGetValue(key, out var captured))
+            {
+                detail?.CacheLookup(true);
+                detail?.Complete();
+                return captured;
+            }
+            detail?.CacheLookup(false);
+            if (cache.Documents.Count >= 64)
+                throw new AdvancedAnalysisToolException("native_observation_cache_budget_exceeded");
+            ArtifactRow? row;
+            using (var phase = detail?.Phase("sql_fetch_materialize"))
+            {
+                row = await connection.QuerySingleOrDefaultAsync<ArtifactRow>(new CommandDefinition("""
             SELECT d.doc_name AS "FileName",d.doc_path AS "DocPath",a.artifact_type AS "ArtifactType",
               a.schema_version AS "SchemaVersion",a.content_hash AS "ContentHash",a.byte_size AS "ByteSize",a.payload AS "Payload"
             FROM document_revision_binary_artifacts a
@@ -189,33 +242,48 @@ internal static class AdvancedAnalysisNativeObservationReader
               AND a.compression='gzip' AND a.byte_size BETWEEN 1 AND 134217728
               AND a.stored_size BETWEEN 1 AND 33554432 AND octet_length(a.payload)<=33554432;
             """, new { tenant, document, revision, source = Convert.FromHexString(source) }, transaction, cancellationToken: ct));
-        if (row is null)
-            return null;
-        if (row.ByteSize > 134_217_728 - cache.UncompressedBytes)
-            throw new AdvancedAnalysisToolException("native_observation_cache_budget_exceeded");
-        ct.ThrowIfCancellationRequested();
-        CanonicalIngestionBundle bundle;
-        try
-        {
-            // The artifact reader checks gzip size, SHA and the full canonical
-            // bundle once. Never expose validator messages containing raw text.
-            bundle = CanonicalArtifactRepo.ReadBundleArtifact(new(row.ArtifactType, row.SchemaVersion,
-                row.ContentHash, row.ByteSize, row.Payload), 134_217_728);
+                phase?.Set("row_count", row is null ? 0 : 1);
+                phase?.Set("payload_bytes_materialized", row?.Payload.LongLength);
+                phase?.Set("declared_uncompressed_bytes", row?.ByteSize);
+                phase?.Complete();
+            }
+            if (row is null)
+            {
+                detail?.Complete();
+                return null;
+            }
+            if (row.ByteSize > 134_217_728 - cache.UncompressedBytes)
+                throw new AdvancedAnalysisToolException("native_observation_cache_budget_exceeded");
+            ct.ThrowIfCancellationRequested();
+            CanonicalIngestionBundle bundle;
+            try
+            {
+                // The artifact reader checks gzip size, SHA and the full canonical
+                // bundle once. Never expose validator messages containing raw text.
+                bundle = CanonicalArtifactRepo.ReadBundleArtifact(new(row.ArtifactType, row.SchemaVersion,
+                    row.ContentHash, row.ByteSize, row.Payload), 134_217_728);
+            }
+            catch (Exception exception) when (exception is InvalidDataException or System.Text.Json.JsonException
+                or CanonicalContractException or ArgumentException)
+            {
+                throw new AdvancedAnalysisToolException("native_observation_bundle_integrity_invalid");
+            }
+            var canonical = bundle.Document;
+            if (canonical.DocumentId != document || canonical.RevisionId != revision
+                || !string.Equals(canonical.Source.Sha256, source, StringComparison.OrdinalIgnoreCase))
+                throw new AdvancedAnalysisToolException("native_observation_source_identity_invalid");
+            ct.ThrowIfCancellationRequested();
+            captured = new(canonical, row.FileName, row.DocPath);
+            cache.Documents.Add(key, captured);
+            cache.UncompressedBytes += row.ByteSize;
+            detail?.Complete();
+            return captured;
         }
-        catch (Exception exception) when (exception is InvalidDataException or System.Text.Json.JsonException
-            or CanonicalContractException or ArgumentException)
+        catch (Exception error)
         {
-            throw new AdvancedAnalysisToolException("native_observation_bundle_integrity_invalid");
+            detail?.Fail(error);
+            throw;
         }
-        var canonical = bundle.Document;
-        if (canonical.DocumentId != document || canonical.RevisionId != revision
-            || !string.Equals(canonical.Source.Sha256, source, StringComparison.OrdinalIgnoreCase))
-            throw new AdvancedAnalysisToolException("native_observation_source_identity_invalid");
-        ct.ThrowIfCancellationRequested();
-        captured = new(canonical, row.FileName, row.DocPath);
-        cache.Documents.Add(key, captured);
-        cache.UncompressedBytes += row.ByteSize;
-        return captured;
     }
 
     private sealed record ArtifactRow(string FileName, string DocPath, string ArtifactType, string SchemaVersion,

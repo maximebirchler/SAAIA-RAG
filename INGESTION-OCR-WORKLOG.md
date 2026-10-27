@@ -1325,3 +1325,69 @@ empreintes PDF réellement parsées. Ce résultat local ne remplace pas un rejeu
 sur le PDF réel. La page 40 doit conserver ses 64 règles, ses 56 refus de
 clipping et sa géométrie partielle ; la fidélité et la visibilité effective
 ne sont toujours pas approuvées. Aucun appel payant n'est exécuté.
+
+## Couverture exhaustive du lecteur21 sur les données20
+
+Les 34 tranches de lecture réelle ont réussi. L'agrégat couvre dix documents,
+104 états de page, 736 blocs et 2 750 lignes du canal des observations natives,
+sans tranche manquante, échouée ou inconnue. Les 211 fichiers exportés sont
+recontrôlés par empreinte ; le recalcul sur le PC donne les mêmes octets
+d'agrégat que sur le serveur. La contre-revue vérifie aussi les 34 commandes,
+les digests avant/après et entre tranches, les contrôles de périmètre ainsi
+que l'arrêt du lecteur et des cinq services possédés à chaque tranche.
+
+Le budget de diagnostic est 200 000/24 000/256 000 caractères. Ce résultat
+ne qualifie pas le plafond produit de 14 000, ni la fidélité OCR, ni une
+atomicité globale entre les tranches ; il ne recertifie pas l'ingestion20.
+Les lignes entières sont vérifiées par le programme figé, avec empreintes
+et comptes conservés ; le texte brut n'est pas recopié dans cet export.
+Aucun fournisseur, modèle, OCR ou PDF n'est exécuté par ces lectures SQL.
+
+## Sondes de lecture24 et correction du périphérique diagnostique25
+
+Les nouvelles sondes distinguent connexion/pool, transaction, accès SQL avec
+matérialisation, décompression avec copies, empreinte, UTF8, JSON et validation
+du bundle, puis les fenêtres et enrichissements. Elles sont activées par
+un contexte Activity booléen explicite ; absentes ou OFF, elles n'émettent
+aucun détail supplémentaire. Elles réutilisent BackendDiagnostics, avec
+filiation des spans, phases fermées et sorties inconnues null. Aucune donnée
+documentaire, requête ou exception.Message n'est ajoutée aux mesures ; aucune
+dimension métrique ne contient d'identifiant de document. Un collecteur qui
+échoue ne remplace pas le résultat métier. Aucun cache ou budget n'est changé.
+
+Le helper commun est placé dans Observability pour éviter une dépendance du
+stockage d'artefacts vers la couche AdvancedAnalysis. Le RED causal compte
+six échecs et trois témoins ; le ciblé initial étendu passe 620 tests. Après
+le déplacement sans changement de logique, 56 contrôles passent, dont les
+14 nouveaux, sans avertissement. Les requêtes littérales restent identiques.
+Ces tests n'exécutent pas SQL ; l'attribution des coûts du runtime reste à
+mesurer. Durées parents et enfants sont inclusives et ne doivent pas être
+additionnées. Les octets matérialisés ne sont pas des octets réseau/disque.
+
+La qualification Linux22 a révélé deux échecs distincts, tous deux conservés.
+Le premier refuse le bridge avant préparation : une copie CRLF ne correspond
+pas à son empreinte LF. Le paquet v3 restaure les octets exacts et vérifie les
+huit pins transitifs avant toute copie. Préparation et signature PC réussissent.
+La clé privée reste sur le PC ; seule la signature est transférée.
+
+Le runtime22 démarre réellement le 2026-10-27T08:38:10Z et s'arrête à 08:39:30Z.
+Le document native-columns-and-table-v1.pdf échoue à sa première tentative :
+le nouveau stage diagnostique référence cpu, alors que le vrai profiler
+déclare cpu:0. Le runner conserve son verdict négatif et constate zéro job
+actif après nettoyage. Les cinq conteneurs sont réobservés arrêtés, sans OOM.
+Les captures navigation/géométrie ne sont pas produites et ne sont pas validées.
+Les 54 fichiers de preuve exportés sont vérifiés ; cette cohorte n'est pas
+réessayée dans son dossier.
+
+Le correctif25 change uniquement DeviceId en cpu:0, déjà déclaré. Le RED
+utilise les vraies StageManifestFactory, BundleFactory et Capture du profiler :
+deux échecs observed/refused reproduisent broken_reference, deux contrôles
+restent verts. Le GREEN élargi passe 31 tests, zéro skip et avertissement.
+Le validateur et l'inventaire matériel restent inchangés.
+
+La suite backend intégrée23/24/25 passe 3 423 tests, deux ignorés, zéro échec,
+avec 2 058 fichiers sources stables du 2026-10-27T08:56:23Z à 08:58:11Z.
+Les gels sont contre-relus. La nouvelle archive Linux contient 574 fichiers
+et exactement sept modifications de production depuis22 ; les 34 sources
+du sidecar restent identiques. Sa construction et la nouvelle ingestion
+restent des étapes distinctes. Le produit demeure TESTE_NON_APPROUVE.

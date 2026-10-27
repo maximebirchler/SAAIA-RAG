@@ -205,7 +205,7 @@ internal sealed class DoclingInputGeometryCapture(int attempt, DoclingInputGeome
         Engine = "saaia-json-token-observer",
         EngineVersion = "1",
         OptionsSha256 = CanonicalContractJson.ComputeSha256(Data.Limits),
-        DeviceId = "cpu",
+        DeviceId = "cpu:0",
         DurationMs = (long)Budget.Milliseconds,
         Attributes = new(StringComparer.Ordinal)
         {

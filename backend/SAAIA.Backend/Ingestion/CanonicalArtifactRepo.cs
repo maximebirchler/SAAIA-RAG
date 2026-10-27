@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Dapper;
 using Npgsql;
+using SAAIA.Backend;
 using SAAIA.Contracts.DocumentIntelligence;
 
 internal sealed record CanonicalCompressedArtifact(
@@ -35,19 +36,59 @@ internal static class CanonicalArtifactRepo
         long maxUncompressedBytes = 512L * 1024 * 1024)
     {
         ArgumentNullException.ThrowIfNull(artifact);
-        if (!string.Equals(artifact.ArtifactType, BundleArtifactType, StringComparison.Ordinal))
-            throw new InvalidDataException($"Unexpected canonical artifact type '{artifact.ArtifactType}'.");
+        using var detail = NativeReadDiagnostics.Start("canonical.bundle_decode");
+        try
+        {
+            if (!string.Equals(artifact.ArtifactType, BundleArtifactType, StringComparison.Ordinal))
+                throw new InvalidDataException($"Unexpected canonical artifact type '{artifact.ArtifactType}'.");
 
-        var bytes = Decompress(artifact.Payload, maxUncompressedBytes);
-        if (bytes.LongLength != artifact.ByteSize)
-            throw new InvalidDataException("Canonical artifact byte size does not match.");
-        if (!CryptographicOperations.FixedTimeEquals(SHA256.HashData(bytes), artifact.ContentHash))
-            throw new InvalidDataException("Canonical artifact content hash does not match.");
+            byte[] bytes;
+            using (var phase = detail?.Phase("gzip_inflate_copy"))
+            {
+                phase?.Set("payload_bytes_materialized", artifact.Payload.LongLength);
+                phase?.Set("declared_uncompressed_bytes", artifact.ByteSize);
+                bytes = Decompress(artifact.Payload, maxUncompressedBytes);
+                phase?.Set("inflated_bytes_produced", bytes.LongLength);
+                phase?.Complete();
+            }
+            using (var phase = detail?.Phase("hash_validate"))
+            {
+                if (bytes.LongLength != artifact.ByteSize)
+                    throw new InvalidDataException("Canonical artifact byte size does not match.");
+                var hash = SHA256.HashData(bytes);
+                phase?.Set("sha256_bytes_processed", bytes.LongLength);
+                if (!CryptographicOperations.FixedTimeEquals(hash, artifact.ContentHash))
+                    throw new InvalidDataException("Canonical artifact content hash does not match.");
+                phase?.Complete();
+            }
 
-        var bundle = CanonicalContractJson.Deserialize<CanonicalIngestionBundle>(
-            Encoding.UTF8.GetString(bytes));
-        CanonicalIngestionBundleValidator.ValidateOrThrow(bundle);
-        return bundle;
+            string json;
+            using (var phase = detail?.Phase("utf8_decode"))
+            {
+                phase?.Set("utf8_input_bytes", bytes.LongLength);
+                json = Encoding.UTF8.GetString(bytes);
+                phase?.Set("decoded_utf16_characters", json.Length);
+                phase?.Complete();
+            }
+            CanonicalIngestionBundle bundle;
+            using (var phase = detail?.Phase("json_deserialize"))
+            {
+                bundle = CanonicalContractJson.Deserialize<CanonicalIngestionBundle>(json);
+                phase?.Complete();
+            }
+            using (var phase = detail?.Phase("bundle_validate"))
+            {
+                CanonicalIngestionBundleValidator.ValidateOrThrow(bundle);
+                phase?.Complete();
+            }
+            detail?.Complete();
+            return bundle;
+        }
+        catch (Exception error)
+        {
+            detail?.Fail(error);
+            throw;
+        }
     }
 
     public static async Task UpsertBundleAsync(

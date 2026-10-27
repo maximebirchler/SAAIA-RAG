@@ -27,162 +27,198 @@ internal sealed partial class AdvancedAnalysisEvidenceResolver
         IReadOnlyList<AdvancedAnalysisEvidenceReference> references,
         CancellationToken cancellationToken)
     {
-        var maximumPerItem = Math.Clamp(
-            _options.MaximumEvidenceCharactersPerItem,
-            1_000,
-            200_000);
-        var maximumTotal = Math.Clamp(
-            _options.MaximumEvidenceCharactersTotal,
-            maximumPerItem,
-            2_000_000);
-        var resolved = new List<AdvancedAnalysisResolvedEvidence>(references.Count);
-        var evidenceIds = new HashSet<string>(StringComparer.Ordinal);
-        var totalCharacters = 0;
-        var tableObservationCache = new Dictionary<string, CanonicalTableRegionObservation>(StringComparer.Ordinal);
-        var nativeObservationCache = new AdvancedAnalysisNativeObservationReader.Cache();
-
-        await using var connection = await _dataSource
-            .OpenConnectionAsync(cancellationToken)
-            .ConfigureAwait(false);
-        foreach (var reference in references)
+        using var detail = references.Any(reference => reference.NativeObservation is not null)
+            ? NativeReadDiagnostics.Start("native.resolver") : null;
+        detail?.Set("native_reference_count", references.LongCount(reference => reference.NativeObservation is not null));
+        detail?.Set("reference_count", references.Count);
+        try
         {
-            if (reference.NativeObservation is not null && !_options.NativeObservationReadEnabled)
-                return AdvancedAnalysisEvidenceResolution.Invalid("native_observation_read_disabled");
-            var row = reference.NativeObservation is not null
-                ? await ResolveNativeAsync(connection, tenantId, reference, nativeObservationCache, cancellationToken)
-                : await ResolveOneAsync(
-                connection,
-                tenantId,
-                reference,
-                tableObservationCache,
-                cancellationToken).ConfigureAwait(false);
-            if (row is null || !MatchesExpectedIdentity(reference, row))
-            {
-                return AdvancedAnalysisEvidenceResolution.Invalid(
-                    "evidence_revalidation_failed");
-            }
+            var maximumPerItem = Math.Clamp(
+                _options.MaximumEvidenceCharactersPerItem,
+                1_000,
+                200_000);
+            var maximumTotal = Math.Clamp(
+                _options.MaximumEvidenceCharactersTotal,
+                maximumPerItem,
+                2_000_000);
+            var resolved = new List<AdvancedAnalysisResolvedEvidence>(references.Count);
+            var evidenceIds = new HashSet<string>(StringComparer.Ordinal);
+            var totalCharacters = 0;
+            var tableObservationCache = new Dictionary<string, CanonicalTableRegionObservation>(StringComparer.Ordinal);
+            var nativeObservationCache = new AdvancedAnalysisNativeObservationReader.Cache();
 
-            var content = string.IsNullOrWhiteSpace(row.ContentCardId)
-                ? row.Content
-                : row.CardCanonicalContent
-                    ?? BuildGroundedContentCardText(row.ExactTitle, row.EvidenceJson);
-            if ((string.IsNullOrWhiteSpace(content) && row.SourceObservation is null && row.NativeObservation is null)
-                || content.Length > maximumPerItem)
+            NpgsqlConnection connection;
+            using (var phase = detail?.Phase("connection_open"))
             {
-                return AdvancedAnalysisEvidenceResolution.Invalid(
-                    "evidence_content_limit_exceeded");
+                connection = await _dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+                phase?.Complete();
             }
-
-            totalCharacters += content.Length;
-            if (totalCharacters > maximumTotal)
+            await using var ownedConnection = connection;
+            using var referencePhase = detail?.Phase("reference_loop");
+            foreach (var reference in references)
             {
-                return AdvancedAnalysisEvidenceResolution.Invalid(
-                    "evidence_total_limit_exceeded");
-            }
-
-            var evidenceId = string.IsNullOrWhiteSpace(reference.EvidenceId)
-                ? BuildEvidenceId(row)
-                : reference.EvidenceId.Trim();
-            if (evidenceId.Length > 200 || !evidenceIds.Add(evidenceId))
-            {
-                return AdvancedAnalysisEvidenceResolution.Invalid(
-                    "evidence_identity_duplicate");
-            }
-
-            var physicalContext = row.ContainsUnassignedPhysicalContext
-                || string.Equals(row.ChunkType, RetrievalChunkProjector.PhysicalPageContextChunkType, StringComparison.Ordinal);
-            resolved.Add(new AdvancedAnalysisResolvedEvidence(
-                new AdvancedAnalysisResultEvidence
+                if (reference.NativeObservation is not null && !_options.NativeObservationReadEnabled)
+                    return AdvancedAnalysisEvidenceResolution.Invalid("native_observation_read_disabled");
+                var row = reference.NativeObservation is not null
+                    ? await ResolveNativeAsync(connection, tenantId, reference, nativeObservationCache, cancellationToken)
+                    : await ResolveOneAsync(
+                    connection,
+                    tenantId,
+                    reference,
+                    tableObservationCache,
+                    cancellationToken).ConfigureAwait(false);
+                if (row is null || !MatchesExpectedIdentity(reference, row))
                 {
-                    EvidenceId = evidenceId,
-                    DocId = row.DocId.ToString("D"),
-                    RevisionId = row.RevisionId.ToString("D"),
-                    FileName = row.FileName,
-                    DocPath = row.DocPath,
-                    SourceHash = row.SourceHash,
-                    PageStart = row.PageStart,
-                    PageEnd = row.PageEnd,
-                    ChunkId = NullIfBlank(row.ChunkId),
-                    AnchorId = NullIfBlank(row.AnchorId),
-                    ContentCardId = NullIfBlank(row.ContentCardId),
-                    NativeObservation = row.NativeObservation?.Reference,
-                    SourceObservation = row.SourceObservation is { } secondary ? new()
-                    {
-                        ObservationId = secondary.ObservationId, TableId = secondary.TableId, LineId = secondary.LineId,
-                        RawOrdinal = secondary.RawOrdinal, TextSha256 = secondary.TextSha256,
-                        RawObservationSha256 = secondary.RawObservationSha256, QualitySignals = secondary.QualitySignals
-                    } : null
-                },
-                content,
-                physicalContext ? null : NullIfBlank(row.ExactTitle),
-                SourceStructure: row.SectionTitle is not null || row.HeadingPath is not null
-                    || row.PreviousChunkId is not null || row.NextChunkId is not null
-                    || row.ChunkType is not null || row.ChunkComposition is not null || physicalContext
-                    ? new AdvancedAnalysisEvidenceStructure(physicalContext ? null : row.SectionTitle,
-                        physicalContext ? null : row.HeadingPath, row.PreviousChunkId, row.NextChunkId)
-                    {
-                        ChunkType = row.ChunkType, ChunkComposition = row.ChunkComposition,
-                        ContainsUnassignedPhysicalContext = row.ContainsUnassignedPhysicalContext
-                    } : null,
-                TableFragment: !string.IsNullOrWhiteSpace(row.ChunkId) && row.PageStart==row.PageEnd
-                    && (row.ChunkType==DoclingCanonicalRetrievalProjector.TableChunkType
-                        || row.ChunkComposition=="canonical_table_grid_html_v1")
-                    ? AdvancedAnalysisTableFragment.Parse(content,row.TableCellIdsJson,row.QualitySignalsJson,row.TableCellMapJson) : null)
-            {
-                SourceQuality = row.SourceQuality ?? AdvancedAnalysisSourceQuality.FromMetadata(
-                    row.ExtractionTextStatus, row.ExtractionOcrCandidate, row.QualitySignalsJson),
-                SourceObservation = row.SourceObservation,
-                NativeObservation = row.NativeObservation
-            });
-        }
+                    return AdvancedAnalysisEvidenceResolution.Invalid(
+                        "evidence_revalidation_failed");
+                }
 
-        if (resolved.Count > 0)
-        {
-            var ranges = (await connection.QueryAsync<SourceOverviewRow>(new CommandDefinition("""
+                var content = string.IsNullOrWhiteSpace(row.ContentCardId)
+                    ? row.Content
+                    : row.CardCanonicalContent
+                        ?? BuildGroundedContentCardText(row.ExactTitle, row.EvidenceJson);
+                if ((string.IsNullOrWhiteSpace(content) && row.SourceObservation is null && row.NativeObservation is null)
+                    || content.Length > maximumPerItem)
+                {
+                    return AdvancedAnalysisEvidenceResolution.Invalid(
+                        "evidence_content_limit_exceeded");
+                }
+
+                totalCharacters += content.Length;
+                if (totalCharacters > maximumTotal)
+                {
+                    return AdvancedAnalysisEvidenceResolution.Invalid(
+                        "evidence_total_limit_exceeded");
+                }
+
+                var evidenceId = string.IsNullOrWhiteSpace(reference.EvidenceId)
+                    ? BuildEvidenceId(row)
+                    : reference.EvidenceId.Trim();
+                if (evidenceId.Length > 200 || !evidenceIds.Add(evidenceId))
+                {
+                    return AdvancedAnalysisEvidenceResolution.Invalid(
+                        "evidence_identity_duplicate");
+                }
+
+                var physicalContext = row.ContainsUnassignedPhysicalContext
+                    || string.Equals(row.ChunkType, RetrievalChunkProjector.PhysicalPageContextChunkType, StringComparison.Ordinal);
+                resolved.Add(new AdvancedAnalysisResolvedEvidence(
+                    new AdvancedAnalysisResultEvidence
+                    {
+                        EvidenceId = evidenceId,
+                        DocId = row.DocId.ToString("D"),
+                        RevisionId = row.RevisionId.ToString("D"),
+                        FileName = row.FileName,
+                        DocPath = row.DocPath,
+                        SourceHash = row.SourceHash,
+                        PageStart = row.PageStart,
+                        PageEnd = row.PageEnd,
+                        ChunkId = NullIfBlank(row.ChunkId),
+                        AnchorId = NullIfBlank(row.AnchorId),
+                        ContentCardId = NullIfBlank(row.ContentCardId),
+                        NativeObservation = row.NativeObservation?.Reference,
+                        SourceObservation = row.SourceObservation is { } secondary ? new()
+                        {
+                            ObservationId = secondary.ObservationId,
+                            TableId = secondary.TableId,
+                            LineId = secondary.LineId,
+                            RawOrdinal = secondary.RawOrdinal,
+                            TextSha256 = secondary.TextSha256,
+                            RawObservationSha256 = secondary.RawObservationSha256,
+                            QualitySignals = secondary.QualitySignals
+                        } : null
+                    },
+                    content,
+                    physicalContext ? null : NullIfBlank(row.ExactTitle),
+                    SourceStructure: row.SectionTitle is not null || row.HeadingPath is not null
+                        || row.PreviousChunkId is not null || row.NextChunkId is not null
+                        || row.ChunkType is not null || row.ChunkComposition is not null || physicalContext
+                        ? new AdvancedAnalysisEvidenceStructure(physicalContext ? null : row.SectionTitle,
+                            physicalContext ? null : row.HeadingPath, row.PreviousChunkId, row.NextChunkId)
+                        {
+                            ChunkType = row.ChunkType,
+                            ChunkComposition = row.ChunkComposition,
+                            ContainsUnassignedPhysicalContext = row.ContainsUnassignedPhysicalContext
+                        } : null,
+                    TableFragment: !string.IsNullOrWhiteSpace(row.ChunkId) && row.PageStart == row.PageEnd
+                        && (row.ChunkType == DoclingCanonicalRetrievalProjector.TableChunkType
+                            || row.ChunkComposition == "canonical_table_grid_html_v1")
+                        ? AdvancedAnalysisTableFragment.Parse(content, row.TableCellIdsJson, row.QualitySignalsJson, row.TableCellMapJson) : null)
+                {
+                    SourceQuality = row.SourceQuality ?? AdvancedAnalysisSourceQuality.FromMetadata(
+                        row.ExtractionTextStatus, row.ExtractionOcrCandidate, row.QualitySignalsJson),
+                    SourceObservation = row.SourceObservation,
+                    NativeObservation = row.NativeObservation
+                });
+            }
+
+            referencePhase?.Complete();
+            referencePhase?.Dispose();
+            if (resolved.Count > 0)
+            {
+                using var overviewPhase = detail?.Phase("overview_sql");
+                var ranges = (await connection.QueryAsync<SourceOverviewRow>(new CommandDefinition("""
                 SELECT revision_id AS "RevisionId", MIN(page_start) AS "FirstIndexedPhysicalPage",
                     MAX(page_end) AS "LastIndexedPhysicalPage", COUNT(*)::int AS "CanonicalChunkCount"
                 FROM retrieval_chunks
                 WHERE tenant_id=@tenant AND revision_id=ANY(@revisions)
                   AND page_start>0 AND page_end>=page_start
                 GROUP BY revision_id;
-                """, new { tenant=tenantId, revisions=resolved.Select(item=>Guid.Parse(item.Reference.RevisionId)).Distinct().ToArray() },
-                cancellationToken:cancellationToken))).ToDictionary(static row=>row.RevisionId);
-            resolved = resolved.Select(item => ranges.TryGetValue(Guid.Parse(item.Reference.RevisionId), out var range)
-                ? item with { SourceOverview=new AdvancedAnalysisSourceOverview(range.FirstIndexedPhysicalPage,range.LastIndexedPhysicalPage,range.CanonicalChunkCount) }
-                : item).ToList();
+                """, new { tenant = tenantId, revisions = resolved.Select(item => Guid.Parse(item.Reference.RevisionId)).Distinct().ToArray() },
+                    cancellationToken: cancellationToken))).ToDictionary(static row => row.RevisionId);
+                resolved = resolved.Select(item => ranges.TryGetValue(Guid.Parse(item.Reference.RevisionId), out var range)
+                    ? item with { SourceOverview = new AdvancedAnalysisSourceOverview(range.FirstIndexedPhysicalPage, range.LastIndexedPhysicalPage, range.CanonicalChunkCount) }
+                    : item).ToList();
+                overviewPhase?.Complete();
+                overviewPhase?.Dispose();
 
-            var visualScopes = new Dictionary<(Guid Document, Guid Revision, int First, int Last), CanonicalVisualAssetInventory>();
-            var tableScopes = new Dictionary<(Guid Document, Guid Revision, string Source), CanonicalTableObservationInventory?>();
-            for (var index = 0; index < resolved.Count; index++)
-            {
-                var item = resolved[index];
-                var key = (Guid.Parse(item.Reference.DocId), Guid.Parse(item.Reference.RevisionId),
-                    item.Reference.PageStart, item.Reference.PageEnd);
-                if (!visualScopes.TryGetValue(key, out var inventory))
+                var visualScopes = new Dictionary<(Guid Document, Guid Revision, int First, int Last), CanonicalVisualAssetInventory>();
+                var tableScopes = new Dictionary<(Guid Document, Guid Revision, string Source), CanonicalTableObservationInventory?>();
+                for (var index = 0; index < resolved.Count; index++)
                 {
-                    inventory = await CanonicalVisualAssetRepo.ListAsync(connection, tenantId, key.Item1,
-                        key.Item2, key.PageStart, key.PageEnd, cancellationToken);
-                    visualScopes.Add(key, inventory);
+                    var item = resolved[index];
+                    var key = (Guid.Parse(item.Reference.DocId), Guid.Parse(item.Reference.RevisionId),
+                        item.Reference.PageStart, item.Reference.PageEnd);
+                    if (!visualScopes.TryGetValue(key, out var inventory))
+                    {
+                        using var phase = detail?.Phase("visual_inventory");
+                        inventory = await CanonicalVisualAssetRepo.ListAsync(connection, tenantId, key.Item1,
+                            key.Item2, key.PageStart, key.PageEnd, cancellationToken);
+                        visualScopes.Add(key, inventory);
+                        phase?.Complete();
+                    }
+                    var overview = item.SourceOverview ?? new(item.Reference.PageStart, item.Reference.PageEnd,
+                        item.SourceObservation is null && item.NativeObservation is null ? 1 : 0);
+                    var tableKey = (key.Item1, key.Item2, item.Reference.SourceHash);
+                    if (!tableScopes.TryGetValue(tableKey, out var tables))
+                    {
+                        using var phase = detail?.Phase("table_inventory");
+                        tables = await CanonicalTableObservationRepo.ListAsync(connection, tenantId, key.Item1,
+                            key.Item2, item.Reference.SourceHash, null, null, cancellationToken);
+                        tableScopes.Add(tableKey, tables);
+                        phase?.Complete();
+                    }
+                    resolved[index] = item with
+                    {
+                        SourceOverview = overview with
+                        {
+                            VisualAssets = new(inventory.Status, inventory.AvailableAssetCount,
+                            inventory.Assets.Select(asset => asset.PageNumber).Distinct().ToArray(), inventory.AssetsOmitted,
+                            inventory.InterpretationStatus, inventory.ImageToolAvailable),
+                            TableRegionObservations = tables
+                        }
+                    };
                 }
-                var overview = item.SourceOverview ?? new(item.Reference.PageStart, item.Reference.PageEnd,
-                    item.SourceObservation is null && item.NativeObservation is null ? 1 : 0);
-                var tableKey = (key.Item1, key.Item2, item.Reference.SourceHash);
-                if (!tableScopes.TryGetValue(tableKey, out var tables))
-                {
-                    tables = await CanonicalTableObservationRepo.ListAsync(connection, tenantId, key.Item1,
-                        key.Item2, item.Reference.SourceHash, null, null, cancellationToken);
-                    tableScopes.Add(tableKey, tables);
-                }
-                resolved[index] = item with { SourceOverview = overview with
-                {
-                    VisualAssets = new(inventory.Status, inventory.AvailableAssetCount,
-                        inventory.Assets.Select(asset => asset.PageNumber).Distinct().ToArray(), inventory.AssetsOmitted,
-                        inventory.InterpretationStatus, inventory.ImageToolAvailable),
-                    TableRegionObservations = tables
-                }};
             }
+            detail?.Set("returned_reference_count", resolved.Count);
+            detail?.Complete();
+            return AdvancedAnalysisEvidenceResolution.Valid(resolved);
         }
-        return AdvancedAnalysisEvidenceResolution.Valid(resolved);
+        catch (Exception error)
+        {
+            detail?.Fail(error);
+            throw;
+        }
     }
 
     private sealed record SourceOverviewRow(Guid RevisionId,int FirstIndexedPhysicalPage,int LastIndexedPhysicalPage,int CanonicalChunkCount);
