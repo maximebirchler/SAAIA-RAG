@@ -19,19 +19,28 @@ internal static class IngestionExtractionStage
             var usesDocling = DocumentExtractionPolicy.ResolveUseDocling(options);
             PdfExtractionResult? native = null;
             long nativeMilliseconds = 0;
-            if (usesDocling && (options.NativeTextCoverageReconciliationEnabled || options.NativePdfImageInventoryEnabled || options.RegionalTableAlternativeReadingsEnabled))
+            var nativeAuditForExistingPolicy = DocumentExtractionPolicy.RequiresExistingNativeAudit(options);
+            if (usesDocling && (nativeAuditForExistingPolicy || options.NativeTypographyObservationsEnabled))
             {
                 var started = Stopwatch.GetTimestamp();
                 using var nativeProbe = BackendDiagnostics.Start("ingestion.native_text_audit", logger);
                 try
                 {
-                    native = PdfExtractor.Extract(absolutePath, cancellationToken, options.RegionalTableAlternativeReadingsEnabled);
+                    native = PdfExtractor.Extract(absolutePath, cancellationToken, options.RegionalTableAlternativeReadingsEnabled, options.NativeTypographyObservationsEnabled);
                     nativeProbe.Set("pages", native.Pages.Count);
                     nativeProbe.Set("tokens", native.Tokens.Count);
                     nativeProbe.Set("vector_pages_observed", native.Pages.Count(p=>p.NativeVectorObservation?.Availability=="observed"));
                     nativeProbe.Set("vector_pages_partial", native.Pages.Count(p=>p.NativeVectorObservation?.Availability=="partial"));
                     nativeProbe.Set("vector_pages_refused", native.Pages.Count(p=>p.NativeVectorObservation?.Availability=="refused"));
                     nativeProbe.Set("vector_pages_unavailable", native.Pages.Count(p=>p.NativeVectorObservation?.Availability=="unavailable"));
+                    if (options.NativeTypographyObservationsEnabled)
+                    {
+                        nativeProbe.Set("typography_pages_observed", native.Pages.Count(p=>p.NativeTypographyObservation?.Observation.RunAvailability=="observed"));
+                        nativeProbe.Set("typography_pages_refused", native.Pages.Count(p=>p.NativeTypographyObservation?.Observation.RunAvailability=="refused"));
+                        nativeProbe.Set("typography_pages_unavailable", native.Pages.Count(p=>p.NativeTypographyObservation?.Observation.RunAvailability=="unavailable"));
+                        nativeProbe.Set("typography_inspected_glyphs", native.Pages.Sum(p=>p.NativeTypographyObservation?.InspectedGlyphCount??0));
+                        nativeProbe.Set("typography_observer_ms", native.Pages.Sum(p=>(p.NativeTypographyObservation?.ObserverTicks??0)*1000d/Stopwatch.Frequency));
+                    }
                     nativeProbe.Complete();
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { nativeProbe.Complete("cancelled"); throw; }
@@ -42,7 +51,7 @@ internal static class IngestionExtractionStage
                 }
                 finally { nativeMilliseconds = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds; }
             }
-            var forceOcr = usesDocling && DocumentExtractionPolicy.ResolveDoclingForceOcr(options, native);
+            var forceOcr = usesDocling && DocumentExtractionPolicy.ResolveDoclingForceOcr(options, nativeAuditForExistingPolicy ? native : null);
             DoclingConvertResponse? conversion = null;
             PdfExtractionResult extraction;
             if (usesDocling)

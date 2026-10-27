@@ -15,7 +15,8 @@ sealed record ExtractedPdfPage(
     IReadOnlyList<ExtractedPdfImageRegion>? NativeImageRegions = null,
     IReadOnlyList<PdfOcrPageObservation>? OcrObservations = null,
     PdfNativeWordObservation? NativeWordObservation = null,
-    PdfNativeVectorObservation? NativeVectorObservation = null);
+    PdfNativeVectorObservation? NativeVectorObservation = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] PdfNativeTypographyObservation? NativeTypographyObservation = null);
 
 sealed record PdfPageExtractionQuality(
     string TextStatus,

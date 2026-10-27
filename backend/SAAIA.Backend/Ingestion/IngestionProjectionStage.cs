@@ -14,6 +14,7 @@ internal sealed record IngestionStructureResult(CanonicalDocument? CanonicalDocu
 {
     internal PdfExtractionResult? CanonicalExtraction { get; init; }
     internal NativeTableCoverageSummary? NativeTableCoverage { get; init; }
+    internal NativeTypographyProjectionSummary? NativeTypography { get; init; }
 }
 
 internal sealed record IngestionIndexProjection(IReadOnlyList<ExtractedExactMatchEntry> ExactEntries,
@@ -32,6 +33,7 @@ internal static class IngestionProjectionStage
             NativeTextCoverageReconciliationSummary? reconciliation = null;
             NativePdfImageInventorySummary? images = null;
             NativeTableCoverageSummary? tableCoverage = null;
+            NativeTypographyProjectionSummary? typography = null;
             long canonicalMilliseconds = 0;
             if (request.Conversion?.Document.JsonContent is { } document)
             {
@@ -41,6 +43,18 @@ internal static class IngestionProjectionStage
                     request.SourceHash, request.SourceBytes, request.FileName, request.SourceHash, "canonical_projection",
                     DoclingExecutionMetadataPolicy.DescribeEngine(request.Options, request.Conversion),
                     request.Options.DeploymentRevision, request.Conversion.Confidence?.MeanScore), document);
+                if (request.Options.NativeTypographyObservationsEnabled)
+                {
+                    typography = CanonicalNativeTypographyProjector.Apply(canonical, request.NativeTextLayer, ct);
+                    probe.Set("native_typography_pages_observed", typography.ObservedPages);
+                    probe.Set("native_typography_pages_refused", typography.RefusedPages);
+                    probe.Set("native_typography_pages_unavailable", typography.UnavailablePages);
+                    probe.Set("native_typography_pages_omitted_budget", typography.OmittedBudgetPages);
+                    probe.Set("native_typography_glyphs", typography.GlyphCount);
+                    probe.Set("native_typography_runs", typography.RunCount);
+                    probe.Set("native_typography_resources", typography.ResourceCount);
+                    probe.Set("native_typography_observer_ms", typography.ObserverMilliseconds);
+                }
                 if (request.Options.RegionalTableAlternativeReadingsEnabled)
                 {
                     var physical = CanonicalTablePhysicalReadingEnricher.Apply(canonical, request.NativeTextLayer, ct);
@@ -49,10 +63,11 @@ internal static class IngestionProjectionStage
                     probe.Set("secondary_table_bands_unavailable", physical.UnavailableCount);
                     probe.Set("secondary_table_bands_refused", physical.RefusedCount);
                 }
-                tableCoverage = CanonicalNativeTableCoverageAuditor.Apply(canonical, request.NativeTextLayer, ct);
-                reconciliation = CanonicalNativeTextCoverageReconciler.Apply(canonical, request.NativeTextLayer,
+                var nativeForExistingAudits = DocumentExtractionPolicy.RequiresExistingNativeAudit(request.Options) ? request.NativeTextLayer : null;
+                tableCoverage = CanonicalNativeTableCoverageAuditor.Apply(canonical, nativeForExistingAudits, ct);
+                reconciliation = CanonicalNativeTextCoverageReconciler.Apply(canonical, nativeForExistingAudits,
                     request.Options.NativeTextCoverageReconciliationEnabled, request.Options.NativeTextCoverageMinimumLineCoverage);
-                images = CanonicalNativePdfImageInventoryReconciler.Apply(canonical, request.NativeTextLayer,
+                images = CanonicalNativePdfImageInventoryReconciler.Apply(canonical, nativeForExistingAudits,
                     request.Options.NativePdfImageInventoryEnabled);
                 DoclingCanonicalVisualAssetProjector.LinkPageAssets(canonical);
                 canonicalMilliseconds = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds;
@@ -100,7 +115,7 @@ internal static class IngestionProjectionStage
             probe.Complete();
             return new(canonical, reconciliation, images, sections, units,
                 canonicalMilliseconds, sectionMilliseconds, unitMilliseconds)
-                { CanonicalExtraction = canonicalExtraction, NativeTableCoverage = tableCoverage };
+                { CanonicalExtraction = canonicalExtraction, NativeTableCoverage = tableCoverage, NativeTypography = typography };
         }
         catch (Exception exception) { probe.Fail(exception); throw; }
     }

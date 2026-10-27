@@ -88,6 +88,10 @@ public sealed class CanonicalPage
     [JsonPropertyName("tableRegionObservations")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public CanonicalTableRegionObservationSet? TableRegionObservations { get; set; }
+
+    [JsonPropertyName("nativeTypographyObservations")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CanonicalNativeTypographySet? NativeTypographyObservations { get; set; }
 }
 
 public sealed class CanonicalSectionNode

@@ -39,7 +39,10 @@ internal sealed record AdvancedAnalysisSearchRequest(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? TableObservationView = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? TableObservationBandOrdinal = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? TableObservationLineOffset = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? TableObservationLineLimit = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? TableObservationLineLimit = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool IncludeVisualSources = false,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? VisualSourceOffset = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? VisualSourceLimit = null);
 
 // A resolved path describes a search filter, never an evidence or read capability.
 internal sealed record AdvancedAnalysisDocumentResolutionDiagnostic(
@@ -67,7 +70,8 @@ internal sealed record AdvancedAnalysisSearchObservation(
     RagRetrievalDiagnosticsDto? RetrievalDiagnostic = null,
     AdvancedAnalysisDocumentResolutionDiagnostic? DocumentResolution = null,
     IReadOnlyList<AdvancedAnalysisStructuredTableView>? StructuredTables = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] AdvancedAnalysisAlternativeTableReadings? AlternativeTableReadings = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] AdvancedAnalysisAlternativeTableReadings? AlternativeTableReadings = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] AdvancedAnalysisVisualSources? VisualSources = null);
 
 internal sealed record AdvancedAnalysisResearchResourceLimit(string ReasonCode,
     int? MaximumEvidenceItems, int? ConsumedEvidenceItems, int? RequestedNewEvidenceItems,
@@ -241,6 +245,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
     private readonly int _maximumSearchTopK;
     private readonly int _maximumEvidenceItems;
     private readonly int _maximumStructuredTableCharacters;
+    private readonly bool _visualSourceCitationsEnabled;
     private readonly long _maximumElapsedMilliseconds;
     private readonly SemaphoreSlim _serialGate = new(1, 1);
     private readonly List<AdvancedAnalysisResolvedEvidence> _evidence;
@@ -279,6 +284,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
         _maximumToolCalls = Math.Clamp(options.MaximumToolCalls, 1, 256);
         _maximumSearchTopK = Math.Clamp(options.MaximumSearchTopK, 1, 500);
         _maximumStructuredTableCharacters=Math.Clamp(options.MaximumEvidencePromptCharacters,1_000,200_000);
+        _visualSourceCitationsEnabled = options.VisualSourceCitationsEnabled;
         _maximumEvidenceItems = Math.Clamp(
             options.MaximumAccumulatedEvidenceItems,
             1,
@@ -456,6 +462,8 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             IReadOnlyList<AdvancedAnalysisEvidenceReference> references;
             IReadOnlyList<string> degraded;
             AdvancedAnalysisAlternativeTableReadings? alternativeReadings = null;
+            AdvancedAnalysisVisualSources? visualSources = null;
+            AdvancedAnalysisResultEvidence? visualSourceIdentity = null;
             if (request.Operation == "find_source_text")
             {
                 ValidateObservedReadScope(requestForTrace);
@@ -485,6 +493,8 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                     if (inventory is not null) alternativeReadings = new(inventory, null);
                 }
                 var source = observed.SourceOverview;
+                if (request.IncludeVisualSources)
+                    visualSourceIdentity = observed.Reference;
                 var outside = source is not null && (request.PageStart > source.LastIndexedPhysicalPage || request.PageEnd < source.FirstIndexedPhysicalPage);
                 requestForTrace = requestForTrace with {ReadDiagnostic=new AdvancedAnalysisReadDiagnostic(
                     request.TableObservationView is not null ? "table_observation_" + (alternativeReadings?.View?.Status
@@ -582,8 +592,50 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                         LineLimit = secondaryView.LineLimit, NextLineOffset = secondaryView.NextLineOffset
                     }} : item).ToArray();
             }
+            if (visualSourceIdentity is not null)
+            {
+                // Use resolver-proved anchor and evidence IDs. The raw SQL
+                // page references have not acquired those bindings yet.
+                var visualReferences = resolvedEvidence.Concat(_evidence)
+                    .Select(item => new AdvancedAnalysisEvidenceReference
+                    {
+                        EvidenceId = item.Reference.EvidenceId,
+                        DocId = item.Reference.DocId,
+                        RevisionId = item.Reference.RevisionId,
+                        SourceHash = item.Reference.SourceHash,
+                        PageStart = item.Reference.PageStart,
+                        PageEnd = item.Reference.PageEnd,
+                        AnchorId = item.Reference.AnchorId
+                    }).ToArray();
+                visualSources = await AdvancedAnalysisVisualSourceReader.ReadAsync(
+                    _dataSource, _tenantId, requestForTrace, visualSourceIdentity,
+                    visualReferences, _maximumStructuredTableCharacters, cancellationToken);
+            }
+
             var observationEvidence = new List<AdvancedAnalysisResolvedEvidence>(
                 resolvedEvidence.Count);
+            if (visualSources is not null)
+            {
+                AdvancedAnalysisResolvedEvidence Attach(AdvancedAnalysisResolvedEvidence item)
+                    => item.SourceOverview is null ? item : item with
+                    {
+                        SourceOverview = item.SourceOverview with { VisualSources = visualSources }
+                    };
+
+                resolvedEvidence = resolvedEvidence.Select(Attach).ToArray();
+                for (var index = 0; index < _evidence.Count; index++)
+                {
+                    var item = _evidence[index];
+                    if (!string.Equals(item.Reference.DocId, visualSources.DocId, StringComparison.OrdinalIgnoreCase)
+                        || !string.Equals(item.Reference.RevisionId, visualSources.RevisionId, StringComparison.OrdinalIgnoreCase)
+                        || !string.Equals(item.Reference.SourceHash, visualSources.SourceSha256, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    item = Attach(item);
+                    _evidence[index] = item;
+                    _evidenceByCanonicalKey[CanonicalKey(item.Reference)] = item;
+                }
+            }
             var newEvidence = resolvedEvidence
                 .Where(item => !_evidenceByCanonicalKey.ContainsKey(
                     CanonicalKey(item.Reference)))
@@ -682,7 +734,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                 RetrievalDiagnostic: requestForTrace.RetrievalDiagnostic,
                 DocumentResolution: requestForTrace.DocumentResolution,
                 StructuredTables: structuredTables,
-                AlternativeTableReadings: alternativeReadings);
+                AlternativeTableReadings: alternativeReadings, VisualSources: visualSources);
         }
         catch (Exception ex)
         {
@@ -1001,6 +1053,8 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
 
     private void ValidateRequest(AdvancedAnalysisSearchRequest request)
     {
+        if (request is not null)
+            AdvancedAnalysisVisualSourceReader.ValidateRequest(request, _visualSourceCitationsEnabled);
         if (request is not null) AdvancedAnalysisTableObservationReader.ValidateRequest(request);
         if (request is null
             || string.IsNullOrWhiteSpace(request.Query)

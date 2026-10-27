@@ -41,6 +41,8 @@ sealed class DocumentIntelligenceOptions
     public bool NativeTextCoverageReconciliationEnabled { get; set; } = true;
     public double NativeTextCoverageMinimumLineCoverage { get; set; } = 0.90;
     public bool NativePdfImageInventoryEnabled { get; set; } = true;
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool NativeTypographyObservationsEnabled { get; set; }
     public string Device { get; set; } = "cpu";
     public int NumThreads { get; set; } = 8;
     public int ServiceWorkerConcurrency { get; set; } = 1;

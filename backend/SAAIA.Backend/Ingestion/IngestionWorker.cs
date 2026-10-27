@@ -1681,7 +1681,8 @@ sealed partial class IngestionWorker : BackgroundService
                             qdrantUpsertTotalMs),
                         codeRevision,
                         nativeTextReconciliation,
-                        nativePdfImageInventory);
+                        nativePdfImageInventory,
+                        structure.NativeTypography);
                     canonicalBundle = DoclingCanonicalBundleFactory.Create(new(
                         docId,
                         revisionId,

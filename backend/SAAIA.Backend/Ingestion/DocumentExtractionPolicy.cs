@@ -1,5 +1,11 @@
 internal static class DocumentExtractionPolicy
 {
+    // Typography can acquire the same PDF handle for its auxiliary channel without
+    // granting its result to policies/audits that did not request native extraction.
+    internal static bool RequiresExistingNativeAudit(DocumentIntelligenceOptions options)
+        => options.NativeTextCoverageReconciliationEnabled || options.NativePdfImageInventoryEnabled
+            || options.RegionalTableAlternativeReadingsEnabled;
+
     internal static bool ResolveUseDocling(DocumentIntelligenceOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);

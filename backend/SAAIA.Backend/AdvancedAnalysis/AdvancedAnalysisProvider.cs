@@ -44,6 +44,8 @@ internal sealed record AdvancedAnalysisSourceOverview(
     public AdvancedAnalysisVisualAvailability? VisualAssets { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public CanonicalTableObservationInventory? TableRegionObservations { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public AdvancedAnalysisVisualSources? VisualSources { get; init; }
 }
 
 internal sealed record AdvancedAnalysisVisualAvailability(string Status, long AvailableAssetCount,

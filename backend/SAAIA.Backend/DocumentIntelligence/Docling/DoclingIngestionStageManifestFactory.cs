@@ -19,7 +19,8 @@ internal static class DoclingIngestionStageManifestFactory
         NativeTextCoverageReconciliationSummary?
             nativeTextReconciliation = null,
         NativePdfImageInventorySummary?
-            nativePdfImageInventory = null)
+            nativePdfImageInventory = null,
+        NativeTypographyProjectionSummary? nativeTypography = null)
     {
         ArgumentNullException.ThrowIfNull(documentIntelligence);
         ArgumentNullException.ThrowIfNull(ingestion);
@@ -393,6 +394,8 @@ internal static class DoclingIngestionStageManifestFactory
         if (DoclingRegionalTextRepairStage.Create(documentIntelligence, response) is { } regionalTextStage)
             stages.Insert(stages.FindIndex(stage => stage.StageId == "canonical_projection"), regionalTextStage);
 
+        if (documentIntelligence.NativeTypographyObservationsEnabled)
+            stages.Insert(stages.FindIndex(stage => stage.StageId == "canonical_projection"), CanonicalNativeTypographyProjector.CreateStage(nativeTypography));
         return stages;
     }
 

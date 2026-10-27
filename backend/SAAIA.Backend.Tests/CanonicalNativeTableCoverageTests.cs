@@ -96,12 +96,13 @@ internal sealed class NativeTableCoverageFixture : IDisposable
         Extraction = PdfExtractor.Extract(path);
     }
 
-    internal IngestionStructureResult Project(PdfExtractionResult? extraction = null)
+    internal IngestionStructureResult Project(PdfExtractionResult? extraction = null, bool nativeAuditRequested = true, bool typography = false)
     {
         var response = Response();
         return IngestionProjectionStage.ProjectStructure(new(Guid.NewGuid(), Guid.NewGuid(), 1,
             SourceSha, PdfBytes.Length, "native-table-fixture.pdf",
-            new() { NativeTextCoverageReconciliationEnabled = false, NativePdfImageInventoryEnabled = false },
+            new() { NativeTextCoverageReconciliationEnabled = false, NativePdfImageInventoryEnabled = nativeAuditRequested,
+                NativeTypographyObservationsEnabled = typography },
             response, extraction ?? Extraction, DoclingLegacyExtractionAdapter.Project(response)), NullLogger.Instance);
     }
 

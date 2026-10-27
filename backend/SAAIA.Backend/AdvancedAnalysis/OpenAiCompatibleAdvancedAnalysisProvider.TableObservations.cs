@@ -141,6 +141,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var user = JsonNode.Parse(text) as JsonObject;
             if (user is null) continue;
             user.Remove("evidence"); user.Remove("observations"); user.Remove("structuredTables"); user.Remove("alternativeTableReadings");
+            user.Remove("visualSources");
+            user.Remove("visualSourceCapabilities");
             item["content"] = user.ToJsonString(JsonOptions);
         }
         return serializedPayload.Length - baseline.ToJsonString(JsonOptions).Length;

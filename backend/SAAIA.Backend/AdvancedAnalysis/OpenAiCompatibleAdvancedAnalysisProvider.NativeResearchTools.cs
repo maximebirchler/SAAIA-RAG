@@ -104,6 +104,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 readProperties["tableObservationLineOffset"] = OptionalCount(0, 5_000);
                 readProperties["tableObservationLineLimit"] = OptionalCount(1, 64);
             }
+            if (HasVisualSourceCitations(root))
+            {
+                readProperties["includeVisualSources"] = new
+                {
+                    type = "boolean",
+                    description = "Immutable image metadata only; supplies no pixels to the model."
+                };
+                readProperties["visualSourceOffset"] = OptionalCount(0, CanonicalVisualAssetRepo.MaximumDocumentAssets);
+                readProperties["visualSourceLimit"] = OptionalCount(1, 64);
+            }
             functions.Add(Function("read_source", HasSecondaryTableReadings(root)
                 ? "Read an observed physical source window. Primary reads use up to four pages. Secondary observation reads require exactly one page and the explicit observation view; do not mix primary row parameters. A secondary line is indivisible and may be refused when it does not fit. Raw remains readable when physical bands are unavailable."
                 : "Read a physical page window of an observed revision. Page bounds are inclusive; at most four pages per request. topK bounds every chunk intersecting the window: if the bounded result reports canonical_read_window_result_limit_exceeded, retry with a smaller window or a larger permitted topK instead of treating the source as absent. Useful for reading bodies located by contents or headings.", readProperties));
@@ -226,7 +236,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var names = arguments.RootElement.EnumerateObject().Select(p => p.Name).ToArray();
             var optionalProperties=name=="read_source" ? new[] { "tableOrdinal","tableRowOffset","tableRowLimit" }
                 .Concat(HasSecondaryTableReadings(prompt.RootElement) ? new[] { "tableObservationId", "tableObservationView",
-                    "tableObservationBandOrdinal", "tableObservationLineOffset", "tableObservationLineLimit" } : []).ToArray() : [];
+                    "tableObservationBandOrdinal", "tableObservationLineOffset", "tableObservationLineLimit" } : [])
+                .Concat(HasVisualSourceCitations(prompt.RootElement)
+                    ? new[] { "includeVisualSources", "visualSourceOffset", "visualSourceLimit" } : []).ToArray() : [];
             if (names.Distinct(StringComparer.Ordinal).Count() != names.Length
                 || names.Any(n => !properties.Contains(n, StringComparer.Ordinal) && !optionalProperties.Contains(n,StringComparer.Ordinal))
                 || properties.Any(n => !names.Contains(n, StringComparer.Ordinal)))
@@ -358,6 +370,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 outputNode["alternativeTableReadings"] = JsonSerializer.SerializeToNode(alternative, JsonOptions);
             if (observation?.AlternativeTableReadings?.Inventory is { } secondaryInventory)
                 outputNode["secondaryInventory"] = JsonSerializer.SerializeToNode(secondaryInventory, JsonOptions);
+            if (observation?.VisualSources is { } visualSources)
+                outputNode["visualSources"] = JsonSerializer.SerializeToNode(visualSources, JsonOptions);
             if (observation?.AlternativeTableReadings?.View is { } emptyView && emptyView.Lines is not { Count: > 0 })
                 outputNode["secondaryReadWindow"] = JsonSerializer.SerializeToNode(new
                 {

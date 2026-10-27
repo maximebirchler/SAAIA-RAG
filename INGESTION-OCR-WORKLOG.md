@@ -1045,3 +1045,54 @@ complète, tandis que les cinq figures Docling sont des sous-régions visuelles
 internes (une page 2 et quatre page 4). Ces objets décrivent deux granularités
 de preuve différentes. Leur simple imbrication ne justifie donc pas de
 supprimer l'une d'elles par une heuristique de chevauchement.
+
+## Qualification isolée des canaux auxiliaires — 2026-10-27
+
+Statut produit : **TESTE_NON_APPROUVE**. Cette qualification ne constitue
+ni une promotion du déploiement habituel, ni une validation du planning.
+Elle n'a appelé aucun fournisseur LLM payant.
+
+Deux options, désactivées par défaut, permettent désormais de conserver les
+observations typographiques natives et de lire les métadonnées des images
+source via `read_source`. La typographie conserve les glyphes, positions et
+ressources effectivement observés, avec des plafonds et motifs de refus.
+Elle ne certifie ni le rendu des polices, ni les relations mathématiques.
+Les citations d'images sont liées au tenant, document, révision, SHA source
+et page ; leur route API reste authentifiée. Elles ne transmettent aucun
+pixel au modèle et ne prouvent pas l'existence d'un viewer client.
+
+Les gardes ajoutées refusent les grilles de tableaux dépassant le budget
+de projection avant allocation et évitent les débordements d'indices.
+Une formule ou un bloc de code sans transcription canonique signale aussi
+son absence dans les chunks voisins de la page. Le texte brut conservé ne
+devient pas, par cette seule conservation, une transcription vérifiée.
+
+Vérifications sur les mêmes sources, rehashées avant leur commit :
+
+- 5 848 tests unitaires PASS, deux tests ignorés explicitement ;
+- cinq tests PostgreSQL isolés PASS, comprenant publication typographique
+  et lectures des citations visuelles ;
+- build WinUI Release x64 sans avertissement ni erreur ;
+- image Linux construite depuis l'identité source
+  `12a6c419c332895f8bc36cd13156f46e11e9e95bf858db18305d536e98a6d582` ;
+- dix documents ingérés par le vrai worker en Production signée, chacun
+  terminé en une tentative ; zéro job actif après la campagne ;
+- lecture SQL réelle des dix catalogues, 930 lignes secondaires et
+  191 assets : identités, pagination, SHA et digests avant/après conformes ;
+- typographie observée sur 85 pages, avec états de refus ou d'indisponibilité
+  conservés ; aucun style rendu ni glyphe refusé n'est déclaré validé ;
+- seuls les conteneurs de qualification possédés ont été utilisés et arrêtés.
+
+La campagne principale conserve son verdict négatif. Ses contrôles signalent
+encore l'attente d'un ordre alternatif sur le cas en colonnes, une différence
+sur un fait de recette, le scan mathématique et certaines surfaces
+structurées NIST. Leur diagnostic reste séparé du succès de stockage et de
+lecture des canaux auxiliaires ; les oracles existants restent inchangés.
+
+Preuves privées locales : `artifacts/ingestion-fidelity-fixes-20261026/`.
+La capture principale Source18 a pour SHA-256
+`ab5d88f41b190a71d5ccefc7b78850083d0deb9f5e1cee7680629956cfd48a8a` ;
+le supplément de lecture des canaux a pour SHA-256
+`e49c863672a78b1abb64ce16d0ff04830e8c03f607c104ea7c66c8afd84bc82e`.
+Les PDF tiers, captures privées, clés et poids de modèles ne sont pas inclus
+dans le dépôt public.

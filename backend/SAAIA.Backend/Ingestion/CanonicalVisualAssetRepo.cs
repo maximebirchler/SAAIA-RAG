@@ -6,10 +6,14 @@ using SAAIA.Contracts.DocumentIntelligence;
 /// <summary>Immutable revision-scoped pixels published in the same transaction as their canonical identities.</summary>
 internal static partial class CanonicalVisualAssetRepo
 {
+    // Shared by immutable storage and metadata pagination. This is an asset
+    // budget for the document, not a limit on its physical page numbers.
+    internal const int MaximumDocumentAssets = 512;
+
     internal static async Task StoreAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
         Guid tenantId, CanonicalDocument document, CancellationToken ct)
     {
-        if (document.Assets.Count > 512 || document.Assets.Sum(asset => asset.SizeBytes) > 128L * 1024 * 1024)
+        if (document.Assets.Count > MaximumDocumentAssets || document.Assets.Sum(asset => asset.SizeBytes) > 128L * 1024 * 1024)
             throw new InvalidDataException("canonical_visual_asset_document_budget_exceeded");
         foreach (var asset in document.Assets)
         {

@@ -150,6 +150,11 @@ internal static class DoclingCanonicalDocumentAdapter
                     provenanceIndex,
                     page.Geometry);
                 var (rawText, canonicalText) = (textProjection.Raw, textProjection.Canonical);
+                // Empty structured regions do not produce searchable chunks.
+                // Keep their absence visible on neighboring page evidence without
+                // presenting the flattened raw glyph stream as a transcription.
+                if (string.IsNullOrWhiteSpace(canonicalText) && item.Label is "formula" or "code")
+                    AddQualityFlag(page.QualityFlags, "page_contains_untranscribed_" + item.Label);
                 var blockId = CanonicalStableId.Create(
                     "block",
                     context.SourceSha256,
@@ -211,6 +216,10 @@ internal static class DoclingCanonicalDocumentAdapter
         {
             if (item.Data.RowCount <= 0 || item.Data.ColumnCount <= 0)
                 throw new InvalidDataException($"Docling table '{item.SelfRef}' has invalid dimensions.");
+            // Enforce the existing retrieval-grid budget before the occupancy
+            // allocation, even when the source contains few or no cells.
+            if ((long)item.Data.RowCount * item.Data.ColumnCount > 1_000_000)
+                throw new InvalidDataException("canonical_table_grid_projection_limit");
             ValidateTableRepair(item);
 
             for (var provenanceIndex = 0; provenanceIndex < item.Provenance.Count; provenanceIndex++)
@@ -553,8 +562,8 @@ internal static class DoclingCanonicalDocumentAdapter
             || cell.ColumnIndex < 0
             || cell.RowSpan <= 0
             || cell.ColumnSpan <= 0
-            || cell.RowIndex + cell.RowSpan > table.Data.RowCount
-            || cell.ColumnIndex + cell.ColumnSpan > table.Data.ColumnCount)
+            || (long)cell.RowIndex + cell.RowSpan > table.Data.RowCount
+            || (long)cell.ColumnIndex + cell.ColumnSpan > table.Data.ColumnCount)
         {
             throw new InvalidDataException(
                 $"Docling table '{table.SelfRef}' cell {cellIndex} exceeds its declared dimensions.");

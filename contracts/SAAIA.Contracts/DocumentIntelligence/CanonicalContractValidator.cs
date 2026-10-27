@@ -80,8 +80,8 @@ public static partial class CanonicalContractValidator
                     AddId(cell.CellId, $"{path}.tables[{table.TableId}].cells", "cellId", ids, cellIds, allReferenceIds, issues);
                     ValidatePolygon(cell.Polygon, $"{path}.cells[{cell.CellId}].polygon", issues);
                     ValidateText(cell.Text, $"{path}.cells[{cell.CellId}].text", issues);
-                    Require(cell.RowIndex >= 0 && cell.RowSpan > 0 && cell.RowIndex + cell.RowSpan <= table.RowCount, $"{path}.cells[{cell.CellId}].rowIndex", "table_bounds", "Cell row range exceeds the table.", issues);
-                    Require(cell.ColumnIndex >= 0 && cell.ColumnSpan > 0 && cell.ColumnIndex + cell.ColumnSpan <= table.ColumnCount, $"{path}.cells[{cell.CellId}].columnIndex", "table_bounds", "Cell column range exceeds the table.", issues);
+                    Require(cell.RowIndex >= 0 && cell.RowSpan > 0 && (long)cell.RowIndex + cell.RowSpan <= table.RowCount, $"{path}.cells[{cell.CellId}].rowIndex", "table_bounds", "Cell row range exceeds the table.", issues);
+                    Require(cell.ColumnIndex >= 0 && cell.ColumnSpan > 0 && (long)cell.ColumnIndex + cell.ColumnSpan <= table.ColumnCount, $"{path}.cells[{cell.CellId}].columnIndex", "table_bounds", "Cell column range exceeds the table.", issues);
                 }
             }
 
@@ -118,6 +118,7 @@ public static partial class CanonicalContractValidator
 
         ValidateReferences(document, allReferenceIds, blockIds, spanIds, sectionIds, issues);
         issues.AddRange(CanonicalTableRegionObservationValidator.ValidateDocument(document));
+        issues.AddRange(CanonicalNativeTypographyValidator.ValidateDocument(document));
         return issues;
     }
 
