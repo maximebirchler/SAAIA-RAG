@@ -36,7 +36,8 @@ jobs:
         run: ./tools/testing/Test-PlanningOffline.ps1 -OutputDirectory artifacts/ci/planning-tools
       - name: Install exact Docling parser dependency for offline fixture tests
         shell: pwsh
-        run: python -m pip install --only-binary=:all: --no-deps -r infra/docling-sidecar/requirements-parser-tests.txt
+        run: |
+          python -m pip install --only-binary=:all: --no-deps -r infra/docling-sidecar/requirements-parser-tests.txt
       - name: Bounded Docling response transport without models or services
         shell: pwsh
         run: |
