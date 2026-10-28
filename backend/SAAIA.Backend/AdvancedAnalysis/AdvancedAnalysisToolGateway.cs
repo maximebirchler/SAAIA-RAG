@@ -638,7 +638,10 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
 
             if (nativeReadings is not null)
             {
+                nativeReadings = AdvancedAnalysisNativeInventoryContext.Preserve(
+                    nativeReadings, _evidence, _tenantId, _maximumStructuredTableCharacters);
                 resolvedEvidence = resolvedEvidence.Select(item => AttachNativeRead(item, nativeReadings)).ToArray();
+                AdvancedAnalysisNativeInventoryContext.RecordDiagnostics(probe, nativeReadings, resolvedEvidence);
                 for (var index = 0; index < _evidence.Count; index++)
                 {
                     var updated = AttachNativeRead(_evidence[index], nativeReadings);

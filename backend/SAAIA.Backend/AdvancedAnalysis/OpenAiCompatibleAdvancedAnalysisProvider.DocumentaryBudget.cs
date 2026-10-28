@@ -110,11 +110,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     || inventory["sourceKey"]?.GetValue<string>() is not { } sourceKey
                     || inventory["physicalPage"]?.GetValue<int>() is not { } page)
                     continue;
-                var captured = visible.FirstOrDefault(item => item.SourceKey == sourceKey
-                    && item.SourceOverview?.NativeObservations is { Inventory: not null } native
-                    && native.PhysicalPage == page)?.SourceOverview?.NativeObservations;
-                if (captured is not null && JsonNode.DeepEquals(inventory["inventory"],
-                        JsonSerializer.SerializeToNode(captured.Inventory, JsonOptions))
+                var captured = visible.Where(item => item.SourceKey == sourceKey
+                        && item.SourceOverview?.NativeObservations is not null)
+                    .SelectMany(item => AdvancedAnalysisNativeInventoryContext.Windows(item.SourceOverview!.NativeObservations!)
+                        .Where(window => window.PhysicalPage == page && JsonNode.DeepEquals(inventory["inventory"],
+                            JsonSerializer.SerializeToNode(window.Inventory, JsonOptions)))
+                        .Select(window => item.SourceOverview!.NativeObservations! with
+                        { PhysicalPage = window.PhysicalPage, Inventory = window.Inventory, View = null }))
+                    .FirstOrDefault();
+                if (captured is not null
                     && NativeInventoryForToolResult(captured, request, visible) is JsonObject reference
                     && reference.ContainsKey("inventoryReference"))
                     inventories[index] = reference;
@@ -171,7 +175,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 || !JsonNode.DeepEquals(inventory["inventory"], full))
                 continue;
             var sources = visible.Where(item => item.SourceKey == sourceKey
-                && item.SourceOverview?.NativeObservations?.PhysicalPage == captured.PhysicalPage).ToArray();
+                && item.SourceOverview?.NativeObservations is { } native
+                && AdvancedAnalysisNativeInventoryContext.Windows(native).Any(window =>
+                    window.PhysicalPage == captured.PhysicalPage)).ToArray();
             if (sources.Length == 0 || sources.Any(item =>
                     !string.Equals(item.SourceReference.DocId, captured.DocId, StringComparison.OrdinalIgnoreCase)
                     || !string.Equals(item.SourceReference.RevisionId, captured.RevisionId, StringComparison.OrdinalIgnoreCase)
@@ -180,7 +186,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     || !string.Equals(native.DocId, captured.DocId, StringComparison.OrdinalIgnoreCase)
                     || !string.Equals(native.RevisionId, captured.RevisionId, StringComparison.OrdinalIgnoreCase)
                     || !string.Equals(native.SourceSha256, captured.SourceSha256, StringComparison.OrdinalIgnoreCase)
-                    || !JsonNode.DeepEquals(JsonSerializer.SerializeToNode(native.Inventory, JsonOptions), full)))
+                    || !AdvancedAnalysisNativeInventoryContext.Windows(native).Any(window =>
+                        window.PhysicalPage == captured.PhysicalPage
+                        && JsonNode.DeepEquals(JsonSerializer.SerializeToNode(window.Inventory, JsonOptions), full))))
                 continue;
 
             // The complete descriptor catalogue, its quality/provenance and
@@ -190,7 +198,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             {
                 sourceKey, captured.DocId, captured.RevisionId, captured.SourceSha256,
                 captured.PhysicalPage, captured.Inventory.Offset,
-                inventoryReference = "current_user.alternativeNativeReadings.inventories[exact_source_page_offset].inventory"
+                returnedObservationCount = captured.Inventory.Observations?.Count,
+                inventoryReference = "current_user.alternativeNativeReadings.inventories[exact_source_page_offset_returned_count].inventory"
             }, JsonOptions);
         }
         return full;

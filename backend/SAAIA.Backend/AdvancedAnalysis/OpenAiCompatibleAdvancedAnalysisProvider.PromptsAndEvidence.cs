@@ -1249,6 +1249,22 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 while (sourceKeys.Values.Contains(sourceKey, StringComparer.Ordinal));
                 sourceKeys.Add(sourceIdentity, sourceKey);
             }
+            // The final prompt shares inventories by source and polygons by RAW
+            // block view. Deduplicate before measuring, not only after rendering.
+            var sourceOverview = NativeOverviewMetadata(item.SourceOverview);
+            if (sourceOverview?.NativeObservations is not null
+                && promptEvidence.Any(previous => previous.SourceKey == sourceKey
+                    && previous.SourceOverview?.NativeObservations is not null))
+                sourceOverview = sourceOverview with { NativeObservations = null };
+            var nativeObservation = item.NativeObservation;
+            if (nativeObservation?.ObservedBlockPolygon is not null
+                && promptEvidence.Any(previous => previous.SourceKey == sourceKey
+                    && previous.NativeObservation is { } native
+                    && native.Reference.PhysicalPage == nativeObservation.Reference.PhysicalPage
+                    && native.Reference.BlockId == nativeObservation.Reference.BlockId
+                    && native.Reference.RawTextSha256 == nativeObservation.Reference.RawTextSha256
+                    && native.ObservedBlockPolygon is not null))
+                nativeObservation = nativeObservation with { ObservedBlockPolygon = null };
             var observation = new PromptEvidenceItem(
                 evidenceId,
                 sourceKey,
@@ -1275,13 +1291,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 item.SourceObservation is not null || item.NativeObservation is not null ? null : contentSignal.NavigationReason,
                 item.Reference.PageStart,
                 item.Reference.PageEnd,
-                NativeOverviewMetadata(item.SourceOverview),
+                sourceOverview,
                 item.Reference)
             {
                 SourceTableFragment = item.TableFragment,
                 SourceQuality = item.SourceQuality?.Bound(),
                 SourceObservation = item.SourceObservation,
-                NativeObservation = item.NativeObservation,
+                NativeObservation = nativeObservation,
                 TableReadWindow = item.TableReadWindow,
                 ContentOffset = contentOffset,
                 SourceStructure = item.SourceStructure is { } structure

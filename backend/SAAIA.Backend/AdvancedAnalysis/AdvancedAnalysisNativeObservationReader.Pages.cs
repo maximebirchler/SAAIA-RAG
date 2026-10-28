@@ -96,7 +96,10 @@ internal static partial class AdvancedAnalysisNativeObservationReader
             return new(reference, count, reference.LineOrdinal, 1,
                 reference.LineOrdinal + 1 < count ? reference.LineOrdinal + 1 : null,
                 Context.PageQualityFlags.Concat(block.QualityFlags).Append("canonical_native_audit_literal_not_primary")
-                    .Distinct(StringComparer.Ordinal).ToArray());
+                    .Distinct(StringComparer.Ordinal).ToArray())
+            {
+                ObservedBlockPolygon = CopyObservedPolygon(block.ObservedPolygon)
+            };
         }
     }
 

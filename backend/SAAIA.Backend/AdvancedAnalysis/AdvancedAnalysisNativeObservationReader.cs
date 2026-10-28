@@ -8,7 +8,20 @@ namespace SAAIA.Backend.AdvancedAnalysis;
 
 internal sealed record AdvancedAnalysisAlternativeNativeReadings(
     string DocId, string RevisionId, string SourceSha256, int PhysicalPage,
-    AdvancedAnalysisNativeObservationInventory? Inventory, AdvancedAnalysisNativeObservationWindow? View);
+    AdvancedAnalysisNativeObservationInventory? Inventory, AdvancedAnalysisNativeObservationWindow? View)
+{
+    [System.Text.Json.Serialization.JsonIgnore]
+    internal Guid TenantId { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    internal string? ManifestSha256 { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<AdvancedAnalysisObservedNativeInventory>? RetainedInventories { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public int InventoryWindowsOmitted { get; init; }
+}
+
+internal sealed record AdvancedAnalysisObservedNativeInventory(
+    int PhysicalPage, AdvancedAnalysisNativeObservationInventory Inventory);
 
 internal sealed record AdvancedAnalysisNativeObservationRead(
     AdvancedAnalysisAlternativeNativeReadings Readings,
@@ -18,7 +31,12 @@ internal sealed record AdvancedAnalysisNativeObservationLineSource(
     AdvancedAnalysisNativeObservationReference Reference, int ViewLineCount, int LineOffset,
     int LineLimit, int? NextLineOffset, IReadOnlyList<string> QualitySignals,
     string Role = "secondary_native_audit", string SemanticAccuracy = "not_verified",
-    bool SourceFidelityApproved = false);
+    bool SourceFidelityApproved = false)
+{
+    // Carried through the bounded prompt projection, then moved to the shared RAW view.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public CanonicalPolygon? ObservedBlockPolygon { get; init; }
+}
 
 /// <summary>Reads only immutable captured canonical data. It never extracts, indexes or replaces primary text.</summary>
 internal static partial class AdvancedAnalysisNativeObservationReader
@@ -61,9 +79,18 @@ internal static partial class AdvancedAnalysisNativeObservationReader
             return new(reference, count, reference.LineOrdinal, 1,
                 reference.LineOrdinal + 1 < count ? reference.LineOrdinal + 1 : null,
                 page.QualityFlags.Concat(block.QualityFlags).Append("canonical_native_audit_literal_not_primary")
-                    .Distinct(StringComparer.Ordinal).ToArray());
+                    .Distinct(StringComparer.Ordinal).ToArray())
+            {
+                ObservedBlockPolygon = CopyObservedPolygon(block.Polygon)
+            };
         }
     }
+
+    private static CanonicalPolygon? CopyObservedPolygon(CanonicalPolygon? polygon)
+        => polygon is null ? null : new()
+        {
+            Points = polygon.Points.Select(point => new CanonicalPoint { X = point.X, Y = point.Y }).ToList()
+        };
 
     internal static bool HasRequest(AdvancedAnalysisSearchRequest request)
         => request.NativeObservationView is not null || request.NativeObservationBlockId is not null
@@ -142,7 +169,10 @@ internal static partial class AdvancedAnalysisNativeObservationReader
             if (view is not null)
                 view = BoundToEvidenceLimits(view, maximumLineCharacters, maximumTotalLineCharacters);
             var readings = new AdvancedAnalysisAlternativeNativeReadings(document.ToString("D"), revision.ToString("D"),
-                source, request.PageStart!.Value, inventory, view);
+                source, request.PageStart!.Value, inventory, view)
+            {
+                TenantId = tenant, ManifestSha256 = stored.Context.Identity.ManifestSha256
+            };
             // Reserve the outer identity wrapper too; whole lines/descriptors are the
             // only removable units. The provider separately measures its final wire.
             while (System.Text.Json.JsonSerializer.Serialize(readings, new System.Text.Json.JsonSerializerOptions(

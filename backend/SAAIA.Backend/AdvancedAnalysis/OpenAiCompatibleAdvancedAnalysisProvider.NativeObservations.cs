@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using SAAIA.Contracts.DocumentIntelligence;
 
 namespace SAAIA.Backend.AdvancedAnalysis;
 
@@ -22,6 +23,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         again at that continuation cursor. No captured native block means acquisition is unavailable,
         not known empty. Observed empty raw text is distinct. These readings
         establish no semantic novelty, source order, image pixels or new OCR.
+        Retained inventories are previously observed locator windows explicitly
+        rendered in this current payload, not permission inferred from history.
+        observedPolygon and observedBlockPolygon locate the observed block in
+        normalized page coordinates (0 to 1, origin top-left); a block polygon
+        is not a separate polygon for each line or an asserted semantic parent.
+        Use the actual text and these bounded physical observations to inspect
+        layout; never manufacture a title-to-body relationship. Inventory
+        window omissions are explicit and do not establish source absence.
         """;
 
     private static bool HasNativeObservationRead(JsonElement root)
@@ -58,8 +67,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 SetNativeModelContinuationCursors(evidence, projected);
             }
             foreach (var item in evidence.OfType<JsonObject>())
+            {
                 if (item["sourceOverview"] is JsonObject overview)
                     overview.Remove("nativeObservations");
+                if (item["nativeObservation"] is JsonObject native)
+                    native.Remove("observedBlockPolygon");
+            }
         }
         var declarations = (node["researchTools"] as JsonObject)?["tools"] as JsonArray ?? node["tools"] as JsonArray;
         declarations?.Add(JsonSerializer.SerializeToNode(new
@@ -101,10 +114,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
     private static object? BuildAlternativeNativeReadingsForPrompt(IReadOnlyList<PromptEvidenceItem> evidence)
     {
-        var inventories = evidence.Where(item => item.SourceOverview?.NativeObservations?.Inventory is not null)
-            .GroupBy(item => new { item.SourceKey, item.SourceOverview!.NativeObservations!.PhysicalPage })
-            .Select(group => new { group.Key.SourceKey, group.Key.PhysicalPage,
-                inventory = group.First().SourceOverview!.NativeObservations!.Inventory }).ToArray();
+        var inventories = evidence.Where(item => item.SourceOverview?.NativeObservations is not null)
+            .SelectMany(item => AdvancedAnalysisNativeInventoryContext.Windows(item.SourceOverview!.NativeObservations!)
+                .Select(window => new { item.SourceKey, window.PhysicalPage, window.Inventory }))
+            .GroupBy(item => new { item.SourceKey, item.PhysicalPage, item.Inventory.Offset,
+                Count = item.Inventory.Observations?.Count ?? -1 })
+            .Select(group => new { group.Key.SourceKey, group.Key.PhysicalPage, inventory = group.First().Inventory }).ToArray();
+        var inventoryOmissions = evidence.Where(item => item.SourceOverview?.NativeObservations?.InventoryWindowsOmitted > 0)
+            .GroupBy(item => item.SourceKey)
+            .Select(group => new { sourceKey = group.Key,
+                omittedWindowCount = group.Max(item => item.SourceOverview!.NativeObservations!.InventoryWindowsOmitted),
+                reason = "retained_inventory_metadata_budget" }).ToArray();
         var views = evidence.Where(item => item.NativeObservation is not null)
             .GroupBy(item => new { item.SourceKey, item.NativeObservation!.Reference.BlockId,
                 item.NativeObservation.Reference.RawTextSha256, item.NativeObservation.Reference.PhysicalPage,
@@ -123,7 +143,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         line.UnicodeScalarStart, line.UnicodeScalarEndExclusive });
                     next++;
                 }
-                return (object)new
+                var rendered = JsonSerializer.SerializeToNode(new
                 {
                     group.Key.SourceKey, group.Key.PhysicalPage, group.Key.BlockId, group.Key.RawTextSha256,
                     offsetUnit = "raw_line_ordinal", offset = source.LineOffset, limit = source.LineLimit,
@@ -132,7 +152,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     status = next < Math.Min(source.ViewLineCount, source.LineOffset + source.LineLimit)
                         ? lines.Count == 0 ? "line_does_not_fit_model_budget" : "partial_model_budget" : "observed",
                     lines, source.QualitySignals, source.Role, source.SemanticAccuracy, source.SourceFidelityApproved
-                };
+                }, JsonOptions)!.AsObject();
+                if (group.Select(item => item.NativeObservation!.ObservedBlockPolygon).FirstOrDefault(polygon => polygon is not null) is { } polygon)
+                {
+                    rendered["observedBlockPolygon"] = JsonSerializer.SerializeToNode(polygon, JsonOptions);
+                    rendered["coordinateSpace"] = CanonicalSchema.NormalizedTopLeftCoordinateSpace;
+                    rendered["polygonScope"] = "whole_observed_block_not_individual_line_or_semantic_association";
+                }
+                return (object)rendered;
             }).ToArray();
         // Keep empty/refused windows discoverable even when no line reference
         // was admitted. Metadata never repeats raw text from the current view.
@@ -142,11 +169,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             .GroupBy(item => new { item.SourceKey, item.SourceOverview!.NativeObservations!.PhysicalPage,
                 item.SourceOverview.NativeObservations.View!.BlockId })
             .Select(group => new { group.Key.SourceKey, window = NativeWindowMetadata(group.First().SourceOverview!.NativeObservations!.View!) }).ToArray();
-        return inventories.Length == 0 && views.Length == 0 && empty.Length == 0 ? null : new
+        if (inventories.Length == 0 && views.Length == 0 && empty.Length == 0 && inventoryOmissions.Length == 0)
+            return null;
+        var result = JsonSerializer.SerializeToNode(new
         {
             inventories, views, emptyWindows = empty, semanticAccuracy = "not_verified",
             sourceFidelityApproved = false, instruction = "Exact literal text occurs once in the current documentary collection (evidence or observations); references here supply no additional text."
-        };
+        }, JsonOptions)!.AsObject();
+        if (inventoryOmissions.Length > 0)
+            result["inventoryOmissions"] = JsonSerializer.SerializeToNode(inventoryOmissions, JsonOptions);
+        return result;
     }
 
     private static object NativeWindowMetadata(AdvancedAnalysisNativeObservationWindow view)

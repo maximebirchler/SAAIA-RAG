@@ -86,7 +86,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             Assert.Equal(captured.DocId, toolInventory.GetProperty("docId").GetString());
             Assert.Equal(captured.RevisionId, toolInventory.GetProperty("revisionId").GetString());
             Assert.Equal(captured.SourceSha256, toolInventory.GetProperty("sourceSha256").GetString());
-            Assert.Equal("current_user.alternativeNativeReadings.inventories[exact_source_page_offset].inventory",
+            Assert.Equal("current_user.alternativeNativeReadings.inventories[exact_source_page_offset_returned_count].inventory",
                 toolInventory.GetProperty("inventoryReference").GetString());
             Assert.Equal(JsonSerializer.SerializeToElement(captured.Inventory, json).GetRawText(), declared.GetProperty("inventory").GetRawText());
             Assert.False(toolInventory.TryGetProperty("observations", out _));
