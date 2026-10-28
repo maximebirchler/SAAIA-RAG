@@ -36,6 +36,27 @@ Docling reste à 3 CPU et 7 Gio. Les ressources sont vérifiées dans les inspec
 Docker et liées à l'owner et à son origine. La signature de la configuration
 Production ne prouve pas, à elle seule, les limites Docker effectivement appliquées.
 
+Le profil optionnel `--docling-memory-profile cpu7g-bounded-v1` conserve les
+3 CPU et 7 Gio de Docling, les mêmes moteurs, images, résolution, pages analysées
+et réglages de qualité. Il limite la file interne du pipeline à deux pages et
+les batchs OCR/layout/tableaux à une page, désactive le préchauffage aux options
+par défaut et limite le cache de convertisseurs à une configuration. Il évite
+ainsi du travail simultané et un éventuel jeu de modèles inutilisé. Il ne promet
+pas que la mémoire totale du document est bornée à deux pages : les images et
+structures utiles restent conservées jusqu'à l'assemblage du document.
+
+Ce choix doit être explicite et identique dans les trois phases Linux
+`prepare`, `dependencies`, `backend` et dans le runner d'ingestion. La policy est
+liée à l'owner et à son origine ; les six variables, le moteur local, le worker
+unique, le partage des modèles, les threads et les limites Docker sont contrôlés
+avant l'admission, puis avant chaque requête HTTP du runner. Une variable
+dupliquée ou un fichier de configuration Docling supplémentaire refuse ce profil.
+Le nettoyage conserve la vérification d'identité d'origine et reste possible
+après une dérive des nouveaux réglages. Le défaut `legacy` ne change aucun argv
+et n'ajoute aucune clé aux anciens owners. Ces observations d'environnement ne
+remplacent ni l'attestation des options effectives du pipeline, ni une mesure
+mémoire réelle, ni la comparaison indépendante du résultat avec les PDF.
+
 ## Publication neuve depuis les originaux
 
 L'acceptation actuelle exige une réingestion réelle des quatre PDF originaux,

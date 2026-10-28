@@ -22,6 +22,7 @@ from embedding_attestation import attest_info, attest_tei_container, tei_model_b
 from linux_owned_runtime import OwnedDocker, assert_owned_path, mounted_source, validate_owner
 from verify_worker_corpus import evaluate, validate_vectors, write_new
 import linux_planning_contracts as helpers
+import docling_memory_policy as docling_memory
 
 
 def require(value, reason):
@@ -84,6 +85,10 @@ def run(args, owner, profile, manifest):
         _, observed = docker.inspect_all()
         current_backend = next(row for row in observed if row["Id"] == next(r["id"] for r in owner["containers"] if r["role"] == "backend"))
         helpers.validate_backend_resources(owner, current_backend)
+        docling_memory.validate_phase(owner, origin, getattr(args, "docling_memory_profile", "legacy"))
+        if docling_memory.POLICY_KEY in owner:
+            current_docling = next(row for row in observed if row["Id"] == next(r["id"] for r in owner["containers"] if r["role"] == "docling"))
+            docling_memory.validate_observed(owner, current_docling)
         require(route.startswith("/") and not route.startswith("//"), "exact_role_relative_route_required")
         local_headers = {"Content-Type": "application/json"}
         if role == "backend" and headers:
@@ -105,6 +110,12 @@ def run(args, owner, profile, manifest):
         backend = next(row for row in actual if row["Id"] == next(r["id"] for r in owner["containers"] if r["role"] == "backend"))
         origin = read(root / "evidence/planning-bootstrap-origin.json")
         helpers.validate_backend_resource_phase(owner, origin, owner.get("backendResourcePolicy", {}))
+        docling_memory.validate_phase(owner, origin, getattr(args, "docling_memory_profile", "legacy"))
+        if docling_memory.POLICY_KEY in owner:
+            docling_container = next(row for row in actual if row["Id"] == next(r["id"] for r in owner["containers"] if r["role"] == "docling"))
+            docling_observation = docling_memory.validate_observed(owner, docling_container)
+            record["doclingMemoryPolicy"] = owner[docling_memory.POLICY_KEY]
+            record["doclingMemoryEnvironmentObserved"] = docling_observation
         record["backendResourcesObserved"] = helpers.validate_backend_resources(owner, backend)
         record["backendResourcePolicy"] = owner["backendResourcePolicy"]
         helpers.validate_disabled_llm(config, backend)
@@ -253,9 +264,12 @@ def main():
     parser.add_argument("--backend-source-revision", required=True)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--maximum-wait-seconds", type=int, default=10800)
+    parser.add_argument("--docling-memory-profile", choices=docling_memory.PROFILES, default="legacy")
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args()
     owner, profile, manifest = validate_owner(read(args.owner)), read(args.embedding_profile), read(args.source_manifest)
+    require(docling_memory.owner_profile(owner) == args.docling_memory_profile,
+            "docling_memory_requested_profile_disagrees_with_owner")
     require(manifest["schemaVersion"] == "ingestion_real_acceptance_v1" and len(manifest["cases"]) == 4
             and manifest["newWorkerObservationSeenDuringRegistration"] is False, "four_independently_reviewed_originals_required")
     require(validate_expected_profile(profile, owner["endpoints"]["tei"]) == "tei_cpu", "exact_native_tei_profile_required")
@@ -264,7 +278,9 @@ def main():
             "reviewed_new_backend_and_bounded_deadline_required")
     if not args.execute:
         print(json.dumps({"executeRequested": False, "runId": owner["runId"], "sourceCount": 4,
-            "realWorkerRequired": True, "canonicalRowsSeeded": False, "providerCalls": 0, "privateFilesRead": False, "dockerCalled": False}))
+            "realWorkerRequired": True, "canonicalRowsSeeded": False, "providerCalls": 0, "privateFilesRead": False, "dockerCalled": False,
+            **({docling_memory.POLICY_KEY: docling_memory.policy(args.docling_memory_profile)}
+               if args.docling_memory_profile != "legacy" else {})}))
         return
     print(json.dumps(run(args, owner, profile, manifest)))
 
