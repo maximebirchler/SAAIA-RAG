@@ -38,9 +38,9 @@ def read(path):
     return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
-def capture_failure(error, output):
+def capture_failure(error, output, *, filename="failure-traceback.private.txt"):
     """Retain the original traceback privately, without dumping stack locals."""
-    path = output / "failure-traceback.private.txt"
+    path = output / filename
     with path.open("x", encoding="utf-8", newline="") as target:
         target.write("".join(traceback.format_exception(error)))
     public_code = str(error) if isinstance(error, ValueError) else "real_ingestion_failed"
@@ -48,6 +48,15 @@ def capture_failure(error, output):
         public_code = "real_ingestion_failed"
     return {"failureType": type(error).__name__, "failureCode": public_code,
             "privateDiagnostic": {"path": str(path), "sha256": digest(path)}}
+
+
+def capture_cleanup_failure(error, output, filename):
+    """A diagnostic write failure must not prevent the remaining safe cleanup."""
+    try:
+        return capture_failure(error, output, filename=filename)
+    except Exception as diagnostic_error:
+        return {"failureType": type(error).__name__, "failureCode": "real_ingestion_failed",
+                "privateDiagnosticFailureType": type(diagnostic_error).__name__}
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -207,15 +216,27 @@ def run(args, owner, profile, manifest):
         record.update(state="failed", **capture_failure(error, output))
     finally:
         if not record["passed"]:
+            cancellation = record["cleanup"]["jobCancellation"] = {"attempted": False}
             try:
                 if headers and baseline_verified:
+                    cancellation["attempted"] = True
                     jobs = helpers.parse_job_listing(api("backend", "/ingestion/jobs?limit=20"))
-                    for job in jobs:
-                        if job["status"] in {"queued", "running", "paused"}:
-                            api("backend", "/admin/jobs/cancel", "POST", {"jobId": job["jobId"]})
-                record["cleanup"].update(docker.stop())
+                    active = [job for job in jobs if job["status"] in {"queued", "running", "paused"}]
+                    cancellation.update(activeJobCount=len(active), cancelRequestsCompleted=0)
+                    for job in active:
+                        api("backend", "/admin/jobs/cancel", "POST", {"jobId": job["jobId"]})
+                        cancellation["cancelRequestsCompleted"] += 1
             except Exception as error:
-                record["cleanup"]["failureType"] = type(error).__name__
+                cancellation.update(capture_cleanup_failure(error, output, "cleanup-cancellation-traceback.private.txt"))
+            finally:
+                # Cancellation requires a live runtime. Stopping instead uses
+                # OwnedDocker's complete identity checks with require_running=False.
+                # A dead dependency or rejected HTTP request cannot skip this phase.
+                try:
+                    record["cleanup"].update(docker.stop())
+                except Exception as error:
+                    record["cleanup"]["containerStop"] = capture_cleanup_failure(
+                        error, output, "cleanup-stop-traceback.private.txt")
         write_new(record, output / "result.json")
     require(record["passed"], "real_linux_ingestion_not_accepted_inspect_private_receipt")
     return record
