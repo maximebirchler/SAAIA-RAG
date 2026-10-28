@@ -1,15 +1,85 @@
 using System.Security.Cryptography;
 using System.Text;
 using SAAIA.Contracts.DocumentIntelligence;
+using SAAIA.Backend;
+
+internal sealed record DoclingCanonicalAnchorSelection(
+    string ProjectionId, string ProjectionType, int PageStart, int PageEnd,
+    IReadOnlyList<string>? BlockIds, IReadOnlyList<string>? SpanIds, IReadOnlyList<string>? TableCellIds);
 
 internal static class DoclingCanonicalSourceAnchorProjector
 {
-    public static SourceAnchor ProjectPageRange(
+    // Existing single-projection entry points remain fully validating.
+    public static SourceAnchor ProjectPageRange(CanonicalDocument document, string projectionId,
+        string projectionType, int pageStart, int pageEnd)
+        => ProjectPageRangeCore(document, projectionId, projectionType, pageStart, pageEnd, validateAnchor: true);
+
+    public static SourceAnchor ProjectSelection(CanonicalDocument document, string projectionId,
+        string projectionType, int pageStart, int pageEnd, IReadOnlyList<string>? blockIds,
+        IReadOnlyList<string>? spanIds, IReadOnlyList<string>? tableCellIds)
+        => ProjectSelectionCore(document, projectionId, projectionType, pageStart, pageEnd,
+            blockIds, spanIds, tableCellIds, validateAnchor: true);
+
+    public static IReadOnlyList<SourceAnchor> ProjectSelections(CanonicalDocument document,
+        IReadOnlyList<DoclingCanonicalAnchorSelection> selections, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(selections);
+        var materialized = selections.ToArray();
+        using var probe = BackendDiagnostics.Start("ingestion.canonical_anchor_batch");
+        probe.Set("requested_anchor_count", materialized.Length);
+        probe.Set("document_validation_scope", "projection_batch_excludes_final_bundle");
+        probe.Set("document_validation_attempts", 0);
+        probe.Set("anchor_validation_completed_count", null);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            // Prevalidate before constructing any anchor or resolving references.
+            probe.Set("document_validation_attempts", 1);
+            CanonicalContractValidator.ValidateOrThrow(document);
+            var anchors = new List<SourceAnchor>(materialized.Length);
+            try
+            {
+                foreach (var selection in materialized)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    ArgumentNullException.ThrowIfNull(selection);
+                    anchors.Add(ProjectSelectionCore(document, selection.ProjectionId, selection.ProjectionType,
+                        selection.PageStart, selection.PageEnd, selection.BlockIds, selection.SpanIds,
+                        selection.TableCellIds, validateAnchor: false));
+                }
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+            catch
+            {
+                // The old loop validated each earlier anchor immediately. Do not
+                // hide an invalid prefix behind a later construction/cancellation.
+                probe.Set("document_validation_attempts", 2);
+                CanonicalContractValidator.ValidateAnchorsOrThrow(document, anchors);
+                throw;
+            }
+            // A self-validating Contracts API, no reusable certificate or public skip.
+            probe.Set("document_validation_attempts", 2);
+            CanonicalContractValidator.ValidateAnchorsOrThrow(document, anchors);
+            probe.Set("anchor_validation_completed_count", anchors.Count);
+            cancellationToken.ThrowIfCancellationRequested();
+            probe.Complete();
+            return anchors;
+        }
+        catch (Exception error)
+        {
+            probe.Fail(error);
+            throw;
+        }
+    }
+
+    private static SourceAnchor ProjectPageRangeCore(
         CanonicalDocument document,
         string projectionId,
         string projectionType,
         int pageStart,
-        int pageEnd)
+        int pageEnd,
+        bool validateAnchor)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentException.ThrowIfNullOrWhiteSpace(projectionId);
@@ -31,10 +101,11 @@ internal static class DoclingCanonicalSourceAnchorProjector
             projectionId,
             projectionType,
             precision,
-            regions);
+            regions,
+            validateAnchor);
     }
 
-    public static SourceAnchor ProjectSelection(
+    private static SourceAnchor ProjectSelectionCore(
         CanonicalDocument document,
         string projectionId,
         string projectionType,
@@ -42,7 +113,8 @@ internal static class DoclingCanonicalSourceAnchorProjector
         int pageEnd,
         IReadOnlyList<string>? blockIds,
         IReadOnlyList<string>? spanIds,
-        IReadOnlyList<string>? tableCellIds)
+        IReadOnlyList<string>? tableCellIds,
+        bool validateAnchor)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentException.ThrowIfNullOrWhiteSpace(projectionId);
@@ -62,12 +134,13 @@ internal static class DoclingCanonicalSourceAnchorProjector
             && requestedSpans.Count == 0
             && requestedCells.Count == 0)
         {
-            return ProjectPageRange(
+            return ProjectPageRangeCore(
                 document,
                 projectionId,
                 projectionType,
                 pageStart,
-                pageEnd);
+                pageEnd,
+                validateAnchor);
         }
 
         var regions = new List<SourceAnchorRegion>();
@@ -144,7 +217,8 @@ internal static class DoclingCanonicalSourceAnchorProjector
             projectionId,
             projectionType,
             precision,
-            regions);
+            regions,
+            validateAnchor);
     }
 
     private static SourceAnchor CreateAnchor(
@@ -152,7 +226,8 @@ internal static class DoclingCanonicalSourceAnchorProjector
         string projectionId,
         string projectionType,
         string precision,
-        List<SourceAnchorRegion> regions)
+        List<SourceAnchorRegion> regions,
+        bool validateAnchor)
     {
         var anchor = new SourceAnchor
         {
@@ -172,7 +247,8 @@ internal static class DoclingCanonicalSourceAnchorProjector
             Regions = regions
         };
 
-        CanonicalContractValidator.ValidateOrThrow(anchor, document);
+        if (validateAnchor)
+            CanonicalContractValidator.ValidateOrThrow(anchor, document);
         return anchor;
     }
 

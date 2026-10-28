@@ -93,11 +93,9 @@ internal static class DoclingCanonicalBundleFactory
         }
 
         document.ManifestSha256 = envelope.ManifestSha256;
-        CanonicalContractValidator.ValidateOrThrow(document);
-        var anchors = request.RetrievalChunks
+        var selections = request.RetrievalChunks
             .OrderBy(static chunk => chunk.ChunkIndex)
-            .Select(chunk => DoclingCanonicalSourceAnchorProjector.ProjectSelection(
-                document,
+            .Select(chunk => new DoclingCanonicalAnchorSelection(
                 DocumentFoundationRepo
                     .BuildStableRetrievalChunkId(
                         request.DocumentId,
@@ -110,7 +108,9 @@ internal static class DoclingCanonicalBundleFactory
                 chunk.CanonicalBlockIds,
                 chunk.CanonicalSpanIds,
                 chunk.CanonicalTableCellIds))
-            .ToList();
+            .ToArray();
+        var anchors = DoclingCanonicalSourceAnchorProjector.ProjectSelections(
+            document, selections, cancellationToken).ToList();
         anchors.AddRange(CanonicalTableObservationAnchors.Build(document, cancellationToken));
         var bundle = new CanonicalIngestionBundle
         {
