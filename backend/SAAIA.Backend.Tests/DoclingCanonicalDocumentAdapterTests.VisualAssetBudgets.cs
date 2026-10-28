@@ -7,9 +7,60 @@ using Xunit;
 public sealed partial class DoclingCanonicalDocumentAdapterTests
 {
     [Fact]
+    public void Visual_asset_document_with_177_pages_and_1172_figures_preserves_all_1349_pngs()
+    {
+        var source = BuildDocument();
+        for (var page = 1; page <= 177; page++)
+        {
+            var key = page.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (!source.Pages.ContainsKey(key))
+                source.Pages[key] = new() { PageNumber = page, Size = new() { Width = 100, Height = 200 } };
+            source.Pages[key].Image = VisualAssetTestPng.Image();
+        }
+        source.Pictures[0].Image = VisualAssetTestPng.Image();
+        for (var index = 1; index < 1172; index++)
+        {
+            var picture = new DoclingPictureItem
+            {
+                SelfRef = "#/pictures/" + index,
+                Parent = new() { Ref = "#/body" },
+                Label = "picture", ContentLayer = "body", Image = VisualAssetTestPng.Image(),
+                Provenance = [Provenance(Box(20, 45, 80, 25, "BOTTOMLEFT"), index % 177 + 1)]
+            };
+            source.Pictures.Add(picture);
+            source.Body!.Children.Add(new() { Ref = picture.SelfRef });
+        }
+        var imageUris = source.Pages.Values.Select(page => page.Image!.Uri)
+            .Concat(source.Pictures.Select(picture => picture.Image!.Uri)).ToArray();
+
+        var document = DoclingCanonicalDocumentAdapter.Project(BuildContext(), source);
+
+        Assert.Equal(177, document.Pages.Count);
+        Assert.Equal(1172, document.Pages.Sum(page => page.Figures.Count));
+        Assert.Equal(1349, document.Assets.Count);
+        Assert.Equal(1349, document.Assets.Select(asset => asset.AssetId).Distinct().Count());
+        var measured = CanonicalVisualAssetPolicy.MeasureSource(source);
+        Assert.Equal(177, measured.PageAssets);
+        Assert.Equal(1172, measured.FigureAssets);
+        Assert.Equal(1349L * VisualAssetTestPng.Bytes.Length, measured.LogicalBytes);
+        Assert.Equal(measured, CanonicalVisualAssetPolicy.MeasurePublication(document.Assets));
+        var hash = Convert.ToHexString(SHA256.HashData(VisualAssetTestPng.Bytes)).ToLowerInvariant();
+        Assert.All(document.Assets, asset =>
+        {
+            Assert.Equal(VisualAssetTestPng.Bytes, asset.PublicationBytes);
+            Assert.Equal(hash, asset.Sha256);
+        });
+        Assert.All(document.Pages.SelectMany(page => page.Figures), figure =>
+            Assert.Single(document.Assets, asset => asset.AssetId == Assert.Single(figure.AssetIds)
+                && asset.FigureId == figure.FigureId));
+        Assert.Equal(imageUris, source.Pages.Values.Select(page => page.Image!.Uri)
+            .Concat(source.Pictures.Select(picture => picture.Image!.Uri)));
+    }
+
+    [Fact]
     public void Visual_asset_document_policy_shares_the_count_limit_and_preserves_individual_png_limits()
     {
-        Assert.Equal(1024, CanonicalVisualAssetPolicy.MaximumDocumentAssets);
+        Assert.Equal(2048, CanonicalVisualAssetPolicy.MaximumDocumentAssets);
         Assert.Equal(384L * 1024 * 1024, CanonicalVisualAssetPolicy.MaximumDocumentBytes);
         Assert.Equal(CanonicalVisualAssetPolicy.MaximumDocumentAssets, CanonicalVisualAssetRepo.MaximumDocumentAssets);
         Assert.Equal(16 * 1024 * 1024, CanonicalPngAsset.MaximumBytes);
@@ -130,7 +181,7 @@ public sealed partial class DoclingCanonicalDocumentAdapterTests
     }
 
     [Fact]
-    public void Visual_asset_default_count_boundary_keeps_all_1024_provenances_without_duplicate_pixel_allocations()
+    public void Visual_asset_default_count_boundary_keeps_all_2048_provenances_without_duplicate_pixel_allocations()
     {
         var source = BuildDocument();
         var picture = source.Pictures[0];
@@ -140,13 +191,71 @@ public sealed partial class DoclingCanonicalDocumentAdapterTests
 
         var document = DoclingCanonicalDocumentAdapter.Project(BuildContext(), source);
 
-        Assert.Equal(1024, document.Assets.Count);
-        Assert.Equal(1024, document.Pages[0].Figures.Count);
-        Assert.Equal(1024, document.Assets.Select(asset => asset.AssetId).Distinct().Count());
+        Assert.Equal(2048, document.Assets.Count);
+        Assert.Equal(2048, document.Pages[0].Figures.Count);
+        Assert.Equal(2048, document.Assets.Select(asset => asset.AssetId).Distinct().Count());
         Assert.All(document.Assets, asset => Assert.Same(document.Assets[0].PublicationBytes, asset.PublicationBytes));
         var measurements = CanonicalVisualAssetPolicy.MeasurePublication(document.Assets);
-        Assert.Equal(1024L * VisualAssetTestPng.Bytes.Length, measurements.LogicalBytes);
+        Assert.Equal(2048L * VisualAssetTestPng.Bytes.Length, measurements.LogicalBytes);
         Assert.Equal(VisualAssetTestPng.Bytes.Length, measurements.UniqueImageBytes);
+    }
+
+    [Fact]
+    public void Visual_asset_default_count_refuses_2049_provenances_before_decoding_or_mutation()
+    {
+        var source = BuildDocument();
+        var document = DoclingCanonicalDocumentAdapter.Project(BuildContext(), source);
+        var picture = source.Pictures[0];
+        picture.Image = VisualAssetTestPng.Image();
+        picture.Image.Uri = "data:image/png;base64,AAAA"; // Count guard must precede invalid PNG decoding.
+        while (picture.Provenance.Count < 2049)
+            picture.Provenance.Add(Provenance(Box(25, 40, 75, 30, "BOTTOMLEFT")));
+
+        var error = Assert.Throws<CanonicalVisualAssetBudgetException>(() =>
+            DoclingCanonicalVisualAssetProjector.Apply(document, source));
+
+        Assert.Equal("count", error.Dimension);
+        Assert.Equal("preflight", error.Phase);
+        Assert.Equal(2048, error.Budget.MaximumAssets);
+        Assert.Equal(2049, error.Measurements.AssetCount);
+        Assert.Equal(2049 * 3, error.Measurements.LogicalBytes);
+        Assert.Empty(document.Assets);
+    }
+
+    [Fact]
+    public async Task Visual_asset_sql_default_count_refuses_2049_assets_before_any_database_call()
+    {
+        var source = BuildDocument();
+        source.Pictures[0].Image = VisualAssetTestPng.Image();
+        var document = DoclingCanonicalDocumentAdapter.Project(BuildContext(), source);
+        var asset = Assert.Single(document.Assets);
+        while (document.Assets.Count < 2049) document.Assets.Add(asset);
+
+        var error = await Assert.ThrowsAsync<CanonicalVisualAssetBudgetException>(() =>
+            CanonicalVisualAssetRepo.StoreAsync(null!, null!, Guid.NewGuid(), document, CancellationToken.None));
+
+        Assert.Equal("count", error.Dimension);
+        Assert.Equal("publication", error.Phase);
+        Assert.Equal(2048, error.Budget.MaximumAssets);
+        Assert.Equal(2049, error.Measurements.AssetCount);
+        Assert.Equal(2049L * VisualAssetTestPng.Bytes.Length, error.Measurements.LogicalBytes);
+        Assert.Equal(1, error.Measurements.UniqueImageReferences);
+    }
+
+    [Fact]
+    public void Visual_asset_byte_budget_stays_at_384_mib_independently_of_asset_count_or_transport()
+    {
+        var measuredMoulinex = new CanonicalVisualAssetMeasurements(1349, 401722054, 177, 1172, 1349, 401722054);
+        CanonicalVisualAssetPolicy.RequireWithinBudget(measuredMoulinex, CanonicalVisualAssetBudget.Default, "preflight");
+        var exact = measuredMoulinex with { LogicalBytes = 384L * 1024 * 1024 };
+        CanonicalVisualAssetPolicy.RequireWithinBudget(exact, CanonicalVisualAssetBudget.Default, "preflight");
+
+        var error = Assert.Throws<CanonicalVisualAssetBudgetException>(() =>
+            CanonicalVisualAssetPolicy.RequireWithinBudget(exact with { LogicalBytes = exact.LogicalBytes + 1 },
+                CanonicalVisualAssetBudget.Default, "preflight"));
+
+        Assert.Equal("bytes", error.Dimension);
+        Assert.Equal(384L * 1024 * 1024, error.Budget.MaximumBytes);
     }
 
     [Theory]
@@ -239,12 +348,12 @@ public sealed partial class DoclingCanonicalDocumentAdapterTests
         var fields = json.RootElement;
         Assert.Equal("preflight", fields.GetProperty("visual_asset_budget_phase").GetString());
         Assert.Equal("count", fields.GetProperty("visual_asset_budget_dimension").GetString());
-        Assert.Equal(1024, fields.GetProperty("visual_asset_maximum_count").GetInt32());
+        Assert.Equal(2048, fields.GetProperty("visual_asset_maximum_count").GetInt32());
         Assert.Equal(384L * 1024 * 1024, fields.GetProperty("visual_asset_maximum_bytes").GetInt64());
-        Assert.Equal(1025, fields.GetProperty("visual_asset_logical_count").GetInt32());
-        Assert.Equal(1025L * VisualAssetTestPng.Bytes.Length, fields.GetProperty("visual_asset_logical_bytes").GetInt64());
+        Assert.Equal(2049, fields.GetProperty("visual_asset_logical_count").GetInt32());
+        Assert.Equal(2049L * VisualAssetTestPng.Bytes.Length, fields.GetProperty("visual_asset_logical_bytes").GetInt64());
         Assert.Equal(0, fields.GetProperty("visual_asset_page_count").GetInt32());
-        Assert.Equal(1025, fields.GetProperty("visual_asset_figure_count").GetInt32());
+        Assert.Equal(2049, fields.GetProperty("visual_asset_figure_count").GetInt32());
         Assert.Equal(1, fields.GetProperty("visual_asset_unique_image_references").GetInt32());
         Assert.Equal(VisualAssetTestPng.Bytes.Length, fields.GetProperty("visual_asset_unique_image_bytes").GetInt32());
         Assert.Equal(0, fields.GetProperty("diagnostic_dropped_measurements").GetInt32());

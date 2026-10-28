@@ -30,10 +30,10 @@ internal sealed class CanonicalVisualAssetBudgetException(
 /// <summary>One logical publication policy for projection and immutable SQL storage.</summary>
 internal static class CanonicalVisualAssetPolicy
 {
-    internal const int MaximumDocumentAssets = 1024;
-    // 512 MiB of response transport contains at most 384 MiB of base64 pixels.
-    // Multiple provenance records still count separately against this logical
-    // publication budget even when their byte[] allocation can be shared.
+    internal const int MaximumDocumentAssets = 2048;
+    // Logical publication budgets are independent of response transport size.
+    // A transport profile above the 512 MiB default does not raise this byte cap.
+    // Each provenance still counts separately, even when pixel arrays are shared.
     internal const long MaximumDocumentBytes = 384L * 1024 * 1024;
 
     internal static CanonicalVisualAssetMeasurements MeasureSource(DoclingDocument source)

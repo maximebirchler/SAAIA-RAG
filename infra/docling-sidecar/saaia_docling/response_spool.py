@@ -15,6 +15,8 @@ from threading import Lock
 from time import monotonic
 import weakref
 
+from pydantic_core import from_json
+
 DEFAULT_RESPONSE_BYTES = 512 * 1024 * 1024
 MINIMUM_RESPONSE_BYTES = 1024 * 1024
 ABSOLUTE_MAXIMUM_RESPONSE_BYTES = 2 * 1024 * 1024 * 1024
@@ -37,7 +39,7 @@ def response_byte_limit_from_environment(environment=None):
 MAXIMUM_RESPONSE_BYTES = response_byte_limit_from_environment()
 CHUNK_BYTES = 64 * 1024
 LOGGER = logging.getLogger("saaia_docling.payload")
-PHASES = frozenset({"upstream_download", "json_parse", "regional_repairs", "json_serialize", "wire_send", "cleanup"})
+PHASES = frozenset({"upstream_download", "json_parse", "regional_repairs", "json_serialize", "wire_send", "cleanup", "error_payload_release"})
 
 
 class ResponseSizeLimitError(ValueError):
@@ -151,10 +153,20 @@ async def spool_upstream(chunks, workspace, *, maximum=MAXIMUM_RESPONSE_BYTES):
 def parse_upstream(workspace):
     with workspace.diagnostics.phase("json_parse") as stats:
         stats["bytes"] = workspace.upstream.stat().st_size
-        # TextIO releases its full byte decoder input before JSON parsing. The
-        # decoded tree remains necessary for the existing regional repairs.
-        with workspace.upstream.open("r", encoding="utf-8-sig") as source:
-            payload = json.load(source)
+        # Keep the historical UTF-8 BOM acceptance without slicing/copying the
+        # complete byte buffer. The parser still builds a full Python tree.
+        source_bytes = None
+        try:
+            with workspace.upstream.open("rb") as source:
+                if source.read(3) != b"\xef\xbb\xbf":
+                    source.seek(0)
+                source_bytes = source.read()
+            payload = from_json(source_bytes, allow_inf_nan=True,
+                                allow_partial=False, cache_strings="keys")
+        finally:
+            # Native parser failures must not keep the full input in this
+            # Python frame while the caller translates their exception.
+            source_bytes = None
         # Its receipt is already known. Do not retain a redundant disk copy or
         # its cgroup-charged page cache throughout repair/serialization/delivery.
         workspace.upstream.unlink()

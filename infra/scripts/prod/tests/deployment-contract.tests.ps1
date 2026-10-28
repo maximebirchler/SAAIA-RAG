@@ -42,7 +42,7 @@ function Installer([bool]$isReady) {
     New-Item -ItemType Directory -Force (Join-Path $sandbox $dir) | Out-Null
   }
   Get-ChildItem -LiteralPath (Join-Path $repo 'infra/scripts/prod') -Filter '*.ps1' -File | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $sandbox 'infra/scripts/prod') }
-  foreach ($relative in @('infra/config/deployment.config.prod.template.json','infra/docker-compose.prod.yml','backend/SAAIA.Backend/Dockerfile','backend/SAAIA.Backend/SAAIA.Backend.csproj','contracts/SAAIA.Contracts/SAAIA.Contracts.csproj','RAG.sln','global.json','Directory.Build.props','.dockerignore','infra/docling-sidecar/Dockerfile','infra/docling-sidecar/entrypoint.sh')) {
+  foreach ($relative in @('infra/config/deployment.config.prod.template.json','infra/docker-compose.prod.yml','backend/SAAIA.Backend/Dockerfile','backend/SAAIA.Backend/SAAIA.Backend.csproj','contracts/SAAIA.Contracts/SAAIA.Contracts.csproj','RAG.sln','global.json','Directory.Build.props','.dockerignore','infra/docling-sidecar/Dockerfile','infra/docling-sidecar/entrypoint.sh','infra/docling-sidecar/requirements-parser.txt')) {
     Copy-Item -LiteralPath (Join-Path $repo $relative) -Destination (Join-Path $sandbox $relative)
   }
   [IO.File]::WriteAllText((Join-Path $sandbox 'backend/SAAIA.Backend/Program.cs'), 'synthetic source input')
@@ -167,6 +167,7 @@ Case 'remote_source_archive_contains_the_checkout_build_properties' {
   }
   New-BackendSourceArchive -RepoRoot $sandbox -ArchivePath (Join-Path $work 'synthetic-not-created.tar')
   Check ($global:SaaiaDeploymentTarInputs -contains 'Directory.Build.props') 'remote_archive_omits_required_build_properties'
+  Check ($global:SaaiaDeploymentTarInputs -contains 'infra/docling-sidecar/requirements-parser.txt') 'remote_archive_omits_required_parser_dependency'
   Check (@($global:SaaiaDeploymentTarInputs | Where-Object { Test-Path -LiteralPath (Join-Path $sandbox $_) -PathType Container }).Count -eq 0) 'recursive_directory_found_in_archive_input'
 }
 Case 'remote_archive_has_only_explicit_source_files_no_recursive_directory_transfer' {
@@ -181,10 +182,30 @@ Case 'archive_selection_excludes_synthetic_private_and_generated_files_without_h
   foreach ($relative in @('backend/SAAIA.Backend/.env','backend/SAAIA.Backend/appsettings.Local.json','backend/SAAIA.Backend/deployment.config.json','backend/SAAIA.Backend/keys/synthetic.pem','backend/SAAIA.Backend/obj/generated.cs')) {
     Check (-not ($inputs -contains $relative)) 'excluded_input_selected_for_transfer'
   }
-  foreach ($relative in @('backend/SAAIA.Backend/Program.cs','Directory.Build.props','infra/docker-compose.prod.yml','infra/docling-sidecar/Dockerfile')) {
+  foreach ($relative in @('backend/SAAIA.Backend/Program.cs','Directory.Build.props','infra/docker-compose.prod.yml','infra/docling-sidecar/Dockerfile','infra/docling-sidecar/requirements-parser.txt')) {
     Check ($inputs -contains $relative) 'required_build_input_missing_from_transfer'
   }
 }
+
+Case 'parser_dependency_mutation_changes_docling_source_identity' {
+  Installer $true
+  $sandbox=$global:SaaiaDeploymentTestState.sandbox
+  $first=Get-DeploymentSourceRevision $sandbox docling
+  $backend=Get-DeploymentSourceRevision $sandbox backend
+  [IO.File]::AppendAllText((Join-Path $sandbox 'infra/docling-sidecar/requirements-parser.txt'), "`npydantic-core==2.46.5`n")
+  Check ((Get-DeploymentSourceRevision $sandbox docling) -cne $first) 'parser_dependency_change_not_identified'
+  Check ((Get-DeploymentSourceRevision $sandbox backend) -ceq $backend) 'parser_dependency_changed_backend_identity'
+}
+Case 'missing_parser_dependency_rejects_identity_and_archive_selection' {
+  Installer $true
+  $sandbox=$global:SaaiaDeploymentTestState.sandbox
+  Remove-Item -LiteralPath (Join-Path $sandbox 'infra/docling-sidecar/requirements-parser.txt')
+  $identityRejected=$false; $archiveRejected=$false
+  try { Get-DeploymentSourceRevision $sandbox docling | Out-Null } catch { $identityRejected=$true }
+  try { Get-BackendArchiveSourceFiles -RepoRoot $sandbox | Out-Null } catch { $archiveRejected=$true }
+  Check ($identityRejected -and $archiveRejected) 'missing_parser_dependency_not_rejected'
+}
+
 $failures=@($script:results | Where-Object { -not $_.passed })
 $proof=[ordered]@{schema='saaia-deployment-offline-tests.v1';transportMocked=$true;cryptographicSignatureValidated=$false;servicesStarted=0;networkCalls=0;dotnetBuilds=0;passed=($failures.Count-eq 0);total=$script:results.Count;failed=$failures.Count;tests=$script:results}
 $proof | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $out 'result.json') -Encoding utf8

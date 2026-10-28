@@ -38,7 +38,7 @@ function Resolve-DeploymentRuntimeRevision([hashtable]$Values, [string]$ImageVar
 function Get-DeploymentSourceFiles([string]$RepoRoot, [ValidateSet('backend','docling')][string]$Kind='backend') {
   $root = [IO.Path]::GetFullPath($RepoRoot).TrimEnd('\','/')
   $paths = [Collections.Generic.List[string]]::new()
-  $required = if ($Kind -eq 'backend') { @('RAG.sln','global.json','Directory.Build.props','.dockerignore','backend/SAAIA.Backend/Dockerfile') } else { @('infra/docling-sidecar/Dockerfile','infra/docling-sidecar/entrypoint.sh') }
+  $required = if ($Kind -eq 'backend') { @('RAG.sln','global.json','Directory.Build.props','.dockerignore','backend/SAAIA.Backend/Dockerfile') } else { @('infra/docling-sidecar/Dockerfile','infra/docling-sidecar/entrypoint.sh','infra/docling-sidecar/requirements-parser.txt') }
   foreach ($relative in $required) {
     if (-not (Test-Path -LiteralPath (Join-Path $root $relative) -PathType Leaf)) { throw "Missing build input: $relative" }
     $paths.Add($relative)

@@ -15,7 +15,8 @@ import re
 def source_revision(root: Path, kind: str) -> str:
     required = (["RAG.sln", "global.json", "Directory.Build.props", ".dockerignore",
                  "backend/SAAIA.Backend/Dockerfile"] if kind == "backend" else
-                ["infra/docling-sidecar/Dockerfile", "infra/docling-sidecar/entrypoint.sh"])
+                ["infra/docling-sidecar/Dockerfile", "infra/docling-sidecar/entrypoint.sh",
+                 "infra/docling-sidecar/requirements-parser.txt"])
     trees = (["backend/SAAIA.Backend", "contracts/SAAIA.Contracts"] if kind == "backend"
              else ["infra/docling-sidecar/saaia_docling"])
     for relative in required:

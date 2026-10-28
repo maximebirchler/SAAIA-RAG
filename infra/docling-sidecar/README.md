@@ -174,18 +174,31 @@ chaîne décimale entière explicite comprise entre **1048576 octets (1 Mio)** e
 **2147483648 octets (2 Gio)**. Les valeurs mal formées, les espaces, les signes et
 les valeurs hors intervalle refusent le démarrage ; elles ne sont pas arrondies
 ou silencieusement limitées. Il faut aligner ce réglage avec
-`DocumentIntelligence.MaxResponseBytes` du backend. Le profil actuel sur trois CPU
-et sept Gio conserve le défaut de 512 Mio ; le plafond configurable de deux Gio
-ne prouve pas que ce serveur peut traiter une réponse de cette taille.
+`DocumentIntelligence.MaxResponseBytes` du backend. Le plafond de transport est
+indépendant du profil CPU et mémoire ; chaque valeur doit être qualifiée avec
+le backend. Le plafond configurable de deux Gio ne prouve pas que ce serveur
+peut traiter une réponse de cette taille.
 
 Cette limite concerne les octets du **transport JSON**, qui contient notamment
 les images en base64. Elle ne désigne ni la taille maximale du PDF, ni la place
-disque totale du document. Le parsing garde encore le document Unicode et son
-arbre en mémoire ; l'encodeur produit encore un token par grande chaîne, mais ne
+disque totale du document. Le parsing utilise directement les octets UTF-8 avec
+`pydantic-core==2.46.4`, `allow_partial=False` et `cache_strings='keys'`, sans repli
+vers le parseur standard. Un BOM UTF-8 initial reste accepté. Ce chemin garde
+le buffer d'octets pendant le parsing et construit encore l'arbre Python complet ;
+il ne constitue pas un parseur streaming ou une garantie zero-copy. Le buffer
+d'entrée est libéré dans un `finally` avant traduction d'une erreur. Les nombres
+non finis restent refusés avant toute réponse par l'encodeur existant.
+L'encodeur produit encore un token par grande chaîne, mais ne
 reconstruit plus une chaîne Unicode et un corps UTF-8 pour tout le document.
 Une seule conversion détient cet arbre dans chaque processus wrapper. Il est
 libéré avant admission de la suivante ; plusieurs envois lents peuvent toutefois
 retenir plusieurs fichiers temporaires sur disque.
+
+Après un rejet survenu une fois le document parsé, une collecte des cycles a
+lieu après suppression de l'arbre et hors du gestionnaire d'exception. Elle
+libère notamment les marqueurs circulaires conservés par un encodeur interrompu,
+avant admission de la conversion suivante. La phase `error_payload_release`
+mesure son coût ; aucune collecte forcée n'est ajoutée au trajet de succès.
 
 `/health` expose `conversionPayload` : limite effective, étapes de téléchargement,
 parsing, réparation, sérialisation, envoi ASGI et nettoyage, avec leurs compteurs,
@@ -195,6 +208,14 @@ Le succès de `conversionTransport` n'est enregistré qu'après fermeture du flu
 et du client HTTP amont. Un envoi ASGI terminé ne constitue pas une preuve de
 réception par le client ; la fermeture de la connexion amont ne constitue pas
 une preuve d'annulation du calcul Docling.
+
+Le journal anonyme indique la valeur décimale valide du `Content-Length` amont
+avant le contrôle de limite, ainsi que son état (`valid`, `absent`, `invalid` ou
+`out_of_range`). Le texte brut de cet en-tête n'est jamais journalisé. Un refus de
+limite précise `upstream_headers`, `upstream_download` ou `json_serialize`. Une
+longueur annoncée n'atteste pas que ces octets ont été consommés ; le compteur de
+téléchargement compte les seuls octets acceptés dans le fichier. Ces informations
+ne prouvent ni réception client ni annulation du moteur amont.
 
 Les variables principales sont :
 
@@ -223,6 +244,8 @@ Ses délais et performances doivent être qualifiés dans l'image Linux exacte.
 ## Validation locale
 
 ```powershell
+# Installer cette dépendance dans l'environnement de test uniquement.
+python -m pip install --only-binary=:all: --no-deps -r infra/docling-sidecar/requirements-parser-tests.txt
 $env:PYTHONPATH = (Resolve-Path 'infra/docling-sidecar').Path
 python -m unittest discover -s 'infra/docling-sidecar/tests' -v
 ```

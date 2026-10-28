@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-import json
+import gc
 import logging
 import os
 import tempfile
@@ -177,6 +177,7 @@ async def _convert_file_owned(request: Request) -> Response:
             workspace = PayloadWorkspace(payload_diagnostics)
             response_owns_workspace = False
             payload = None
+            payload_parsed = False
             try:
                 upstream_file, status_code, media_type = await _forward_conversion(
                     pdf_path, filename, upload.content_type or "application/pdf", fields, workspace,
@@ -185,10 +186,11 @@ async def _convert_file_owned(request: Request) -> Response:
                     invalid_json = False
                     try:
                         payload = parse_upstream(workspace)
-                    except (json.JSONDecodeError, UnicodeError):
+                        payload_parsed = True
+                    except (ValueError, UnicodeError, RecursionError):
                         invalid_json = True
-                    # Raise outside the parser's except scope: a JSONDecodeError
-                    # retains its full input document and must not escape as cause.
+                    # Translate after leaving except so native parser errors,
+                    # their frames and any document fragments do not escape.
                     if invalid_json:
                         raise HTTPException(status_code=502, detail="Docling returned invalid JSON.")
                     if not isinstance(payload, dict):
@@ -214,7 +216,12 @@ async def _convert_file_owned(request: Request) -> Response:
                         table_repair_settings=TABLE_REPAIR.attestation(),
                         table_observation_settings=observation_settings(table_options) if observe_tables else None,
                     )
-                    response_file = serialize_payload(payload, workspace)
+                    try:
+                        response_file = serialize_payload(payload, workspace)
+                    except ResponseSizeLimitError:
+                        LOGGER.warning("Payload refusal stage=json_serialize reason=serialized_bytes maximum_response_bytes=%s",
+                                       MAXIMUM_RESPONSE_BYTES)
+                        raise
                     del payload  # The next admitted conversion cannot overlap this large tree.
                     # JSONResponse historically returned 200/application-json on upstream success.
                     status_code, media_type = 200, "application/json"
@@ -234,6 +241,12 @@ async def _convert_file_owned(request: Request) -> Response:
                     workspace.close()
             # An exception traceback can retain the entire JSON tree. Translate
             # after leaving except and dropping payload, before releasing the slot.
+            # An aborted stdlib JSON iterator can also retain circular-check
+            # markers through encoder closures after its traceback is gone.
+            # Only rejected responses trigger collection; the success path does not.
+            if payload_parsed:
+                with payload_diagnostics.phase("error_payload_release"):
+                    gc.collect()
             raise HTTPException(status_code=502, detail=failure_detail)
 
 
@@ -319,9 +332,26 @@ async def _forward_conversion(
                                   + [("files", (filename, source, content_type))],
                             headers={"accept-encoding": "identity"}) as response:
                         length = response.headers.get("content-length")
-                        if length is not None and length.isdigit() and int(length) > MAXIMUM_RESPONSE_BYTES:
+                        declared_bytes = None
+                        length_state = "absent" if length is None else "invalid"
+                        if length is not None and length.isascii() and length.isdecimal():
+                            # Bound conversion and log size; never log a raw header.
+                            significant_length = length.lstrip("0") or "0"
+                            length_state = "out_of_range" if len(significant_length) > 20 else "valid"
+                            if length_state == "valid":
+                                declared_bytes = int(significant_length)
+                        LOGGER.info("Payload upstream_headers declared_content_length_bytes=%s declared_content_length_state=%s maximum_response_bytes=%s upstream_status=%s",
+                                    declared_bytes, length_state, MAXIMUM_RESPONSE_BYTES, response.status_code)
+                        if length_state == "out_of_range" or (declared_bytes is not None and declared_bytes > MAXIMUM_RESPONSE_BYTES):
+                            LOGGER.warning("Payload refusal stage=upstream_headers reason=declared_length declared_content_length_bytes=%s declared_content_length_state=%s maximum_response_bytes=%s",
+                                           declared_bytes, length_state, MAXIMUM_RESPONSE_BYTES)
                             raise ResponseSizeLimitError("Docling declared an oversized response.")
-                        body = await spool_upstream(response.aiter_bytes(chunk_size=CHUNK_BYTES), workspace)
+                        try:
+                            body = await spool_upstream(response.aiter_bytes(chunk_size=CHUNK_BYTES), workspace)
+                        except ResponseSizeLimitError:
+                            LOGGER.warning("Payload refusal stage=upstream_download reason=actual_length declared_content_length_bytes=%s declared_content_length_state=%s maximum_response_bytes=%s",
+                                           declared_bytes, length_state, MAXIMUM_RESPONSE_BYTES)
+                            raise
                         status_code = response.status_code
                         media_type = response.headers.get("content-type", "application/json")
                         success = response.is_success

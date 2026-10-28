@@ -34,6 +34,9 @@ jobs:
       - name: Offline planning tool contracts without private archives or binaries
         shell: pwsh
         run: ./tools/testing/Test-PlanningOffline.ps1 -OutputDirectory artifacts/ci/planning-tools
+      - name: Install exact Docling parser dependency for offline fixture tests
+        shell: pwsh
+        run: python -m pip install --only-binary=:all: --no-deps -r infra/docling-sidecar/requirements-parser-tests.txt
       - name: Bounded Docling response transport without models or services
         shell: pwsh
         run: |
@@ -41,6 +44,14 @@ jobs:
           $taskLog = 'artifacts/ci/docling-response-spool.log'
           python -B -m unittest discover -s infra/docling-sidecar/tests -p test_response_spool.py -v *> $taskLog
           if ($LASTEXITCODE -ne 0) { Get-Content -LiteralPath $taskLog; exit $LASTEXITCODE }
+      - name: Deployment build inputs and source archive without services
+        shell: pwsh
+        run: |
+          $taskLog = 'artifacts/ci/deployment-identity.log'
+          python -B -m unittest discover -s infra/scripts/prod/tests -p test_deployment_identity.py -v *> $taskLog
+          if ($LASTEXITCODE -ne 0) { Get-Content -LiteralPath $taskLog; exit $LASTEXITCODE }
+          ./infra/scripts/prod/tests/deployment-contract.tests.ps1 -OutputDirectory artifacts/ci/deployment-contract
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Restore WinUI test runtime packages
         shell: pwsh
         run: dotnet restore ./client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj

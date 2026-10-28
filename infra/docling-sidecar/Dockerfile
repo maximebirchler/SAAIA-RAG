@@ -6,9 +6,13 @@ LABEL com.saaia.docling.source-revision="${SAAIA_DOCLING_SOURCE_REVISION}"
 
 COPY infra/docling-sidecar/saaia_docling /opt/saaia-docling-sidecar/saaia_docling
 COPY infra/docling-sidecar/entrypoint.sh /opt/saaia-docling-sidecar/entrypoint.sh
+COPY infra/docling-sidecar/requirements-parser.txt /opt/saaia-docling-sidecar/requirements-parser.txt
 
 USER 0
-RUN chmod 0555 /opt/saaia-docling-sidecar/entrypoint.sh \
+# Direct parser dependency supplied by the pinned base image. Refuse drift;
+# do not replace its Pydantic stack or download a different wheel here.
+RUN python -c "from importlib.metadata import version; import sys; sys.exit(0 if version('pydantic-core') == '2.46.4' else 'pydantic-core 2.46.4 required')" \
+    && chmod 0555 /opt/saaia-docling-sidecar/entrypoint.sh \
     && find /opt/saaia-docling-sidecar -type d -exec chmod 0555 {} + \
     && find /opt/saaia-docling-sidecar -type f -name '*.py' -exec chmod 0444 {} +
 

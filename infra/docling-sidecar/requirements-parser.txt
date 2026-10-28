@@ -1,0 +1,2 @@
+# Direct runtime JSON parser dependency; must match the qualified base image.
+pydantic-core==2.46.4

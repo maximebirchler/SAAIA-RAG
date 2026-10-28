@@ -116,29 +116,40 @@ public sealed class AdvancedAnalysisVisualSourceProjectionTests
     [Fact]
     public void Visual_source_storage_asset_budget_has_an_addressable_last_window_and_does_not_limit_physical_pages()
     {
-        Assert.Equal(1024, CanonicalVisualAssetRepo.MaximumDocumentAssets);
-        var last = AdvancedAnalysisVisualSourceProjector.Project(Doc, Revision, Hash, 1200, 1200,
-            true, 1024, [Asset(page: 1200)], 1023, 64, 20_000);
+        Assert.Equal(2048, CanonicalVisualAssetRepo.MaximumDocumentAssets);
+        Assert.Equal(CanonicalVisualAssetPolicy.MaximumDocumentAssets, CanonicalVisualAssetRepo.MaximumDocumentAssets);
+        var last = AdvancedAnalysisVisualSourceProjector.Project(Doc, Revision, Hash, 2400, 2400,
+            true, 2048, [Asset(page: 2400)], 2047, 64, 20_000);
         Assert.Single(last.Assets!);
         Assert.Null(last.NextAssetOffset);
-        Assert.Equal(1023, last.OmittedAssetCount);
+        Assert.Equal(2047, last.OmittedAssetCount);
 
-        var end = AdvancedAnalysisVisualSourceProjector.Project(Doc, Revision, Hash, 1200, 1200,
-            true, 1024, [], 1024, 64, 20_000);
+        var end = AdvancedAnalysisVisualSourceProjector.Project(Doc, Revision, Hash, 2400, 2400,
+            true, 2048, [], 2048, 64, 20_000);
         Assert.Empty(end.Assets!);
         Assert.Null(end.NextAssetOffset);
         Assert.Equal("end_of_inventory", end.Status);
         AdvancedAnalysisVisualSourceReader.ValidateRequest(new AdvancedAnalysisSearchRequest("read", Operation: "read_source",
-            IncludeVisualSources: true, VisualSourceOffset: 1024, VisualSourceLimit: 64), enabled: true);
+            IncludeVisualSources: true, VisualSourceOffset: 2048, VisualSourceLimit: 64), enabled: true);
         Assert.Throws<AdvancedAnalysisToolException>(() => AdvancedAnalysisVisualSourceProjector.Project(
-            Doc, Revision, Hash, 1200, 1200, true, 1025, [Asset(page: 1200)], 1024, 64, 20_000));
+            Doc, Revision, Hash, 2400, 2400, true, 2049, [Asset(page: 2400)], 2048, 64, 20_000));
+    }
+
+    [Fact]
+    public async Task Visual_source_sql_pagination_refuses_an_offset_above_the_shared_budget_before_any_database_call()
+    {
+        var error = await Assert.ThrowsAsync<ArgumentException>(() => CanonicalVisualAssetRepo.ListCitationsAsync(
+            null!, Guid.NewGuid(), Doc, Revision, Hash, 2400, 2400,
+            CanonicalVisualAssetPolicy.MaximumDocumentAssets + 1, 64, CancellationToken.None));
+
+        Assert.Equal("canonical_visual_citation_scope_invalid", error.Message);
     }
 
     [Theory]
     [InlineData(false, "read_source", true, null, null, "visual_source_citations_disabled")]
     [InlineData(true, "search_corpus", true, null, null, "visual_source_request_invalid")]
     [InlineData(true, "read_source", false, 0, null, "visual_source_request_invalid")]
-    [InlineData(true, "read_source", true, 1025, null, "visual_source_request_invalid")]
+    [InlineData(true, "read_source", true, 2049, null, "visual_source_request_invalid")]
     public void Visual_source_opt_in_requires_enabled_mode_and_explicit_source_read(
         bool enabled, string operation, bool include, int? offset, int? limit, string code)
     {

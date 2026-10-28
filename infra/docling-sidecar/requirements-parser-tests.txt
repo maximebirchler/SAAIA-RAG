@@ -1,0 +1,4 @@
+# Complete, pinned imports for the isolated parser fixture tests.
+# The runtime base image already supplies the Pydantic dependency stack.
+-r requirements-parser.txt
+typing-extensions==4.14.1
