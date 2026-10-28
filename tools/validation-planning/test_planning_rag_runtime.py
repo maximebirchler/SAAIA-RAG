@@ -13,15 +13,39 @@ import planning_rag_runtime as rag
 class PlanningRagTests(unittest.TestCase):
     def test_forwardings_cannot_retarget_the_existing_production_server_ports(self):
         root="/home/maxime/saaia-ingestion-qualification/"+str(uuid.uuid4())
+        owner={"root":root,"endpoints":{role:"http://127.0.0.1:"+str(port) for role,port in
+               (("backend",22521),("docling",22522),("tei",22523),("qdrant",22524))}}
         proof={"schemaVersion":"saaia-owned-ssh-forward.v1","sourceOwnerRoot":root,"hostTarget":"maxime@saaia-server",
                "process":{"pid":42,"path":"C:/Windows/System32/OpenSSH/ssh.exe","commandLineSha256":"a"*64},
                "forwardings":[{"localHost":"127.0.0.1","localPort":l,"remoteHost":"127.0.0.1","remotePort":r} for l,r in ((22531,22523),(22532,22524))]}
-        rag.validate_forwarding(proof,root)
+        rag.validate_forwarding(proof,owner)
         bad=copy.deepcopy(proof);bad["forwardings"][0]["remotePort"]=6333
-        with self.assertRaisesRegex(ValueError,"forwardings_changed"):rag.validate_forwarding(bad,root)
+        with self.assertRaisesRegex(ValueError,"forwardings_changed"):rag.validate_forwarding(bad,owner)
         bad=copy.deepcopy(proof);bad["forwardings"][0]["localHost"]="0.0.0.0"
-        with self.assertRaisesRegex(ValueError,"forwardings_changed"):rag.validate_forwarding(bad,root)
-        with self.assertRaisesRegex(ValueError,"owner_mismatch"):rag.validate_forwarding(proof,root+"x")
+        with self.assertRaisesRegex(ValueError,"forwardings_changed"):rag.validate_forwarding(bad,owner)
+        wrong_owner=copy.deepcopy(owner);wrong_owner["root"]+="x"
+        with self.assertRaisesRegex(ValueError,"owner_mismatch"):rag.validate_forwarding(proof,wrong_owner)
+        # A fresh runtime has different remote ports; local listeners stay fixed.
+        fresh=copy.deepcopy(owner)
+        fresh["endpoints"]={role:"http://127.0.0.1:"+str(port) for role,port in
+                            (("backend",22541),("docling",22542),("tei",22543),("qdrant",22544))}
+        with self.assertRaisesRegex(ValueError,"forwardings_changed"):rag.validate_forwarding(proof,fresh)
+        moved=copy.deepcopy(proof)
+        moved["forwardings"][0]["remotePort"]=22543;moved["forwardings"][1]["remotePort"]=22544
+        rag.validate_forwarding(moved,fresh)
+        with self.assertRaisesRegex(ValueError,"forwardings_changed"):rag.validate_forwarding(moved,owner)
+
+    def test_owner_ports_reject_non_loopback_credentials_paths_duplicates_and_invalid_ranges(self):
+        owner={"endpoints":{role:"http://127.0.0.1:"+str(port) for role,port in
+               (("backend",22541),("docling",22542),("tei",22543),("qdrant",22544))}}
+        for url in ("http://localhost:22543","https://127.0.0.1:22543","http://127.0.0.1:22543/",
+                    "http://name@127.0.0.1:22543","http://127.0.0.1:22543?x=1","http://127.0.0.1:22543\n","http://127.0.0.1:65536",
+                    "http://127.0.0.1:80","http://127.0.0.1:5432",True):
+            with self.subTest(url=url):
+                bad=copy.deepcopy(owner);bad["endpoints"]["tei"]=url
+                with self.assertRaises(ValueError):rag.source_forwardings(bad)
+        bad=copy.deepcopy(owner);bad["endpoints"]["tei"]=bad["endpoints"]["qdrant"]
+        with self.assertRaisesRegex(ValueError,"distinct_ports"):rag.source_forwardings(bad)
 
     def test_live_points_must_match_same_chunk_plan_and_real_finite_768vector(self):
         point=str(uuid.uuid4());chunk=str(uuid.uuid4())

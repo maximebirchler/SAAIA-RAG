@@ -20,12 +20,58 @@ try{
         process=@{pid=$fakePid;path=$fakePath;startedAtUtc=$fakeStart.ToString('o');commandLineSha256=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($command)))};
         forwardings=@(@{localHost='127.0.0.1';localPort=22531;remoteHost='127.0.0.1';remotePort=22523},@{localHost='127.0.0.1';localPort=22532;remoteHost='127.0.0.1';remotePort=22524})}
     $tunnelPath=Join-Path $temp 'tunnel.json';$tunnelHash=Save-Proof $tunnel $tunnelPath
-    $value=@{sourceOwnerRoot=$sourceRoot;tunnelEvidence=@{path=$tunnelPath;sha256=$tunnelHash}}
+    $source=@{schemaVersion='saaia-linux-ingestion-runtime.v1';root=$sourceRoot;runId=$run;
+        endpoints=@{backend='http://127.0.0.1:22521';docling='http://127.0.0.1:22522';tei='http://127.0.0.1:22523';qdrant='http://127.0.0.1:22524'}}
+    $sourcePath=Join-Path $temp 'source-owner.json';$sourceHash=Save-Proof $source $sourcePath
+    $value=@{sourceOwnerRoot=$sourceRoot;sourceOwnerRunId=$run;sourceOwnerEvidence=@{path=$sourcePath;sha256=$sourceHash};tunnelEvidence=@{path=$tunnelPath;sha256=$tunnelHash}}
     Assert-PlanningTunnelIdentity $value;Check $true 'Exact synthetic SSH process must pass.'
     $script:listenerPid=4321;Reject {Assert-PlanningTunnelIdentity $value};$script:listenerPid=$fakePid
     $script:fakeStart=$fakeStart.AddSeconds(1);Reject {Assert-PlanningTunnelIdentity $value};$script:fakeStart=$fakeStart.AddSeconds(-1)
     $script:fakeCommand=$command+' changed';Reject {Assert-PlanningTunnelIdentity $value};$script:fakeCommand=$command
     $script:fakePath='C:/Windows/System32/other.exe';Reject {Assert-PlanningTunnelIdentity $value};$script:fakePath='C:/Windows/System32/OpenSSH/ssh.exe'
+    # Move to a new isolated runtime without silently retaining old remote ports.
+    $source.endpoints=@{backend='http://127.0.0.1:22541';docling='http://127.0.0.1:22542';tei='http://127.0.0.1:22543';qdrant='http://127.0.0.1:22544'}
+    $value.sourceOwnerEvidence.sha256=Save-Proof $source $sourcePath
+    Reject {Assert-PlanningTunnelIdentity $value}
+    $command=$command.Replace(':22523',':22543').Replace(':22524',':22544');$script:fakeCommand=$command
+    $tunnel.forwardings[0].remotePort=22543;$tunnel.forwardings[1].remotePort=22544
+    $tunnel.process.commandLineSha256=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($command)))
+    $value.tunnelEvidence.sha256=Save-Proof $tunnel $tunnelPath
+    Assert-PlanningTunnelIdentity $value;Check $true 'Fresh source role endpoints must pass with their exact tunnel.'
+    $extraForward='127.0.0.1:22533:127.0.0.1:22544'
+    $invalidCommands=@($command.Replace(':22543 ',':225430 '),$command.Replace('-L 127.0.0.1:22531','-o 127.0.0.1:22531'),($command+' -L '+$extraForward),$command.Replace('maxime@saaia-server','maxime@saaia-server-other'))
+    $nonCanonicalOptions=@(('-L'+$extraForward),('"-L'+$extraForward+'"'),('-R '+$extraForward),('-R'+$extraForward),'-D 22533','-D22533',('-NL'+$extraForward),
+        ('-oLocalForward='+$extraForward),('-o "LocalForward '+$extraForward+'"'),('"-oLocalForward='+$extraForward+'"'),('-o RemoteForward='+$extraForward),'-oDynamicForward=22533')
+    Check ($nonCanonicalOptions.Count -eq 12) 'Every alternative forwarding syntax must have an independent negative case.'
+    foreach($option in $nonCanonicalOptions){
+        $invalidCommands+=$command.Replace(' maxime@saaia-server',' '+$option+' maxime@saaia-server')
+    }
+    foreach($changed in $invalidCommands){
+        $script:fakeCommand=$changed
+        $tunnel.process.commandLineSha256=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($changed)))
+        $value.tunnelEvidence.sha256=Save-Proof $tunnel $tunnelPath
+        Reject {Assert-PlanningTunnelIdentity $value}
+    }
+    foreach($quoted in @(
+        '"C:/Windows/System32/OpenSSH/ssh.exe" "-N" "-L" "127.0.0.1:22531:127.0.0.1:22543" "-L" "127.0.0.1:22532:127.0.0.1:22544" "maxime@saaia-server"',
+        'ssh.exe -N -T -o ExitOnForwardFailure=yes -oServerAliveInterval=30 -L 127.0.0.1:22531:127.0.0.1:22543 -L 127.0.0.1:22532:127.0.0.1:22544 maxime@saaia-server')){
+        $script:fakeCommand=$quoted
+        $tunnel.process.commandLineSha256=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($quoted)))
+        $value.tunnelEvidence.sha256=Save-Proof $tunnel $tunnelPath
+        Assert-PlanningTunnelIdentity $value;Check $true 'Canonical quoted arguments and non-forwarding keepalive options must pass.'
+    }
+    $script:fakeCommand=$command
+    $tunnel.process.commandLineSha256=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($command)))
+    $value.tunnelEvidence.sha256=Save-Proof $tunnel $tunnelPath
+    $value.sourceOwnerEvidence.sha256='0'*64;Reject {Assert-PlanningTunnelIdentity $value};$value.sourceOwnerEvidence.sha256=Save-Proof $source $sourcePath
+    foreach($url in @('http://localhost:22543','http://127.0.0.1:22543/','http://name@127.0.0.1:22543',"http://127.0.0.1:22543`n",'http://127.0.0.1:65536','http://127.0.0.1:5432','http://127.0.0.1:80','http://127.0.0.1:22544')){
+        $source.endpoints.tei=$url;$value.sourceOwnerEvidence.sha256=Save-Proof $source $sourcePath
+        Reject {Assert-PlanningTunnelIdentity $value}
+    }
+    $source.endpoints.tei='http://127.0.0.1:22543';$value.sourceOwnerEvidence.sha256=Save-Proof $source $sourcePath
+    $tunnel.forwardings[0].remotePort=22523;$value.tunnelEvidence.sha256=Save-Proof $tunnel $tunnelPath
+    Reject {Assert-PlanningTunnelIdentity $value}
+    $tunnel.forwardings[0].remotePort=22543;$value.tunnelEvidence.sha256=Save-Proof $tunnel $tunnelPath
     $value.tunnelEvidence.sha256='0'*64;Reject {Assert-PlanningTunnelIdentity $value}
     $manifest=Join-Path $temp 'corpus.json';[IO.File]::WriteAllText($manifest,'{"synthetic":true}');$manifestHash=(Get-FileHash -LiteralPath $manifest).Hash
     $rag=@{schemaVersion='saaia-planning-owned-rag-runtime.v1';origin='real_ingestion_worker';sourceOwnerRunId=$run;

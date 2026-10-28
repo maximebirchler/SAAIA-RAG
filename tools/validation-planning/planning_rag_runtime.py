@@ -34,12 +34,28 @@ def checked(entry):
     return path
 
 
-def validate_forwarding(value, root):
+def source_forwardings(owner):
+    endpoints = owner.get("endpoints", {})
+    require(set(endpoints) == {"backend", "docling", "tei", "qdrant"}, "rag_owner_endpoints_required")
+    ports = {}
+    for role, url in endpoints.items():
+        match = re.fullmatch(r"http://127\.0\.0\.1:([0-9]{1,5})", url) if isinstance(url, str) else None
+        require(match is not None, "rag_owner_loopback_origin_required")
+        port = int(match[1])
+        require(1024 <= port <= 65535 and port != 5432, "rag_owner_qualification_port_required")
+        ports[role] = port
+    require(len(set(ports.values())) == 4, "rag_owner_distinct_ports_required")
+    return [{"localHost": "127.0.0.1", "localPort": local, "remoteHost": "127.0.0.1", "remotePort": ports[role]}
+            for local, role in ((22531, "tei"), (22532, "qdrant"))]
+
+
+def validate_forwarding(value, owner):
+    root = owner["root"]
     require(value["schemaVersion"] == "saaia-owned-ssh-forward.v1" and value["sourceOwnerRoot"] == root
             and value["hostTarget"] == "maxime@saaia-server", "rag_tunnel_owner_mismatch")
-    expected = [{"localHost": "127.0.0.1", "localPort": local, "remoteHost": "127.0.0.1", "remotePort": remote}
-                for local, remote in ((22531,22523),(22532,22524))]
-    require(value["forwardings"] == expected, "rag_tunnel_forwardings_changed")
+    expected = source_forwardings(owner)
+    require(value["forwardings"] == expected and all(type(row["localPort"]) is int and type(row["remotePort"]) is int
+            for row in value["forwardings"]), "rag_tunnel_forwardings_changed")
     process = value["process"]
     require(type(process["pid"]) is int and process["pid"] > 0 and Path(process["path"]).name.casefold() == "ssh.exe"
             and re.fullmatch("[a-f0-9]{64}", process["commandLineSha256"]), "rag_tunnel_process_invalid")
@@ -54,7 +70,7 @@ def register(args):
     require(metadata["workerObservationSha256"] == manifest["observationSha256"]
             and metadata["ownerRunId"] == observation["ownerRunId"] == owner["runId"]
             and metadata["sourceOwnerSha256"] == clone.digest(args.source_owner), "rag_clone_worker_identity_mismatch")
-    tunnel = clone.read(args.tunnel); validate_forwarding(tunnel, root)
+    tunnel = clone.read(args.tunnel); validate_forwarding(tunnel, owner)
     embedding_entry = observation["embeddingProfileEvidence"]
     embedding = transfer.resolve(embedding_entry["path"], embedding_entry["sha256"])
     profile = clone.read(embedding)
@@ -79,7 +95,7 @@ def validate_profile(value):
     for name in ("sourceOwnerEvidence", "tunnelEvidence", "corpusManifest", "captureMap", "cloneSourceMetadata", "embeddingProfileEvidence"): checked(value[name])
     owner = clone.read(checked(value["sourceOwnerEvidence"]))
     require(owner["root"] == value["sourceOwnerRoot"] and owner["runId"] == value["sourceOwnerRunId"], "rag_profile_owner_changed")
-    validate_forwarding(clone.read(checked(value["tunnelEvidence"])), owner["root"])
+    validate_forwarding(clone.read(checked(value["tunnelEvidence"])), owner)
     embedding = clone.read(checked(value["embeddingProfileEvidence"]))
     manifest = clone.read(checked(value["corpusManifest"]))
     metadata = clone.read(checked(value["cloneSourceMetadata"]))

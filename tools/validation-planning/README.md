@@ -132,7 +132,10 @@ ROLLBACK ; aucun nouvel essai n'écrase les preuves.
 `planning_rag_runtime.py register` lie le paquet, le manifeste de réingestion,
 la carte de transfert, l'owner Linux, son profil TEI et la preuve de tunnels.
 Il ne fait aucun appel réseau. Les forwards possédés sont explicitement
-22531→22523 pour TEI et 22532→22524 pour Qdrant. Le profil rebascule seulement
+22531 pour TEI et 22532 pour Qdrant, vers les ports distants déclarés dans
+l'owner Linux dont l'empreinte est vérifiée ; aucune ancienne paire distante
+n'est réutilisée implicitement. Les deux outils Python et PowerShell refusent
+les destinations qui diffèrent de cet owner. Le profil rebascule seulement
 les URLs de lecture ; collection, modèle, images et révisions restent ceux de
 la nouvelle ingestion. Le générateur du profil planning exige ce profil Rag
 pour tout manifeste `origin=real_ingestion_worker`.
