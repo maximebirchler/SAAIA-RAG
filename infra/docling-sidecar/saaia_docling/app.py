@@ -6,7 +6,6 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Any
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
@@ -24,6 +23,10 @@ from .text_repair_options import TextRepairOptions
 from .region_process import RegionProcessGate
 from .table_observation_options import TableObservationWorkOptions, observation_settings, requested_table_observations
 from .transport_diagnostics import ConversionTransportDiagnostics
+from .response_spool import (
+    CHUNK_BYTES, MAXIMUM_RESPONSE_BYTES, OwnedResponseBody, PayloadDiagnostics,
+    PayloadWorkspace, ResponseSizeLimitError, parse_upstream, serialize_payload, spool_upstream,
+)
 
 
 logging.basicConfig(
@@ -73,6 +76,20 @@ regional_ocr_slot = RegionProcessGate()
 table_region_engine = BoundedTableRegionEngine(regional_ocr_slot)
 text_region_engine = BoundedTextRegionEngine(regional_ocr_slot)
 conversion_transport = ConversionTransportDiagnostics()
+payload_diagnostics = PayloadDiagnostics()
+conversion_slot = asyncio.Semaphore(1)
+
+
+class OwnedFileResponse(Response):
+    """The body owns its files beyond the uploaded PDF context's lifetime."""
+
+    def __init__(self, body: OwnedResponseBody, *, status_code=200, media_type="application/json"):
+        super().__init__(content=b"", status_code=status_code, media_type=media_type,
+                         headers={"content-length": str(body.file.bytes)})
+        self.owned_body = body
+
+    async def __call__(self, scope, receive, send):
+        await self.owned_body.send(scope, receive, send, status_code=self.status_code, headers=self.raw_headers)
 
 
 @app.get("/health")
@@ -96,6 +113,7 @@ async def health() -> JSONResponse:
             "regionalTextRepair": TEXT_REPAIR.attestation(),
             "regionalTextRepairRuntime": text_region_engine.snapshot(),
             "conversionTransport": conversion_transport.snapshot(),
+            "conversionPayload": payload_diagnostics.snapshot(),
             "headingHierarchy": {
                 "enabled": HEADING_HIERARCHY.enabled,
                 "useBookmarks": HEADING_HIERARCHY.use_bookmarks,
@@ -113,6 +131,13 @@ async def health() -> JSONResponse:
 
 @app.post("/v1/convert/file")
 async def convert_file(request: Request) -> Response:
+    # Release only after _convert_file_owned has dropped its parsed payload. A
+    # returned file response retains bounded file metadata, never the JSON tree.
+    async with conversion_slot:
+        return await _convert_file_owned(request)
+
+
+async def _convert_file_owned(request: Request) -> Response:
     async with request.form(
         max_files=1,
         max_fields=64,
@@ -149,69 +174,67 @@ async def convert_file(request: Request) -> Response:
         with tempfile.TemporaryDirectory(prefix="saaia-docling-") as directory:
             pdf_path = Path(directory) / filename
             await _copy_bounded(upload, pdf_path)
-            upstream_response = await _forward_conversion(
-                pdf_path,
-                filename,
-                upload.content_type or "application/pdf",
-                fields,
-            )
-            if not upstream_response.is_success:
-                return Response(
-                    content=upstream_response.content,
-                    status_code=upstream_response.status_code,
-                    media_type=upstream_response.headers.get(
-                        "content-type",
-                        "application/json",
-                    ),
-                )
+            workspace = PayloadWorkspace(payload_diagnostics)
+            response_owns_workspace = False
+            payload = None
             try:
-                payload: Any = upstream_response.json()
-            except json.JSONDecodeError as exc:
-                raise HTTPException(
-                    status_code=502,
-                    detail="Docling returned invalid JSON.",
-                ) from exc
-            if not isinstance(payload, dict):
-                raise HTTPException(
-                    status_code=502,
-                    detail="Docling returned an invalid response envelope.",
+                upstream_file, status_code, media_type = await _forward_conversion(
+                    pdf_path, filename, upload.content_type or "application/pdf", fields, workspace,
                 )
-            table_options = TableObservationWorkOptions.from_table_options(
-                TABLE_REPAIR, repair_enabled=REPAIR_ENABLED) if observe_tables else TABLE_REPAIR
-            if (REPAIR_ENABLED or observe_tables) and payload.get("status") == "success":
-                summaries = await repair_response_tables(
-                    pdf_path,
-                    payload,
-                    table_region_engine,
-                    options=table_options,
-                )
-                applied = sum(
-                    item.get("status") == "applied" for item in summaries
-                )
-                if summaries:
-                    LOGGER.info(
-                        "Regional table repair candidates=%s applied=%s",
-                        len(summaries),
-                        applied,
+                if 200 <= status_code < 300:
+                    invalid_json = False
+                    try:
+                        payload = parse_upstream(workspace)
+                    except (json.JSONDecodeError, UnicodeError):
+                        invalid_json = True
+                    # Raise outside the parser's except scope: a JSONDecodeError
+                    # retains its full input document and must not escape as cause.
+                    if invalid_json:
+                        raise HTTPException(status_code=502, detail="Docling returned invalid JSON.")
+                    if not isinstance(payload, dict):
+                        raise HTTPException(status_code=502, detail="Docling returned an invalid response envelope.")
+                    with payload_diagnostics.phase("regional_repairs"):
+                        table_options = TableObservationWorkOptions.from_table_options(
+                            TABLE_REPAIR, repair_enabled=REPAIR_ENABLED) if observe_tables else TABLE_REPAIR
+                        if (REPAIR_ENABLED or observe_tables) and payload.get("status") == "success":
+                            summaries = await repair_response_tables(pdf_path, payload, table_region_engine, options=table_options)
+                            if summaries:
+                                LOGGER.info("Regional table repair candidates=%s applied=%s", len(summaries),
+                                            sum(item.get("status") == "applied" for item in summaries))
+                        if TEXT_REPAIR.enabled and payload.get("status") == "success":
+                            text_summaries = await repair_response_texts(pdf_path, payload, text_region_engine, options=TEXT_REPAIR)
+                            LOGGER.info("Regional text repair candidates=%s attempted=%s applied=%s",
+                                        payload.get("saaia_text_repair_summary", {}).get("candidate_count", 0),
+                                        sum(item.get("attempted", False) for item in text_summaries),
+                                        sum(item.get("status") == "applied" for item in text_summaries))
+                    payload["saaia_execution"] = conversion_execution_metadata(
+                        fields, repair_enabled=REPAIR_ENABLED, render_scale=RENDER_SCALE,
+                        padding_points=PADDING_POINTS, minimum_score=MINIMUM_SCORE,
+                        text_repair_settings=TEXT_REPAIR.attestation(),
+                        table_repair_settings=TABLE_REPAIR.attestation(),
+                        table_observation_settings=observation_settings(table_options) if observe_tables else None,
                     )
-            if TEXT_REPAIR.enabled and payload.get("status") == "success":
-                text_summaries = await repair_response_texts(
-                    pdf_path, payload, text_region_engine, options=TEXT_REPAIR,
-                )
-                LOGGER.info(
-                    "Regional text repair candidates=%s attempted=%s applied=%s",
-                    payload.get("saaia_text_repair_summary", {}).get("candidate_count", 0),
-                    sum(item.get("attempted", False) for item in text_summaries),
-                    sum(item.get("status") == "applied" for item in text_summaries),
-                )
-            payload["saaia_execution"] = conversion_execution_metadata(
-                fields, repair_enabled=REPAIR_ENABLED, render_scale=RENDER_SCALE,
-                padding_points=PADDING_POINTS, minimum_score=MINIMUM_SCORE,
-                text_repair_settings=TEXT_REPAIR.attestation(),
-                table_repair_settings=TABLE_REPAIR.attestation(),
-                table_observation_settings=observation_settings(table_options) if observe_tables else None,
-            )
-            return JSONResponse(payload)
+                    response_file = serialize_payload(payload, workspace)
+                    del payload  # The next admitted conversion cannot overlap this large tree.
+                    # JSONResponse historically returned 200/application-json on upstream success.
+                    status_code, media_type = 200, "application/json"
+                else:
+                    response_file = upstream_file
+                response = OwnedFileResponse(OwnedResponseBody(workspace, response_file),
+                                             status_code=status_code, media_type=media_type)
+                response_owns_workspace = True
+                return response
+            except ResponseSizeLimitError:
+                failure_detail = f"Docling response exceeds the configured {MAXIMUM_RESPONSE_BYTES} byte transport limit."
+            except (ValueError, UnicodeError, RecursionError):
+                failure_detail = "Docling response cannot be serialized safely."
+            finally:
+                payload = None
+                if not response_owns_workspace:
+                    workspace.close()
+            # An exception traceback can retain the entire JSON tree. Translate
+            # after leaving except and dropping payload, before releasing the slot.
+            raise HTTPException(status_code=502, detail=failure_detail)
 
 
 def _validate_heading_hierarchy_contract(
@@ -282,57 +305,29 @@ async def _forward_conversion(
     filename: str,
     content_type: str,
     fields: list[tuple[str, str]],
-) -> httpx.Response:
-    return await asyncio.to_thread(
-        _forward_conversion_sync,
-        pdf_path,
-        filename,
-        content_type,
-        fields,
-    )
-
-
-def _forward_conversion_sync(
-    pdf_path: Path,
-    filename: str,
-    content_type: str,
-    fields: list[tuple[str, str]],
-) -> httpx.Response:
+    workspace: PayloadWorkspace,
+) -> tuple:
+    # Async stream cancellation closes the HTTP connection and file before the
+    # caller cleans its workspace. It does not prove cancellation of Docling OCR.
+    timeout = httpx.Timeout(UPSTREAM_TIMEOUT_SECONDS, connect=10)
     with conversion_transport.observe() as response_received:
-        response = _forward_conversion_http(pdf_path, filename, content_type, fields)
-        response_received(response.is_success)
-        return response
-
-
-def _forward_conversion_http(
-    pdf_path: Path, filename: str, content_type: str, fields: list[tuple[str, str]],
-) -> httpx.Response:
-    timeout = httpx.Timeout(
-        UPSTREAM_TIMEOUT_SECONDS,
-        connect=10,
-    )
-    with pdf_path.open("rb") as source:
-        with httpx.Client(timeout=timeout) as client:
+        with pdf_path.open("rb") as source:
             try:
-                return client.post(
-                    f"{UPSTREAM_URL}/v1/convert/file",
-                    files=[
-                        (key, (None, value))
-                        for key, value in fields
-                    ] + [
-                        (
-                            "files",
-                            (
-                            filename,
-                            source,
-                            content_type,
-                            ),
-                        )
-                    ],
-                )
+                async with httpx.AsyncClient(timeout=timeout) as client:
+                    async with client.stream("POST", f"{UPSTREAM_URL}/v1/convert/file",
+                            files=[(key, (None, value)) for key, value in fields]
+                                  + [("files", (filename, source, content_type))],
+                            headers={"accept-encoding": "identity"}) as response:
+                        length = response.headers.get("content-length")
+                        if length is not None and length.isdigit() and int(length) > MAXIMUM_RESPONSE_BYTES:
+                            raise ResponseSizeLimitError("Docling declared an oversized response.")
+                        body = await spool_upstream(response.aiter_bytes(chunk_size=CHUNK_BYTES), workspace)
+                        status_code = response.status_code
+                        media_type = response.headers.get("content-type", "application/json")
+                        success = response.is_success
+                # Both the response stream AND client have actually closed.
+                response_received(success)
+                return body, status_code, media_type
             except httpx.HTTPError as exc:
-                LOGGER.exception("Docling upstream conversion failed")
-                raise HTTPException(
-                    status_code=502,
-                    detail="Docling upstream conversion failed.",
-                ) from exc
+                LOGGER.warning("Docling upstream conversion failed error_type=%s", type(exc).__name__)
+                raise HTTPException(status_code=502, detail="Docling upstream conversion failed.") from exc

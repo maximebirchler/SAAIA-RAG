@@ -157,6 +157,45 @@ pas l'arrêt du calcul dans Docling Serve après une annulation du client.
 
 ## Configuration
 
+### Transport des grandes réponses et mémoire
+
+Le wrapper reçoit la réponse HTTP amont en flux dans un fichier temporaire privé.
+Après parsing réussi, cette copie est supprimée. Les réparations et les images
+conservent leurs réglages ; le résultat JSON est écrit progressivement dans un
+autre fichier, avec les mêmes paramètres de sérialisation que `JSONResponse`.
+Ce fichier doit être complet et dans la limite autorisée avant l'envoi d'un 200.
+La réponse ASGI le lit par blocs, puis le supprime aussi en cas de déconnexion,
+d'annulation ou d'erreur d'envoi. Une réponse abandonnée avant son appel ASGI
+dispose d'une finalisation de secours.
+
+`SAAIA_DOCLING_MAX_RESPONSE_BYTES` fixe la limite des réponses amont et des réponses
+enrichies. Le défaut est **536870912 octets (512 Mio)**. La valeur doit être une
+chaîne décimale entière explicite comprise entre **1048576 octets (1 Mio)** et
+**2147483648 octets (2 Gio)**. Les valeurs mal formées, les espaces, les signes et
+les valeurs hors intervalle refusent le démarrage ; elles ne sont pas arrondies
+ou silencieusement limitées. Il faut aligner ce réglage avec
+`DocumentIntelligence.MaxResponseBytes` du backend. Le profil actuel sur trois CPU
+et sept Gio conserve le défaut de 512 Mio ; le plafond configurable de deux Gio
+ne prouve pas que ce serveur peut traiter une réponse de cette taille.
+
+Cette limite concerne les octets du **transport JSON**, qui contient notamment
+les images en base64. Elle ne désigne ni la taille maximale du PDF, ni la place
+disque totale du document. Le parsing garde encore le document Unicode et son
+arbre en mémoire ; l'encodeur produit encore un token par grande chaîne, mais ne
+reconstruit plus une chaîne Unicode et un corps UTF-8 pour tout le document.
+Une seule conversion détient cet arbre dans chaque processus wrapper. Il est
+libéré avant admission de la suivante ; plusieurs envois lents peuvent toutefois
+retenir plusieurs fichiers temporaires sur disque.
+
+`/health` expose `conversionPayload` : limite effective, étapes de téléchargement,
+parsing, réparation, sérialisation, envoi ASGI et nettoyage, avec leurs compteurs,
+octets, durées et RSS. Les RSS sont mesurés aux frontières d'étape et ne sont pas
+des pics. Ces sondes n'exposent aucun texte, chemin ou identifiant documentaire.
+Le succès de `conversionTransport` n'est enregistré qu'après fermeture du flux
+et du client HTTP amont. Un envoi ASGI terminé ne constitue pas une preuve de
+réception par le client ; la fermeture de la connexion amont ne constitue pas
+une preuve d'annulation du calcul Docling.
+
 Les variables principales sont :
 
 - `SAAIA_DOCLING_TABLE_REPAIR_ENABLED` ;

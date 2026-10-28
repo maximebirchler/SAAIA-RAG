@@ -93,10 +93,15 @@ révisions et preuves de provenance ; ce clone qualifie la reproduction de la
 publication et ne constitue jamais une nouvelle ingestion.
 
 La voie Linux préparée est `new_owned_linux_ingestion.py` : elle réutilise le
-bootstrap Production signé du profil CPU28 épinglé, ses quatre images de
-dépendances et une copie hashée de ses caches publics. Le nouvel UUID possède
-sa DB, collection, réseau, ports et ses cinq nouveaux conteneurs. Seule l'image
-backend change après le correctif ; l'ancien owner reste arrêté et inchangé.
+bootstrap Production signé du profil CPU28 épinglé et une copie hashée de ses
+caches publics. Les quatre images de dépendances sont réutilisées par défaut.
+La paire `--docling-image` / `--docling-source-revision` permet d'admettre une
+nouvelle image Docling : son ID et son label source sont inspectés avant la
+copie des caches, puis liés à la configuration préparée et aux phases suivantes.
+L'origine distingue les images du propriétaire source, les images sélectionnées
+et celles réellement réutilisées. Le nouvel UUID possède sa DB, collection,
+réseau, ports et ses cinq nouveaux conteneurs ; l'ancien owner reste arrêté et
+inchangé.
 Les phases `prepare`, `dependencies` et `backend` sont séparées, avec signature
 PC de la nouvelle configuration avant le backend. Aucun appel Docker ni accès
 aux clés/configurations privées n'est possible sans `--execute`.

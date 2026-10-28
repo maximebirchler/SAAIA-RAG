@@ -17,8 +17,8 @@ class ConversionTransportDiagnostics:
 
     @contextmanager
     def observe(self) -> Iterator[Callable[[bool], None]]:
-        # This scope belongs inside the synchronous forwarding thread. Canceling
-        # its asyncio waiter must not pretend that the underlying HTTP work ended.
+        # The scope belongs to the actual HTTP work, including context-manager
+        # closure. It must never end just because a thread's asyncio waiter ends.
         started = monotonic()
         outcome = "failed"
         with self._lock:
@@ -31,6 +31,10 @@ class ConversionTransportDiagnostics:
 
         try:
             yield response_received
+        except BaseException:
+            # A later stream/client closure failure cannot remain a success.
+            outcome = "failed"
+            raise
         finally:
             with self._lock:
                 self._active -= 1
@@ -39,7 +43,7 @@ class ConversionTransportDiagnostics:
 
     def snapshot(self) -> dict[str, object]:
         with self._lock:
-            return {"scope": "upstream_http_forwarding_threads_in_this_process",
+            return {"scope": "upstream_http_forwarding_operations_in_this_process",
                     "active": self._active, "started": self._started,
                     "finished": sum(self._outcomes.values()), **self._outcomes,
                     "lastFinishedDurationMs": self._last_duration_ms,

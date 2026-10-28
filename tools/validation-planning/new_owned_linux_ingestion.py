@@ -151,7 +151,52 @@ def configure_backend_resources(bootstrap, memory_gib):
     return policy
 
 
+def select_docling_image(args, source):
+    image, revision = getattr(args, "docling_image", None), getattr(args, "docling_source_revision", None)
+    require((image is None) == (revision is None), "docling_image_and_source_revision_pair_required")
+    explicit = image is not None
+    prepared = source["bootstrapPreparation"]
+    if not explicit:
+        image, revision = prepared["dependencyImages"]["docling"], prepared["doclingSourceRevision"]
+    require(isinstance(image, str) and re.fullmatch("sha256:[a-f0-9]{64}", image)
+            and isinstance(revision, str) and re.fullmatch("[a-f0-9]{64}", revision),
+            "immutable_docling_image_and_source_required")
+    return {"imageId": image, "sourceRevision": revision,
+            "selection": "explicit_image" if explicit else "source_owner"}
+
+
+def dependency_image_origin(source, selected):
+    original = source["bootstrapPreparation"]["dependencyImages"]
+    source_images = {row["role"]: row["imageId"] for row in source["containers"] if row["role"] != "backend"}
+    require(set(original) == {"postgres", "qdrant", "tei", "docling"} and original == source_images,
+            "source_dependency_images_do_not_match_owned_containers")
+    actual = {**original, "docling": selected["imageId"]}
+    return {"sourceDependencyImages": dict(original), "dependencyImages": actual,
+            "dependencyImagesReused": {role: image for role, image in original.items() if actual[role] == image},
+            "doclingImage": selected["imageId"], "doclingSourceRevision": selected["sourceRevision"],
+            "doclingImageSelection": selected["selection"]}
+
+
+def validate_docling_image_phase(owner, origin, source, selected):
+    expected = dependency_image_origin(source, selected)
+    record = owner.get("bootstrapPreparation", {})
+    require(record.get("dependencyImages") == expected["dependencyImages"]
+            and record.get("doclingSourceRevision") == selected["sourceRevision"],
+            "planning_docling_preparation_identity_changed")
+    if "doclingImageSelection" in origin or any(name in origin for name in
+                                               ("sourceDependencyImages", "dependencyImages", "doclingImage", "doclingSourceRevision")):
+        require(all(origin.get(name) == value for name, value in expected.items()), "planning_docling_origin_changed")
+    else:
+        # Historical origins only described reused dependencies. Admit them only
+        # with the unchanged source-owner selection and matching prepared bytes.
+        require(selected["selection"] == "source_owner"
+                and origin.get("dependencyImagesReused") == expected["sourceDependencyImages"],
+                "planning_docling_legacy_origin_changed")
+
+
 def execute(args, source, source_bytes):
+    selected_docling = select_docling_image(args, source)
+    image_origin = dependency_image_origin(source, selected_docling)
     bootstrap = load_module(args.bootstrap, args.bootstrap_sha256, "planning_cpu28_bootstrap")
     timeout_policy = configure_full_document_timeout(bootstrap, args.full_document_timeout_seconds)
     resource_policy = configure_backend_resources(bootstrap, args.backend_memory_gib)
@@ -185,6 +230,7 @@ def execute(args, source, source_bytes):
         bootstrap.new_file(root / "owner.json", bootstrap.json_bytes(owner))
         docker = bootstrap.Docker(root)
         bootstrap.verify_source_image(docker, "backend", args.backend_image, args.backend_source_revision)
+        bootstrap.verify_source_image(docker, "docling", selected_docling["imageId"], selected_docling["sourceRevision"])
         copied = load_module(args.cache_library, args.cache_library_sha256, "planning_owned_cache_copy")
         # Bind only the documented cache-copy function's input/output globals.
         # Its hardcoded old main()/inputs() and network preparation are never invoked.
@@ -199,8 +245,8 @@ def execute(args, source, source_bytes):
         embedding["Rag"]["EmbeddingsBaseUrl"] = owner["endpoints"]["tei"]
         bootstrap.new_file(root / "embedding-profile.json", bootstrap.json_bytes(embedding))
         result = bootstrap.run(SimpleNamespace(root=root, catalog_root=source_root, admission_profile="manual",
-            prepare_only=True, backend_image=None, docling_image_id=source["bootstrapPreparation"]["dependencyImages"]["docling"],
-            expected_docling_source_revision=source["bootstrapPreparation"]["doclingSourceRevision"],
+            prepare_only=True, backend_image=None, docling_image_id=selected_docling["imageId"],
+            expected_docling_source_revision=selected_docling["sourceRevision"],
             expected_backend_source_revision=args.backend_source_revision, network_subnet=args.network_subnet, execute=True))
         assert_source_unchanged(args.source_owner, source_bytes, source_docker)
         bootstrap.new_file(root / "evidence/planning-bootstrap-origin.json", bootstrap.json_bytes({
@@ -210,7 +256,7 @@ def execute(args, source, source_bytes):
             "sourceEmbeddingProfileSha256": args.source_embedding_profile_sha256,
             "embeddingProfileUrlRebasedOnly": True,
             "backendImage": args.backend_image, "backendSourceRevision": args.backend_source_revision,
-            "dependencyImagesReused": source["bootstrapPreparation"]["dependencyImages"], "cpuProfile": timeout_policy["profile"],
+            **image_origin, "cpuProfile": timeout_policy["profile"],
             "fullDocumentTimeoutPolicy": timeout_policy,
             "backendResourcePolicy": resource_policy,
             **({docling_memory.POLICY_KEY: docling_policy} if docling_policy is not None else {}),
@@ -224,8 +270,10 @@ def execute(args, source, source_bytes):
             "planning_bootstrap_origin_changed")
     require(origin.get("fullDocumentTimeoutPolicy", timeout_policy if args.full_document_timeout_seconds == 900 else None)
             == timeout_policy, "planning_full_document_timeout_policy_changed")
-    helpers.validate_backend_resource_phase(bootstrap.read_json(root / "owner.json"), origin, resource_policy)
-    docling_memory.validate_phase(bootstrap.read_json(root / "owner.json"), origin, memory_profile)
+    prepared_owner = bootstrap.read_json(root / "owner.json")
+    validate_docling_image_phase(prepared_owner, origin, source, selected_docling)
+    helpers.validate_backend_resource_phase(prepared_owner, origin, resource_policy)
+    docling_memory.validate_phase(prepared_owner, origin, memory_profile)
     docker = bootstrap.Docker(root)
     try:
         return bootstrap.run(SimpleNamespace(root=root, catalog_root=Path(source["root"]), admission_profile="manual",
@@ -250,6 +298,8 @@ def main():
     parser.add_argument("--source-embedding-profile-sha256", required=True)
     parser.add_argument("--backend-image", required=True)
     parser.add_argument("--backend-source-revision", required=True)
+    parser.add_argument("--docling-image", help="Optional exact image ID; requires --docling-source-revision. Default: source owner image.")
+    parser.add_argument("--docling-source-revision", help="Optional 64 lowercase hex source identity; requires --docling-image.")
     parser.add_argument("--port-base", type=int, default=22521)
     parser.add_argument("--network-subnet", default="10.238.29.0/24")
     parser.add_argument("--full-document-timeout-seconds", type=int, choices=(900,3600), default=900)
@@ -261,6 +311,7 @@ def main():
     require(hashlib.sha256(source_bytes).hexdigest() == args.source_owner_sha256, "source_owner_bytes_changed")
     source = validate_owner(json.loads(source_bytes))
     require(args.root != Path(source["root"]), "source_cannot_be_target")
+    selected_docling = select_docling_image(args, source)
     for value in (args.backend_source_revision, args.bootstrap_sha256, args.cache_library_sha256):
         require(re.fullmatch("[a-f0-9]{64}", value), "exact_source_and_script_hashes_required")
     require(re.fullmatch("sha256:[a-f0-9]{64}", args.backend_image), "immutable_new_backend_image_required")
@@ -276,6 +327,8 @@ def main():
             "backendImage": args.backend_image, "cpuProfile": "cpu28_3cores_7GiB" if args.full_document_timeout_seconds == 900 else "cpu28_3cores_7GiB_document3600_proxy3900",
             "fullDocumentTimeoutSeconds": args.full_document_timeout_seconds, "privateFilesRead": False,
             "backendResourcePolicy": helpers.backend_resource_policy(args.backend_memory_gib),
+            "doclingImage": selected_docling["imageId"], "doclingSourceRevision": selected_docling["sourceRevision"],
+            "doclingImageSelection": selected_docling["selection"], "doclingImageVerified": False,
             **({docling_memory.POLICY_KEY: docling_memory.policy(args.docling_memory_profile)}
                if args.docling_memory_profile != "legacy" else {}),
             "dockerCalled": False, "dependenciesStarted": False, "providerCalls": 0}))

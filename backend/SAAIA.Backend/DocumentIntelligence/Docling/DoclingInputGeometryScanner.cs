@@ -7,7 +7,7 @@ internal sealed class DoclingInputGeometryScanner(DoclingInputGeometryCapture ow
     private readonly DoclingInputGeometrySnapshot data = owner.Data;
     private int cells;
     private bool tablesSeen;
-    internal void Scan(byte[] bytes)
+    internal void Scan(ReadOnlySpan<byte> bytes)
     {
         var reader = new Utf8JsonReader(bytes, new JsonReaderOptions { MaxDepth = 128 });
         if (!reader.Read())

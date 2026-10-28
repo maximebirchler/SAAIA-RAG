@@ -8,7 +8,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 import uuid
 from types import SimpleNamespace
 import copy
@@ -32,7 +32,9 @@ class LinuxPlanningPreparationTests(unittest.TestCase):
             "endpoints": {role: f"http://127.0.0.1:{22521+i}" for i, role in enumerate(("backend", "docling", "tei", "qdrant"))},
             "containers": [{"role": role, "service": role, "id": str(i + 1) * 64, "imageId": "sha256:" + str(i + 1) * 64}
                            for i, role in enumerate(("postgres", "qdrant", "tei", "docling", "backend"))],
-            "bootstrapPreparation": {"backendSourceRevision": "0" * 64}}
+            "bootstrapPreparation": {"backendSourceRevision": "0" * 64, "doclingSourceRevision": "2" * 64,
+                "dependencyImages": {role: "sha256:" + str(i + 1) * 64
+                                     for i, role in enumerate(("postgres", "qdrant", "tei", "docling"))}}}
         profile = {"schemaVersion": "saaia-tei-embedding-profile.v1", "adapter": "tei_cpu", "dimensions": 768,
             "imageId": "sha256:" + "3" * 64, "modelFileSha256": "b" * 64, "truncationPolicy": "reject",
             "expectedInfo": {"model_id": "intfloat/multilingual-e5-base", "version": "synthetic", "model_sha": "a" * 40, "max_input_length": 512},
@@ -160,7 +162,8 @@ class LinuxPlanningPreparationTests(unittest.TestCase):
             "--bootstrap", str(source), "--bootstrap-sha256", sha, "--cache-library", str(source), "--cache-library-sha256", sha,
             "--source-embedding-profile", str(profile), "--source-embedding-profile-sha256", hashlib.sha256(profile.read_bytes()).hexdigest(),
             "--backend-image", "sha256:" + "9" * 64, "--backend-source-revision", "8" * 64]
-        for options, expected_memory in (([], 2), (["--backend-memory-gib", "3"], 3)):
+        for options, expected_memory in (([], 2), (["--backend-memory-gib", "3"], 3),
+                                         (["--docling-image", "sha256:" + "a" * 64, "--docling-source-revision", "b" * 64], 2)):
             output = io.StringIO()
             with patch.object(sys, "argv", args + options), patch.object(bootstrap, "load_module", side_effect=AssertionError("runtime gate crossed")), contextlib.redirect_stdout(output):
                 bootstrap.main()
@@ -168,6 +171,104 @@ class LinuxPlanningPreparationTests(unittest.TestCase):
             self.assertFalse(result["dockerCalled"])
             self.assertEqual(result["backendResourcePolicy"], contracts.backend_resource_policy(expected_memory))
             self.assertEqual(result["fullDocumentTimeoutSeconds"], 900)
+            self.assertEqual(result["doclingImage"], "sha256:" + ("a" if "--docling-image" in options else "4") * 64)
+            self.assertFalse(result["doclingImageVerified"])
+        for partial in (["--docling-image", "sha256:" + "a" * 64], ["--docling-source-revision", "b" * 64]):
+            for execution in ([], ["--execute"]):
+                with patch.object(sys, "argv", args + partial + execution), \
+                     patch.object(bootstrap, "load_module", side_effect=AssertionError("runtime gate crossed")), \
+                     patch.object(bootstrap, "OwnedDocker", side_effect=AssertionError("Docker gate crossed")), \
+                     self.assertRaisesRegex(ValueError, "pair_required"):
+                    bootstrap.main()
+
+    def test_docling_override_requires_a_complete_immutable_pair(self):
+        source = json.loads(self.fixture_inputs()[0].read_text())
+        for image, revision in (("sha256:" + "a" * 64, None), (None, "b" * 64)):
+            with self.subTest(image=image, revision=revision), self.assertRaisesRegex(ValueError, "pair_required"):
+                bootstrap.execute(SimpleNamespace(docling_image=image, docling_source_revision=revision), source, b"unused")
+        for image, revision in (("docling:latest", "b" * 64), ("sha256:" + "a" * 64, "commit-not-source-hash")):
+            with self.subTest(image=image), self.assertRaisesRegex(ValueError, "immutable_docling"):
+                bootstrap.select_docling_image(SimpleNamespace(docling_image=image, docling_source_revision=revision), source)
+        selected = bootstrap.select_docling_image(SimpleNamespace(), source)
+        self.assertEqual(selected, {"imageId": "sha256:" + "4" * 64, "sourceRevision": "2" * 64, "selection": "source_owner"})
+
+    def test_docling_phase_rejects_rebinding_and_keeps_legacy_default_origins(self):
+        source = json.loads(self.fixture_inputs()[0].read_text())
+        selected = bootstrap.select_docling_image(SimpleNamespace(docling_image="sha256:" + "a" * 64, docling_source_revision="b" * 64), source)
+        origin = bootstrap.dependency_image_origin(source, selected)
+        owner = {"bootstrapPreparation": {"dependencyImages": copy.deepcopy(origin["dependencyImages"]), "doclingSourceRevision": "b" * 64}}
+        self.assertNotIn("docling", origin["dependencyImagesReused"])
+        self.assertEqual(origin["sourceDependencyImages"]["docling"], "sha256:" + "4" * 64)
+        bootstrap.validate_docling_image_phase(owner, origin, source, selected)
+        for key in ("dependencyImages", "doclingSourceRevision"):
+            changed = copy.deepcopy(owner)
+            changed["bootstrapPreparation"][key] = source["bootstrapPreparation"][key]
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, "preparation_identity_changed"):
+                bootstrap.validate_docling_image_phase(changed, origin, source, selected)
+        changed = copy.deepcopy(origin); changed["dependencyImagesReused"]["docling"] = source["bootstrapPreparation"]["dependencyImages"]["docling"]
+        with self.assertRaisesRegex(ValueError, "origin_changed"):
+            bootstrap.validate_docling_image_phase(owner, changed, source, selected)
+        with self.assertRaisesRegex(ValueError, "preparation_identity_changed"):
+            bootstrap.validate_docling_image_phase(owner, origin, source, bootstrap.select_docling_image(SimpleNamespace(), source))
+        legacy_selected = bootstrap.select_docling_image(SimpleNamespace(), source)
+        legacy_owner = {"bootstrapPreparation": copy.deepcopy(source["bootstrapPreparation"])}
+        legacy_origin = {"dependencyImagesReused": source["bootstrapPreparation"]["dependencyImages"]}
+        bootstrap.validate_docling_image_phase(legacy_owner, legacy_origin, source, legacy_selected)
+        changed_source = copy.deepcopy(source); changed_source["bootstrapPreparation"]["dependencyImages"]["docling"] = "sha256:" + "f" * 64
+        with self.assertRaisesRegex(ValueError, "source_dependency_images"):
+            bootstrap.dependency_image_origin(changed_source, selected)
+
+    def test_prepare_verifies_actual_docling_label_before_copy_and_passes_new_identity(self):
+        source_owner_path, profile, _ = self.fixture_inputs()
+        source = json.loads(source_owner_path.read_text())
+        module_path = Path(__file__).resolve().parents[1] / "validation-ingestion/prepare_owned_linux_bootstrap_v6.py"
+        module_hash = "23f201c39c4d447979d44ae223a1447d382e997ab396b9bf0f816cd0f37046a0"
+        for matches in (False, True):
+            with self.subTest(labelMatches=matches):
+                module = bootstrap.load_module(module_path, module_hash, "synthetic_docling_image_admission")
+                target = self.root / str(uuid.uuid4())
+                args = SimpleNamespace(root=target, phase="prepare", bootstrap=module_path, bootstrap_sha256=module_hash,
+                    full_document_timeout_seconds=900, backend_memory_gib=2, docling_memory_profile="legacy",
+                    port_base=22561, network_subnet="10.238.33.0/24", source_owner=source_owner_path, source_owner_sha256="c" * 64,
+                    source_embedding_profile=profile, source_embedding_profile_sha256="d" * 64,
+                    backend_image="sha256:" + "9" * 64, backend_source_revision="8" * 64,
+                    docling_image="sha256:" + "a" * 64, docling_source_revision="b" * 64,
+                    cache_library=Path("synthetic-cache-library"), cache_library_sha256="e" * 64)
+                events = []
+                def image_inspect(*arguments):
+                    self.assertEqual(arguments[:2], ("image", "inspect"))
+                    image = arguments[2]; role = "docling" if image == args.docling_image else "backend"
+                    events.append("inspect-" + role)
+                    revision = (args.docling_source_revision if matches else "f" * 64) if role == "docling" else args.backend_source_revision
+                    return json.dumps([{"Id": image, "Config": {"Labels": {module.IMAGE_LABELS[role]: revision}}}])
+                docker = SimpleNamespace(call=Mock(side_effect=image_inspect))
+                cache = SimpleNamespace(copy_cache=Mock(side_effect=lambda image: events.append("copy-cache")))
+                def prepare_runtime(passed):
+                    self.assertEqual(passed.docling_image_id, args.docling_image)
+                    self.assertEqual(passed.expected_docling_source_revision, args.docling_source_revision)
+                    events.append("prepare")
+                    return {"prepared": True}
+                module.run = Mock(side_effect=prepare_runtime)
+                module.Docker = Mock(return_value=docker)
+                inventory = {"tei/model": {"bytes": 1}, "docling/model": {"bytes": 1}}
+                with patch.object(bootstrap, "PARENT", self.root), patch.object(bootstrap, "load_module", side_effect=[module, cache]), \
+                     patch.object(bootstrap, "OwnedDocker"), patch.object(bootstrap, "assert_source_unchanged"), \
+                     patch.object(bootstrap, "cache_inventory", return_value=inventory), \
+                     patch.object(bootstrap.shutil, "disk_usage", return_value=SimpleNamespace(free=10 * 1024**3)), \
+                     patch.object(bootstrap.socket, "socket"):
+                    if matches:
+                        self.assertEqual(bootstrap.execute(args, source, source_owner_path.read_bytes()), {"prepared": True})
+                    else:
+                        with self.assertRaisesRegex(ValueError, "image_source_revision_mismatch"):
+                            bootstrap.execute(args, source, source_owner_path.read_bytes())
+                if matches:
+                    self.assertEqual(events, ["inspect-backend", "inspect-docling", "copy-cache", "prepare"])
+                    origin = json.loads((target / "evidence/planning-bootstrap-origin.json").read_text())
+                    self.assertEqual(origin["dependencyImages"]["docling"], args.docling_image)
+                    self.assertEqual(origin["sourceDependencyImages"]["docling"], "sha256:" + "4" * 64)
+                    self.assertNotIn("docling", origin["dependencyImagesReused"])
+                else:
+                    cache.copy_cache.assert_not_called(); module.run.assert_not_called()
 
     def test_ingestion_noexecute_reads_no_key_or_pdf_and_constructs_no_docker(self):
         owner_path, profile, manifest = self.fixture_inputs()

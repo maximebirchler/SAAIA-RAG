@@ -6,6 +6,15 @@ from saaia_docling.transport_diagnostics import ConversionTransportDiagnostics
 
 
 class ConversionTransportDiagnosticsTests(unittest.TestCase):
+    def test_failure_after_response_received_cannot_remain_success(self):
+        counters = ConversionTransportDiagnostics()
+        with self.assertRaises(OSError):
+            with counters.observe() as received:
+                received(True)
+                raise OSError("stream/client closure failed")
+        snapshot = counters.snapshot()
+        self.assertEqual((snapshot["success"], snapshot["failed"], snapshot["active"]), (0, 1, 0))
+
     def test_completed_and_failed_outcomes_are_distinct_and_private(self):
         counters = ConversionTransportDiagnostics()
         self.assertEqual(0, counters.snapshot()["active"])

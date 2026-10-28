@@ -79,9 +79,9 @@ internal sealed class DoclingInputGeometryCapture(int attempt, DoclingInputGeome
             }, ct);
     }
 
-    internal void ObserveResponse(byte[] bytes, CancellationToken ct)
+    internal void ObserveResponse(ReadOnlyMemory<byte> bytes, CancellationToken ct)
     {
-        Data.ResponseBytes = bytes.LongLength;
+        Data.ResponseBytes = bytes.Length;
         if (!Active)
             return;
         if (Data.SerializedPdfSha256 is null)
@@ -93,7 +93,7 @@ internal sealed class DoclingInputGeometryCapture(int attempt, DoclingInputGeome
         // The primary transport has already admitted these exact bytes. Large
         // embedded PNG strings are skipped by the token scanner, not copied
         // into the bounded geometry payload or rewritten before observation.
-        if (bytes.LongLength > Data.Limits.ResponseEntityBytes)
+        if (bytes.Length > Data.Limits.ResponseEntityBytes)
         {
             Refuse("geometry_entity_limit");
             return;
@@ -102,7 +102,7 @@ internal sealed class DoclingInputGeometryCapture(int attempt, DoclingInputGeome
         Work(() =>
         {
             Data.ResponseSha256 = HashWithinBudget(bytes, ct);
-            new DoclingInputGeometryScanner(this, ct).Scan(bytes);
+            new DoclingInputGeometryScanner(this, ct).Scan(bytes.Span);
             Data.Availability = "observed";
         }, ct);
     }
@@ -286,14 +286,14 @@ internal sealed class DoclingInputGeometryCapture(int attempt, DoclingInputGeome
 
     internal static string Bits(double value) => BitConverter.DoubleToInt64Bits(value).ToString("x16", CultureInfo.InvariantCulture);
     internal static string Sha(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
-    private string HashWithinBudget(byte[] bytes, CancellationToken ct)
+    private string HashWithinBudget(ReadOnlyMemory<byte> bytes, CancellationToken ct)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         for (var offset = 0; offset < bytes.Length;)
         {
             Budget.Check(ct);
             var next = NextHashOffset(offset, bytes.Length);
-            hash.AppendData(bytes, offset, next - offset);
+            hash.AppendData(bytes.Span.Slice(offset, next - offset));
             offset = next;
         }
 

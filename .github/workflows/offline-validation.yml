@@ -34,6 +34,13 @@ jobs:
       - name: Offline planning tool contracts without private archives or binaries
         shell: pwsh
         run: ./tools/testing/Test-PlanningOffline.ps1 -OutputDirectory artifacts/ci/planning-tools
+      - name: Bounded Docling response transport without models or services
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = Join-Path (Get-Location) 'infra/docling-sidecar'
+          $taskLog = 'artifacts/ci/docling-response-spool.log'
+          python -B -m unittest discover -s infra/docling-sidecar/tests -p test_response_spool.py -v *> $taskLog
+          if ($LASTEXITCODE -ne 0) { Get-Content -LiteralPath $taskLog; exit $LASTEXITCODE }
       - name: Restore WinUI test runtime packages
         shell: pwsh
         run: dotnet restore ./client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj

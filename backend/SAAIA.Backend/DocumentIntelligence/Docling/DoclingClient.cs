@@ -177,7 +177,7 @@ internal sealed class DoclingClient(
             request,
             HttpCompletionOption.ResponseHeadersRead,
             ct);
-        var bytes = await ReadBoundedAsync(
+        var bytes = await DoclingResponseReader.ReadAsync(
             response.Content,
             options.ResolveMaxResponseBytes(),
             ct);
@@ -190,7 +190,7 @@ internal sealed class DoclingClient(
         DoclingConvertResponse result;
         try
         {
-            result = JsonSerializer.Deserialize<DoclingConvertResponse>(bytes, JsonOptions)
+            result = JsonSerializer.Deserialize<DoclingConvertResponse>(bytes.Span, JsonOptions)
                 ?? throw new InvalidDataException("docling_response_json_empty");
         }
         catch (JsonException)
@@ -248,35 +248,4 @@ internal sealed class DoclingClient(
     private static void Add(MultipartFormDataContent form, string name, int value)
         => Add(form, name, value.ToString(CultureInfo.InvariantCulture));
 
-    private static async Task<byte[]> ReadBoundedAsync(
-        HttpContent content,
-        long maxBytes,
-        CancellationToken ct)
-    {
-        if (content.Headers.ContentLength is > 0
-            && content.Headers.ContentLength.Value > maxBytes)
-        {
-            throw new InvalidDataException(
-                $"Docling response exceeds the configured {maxBytes} byte limit.");
-        }
-
-        await using var input = await content.ReadAsStreamAsync(ct);
-        using var output = new MemoryStream();
-        var buffer = new byte[64 * 1024];
-        while (true)
-        {
-            var read = await input.ReadAsync(buffer.AsMemory(), ct);
-            if (read == 0)
-                break;
-            if (output.Length + read > maxBytes)
-            {
-                throw new InvalidDataException(
-                    $"Docling response exceeds the configured {maxBytes} byte limit.");
-            }
-
-            output.Write(buffer, 0, read);
-        }
-
-        return output.ToArray();
-    }
 }

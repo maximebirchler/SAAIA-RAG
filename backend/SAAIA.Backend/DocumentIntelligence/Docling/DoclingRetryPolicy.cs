@@ -14,7 +14,7 @@ internal static class DoclingRetryPolicy
     internal static bool IsTransient(HttpRequestException exception)
         => exception is TransientResponseException || exception.StatusCode is null;
 
-    internal static HttpRequestException FailureForResponse(HttpStatusCode statusCode, byte[] body)
+    internal static HttpRequestException FailureForResponse(HttpStatusCode statusCode, ReadOnlyMemory<byte> body)
         => IsTransientResponse(statusCode, body)
             ? new TransientResponseException(statusCode)
             : SafeFailure(statusCode);
@@ -25,7 +25,7 @@ internal static class DoclingRetryPolicy
                 : $"Docling conversion failed with HTTP {(int)statusCode} (docling_conversion_http_error).",
             inner: null, statusCode);
 
-    private static bool IsTransientResponse(HttpStatusCode statusCode, byte[] body)
+    private static bool IsTransientResponse(HttpStatusCode statusCode, ReadOnlyMemory<byte> body)
     {
         if (statusCode is HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout)
             return true;
