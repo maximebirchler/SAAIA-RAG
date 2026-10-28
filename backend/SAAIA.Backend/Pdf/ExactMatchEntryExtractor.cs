@@ -417,7 +417,7 @@ internal static partial class ExactMatchEntryExtractor
 internal sealed record ExtractedExactMatchEntry(
     int EntryIndex,
     int? SectionOrdinal,
-    int UnitOrdinal,
+    int? UnitOrdinal,
     int PageStart,
     int PageEnd,
     string Text,
@@ -431,4 +431,5 @@ internal sealed record ExtractedExactMatchEntry(
     string? ExtractionTextStatus = null,
     bool ExtractionTextSparse = false,
     bool ExtractionOcrCandidate = false,
-    IReadOnlyList<string>? ExtractionQualitySignals = null);
+    IReadOnlyList<string>? ExtractionQualitySignals = null,
+    int? SourceRetrievalChunkIndex = null);

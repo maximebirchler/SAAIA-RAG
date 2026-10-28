@@ -6,7 +6,7 @@ using Dapper;
 using Npgsql;
 using SAAIA.Contracts.DocumentIntelligence;
 
-internal static class DocumentFoundationRepo
+internal static partial class DocumentFoundationRepo
 {
     internal const int ContentCardEvidenceSchemaVersion = 2;
 
@@ -160,7 +160,7 @@ SET doc_path = EXCLUDED.doc_path,
         await UpsertUnitsAsync(conn, tx, tenantId, revisionId, sections, units, ct);
         await UpsertRetrievalChunksAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, sections, units, publishableRetrievalChunks, ct);
         await UpsertRetrievalChunkLinksAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, publishableRetrievalChunks, ct);
-        await UpsertExactMatchEntriesAsync(conn, tx, tenantId, revisionId, sections, units, exactMatchEntries, ct);
+        await UpsertExactMatchEntriesAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, sections, units, publishableRetrievalChunks, exactMatchEntries, ct);
         await UpsertContextualTextEntriesAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, sections, units, publishableContextualTextEntries, ct);
         await UpsertDocumentProfileAsync(conn, tx, tenantId, docId, revisionId, documentProfile, ct);
         var titleNavigationIndex = DocumentTitleNavigationProjector.Project(
@@ -2324,110 +2324,6 @@ SET retrieval_chunk_id = EXCLUDED.retrieval_chunk_id,
                 text_content = text,
                 token_count = CountTokens(text),
                 checksum = ComputeStoredTextChecksum(text),
-                metadata
-            }, transaction: tx, cancellationToken: ct));
-        }
-    }
-
-    private static async Task UpsertExactMatchEntriesAsync(
-        NpgsqlConnection conn,
-        NpgsqlTransaction tx,
-        Guid tenantId,
-        Guid revisionId,
-        IReadOnlyList<ExtractedDocumentSection> sections,
-        IReadOnlyList<ExtractedDocumentUnit> units,
-        IReadOnlyList<ExtractedExactMatchEntry> exactMatchEntries,
-        CancellationToken ct)
-    {
-        if (exactMatchEntries.Count == 0)
-            return;
-
-        var sectionIdsByOrdinal = sections.ToDictionary(
-            section => section.Ordinal,
-            section => BuildStableSectionId(revisionId, section.Ordinal));
-        var unitIdsByOrdinal = units.ToDictionary(
-            unit => unit.Ordinal,
-            unit => BuildStableUnitId(revisionId, unit.Ordinal));
-
-        const string sql = @"
-INSERT INTO exact_match_entries(
-    exact_match_entry_id,
-    tenant_id,
-    revision_id,
-    section_id,
-    unit_id,
-    entry_index,
-    page_start,
-    page_end,
-    text_content,
-    normalized_text,
-    char_count,
-    token_count,
-    checksum,
-    metadata)
-VALUES(
-    @exact_match_entry_id,
-    @tenant_id,
-    @revision_id,
-    @section_id,
-    @unit_id,
-    @entry_index,
-    @page_start,
-    @page_end,
-    @text_content,
-    @normalized_text,
-    @char_count,
-    @token_count,
-    @checksum,
-    CAST(@metadata AS jsonb))
-ON CONFLICT (revision_id, entry_index) DO UPDATE
-SET section_id = EXCLUDED.section_id,
-    unit_id = EXCLUDED.unit_id,
-    page_start = EXCLUDED.page_start,
-    page_end = EXCLUDED.page_end,
-    text_content = EXCLUDED.text_content,
-    normalized_text = EXCLUDED.normalized_text,
-    char_count = EXCLUDED.char_count,
-    token_count = EXCLUDED.token_count,
-    checksum = EXCLUDED.checksum,
-    metadata = EXCLUDED.metadata;";
-
-        foreach (var entry in exactMatchEntries)
-        {
-            sectionIdsByOrdinal.TryGetValue(entry.SectionOrdinal ?? -1, out var sectionIdValue);
-            unitIdsByOrdinal.TryGetValue(entry.UnitOrdinal, out var unitIdValue);
-            Guid? sectionId = sectionIdValue == Guid.Empty ? null : sectionIdValue;
-            Guid? unitId = unitIdValue == Guid.Empty ? null : unitIdValue;
-            var text = NormalizePostgresTextForStorage(entry.Text);
-            var normalizedText = NormalizePostgresTextForStorage(entry.NormalizedText);
-
-            var metadata = SerializePostgresJsonForStorage(new
-            {
-                inferred = true,
-                kind = NormalizePostgresTextForStorage(entry.Kind),
-                offsetStart = entry.OffsetStart,
-                offsetEnd = entry.OffsetEnd,
-                extractionTextStatus = NormalizeOptionalPostgresTextForStorage(entry.ExtractionTextStatus),
-                extractionTextSparse = entry.ExtractionTextSparse,
-                extractionOcrCandidate = entry.ExtractionOcrCandidate,
-                extractionQualitySignals = NormalizePostgresTextArrayForStorage(entry.ExtractionQualitySignals ?? Array.Empty<string>())
-            });
-
-            await conn.ExecuteAsync(new CommandDefinition(sql, new
-            {
-                exact_match_entry_id = BuildStableExactMatchEntryId(revisionId, entry.EntryIndex),
-                tenant_id = tenantId,
-                revision_id = revisionId,
-                section_id = sectionId,
-                unit_id = unitId,
-                entry_index = entry.EntryIndex,
-                page_start = entry.PageStart,
-                page_end = entry.PageEnd,
-                text_content = text,
-                normalized_text = normalizedText,
-                char_count = text.Length,
-                token_count = CountTokens(text),
-                checksum = ComputeStoredTextChecksum(normalizedText),
                 metadata
             }, transaction: tx, cancellationToken: ct));
         }

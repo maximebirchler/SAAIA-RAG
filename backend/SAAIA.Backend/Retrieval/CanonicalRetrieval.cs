@@ -448,9 +448,9 @@ internal static partial class CanonicalRetrieval
         return selected;
     }
 
-    // An exact-index entry is a locator into its source unit, never a chunk.
-    // Return only a current chunk that both belongs to that unit (including
-    // declared composition) and actually contains the indexed source text.
+    // An exact-index entry identifies either a real source unit or an explicitly
+    // bound canonical chunk. The independent unit/chunk ordinal spaces cannot
+    // be interchanged. Both paths still require literal text in the returned source.
     internal static async Task<List<RagMatch>> SearchSourceBackedCanonicalExactMatchesAsync(
         NpgsqlDataSource ds, Guid tenantId, string query, string? category,
         string? docId, string? docPath, int topK, CancellationToken ct,
@@ -505,10 +505,18 @@ WHERE d.tenant_id=@tenant AND d.status='indexed' AND d.indexed_version>0
     AND (@docPath IS NULL OR d.doc_path=@docPath)
     AND EXISTS (
         SELECT 1 FROM exact_match_entries e
-        JOIN document_units u ON u.tenant_id=e.tenant_id AND u.revision_id=e.revision_id AND u.unit_id=e.unit_id
+        LEFT JOIN document_units u ON u.tenant_id=e.tenant_id AND u.revision_id=e.revision_id AND u.unit_id=e.unit_id
         JOIN lookup_terms t ON md5(e.normalized_text)=md5(t.term) AND e.normalized_text=t.term
         WHERE e.tenant_id=rc.tenant_id AND e.revision_id=rc.revision_id
-            AND (e.unit_id=rc.unit_id OR rc.metadata->'sourceUnitOrdinals' @> jsonb_build_array(u.ordinal))
+            AND (
+                (e.metadata->>'sourceKind'='canonical_retrieval_chunk_v1'
+                 AND e.unit_id IS NULL
+                 AND e.metadata->>'sourceRetrievalChunkId'=rc.retrieval_chunk_id::text)
+                OR
+                ((e.metadata->>'sourceKind' IS NULL OR e.metadata->>'sourceKind'='document_unit_v1')
+                 AND (e.unit_id=rc.unit_id OR rc.metadata->'sourceUnitOrdinals' @> jsonb_build_array(u.ordinal))
+                 AND position(e.text_content in u.text_content)>0)
+            )
             AND e.text_content<>'' AND position(e.text_content in COALESCE(rc.metadata->>'literalSearchText',rc.text_content))>0
     )
 ORDER BY d.doc_id, rc.chunk_index

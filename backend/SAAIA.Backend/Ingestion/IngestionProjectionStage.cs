@@ -137,7 +137,19 @@ internal static class IngestionProjectionStage
         try
         {
             var started = Stopwatch.GetTimestamp();
-            var exact = ExactMatchEntryExtractor.Extract(profileUnits ?? units);
+            IReadOnlyList<ExtractedExactMatchEntry> exact;
+            if (profileUnits is null)
+            {
+                exact = ExactMatchEntryExtractor.Extract(units);
+                probe.Set("exact_source_binding", "document_unit_v1");
+            }
+            else
+            {
+                var canonicalExact = CanonicalExactMatchEntryProjector.Project(profileUnits, chunks);
+                exact = canonicalExact.Entries;
+                probe.Set("exact_source_binding", "canonical_retrieval_chunk_v1");
+                probe.Set("exact_nonliteral_candidates_refused", canonicalExact.NonLiteralCandidates);
+            }
             var exactMilliseconds = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds;
             started = Stopwatch.GetTimestamp();
             var contextual = ContextualTextProjector.Project(relativePath, sections, units, chunks);
