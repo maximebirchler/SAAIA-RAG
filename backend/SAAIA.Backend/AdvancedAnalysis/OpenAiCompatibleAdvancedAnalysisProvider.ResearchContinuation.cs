@@ -32,7 +32,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private sealed record SynthesisCompletion(
         CompletionResult Completion,
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence,
-        IReadOnlyList<PromptEvidenceItem> PromptEvidence);
+        IReadOnlyList<PromptEvidenceItem> PromptEvidence,
+        bool InsufficiencyReviewed = false);
 
     private sealed record CandidateSupportCorrection(string ClaimId, string SelectedItem,
         IReadOnlyList<string> EvidenceIds, string Reason, string ReasonCode = "candidate_body_required");
@@ -160,6 +161,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var supportCorrection = 0;
         var noProgressRecovery = 0;
         var argumentRecovery = 0;
+        var insufficiencyReviewed = false;
+        object? insufficiencyReview = null;
         AdvancedAnalysisResearchArgumentFeedback? argumentFeedback = null;
         IReadOnlyList<AdvancedAnalysisSearchRequest>? repeatedSearches = null;
         var nextPhase = phase;
@@ -321,6 +324,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     }, JsonOptions);
                 if (candidateSupportFeedback is not null)
                     payload["candidateSupportCorrections"] = JsonSerializer.SerializeToNode(candidateSupportFeedback, JsonOptions);
+                if (insufficiencyReview is not null)
+                    payload["insufficiencyReview"] = JsonSerializer.SerializeToNode(insufficiencyReview, JsonOptions);
                 if (argumentFeedback is not null)
                     payload["researchArgumentFeedback"] = JsonSerializer.SerializeToNode(BuildResearchArgumentFeedbackForPrompt(argumentFeedback), JsonOptions);
                 if (repeatedSearches is not null)
@@ -343,6 +348,49 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             {
                 if (candidateExplorer)
                     return new SynthesisCompletion(completion, evidence, observations);
+                if (_options.AdaptiveResearchEnabled && _options.NativeResearchToolsEnabled
+                    && phase == "writer" && request.Handoff.Load.StructuredLayout
+                    && string.Equals(request.Handoff.Load.AtomicEvidenceMode, "named_item", StringComparison.OrdinalIgnoreCase)
+                    && IsInsufficientDocumentaryResult(completion.Content))
+                {
+                    var remainingCalls = Math.Max(0, maximumCalls - completions.Count - 1 - reservedFinalCalls);
+                    var reason = insufficiencyReviewed ? "insufficiency_review_already_used"
+                        : followup > 0 || context.NativeTurn is not null || context.CandidateExplorerDossier is not null
+                            ? "documentary_research_already_performed"
+                        : remainingCalls < 2 ? "model_budget_unavailable"
+                        : context.ResourceLimit is not null || !HasDocumentaryResearchBudget(toolBudget)
+                            ? "documentary_budget_unavailable"
+                        : !HasOpenResearchLocator(observations) ? "no_current_research_locator"
+                        : "initial_insufficiency_before_documentary_research";
+                    var review = reason == "initial_insufficiency_before_documentary_research";
+                    using (var probe = BackendDiagnostics.Start("llm.insufficiency_review", _logger))
+                    {
+                        probe.Set("job_id", request.JobId);
+                        probe.Set("role", nextPhase);
+                        probe.Set("selection_mode", ResolveSelectionMode(request.Handoff.Load));
+                        probe.Set("review_scheduled", review);
+                        probe.Set("remaining_model_calls", remainingCalls);
+                        probe.Set("remaining_tool_calls", toolBudget?.RemainingCalls);
+                        probe.Set("remaining_tool_ms", toolBudget?.RemainingElapsedMilliseconds);
+                        probe.Set("remaining_evidence_items", toolBudget?.RemainingEvidenceItems);
+                        probe.Set("visible_evidence_count", observations.Count);
+                        probe.Set("visible_source_count", observations.Select(item => item.SourceKey).Distinct(StringComparer.Ordinal).Count());
+                        probe.Complete(review ? "continued" : "skipped", reason);
+                    }
+                    if (review)
+                    {
+                        completions.Add(completion);
+                        insufficiencyReviewed = true;
+                        insufficiencyReview = new
+                        {
+                            reasonCode = reason,
+                            selectionContract = BuildResolvedSelectionContract(request.Handoff.Load),
+                            instruction = "Reconsider this initial insufficiency using the resolved selection contract. The required claim count counts coordinates, not distinct objects when reuse is allowed. The current retrieval sample is bounded and current source locators remain available; it does not establish corpus absence. Choose a declared research function to inspect missing item bodies or reformulate a focused search when needed. Do not invent candidates, qualifiers, page relationships or a complete answer. You may still return a terminal insufficiency with the precise unresolved documentary gap. This is one bounded review within the existing call and tool budgets, not permission to repeat searches or exceed them."
+                        };
+                        nextPhase = $"{phase}-insufficiency-review";
+                        continue;
+                    }
+                }
                 if (_options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
                     RememberActiveProposalEvidence(completion.Content, evidence, observations, request, context);
                 if (string.Equals(phase, "writer", StringComparison.Ordinal)
@@ -377,7 +425,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     context.CandidateInventory,
                     context.CandidateExplorerDossier is not null);
                 if (corrections.Count == 0)
-                    return new SynthesisCompletion(completion, evidence, observations);
+                    return new SynthesisCompletion(completion, evidence, observations, insufficiencyReviewed);
                 completions.Add(completion);
                 if (completions.Count >= maximumCalls - reservedFinalCalls)
                     throw new AdvancedAnalysisProviderException(corrections.Any(c => c.ReasonCode == "candidate_evidence_not_visible")
@@ -397,6 +445,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }
 
             completions.Add(completion);
+            insufficiencyReview = null;
             if (!_options.AdaptiveResearchEnabled)
                 throw new AdvancedAnalysisProviderException("advanced_synthesis_research_disabled");
             if (completions.Count >= maximumCalls - reservedFinalCalls)
@@ -560,4 +609,27 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             return false;
         }
     }
+
+    private static bool IsInsufficientDocumentaryResult(string raw)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(UnwrapJson(raw));
+            return document.RootElement.ValueKind == JsonValueKind.Object
+                && ReadString(document.RootElement, "outcome") == "insufficient_documentation";
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static bool HasOpenResearchLocator(IReadOnlyList<PromptEvidenceItem> observations)
+        => observations.Any(item => !string.IsNullOrWhiteSpace(item.SourceKey)
+            && (item.ContentRole == RetrievalContentClassifier.NavigationRole
+                || item.ContentTruncated && item.NextContentOffset is not null
+                || item.SourceOverview is { } overview
+                    && (overview.FirstIndexedPhysicalPage < item.PhysicalPageStart
+                        || overview.LastIndexedPhysicalPage > item.PhysicalPageEnd
+                        || overview.CanonicalChunkCount > observations.Count(other => other.SourceKey == item.SourceKey))));
 }

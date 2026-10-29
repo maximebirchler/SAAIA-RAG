@@ -385,7 +385,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private static bool ShouldAttemptSynthesisRecovery(
         AdvancedAnalysisProviderRequest request,
         AdvancedAnalysisProviderResult result,
-        IReadOnlyList<PromptEvidenceItem> evidence)
+        IReadOnlyList<PromptEvidenceItem> evidence,
+        bool insufficiencyAlreadyReviewed = false)
     {
         if (!request.Handoff.Load.StructuredLayout)
             return false;
@@ -399,6 +400,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 "insufficient_documentation",
                 StringComparison.Ordinal))
         {
+            if (insufficiencyAlreadyReviewed)
+                return false;
+            if (ResolveSelectionMode(load) == "repeatable_named_items")
+                return evidence.Any(item => item.ContentRole != RetrievalContentClassifier.NavigationRole
+                    && !string.IsNullOrWhiteSpace(item.Content));
             return evidence.Count >= requiredUnits;
         }
 

@@ -44,7 +44,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     observations = inventory.Observations,
                     rawFallbackAvailableWhenPhysicalReadingUnavailable = true
                 }, JsonOptions)!.AsObject();
-                if (group.Any(item => item.SecondaryCatalogueDescriptorsOmitted))
+                // A primary search only discovers that this source has table
+                // observations. Keep its physical-page roster and counts, and
+                // discover exact descriptors through an explicit inventory read.
+                // That read's complete secondaryInventory remains in its tool
+                // result. Actual secondary/native audit observations retain the
+                // existing full catalogue and all literal views below.
+                var initialUnreadCatalogue = inventory.Observations is { Count: > 0 }
+                    && group.All(item => item.SourceObservation is null
+                        && item.NativeObservation is null
+                        && item.SourceOverview?.NativeObservations is null);
+                if (initialUnreadCatalogue || group.Any(item => item.SecondaryCatalogueDescriptorsOmitted))
                 {
                     // Absent descriptors are not a known-empty observation
                     // list. The listed pages retain their stored provenance

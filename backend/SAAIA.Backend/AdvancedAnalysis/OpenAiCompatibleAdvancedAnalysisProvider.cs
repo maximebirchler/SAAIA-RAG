@@ -275,6 +275,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     cancellationToken)
                 .ConfigureAwait(false);
             var writer = writerRound.Completion;
+            var insufficiencyReviewed = writerRound.InsufficiencyReviewed;
             evidence = writerRound.Evidence;
             promptEvidence = writerRound.PromptEvidence;
             completions.Add(writer);
@@ -335,7 +336,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 && ShouldAttemptSynthesisRecovery(
                     request,
                     parsed,
-                    promptEvidence)
+                    promptEvidence,
+                    insufficiencyReviewed)
                 && completions.Count < Math.Clamp(
                     _options.ExternalMaximumCallsPerJob,
                     1,
@@ -375,6 +377,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                             cancellationToken)
                         .ConfigureAwait(false);
                     var critic = criticRound.Completion;
+                    insufficiencyReviewed |= criticRound.InsufficiencyReviewed;
                     evidence = criticRound.Evidence;
                     promptEvidence = criticRound.PromptEvidence;
                     completions.Add(critic);
@@ -453,7 +456,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 && ShouldAttemptSynthesisRecovery(
                     request,
                     parsed,
-                    promptEvidence)
+                    promptEvidence,
+                    insufficiencyReviewed)
                 && completions.Count < Math.Clamp(
                     _options.ExternalMaximumCallsPerJob,
                     1,

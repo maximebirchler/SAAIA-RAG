@@ -188,7 +188,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal(path, search.GetProperty("documentResolution").GetProperty("resolvedDocPath").GetString());
         Assert.Equal("dense", search.GetProperty("degradedRetrievers")[0].GetString());
         Assert.Equal(0, search.GetProperty("retrievalDiagnostic").GetProperty("returnedEvidenceCandidates").GetInt32());
-        Assert.Equal(0, search.GetProperty("retrievalDiagnostic").GetProperty("phases")[0].GetProperty("returned").GetInt32());
+        Assert.False(search.GetProperty("retrievalDiagnostic").TryGetProperty("phases", out _));
+        Assert.Equal(1, search.GetProperty("retrievalDiagnostic").GetProperty("omittedPhases").GetInt32());
         Assert.Equal(JsonValueKind.Null, search.GetProperty("sourceKey").ValueKind);
         Assert.Empty(payload.RootElement.GetProperty("observations").EnumerateArray());
         Assert.DoesNotContain("CONTENT_ONLY_DO_NOT_LEAK", factory.Requests[1].Body);
@@ -275,8 +276,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         using var payload = FeedbackUserPayload(factory.Requests[1].Body);
         var search = payload.RootElement.GetProperty("priorSearches")[0];
         var feedback = search.GetProperty("retrievalDiagnostic");
-        Assert.Equal(16, feedback.GetProperty("phases").GetArrayLength());
-        Assert.Equal(34, feedback.GetProperty("omittedPhases").GetInt32());
+        Assert.False(feedback.TryGetProperty("phases", out _));
+        Assert.Equal(50, feedback.GetProperty("omittedPhases").GetInt32());
         Assert.Equal(16, feedback.GetProperty("rejectionCounts").GetArrayLength());
         Assert.Equal(34, feedback.GetProperty("omittedRejectionReasons").GetInt32());
         Assert.Equal(16, search.GetProperty("degradedRetrievers").GetArrayLength());

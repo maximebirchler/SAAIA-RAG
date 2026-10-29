@@ -58,8 +58,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         use that documentary identity rather than a subordinate or generic heading.
         Copy the chosen complete identity exactly into selectedItem, preserving
         modifiers and variants. Never manufacture an identity from metadata.
-        Require distinct selected objects only when the user's request or
-        load.selectionPolicy requires distinct choices. For repeatable selections,
+        When supplied, selectionContract is the resolved selection contract.
+        Its requiredClaimCount counts answer coordinates, not distinct objects.
+        Require distinct selected objects only when distinctNamedItemsRequired
+        is true or the user's request explicitly requires different choices.
+        For repeatable selections,
         the same documented item may support several coordinates; do not invent
         an extra diversity requirement. Reusing evidence never creates a new
         distinct object when distinctness is required.
@@ -70,8 +73,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         SAAIA is asked to propose. Never invent a carrier, combination or absent
         detail to make it fit. During research, follow the observed
         exact candidate title and sourceKey to retrieve its substantive content.
-        During writing or review, replace unsupported selections from the supplied
-        evidence or report the precise remaining evidence deficit. Do not require
+        During writing or review, use available research tools to obtain missing
+        substantive content, replace unsupported selections from the current
+        evidence, or report the precise remaining evidence deficit. Do not require
         sources to prescribe the arrangement SAAIA is asked to propose.
         claimCoordinates and the required claim count apply to an answered
         deliverable. For insufficient_documentation or clarification_required,
@@ -389,6 +393,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             conversationContext = BuildConversationPromptContext(request.Handoff.ConversationContext),
             language = request.Handoff.Language,
             load = BuildPromptLoad(request.Handoff.Load),
+            selectionContract = BuildResolvedSelectionContract(request.Handoff.Load),
             tools = BuildResearchToolsForPrompt(),
             priorQueries = request.Handoff.ResearchState.ExecutedQueries
                 .Concat(priorSearches.Select(static search => search.Query))
@@ -459,7 +464,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            the new placement is not a documentary fact. Require evidence for each
            selected item and each mandatory factual qualifier, but never require
            the source to name the row, column, group or slot chosen by SAAIA. If
-           enough distinct documented candidates exist, complete the requested
+           enough documented candidates exist under the resolved selection contract, complete the requested
            deliverable instead of reporting insufficiency because those new
            placements are absent from the sources.
            Every synthesized placement must still be semantically plausible for
@@ -504,13 +509,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            internal-source-* token in answerText, claim text or selectedItem.
            User-visible traceability uses only [claimId] markers and the separate
            source cards.
-           Distinct
-           cells may cite the same evidence when it documents several distinct
-           candidates. When the request requires distinct units, every claim must
+           Different cells may cite the same evidence. When selectionContract
+           allows named-item reuse, they may select the same documented item
+           whenever its own content supports that placement. When the request
+           requires distinct units, every claim must
            describe a distinct concrete unit and selectedItem must contain its
-           exact source-backed identity. Never repeat the same selectedItem, add
-           an accompaniment to disguise a duplicate, or use a generic category
-           as an item. Do not repeat generic guidance to fill a grid. If the
+           exact source-backed identity; only in that distinct mode, never repeat
+           the same selectedItem or add an accompaniment to disguise a duplicate.
+           Never use a generic category as an item or repeat generic guidance to fill a grid. If the
            evidence cannot support all mandatory units and
            partial answers are not allowed, choose insufficient_documentation and
            identify the exact rows, columns or item types that remain unsupported.
@@ -780,6 +786,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             conversationContext = BuildConversationPromptContext(request.Handoff.ConversationContext),
             language = request.Handoff.Language,
             load = BuildPromptLoad(request.Handoff.Load),
+            selectionContract = BuildResolvedSelectionContract(request.Handoff.Load),
             claimCoordinates = BuildStructuredClaimCoordinates(
                 request.Handoff.Load),
             allowedEvidenceIds = evidence
@@ -936,6 +943,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         string RowLabel,
         string ColumnLabel);
 
+    private static object BuildResolvedSelectionContract(AdvancedAnalysisLoadDescriptor load)
+        => new
+        {
+            selectionMode = ResolveSelectionMode(load),
+            requiredClaimCount = load.AnswerUnitCount,
+            distinctNamedItemsRequired = RequiresDistinctStructuredSelection(load),
+            namedItemReuseAllowed = ResolveSelectionMode(load) == "repeatable_named_items",
+            instruction = "The claim count applies to an answered deliverable. It counts coordinates, not distinct objects when reuse is allowed. Each reused item still needs its own canonical content, every mandatory qualifier and a plausible placement. Never invent variety, combinations or documentary facts to fill a coordinate."
+        };
+
     private string BuildWriterUserPrompt(
         AdvancedAnalysisProviderRequest request,
         IReadOnlyList<PromptEvidenceItem> evidence)
@@ -946,6 +963,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             language = request.Handoff.Language,
             allowsPartialAnswer = false,
             load = BuildPromptLoad(request.Handoff.Load),
+            selectionContract = BuildResolvedSelectionContract(request.Handoff.Load),
             claimCoordinates = BuildStructuredClaimCoordinates(
                 request.Handoff.Load),
             structuredTables = BuildStructuredTablesForPrompt(evidence),
@@ -964,6 +982,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             language = request.Handoff.Language,
             allowsPartialAnswer = false,
             load = BuildPromptLoad(request.Handoff.Load),
+            selectionContract = BuildResolvedSelectionContract(request.Handoff.Load),
             claimCoordinates = BuildStructuredClaimCoordinates(
                 request.Handoff.Load),
             priorCandidate = new
@@ -1012,6 +1031,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             language = request.Handoff.Language,
             allowsPartialAnswer = false,
             load = BuildPromptLoad(request.Handoff.Load),
+            selectionContract = BuildResolvedSelectionContract(request.Handoff.Load),
             claimCoordinates = BuildStructuredClaimCoordinates(
                 request.Handoff.Load),
             candidate = new
@@ -1042,6 +1062,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             language = request.Handoff.Language,
             allowsPartialAnswer = false,
             load = BuildPromptLoad(request.Handoff.Load),
+            selectionContract = BuildResolvedSelectionContract(request.Handoff.Load),
             claimCoordinates = BuildStructuredClaimCoordinates(
                 request.Handoff.Load),
             validWriterCandidate = new

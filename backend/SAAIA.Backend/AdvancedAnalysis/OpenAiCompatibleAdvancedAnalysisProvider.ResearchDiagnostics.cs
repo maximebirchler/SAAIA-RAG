@@ -9,21 +9,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             && budget.RemainingElapsedMilliseconds > 0
             && budget.RemainingEvidenceItems is not 0;
 
-    // Retrieval candidates may contain snippets and full query copies. Return
-    // only bounded operational counts; source facts remain in current evidence.
+    // The complete diagnostic remains on the observation for SQL and probes.
+    // Model context needs the admitted count and bounded refusal information,
+    // not phase timings or overlapping raw/final retriever counters. Those
+    // phase counts cannot be summed into distinct supported candidates.
     private static object? BuildRetrievalDiagnosticForPrompt(RagRetrievalDiagnosticsDto? diagnostic)
         => diagnostic is null ? null : new
         {
             returnedEvidenceCandidates = diagnostic.Selection.Returned,
-            phases = diagnostic.Phases.Take(16).Select(phase => new
-            {
-                name = BoundResearchDiagnosticCode(phase.Name),
-                retriever = BoundResearchDiagnosticCode(phase.Retriever),
-                phase.Returned,
-                phase.DurationMs,
-                phase.OmittedCandidates
-            }).ToArray(),
-            omittedPhases = diagnostic.DroppedPhases + Math.Max(0, diagnostic.Phases.Count - 16),
+            omittedPhases = diagnostic.DroppedPhases + diagnostic.Phases.Count,
             rejectionCounts = diagnostic.RejectionCounts?.OrderBy(item => item.Key, StringComparer.Ordinal)
                 .Take(16).Select(item => new
                 {
@@ -31,7 +25,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     count = item.Value
                 }).ToArray(),
             omittedRejectionReasons = Math.Max(0, (diagnostic.RejectionCounts?.Count ?? 0) - 16),
-            diagnostic.DroppedRejections
+            diagnostic.DroppedRejections,
+            instruction = "Counts describe this operation: not distinct supported items, not exhaustive corpus coverage. Phase telemetry is omitted."
         };
 
     private static string[] BuildDegradedRetrieversForPrompt(IReadOnlyList<string>? retrievers)

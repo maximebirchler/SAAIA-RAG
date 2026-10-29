@@ -58,8 +58,12 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal(8, inventory.GetProperty("observationCount").GetInt32());
         Assert.Equal(8, inventory.GetProperty("pages").GetArrayLength());
         Assert.Equal(169, inventory.GetProperty("zeroOrUnavailablePagesNotListed").GetInt32());
+        Assert.False(inventory.TryGetProperty("observations", out _));
+        Assert.Equal(8, inventory.GetProperty("observationDescriptorsOmittedCount").GetInt32());
+        Assert.Equal(0, inventory.GetProperty("nextObservationDescriptorOffset").GetInt32());
+        Assert.Contains("read_source tableObservationView=inventory", inventory.GetProperty("observationDescriptorRecovery").GetString());
         foreach (var descriptor in catalogue.Observations!)
-            Assert.Equal(1, CountLiteralInJsonStrings(body, descriptor.ObservationId));
+            Assert.Equal(0, CountLiteralInJsonStrings(body, descriptor.ObservationId));
         Assert.Equal(177, catalogue.Pages!.Count);
         Assert.All(sources, source => Assert.Same(catalogue, source.SourceOverview!.TableRegionObservations));
 
