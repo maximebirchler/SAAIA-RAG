@@ -168,16 +168,20 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Theory]
-    [InlineData("chat-completions")]
-    [InlineData("responses")]
+    [InlineData("chat-completions", 4_000)]
+    [InlineData("responses", 4_000)]
+    [InlineData("chat-completions", 6_000)]
+    [InlineData("responses", 6_000)]
     public async Task Payload_audit_current_requested_window_is_preserved_before_shortening_canonical_prefix(
-        string protocol)
+        string protocol, int requestedLength)
     {
         var canonical = BuildEvidence("E1", "DOCUMENT LIMIT 17 BAR.\n" + new string('x', 20_000)) with
         {
             SourceStructure = new(new string('S', 20_000), new string('H', 30_000), "previous", "next")
         };
-        const string read = """{"evidenceId":"E1","offset":6000,"length":6000}""";
+        var originalContent = canonical.Content;
+        var originalStructure = canonical.SourceStructure;
+        var read = JsonSerializer.Serialize(new { evidenceId = "E1", offset = 6_000, length = requestedLength });
         using var factory = new QueuedHttpClientFactory(
             Completion("""{"queries":[{"query":"overview","topK":12}]}"""),
             protocol == "responses" ? NativeResponseFunction("read_evidence", read) : NativeCompletion(("read_evidence", read)),
@@ -187,14 +191,37 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null)
             .ExecuteAsync(BuildDirectRequest(), new RecordingToolGateway(canonical), CancellationToken.None);
 
-        var visible = Assert.Single(WorkspaceUser(factory.Requests[2].Body).GetProperty("evidence").EnumerateArray());
+        var body = factory.Requests[2].Body;
+        var current = WorkspaceUser(body);
+        AssertWireProjection(current, 1, 1);
+        var visible = Assert.Single(current.GetProperty("evidence").EnumerateArray());
         Assert.Equal(6_000, visible.GetProperty("contentOffset").GetInt32());
-        Assert.Equal(canonical.Content.Substring(6_000, 6_000), visible.GetProperty("content").GetString());
-        var prefix = Assert.Single(visible.GetProperty("supportingContentWindows").EnumerateArray());
-        Assert.Equal(0, prefix.GetProperty("contentOffset").GetInt32());
-        Assert.StartsWith("DOCUMENT LIMIT 17 BAR.", prefix.GetProperty("content").GetString());
-        Assert.InRange(prefix.GetProperty("content").GetString()!.Length, 1, 2_399);
-        Assert.True(prefix.GetProperty("contentTruncated").GetBoolean());
-        Assert.InRange(visible.GetRawText().Length, 1, 7_998);
+        var content = visible.GetProperty("content").GetString()!;
+        Assert.InRange(content.Length, 1, requestedLength);
+        Assert.Equal(canonical.Content.Substring(6_000, content.Length), content);
+        Assert.Equal(6_000 + content.Length, visible.GetProperty("nextContentOffset").GetInt32());
+        Assert.True(visible.GetProperty("contentTruncated").GetBoolean());
+        Assert.Equal(canonical.Content.Length, visible.GetProperty("originalContentLength").GetInt32());
+        if (requestedLength == 4_000)
+        {
+            Assert.Equal(requestedLength, content.Length);
+            var prefix = Assert.Single(visible.GetProperty("supportingContentWindows").EnumerateArray());
+            Assert.Equal(0, prefix.GetProperty("contentOffset").GetInt32());
+            var prefixText = prefix.GetProperty("content").GetString()!;
+            Assert.StartsWith("DOCUMENT LIMIT 17 BAR.", prefixText);
+            Assert.Equal(canonical.Content[..prefixText.Length], prefixText);
+            Assert.InRange(prefixText.Length, 1, 2_399);
+            Assert.True(prefix.GetProperty("contentTruncated").GetBoolean());
+            Assert.Equal(0, visible.GetProperty("supportingContentWindowsOmittedCount").GetInt32());
+        }
+        else
+        {
+            Assert.InRange(content.Length, 1, requestedLength - 1);
+            Assert.Empty(visible.GetProperty("supportingContentWindows").EnumerateArray());
+            Assert.Equal(1, visible.GetProperty("supportingContentWindowsOmittedCount").GetInt32());
+        }
+        Assert.InRange(OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(body), 1, 8_000);
+        Assert.Equal(originalContent, canonical.Content);
+        Assert.Same(originalStructure, canonical.SourceStructure);
     }
 }

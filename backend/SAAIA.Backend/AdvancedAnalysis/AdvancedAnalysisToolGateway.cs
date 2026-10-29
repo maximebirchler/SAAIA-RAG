@@ -47,7 +47,14 @@ internal sealed record AdvancedAnalysisSearchRequest(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? NativeObservationBlockId = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? NativeObservationRawSha256 = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? NativeObservationOffset = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? NativeObservationLimit = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? NativeObservationLimit = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] AdvancedAnalysisEvidenceWorkingSet? EvidenceWorkingSet = null);
+
+internal sealed record AdvancedAnalysisEvidenceWorkingSet(
+    string SchemaVersion, int MaximumEvidenceItems, IReadOnlyList<AdvancedAnalysisResultEvidence> Evidence)
+{
+    public const string CurrentSchemaVersion = "saaia.advanced-analysis-evidence-working-set.v1";
+}
 
 // A resolved path describes a search filter, never an evidence or read capability.
 internal sealed record AdvancedAnalysisDocumentResolutionDiagnostic(
@@ -97,13 +104,17 @@ internal sealed record AdvancedAnalysisToolEventSummary(
 internal sealed record AdvancedAnalysisToolBudget(
     int MaximumCalls, int ConsumedCalls,
     long MaximumElapsedMilliseconds, long ConsumedElapsedMilliseconds,
-    int? MaximumEvidenceItems = null, int? ConsumedEvidenceItems = null)
+    int? MaximumEvidenceItems = null, int? ConsumedEvidenceItems = null,
+    bool EvidenceRotationEnabled = false, int? ReplaceableEvidenceItems = null)
 {
     public int RemainingCalls => Math.Max(0, MaximumCalls - ConsumedCalls);
     public long RemainingElapsedMilliseconds => Math.Max(
         0, MaximumElapsedMilliseconds - ConsumedElapsedMilliseconds);
     public int? RemainingEvidenceItems => MaximumEvidenceItems is { } maximum
         && ConsumedEvidenceItems is { } consumed ? Math.Max(0, maximum - consumed) : null;
+    // A full active set may still read existing items or replace unpinned ones.
+    // The gateway admits the complete result atomically, never above the cap.
+    public bool EvidenceOperationsAllowed => EvidenceRotationEnabled || RemainingEvidenceItems is not 0;
 }
 
 internal sealed record AdvancedAnalysisCandidateCheckpoint(
@@ -136,6 +147,8 @@ internal interface IAdvancedAnalysisToolGateway
 {
     IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence { get; }
     AdvancedAnalysisToolBudget? Budget => null;
+
+    void BeginEvidenceBatch(IReadOnlyCollection<string> protectedEvidenceIds) { }
 
     Task<IReadOnlyList<string>> ListCategoriesAsync(
         CancellationToken cancellationToken)
@@ -321,6 +334,14 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             throw new AdvancedAnalysisToolException(
                 "initial_evidence_limit_or_duplicate");
         }
+        if (history.Any(item => item.Status == "succeeded" && item.Request.EvidenceWorkingSet is not null))
+        {
+            _evidenceRotationEnabled = true;
+            // Checkpoints have not yet been restored by the provider. Retain
+            // the entire resumed active set until it supplies explicit pins.
+            _protectedEvidenceIds = initialEvidence.Select(item => item.Reference.EvidenceId)
+                .ToHashSet(StringComparer.Ordinal);
+        }
     }
 
     public IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence =>
@@ -328,7 +349,8 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
 
     public AdvancedAnalysisToolBudget Budget => new(
         _maximumToolCalls, _toolCallCount,
-        _maximumElapsedMilliseconds, _elapsedMilliseconds, _maximumEvidenceItems, _evidence.Count);
+        _maximumElapsedMilliseconds, _elapsedMilliseconds, _maximumEvidenceItems, _evidence.Count,
+        _evidenceRotationEnabled, _evidenceRotationEnabled ? CountReplaceableEvidenceItems() : null);
 
     public async Task<AdvancedAnalysisResearchCheckpoint?> LoadResearchCheckpointAsync(
         CancellationToken cancellationToken)
@@ -642,6 +664,24 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                     nativeReadings, _evidence, _tenantId, _maximumStructuredTableCharacters);
                 resolvedEvidence = resolvedEvidence.Select(item => AttachNativeRead(item, nativeReadings)).ToArray();
                 AdvancedAnalysisNativeInventoryContext.RecordDiagnostics(probe, nativeReadings, resolvedEvidence);
+            }
+            if (visualSources is not null)
+                resolvedEvidence = resolvedEvidence.Select(item => item.SourceOverview is null ? item : item with
+                {
+                    SourceOverview = item.SourceOverview with { VisualSources = visualSources }
+                }).ToArray();
+            var workingSetBefore = _evidence.Count;
+            var retiredEvidenceIds = AdmitRevalidatedEvidence(resolvedEvidence);
+            probe.Set("working_set_rotation_enabled", _evidenceRotationEnabled);
+            probe.Set("working_set_before_count", workingSetBefore);
+            probe.Set("working_set_after_count", _evidence.Count);
+            probe.Set("working_set_maximum_count", _maximumEvidenceItems);
+            probe.Set("working_set_retired_count", retiredEvidenceIds.Count);
+            probe.Set("working_set_retired_evidence_ids", retiredEvidenceIds.Take(32).ToArray());
+            probe.Set("working_set_retired_ids_omitted", Math.Max(0, retiredEvidenceIds.Count - 32));
+            probe.Set("working_set_protected_count", ProtectedWorkingSetEvidenceIds().Count);
+            if (nativeReadings is not null)
+            {
                 for (var index = 0; index < _evidence.Count; index++)
                 {
                     var updated = AttachNativeRead(_evidence[index], nativeReadings);
@@ -673,27 +713,6 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                     _evidence[index] = item;
                     _evidenceByCanonicalKey[CanonicalKey(item.Reference)] = item;
                 }
-            }
-            var newEvidence = resolvedEvidence
-                .Where(item => !_evidenceByCanonicalKey.ContainsKey(
-                    CanonicalKey(item.Reference)))
-                .GroupBy(
-                    static item => CanonicalKey(item.Reference),
-                    StringComparer.Ordinal)
-                .Select(static group => group.First())
-                .ToList();
-            if (_evidence.Count + newEvidence.Count > _maximumEvidenceItems)
-            {
-                throw new AdvancedAnalysisToolException(
-                    "accumulated_evidence_limit_exceeded",
-                    new("accumulated_evidence_limit_exceeded", _maximumEvidenceItems,
-                        _evidence.Count, newEvidence.Count));
-            }
-            foreach (var item in newEvidence)
-            {
-                var key = CanonicalKey(item.Reference);
-                _evidenceByCanonicalKey.Add(key, item);
-                _evidence.Add(item);
             }
             foreach (var item in resolvedEvidence)
             {
@@ -759,6 +778,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             probe.Set("structured_table_partial_count", structuredTables.Count(table=>!table.Complete));
             probe.Set("degraded_retriever_count", degraded.Count);
             probe.Set("tool_call_number", callNumber);
+            requestForTrace = requestForTrace with { EvidenceWorkingSet = CaptureEvidenceWorkingSet() };
             await PersistEventAsync(
                 "succeeded",
                 requestForTrace,
@@ -783,6 +803,16 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
         }
         catch (Exception ex)
         {
+            if (ex is AdvancedAnalysisToolException { ResourceLimit: { } capacity })
+            {
+                probe.Set("working_set_rotation_enabled", _evidenceRotationEnabled);
+                probe.Set("working_set_refusal_reason", capacity.ReasonCode);
+                probe.Set("working_set_maximum_count", _maximumEvidenceItems);
+                probe.Set("working_set_after_count", _evidence.Count);
+                probe.Set("working_set_protected_count", ProtectedWorkingSetEvidenceIds().Count);
+                probe.Set("working_set_requested_new_count", capacity.RequestedNewEvidenceItems);
+                probe.Set("working_set_refusal_stops_research", capacity.StopsResearch);
+            }
             probe.Fail(ex, ex is AdvancedAnalysisToolException diagnosticError
                 ? diagnosticError.ErrorCode : "retrieval_tool_failed");
             if (admitted)

@@ -50,6 +50,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     repairCandidateEvidenceAllowlist)
                 .ConfigureAwait(false);
             context.CandidateInventoryAdmissionBlockedCount += mergeBlockedAdmissions + repairObservedAdmissionBound;
+            if (context.Tools.Budget?.EvidenceRotationEnabled is true)
+            {
+                var activeIds = context.Tools.Evidence.Select(item => item.Reference.EvidenceId).ToHashSet(StringComparer.Ordinal);
+                rememberedNavigatorEvidence = rememberedNavigatorEvidence.Where(item => item.EvidenceId is { } id && activeIds.Contains(id)).ToArray();
+                var retainedWindows = navigationMemory.Windows.Where(item => item.EvidenceId is { } id && activeIds.Contains(id)).ToArray();
+                navigationMemory = new(retainedWindows,
+                    navigationMemory.OmittedWindowCount + navigationMemory.Windows.Count - retainedWindows.Length);
+            }
             rememberedNavigatorEvidence = RememberCandidateNavigatorEvidence(
                 rememberedNavigatorEvidence,
                 observations);
@@ -66,7 +74,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                                      && (toolBudget is null
                                          || toolBudget.RemainingCalls > 0
                                          && toolBudget.RemainingElapsedMilliseconds > 0
-                                         && toolBudget.RemainingEvidenceItems is not 0);
+                                         && toolBudget.EvidenceOperationsAllowed);
             var canNavigate = remainingModelCalls >= 2
                               && navigatorBoundedReason is null
                               && (documentaryHeadroom
@@ -206,6 +214,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     .SelectMany(item => item.BodyEvidenceIds.Concat(item.LocatorEvidenceIds))
                     .ToHashSet(StringComparer.Ordinal);
             }
+            context.Tools.BeginEvidenceBatch(RetainedResearchEvidenceIds(context, observations)
+                .Concat(navigatorEvidence.Select(item => item.EvidenceId).OfType<string>())
+                .Distinct(StringComparer.Ordinal).ToArray());
             var navigator = await CompleteJsonAsync(
                     request.JobId,
                     $"candidate-navigator-{++navigatorRound}",
@@ -352,6 +363,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             context.FocusSearches.AddRange(rememberedFocus);
             var navigatorResults = new Dictionary<string, AdvancedAnalysisSearchObservation>(
                 StringComparer.OrdinalIgnoreCase);
+            var retainedForBatch = RetainedResearchEvidenceIds(context, observations)
+                .Concat(navigatorEvidence.Select(item => item.EvidenceId).OfType<string>())
+                .ToHashSet(StringComparer.Ordinal);
+            context.Tools.BeginEvidenceBatch(retainedForBatch);
+            if (context.Tools.Budget?.EvidenceRotationEnabled is true)
+                await SaveCandidateInventoryCheckpointAsync(context, cancellationToken, retainedForBatch).ConfigureAwait(false);
             var resourceLimit = await ExecuteSearchBatchAsync(
                     context.Tools,
                     queries,
@@ -363,6 +380,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     observationsBySearch: navigatorResults,
                     allowResourceLimitFeedback: true)
                 .ConfigureAwait(false);
+            PruneRetiredEvidenceCopies(context);
             RememberLatestExplicitRead(context, queries, navigatorResults);
             context.ResourceLimit ??= resourceLimit;
             if (navigator.NativeToolCallsJson is { } executedCalls)
@@ -405,6 +423,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             CancellationToken cancellationToken,
             IReadOnlySet<string>? candidateEvidenceAllowlist = null)
     {
+        PruneRetiredEvidenceCopies(context);
         var evidence = FilterEvidenceToRequestedDocumentSet(
             request,
             OrderEvidenceForPrompt(
@@ -453,6 +472,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     cancellationToken)
                 .ConfigureAwait(false);
         }
+        context.Tools.BeginEvidenceBatch(RetainedResearchEvidenceIds(context, observations));
         return (evidence, observations);
     }
 

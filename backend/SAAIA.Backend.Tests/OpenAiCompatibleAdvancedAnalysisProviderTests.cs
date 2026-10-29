@@ -773,27 +773,6 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
-    public void Structured_prompt_budget_preserves_row_coverage_for_follow_up_queries()
-    {
-        var load = new AdvancedAnalysisLoadDescriptor
-        {
-            StructuredLayout = true,
-            RowCount = 5,
-            ColumnCount = 4,
-            AnswerUnitCount = 20
-        };
-
-        Assert.Equal(
-            16_800,
-            OpenAiCompatibleAdvancedAnalysisProvider
-                .ResolveStructuredEvidencePromptMinimumCharacters(load, 4));
-        Assert.Equal(
-            28_000,
-            OpenAiCompatibleAdvancedAnalysisProvider
-                .ResolveStructuredEvidencePromptMinimumCharacters(load, 8));
-    }
-
-    [Fact]
     public void Evidence_ranking_prioritizes_content_matching_the_focused_query()
     {
         var generic = BuildEvidence(

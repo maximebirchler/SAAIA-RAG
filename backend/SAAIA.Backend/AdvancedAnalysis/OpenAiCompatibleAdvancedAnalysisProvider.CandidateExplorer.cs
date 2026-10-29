@@ -178,7 +178,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                               && context.ResourceLimit is null
                               && (budget is null || budget.RemainingCalls > 0
                                   && budget.RemainingElapsedMilliseconds > 0
-                                  && budget.RemainingEvidenceItems is not 0);
+                                  && budget.EvidenceOperationsAllowed);
             if (!canContinue)
             {
                 context.CandidateExplorerDossier = new CandidateExplorerDossier(

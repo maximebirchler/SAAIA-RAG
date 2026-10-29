@@ -17,7 +17,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             // Native inventories move there only when that feature is enabled.
             // Charging the stored per-page table catalogue here can otherwise
             // evict every excerpt even though its compact shared view fits.
-            // The reserved shared budget and exact final-wire gate still apply;
+            // Shared-view accounting and the exact final-wire gate still apply;
             // no inventory or source text is shortened by this cost calculation.
             budgetEvidence = evidence with
             {
@@ -30,7 +30,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         }
         // Excerpts are nested JSON in user.content. Charge the representation
         // actually sent on the wire, including the second escaping layer.
-        // Shared inventories keep their own reserved budget and final gate.
+        // Shared inventories are measured with the collection and final gate.
         return MeasureEscapedDocumentaryTextCharacters(JsonSerializer.Serialize(budgetEvidence, JsonOptions));
     }
 
@@ -50,7 +50,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         }, JsonOptions));
     }
 
-    private int MeasureNativeDocumentaryProjectionCharacters(IReadOnlyList<PromptEvidenceItem> evidence,
+    private int MeasureDocumentaryProjectionWireCharacters(IReadOnlyList<PromptEvidenceItem> evidence,
         NativeResearchTurn? turn)
     {
         // Measure the same shared inventories, views and escaped native result

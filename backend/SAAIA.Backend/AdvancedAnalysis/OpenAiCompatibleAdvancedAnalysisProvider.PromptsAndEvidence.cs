@@ -63,8 +63,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         Require distinct selected objects only when distinctNamedItemsRequired
         is true or the user's request explicitly requires different choices.
         For repeatable selections,
-        the same documented item may support several coordinates; do not invent
-        an extra diversity requirement. Reusing evidence never creates a new
+        the same documented item may support several coordinates without an
+        extra mandatory distinct-item quota. Reusing evidence never creates a new
         distinct object when distinctness is required.
         Distinguish a complete option for the requested unit from a component,
         category or blank template. A component does not automatically satisfy
@@ -83,7 +83,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         cite unrelated examples as proof of absence. claims may be empty. Include
         only positive documentary statements that have non-empty current
         evidenceIds; explain the bounded gap directly in answerText.
-        """ + "\n" + DocumentaryDataBoundary;
+        """ + "\n" + SynthesisQualityPolicy + "\n" + DocumentaryDataBoundary;
 
     private const string CanonicalSourceReadContract = """
         You can also call read_source(sourceKey, pageStart, pageEnd, topK) by
@@ -779,7 +779,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private string BuildWriterRepairUserPrompt(
         AdvancedAnalysisProviderRequest request,
         string originalWriterJson,
-        IReadOnlyList<PromptEvidenceItem> evidence)
+        IReadOnlyList<PromptEvidenceItem> evidence,
+        string validationErrorCode)
         => JsonSerializer.Serialize(new
         {
             request = request.Handoff.RequestText,
@@ -787,6 +788,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             language = request.Handoff.Language,
             load = BuildPromptLoad(request.Handoff.Load),
             selectionContract = BuildResolvedSelectionContract(request.Handoff.Load),
+            validationErrorCode,
             claimCoordinates = BuildStructuredClaimCoordinates(
                 request.Handoff.Load),
             allowedEvidenceIds = evidence
@@ -950,7 +952,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             requiredClaimCount = load.AnswerUnitCount,
             distinctNamedItemsRequired = RequiresDistinctStructuredSelection(load),
             namedItemReuseAllowed = ResolveSelectionMode(load) == "repeatable_named_items",
-            instruction = "The claim count applies to an answered deliverable. It counts coordinates, not distinct objects when reuse is allowed. Each reused item still needs its own canonical content, every mandatory qualifier and a plausible placement. Never invent variety, combinations or documentary facts to fill a coordinate."
+            instruction = "The claim count applies to an answered deliverable. It counts coordinates, not distinct objects when reuse is allowed. Reuse permission is not a request to repeat: assess useful supported alternatives for the user's purpose while respecting explicitly requested repetitions. Do not impose an extra distinct-item quota. Each reused item still needs its own canonical content, all applicable source conditions, every mandatory qualifier and a plausible placement. Never invent variety, combinations or documentary facts to fill a coordinate."
         };
 
     private string BuildWriterUserPrompt(
@@ -1190,36 +1192,27 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             _options.MaximumEvidencePromptCharacters,
             8_000,
             1_000_000);
-        var preserveDocumentaryContext = !request.Handoff.Load.StructuredLayout
-            || HasFixedSubjectFactFamily(request.Handoff.Load);
         const int maximumCharactersPerPromptEvidence = 2400;
-        var distinctRetrievalQueryCount = retrievalQueriesByEvidenceId
-            .Values
-            .SelectMany(static queries => queries)
-            .Where(static query => !string.IsNullOrWhiteSpace(query))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Count();
-        var structuredMinimum = ResolveStructuredEvidencePromptMinimumCharacters(
-            request.Handoff.Load,
-            distinctRetrievalQueryCount,
-            maximumCharactersPerPromptEvidence);
-        var remaining = preserveDocumentaryContext
-            ? configuredMaximum
-            : (int)Math.Max(configuredMaximum, structuredMinimum);
-        // A joined source table shares this same serialized evidence budget.
-        // Keep canonical fragment identities visible and reserve a bounded part
-        // for its row view rather than duplicating two full textual surfaces.
-        if (evidence.Any(item => item.TableFragment is not null || item.SourceObservation is not null || item.NativeObservation is not null
+        // A structured deliverable can require more research, but cannot raise
+        // the configured documentary cap. Every role shares that hard bound.
+        var remaining = configuredMaximum;
+        // Every mode measures shared inventories, views and current tool messages
+        // in FitsDocumentaryProjection below. Preserve the legacy branch's fixed
+        // reservation; native-enabled calls use the exact shared measurement
+        // without reserving half the cap merely for an unread catalogue.
+        if (!_options.NativeObservationReadEnabled && evidence.Any(item => item.TableFragment is not null || item.SourceObservation is not null || item.NativeObservation is not null
             || item.SourceOverview?.TableRegionObservations is not null || item.SourceOverview?.NativeObservations is not null))
             remaining = Math.Min(remaining, configuredMaximum / 2);
+        else if (_options.NativeObservationReadEnabled)
+            remaining = Math.Min(remaining, configuredMaximum);
         // Reserve the enclosing field and brackets at the same escaping layer.
         // observations is the longer documentary collection name used by review.
         remaining -= MeasureDocumentaryProjectionWireOverhead();
         var promptEvidence = new List<PromptEvidenceItem>();
         bool FitsDocumentaryProjection(PromptEvidenceItem candidate, int size)
-            => size <= remaining && (!_options.NativeObservationReadEnabled
-                || MeasureNativeDocumentaryProjectionCharacters(promptEvidence.Append(candidate).ToArray(), nativeToolTurn)
-                    <= configuredMaximum);
+            => size <= remaining
+                && MeasureDocumentaryProjectionWireCharacters(promptEvidence.Append(candidate).ToArray(), nativeToolTurn)
+                    <= configuredMaximum;
         var sourceKeys = persistentSourceKeys
             ?? new Dictionary<string, string>(StringComparer.Ordinal);
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> prioritizedEvidence =
@@ -1506,34 +1499,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         return new PromptEvidenceProjection(promptEvidence, prioritizedEvidence.Count);
     }
 
-    internal static int ResolveStructuredEvidencePromptMinimumCharacters(
-        AdvancedAnalysisLoadDescriptor load,
-        int distinctRetrievalQueryCount,
-        int maximumCharactersPerPromptEvidence = 700)
-    {
-        if (!load.StructuredLayout)
-            return 0;
-        var rowCount = Math.Max(1, load.RowCount);
-        var columnCount = Math.Max(1, load.ColumnCount);
-        var gridCoverageSlots = checked(rowCount * columnCount + columnCount);
-        var researchCoverageSlots = checked(
-            Math.Max(0, distinctRetrievalQueryCount) * rowCount);
-        var evidenceSlots = Math.Max(
-            gridCoverageSlots,
-            researchCoverageSlots);
-        return (int)Math.Clamp(
-            (long)evidenceSlots
-            * Math.Clamp(maximumCharactersPerPromptEvidence, 1, 10_000),
-            8_000,
-            64_000);
-    }
-
     internal static IReadOnlyList<AdvancedAnalysisResolvedEvidence>
         PrioritizeCollectionEvidenceForPrompt(
             AdvancedAnalysisLoadDescriptor load,
             IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
             IReadOnlyDictionary<string, HashSet<string>> retrievalQueriesByEvidenceId)
     {
+        if (ResolveSelectionMode(load) == "repeatable_named_items")
+            return PrioritizeRepeatableCollectionEvidenceForPrompt(load, evidence, retrievalQueriesByEvidenceId);
         if (RequiresDistinctStructuredSelection(load))
         {
             var distinctCandidates = evidence

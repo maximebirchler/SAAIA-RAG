@@ -38,7 +38,8 @@ internal static class LlmPayloadDiagnostics
                         omittedSecondaryDescriptors += omitted;
             probe.Set("secondary_catalogue_descriptors_omitted", omittedSecondaryDescriptors);
             probe.Set("secondary_catalogue_inventory_requery_required", omittedSecondaryDescriptors > 0);
-            if (root.TryGetProperty("evidence", out var evidence) && evidence.ValueKind == JsonValueKind.Array)
+            if ((root.TryGetProperty("evidence", out var evidence) || root.TryGetProperty("observations", out evidence))
+                && evidence.ValueKind == JsonValueKind.Array)
             {
                 var items = evidence.EnumerateArray().Where(static item => item.ValueKind == JsonValueKind.Object).ToArray();
                 probe.Set("visible_evidence_count", evidence.GetArrayLength());
@@ -49,9 +50,59 @@ internal static class LlmPayloadDiagnostics
                 probe.Set("evidence_id_sample_limit", 32);
                 probe.Set("evidence_ids_sampled", items.Length > 32);
                 probe.Set("evidence_identity_scope", "opaque_handles_join_job_tool_history");
+                AnnotateDocumentaryComposition(probe, evidence, items);
             }
         }
         catch (JsonException) { probe.Set("user_payload_shape", "non_json"); }
+    }
+
+    private static void AnnotateDocumentaryComposition(BackendDiagnostics.Operation probe,
+        JsonElement evidence, JsonElement[] items)
+    {
+        static string? Text(JsonElement item, string key)
+            => item.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String
+                ? value.GetString() : null;
+        static int? Number(JsonElement item, string key)
+            => item.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.Number
+                && value.TryGetInt32(out var number) ? number : null;
+        static long SerializedContentCharacters(JsonElement item)
+        {
+            long count = item.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.String
+                ? content.GetRawText().Length : 0;
+            if (item.TryGetProperty("supportingContentWindows", out var windows) && windows.ValueKind == JsonValueKind.Array)
+                count += windows.EnumerateArray().Where(window => window.ValueKind == JsonValueKind.Object)
+                    .Sum(window => window.TryGetProperty("content", out var value) && value.ValueKind == JsonValueKind.String
+                        ? (long)value.GetRawText().Length : 0);
+            return count;
+        }
+        var contentCount = items.Count(item => Text(item, "contentRole") == RetrievalContentClassifier.ContentRole);
+        var navigationCount = items.Count(item => Text(item, "contentRole") == RetrievalContentClassifier.NavigationRole);
+        var mixedCount = items.Count(item => Text(item, "contentRole") == RetrievalContentClassifier.MixedNavigationContentRole);
+        probe.Set("visible_content_role_count", contentCount);
+        probe.Set("visible_navigation_role_count", navigationCount);
+        probe.Set("visible_mixed_role_count", mixedCount);
+        probe.Set("visible_unknown_role_count", items.Length - contentCount - navigationCount - mixedCount);
+        probe.Set("malformed_evidence_item_count", evidence.GetArrayLength() - items.Length);
+        // UTF-16 characters of the user JSON, at the same escaping layer as
+        // section_evidence_characters. These are not bytes, tokens or accuracy.
+        var serializedText = items.Sum(SerializedContentCharacters);
+        probe.Set("evidence_serialized_content_characters", serializedText);
+        probe.Set("evidence_nontext_json_characters", evidence.GetRawText().Length - serializedText);
+        var duplicates = items.Select(item => new
+            {
+                Source = SafeIdentifier(item, "sourceKey"),
+                Start = Number(item, "physicalPageStart"), End = Number(item, "physicalPageEnd"),
+                Offset = item.TryGetProperty("contentOffset", out _) ? Number(item, "contentOffset") : 0,
+                Content = Text(item, "content")
+            })
+            .Where(item => item.Source is not null && item.Start is { } start && start > 0
+                && item.End is { } end && end >= start && item.Offset is >= 0
+                && !string.IsNullOrEmpty(item.Content))
+            .GroupBy(item => (item.Source, item.Start, item.End, item.Offset, item.Content))
+            .Sum(group => group.Count() - 1);
+        // Same text windows may still carry distinct capabilities or warnings.
+        // This measures repetition only and never approves deduplication.
+        probe.Set("same_source_repeated_text_window_count", duplicates);
     }
 
     internal static void AnnotateSelectedTools(BackendDiagnostics.Operation probe, string? nativeCallsJson)

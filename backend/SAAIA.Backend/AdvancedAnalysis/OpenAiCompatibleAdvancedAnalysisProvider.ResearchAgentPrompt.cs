@@ -81,8 +81,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            complete procedures when only concrete documented proposals are asked.
            Require distinct objects only when the request or load.selectionPolicy
            requires distinct choices. When repetitions are allowed, the same
-           documented item may fill multiple suitable coordinates. Do not add an
-           extra diversity requirement to a repeatable collection.
+           documented item may fill multiple suitable coordinates in a repeatable
+           collection without an extra mandatory distinct-item quota. Apply the synthesis quality policy
+           when deciding whether repetition serves the user's purpose.
 
            Return a terminal JSON object with outcome answered,
            insufficient_documentation or clarification_required, answerText and
@@ -155,5 +156,5 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            the requested result. Do not accept a numerical shortage inferred from
            the number of references or from examples without a supported inventory.
            """
-               : string.Empty) + "\n" + DocumentaryDataBoundary;
+               : string.Empty) + "\n" + SynthesisQualityPolicy + "\n" + DocumentaryDataBoundary;
 }

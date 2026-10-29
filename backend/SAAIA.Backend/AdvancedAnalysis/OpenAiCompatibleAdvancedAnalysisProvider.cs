@@ -279,37 +279,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             evidence = writerRound.Evidence;
             promptEvidence = writerRound.PromptEvidence;
             completions.Add(writer);
-            AdvancedAnalysisProviderResult parsed;
-            try
-            {
-                parsed = ParseResult(writer.Content, evidence, request);
-            }
-            catch (AdvancedAnalysisProviderException ex) when (
-                (ex.ErrorCode is "advanced_writer_claim_markers_invalid"
-                    or "advanced_writer_protocol_invalid"
-                    or "advanced_writer_evidence_id_invalid"
-                    or "advanced_writer_claim_count_invalid"
-                    or "advanced_writer_claim_coordinates_invalid"
-                || (ex.ErrorCode == "advanced_writer_duplicate_claims"
-                    && request.Handoff.Load.StructuredLayout))
-                && completions.Count < Math.Clamp(_options.ExternalMaximumCallsPerJob, 1, 1_024)
-                    - (runSemanticCritic ? 1 : 0))
-            {
-                var repair = await CompleteJsonAsync(
-                        request.JobId,
-                        "writer-repair",
-                        BuildWriterRepairSystemPrompt(),
-                        BuildWriterRepairUserPrompt(
-                            request,
-                            writer.Content,
-                            promptEvidence),
-                        Math.Clamp(_options.WriterMaxTokens, 512, 16_384),
-                        cancellationToken,
-                        canonicalProjection: promptEvidence)
-                    .ConfigureAwait(false);
-                completions.Add(repair);
-                parsed = ParseResult(repair.Content, evidence, request);
-            }
+            var parsed = await ParseWriterWithRepairAsync(
+                    request, writer, evidence, promptEvidence, completions,
+                    runSemanticCritic, cancellationToken)
+                .ConfigureAwait(false);
             if (_options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
                 RememberActiveProposalEvidence(parsed, promptEvidence, synthesisResearch);
             parsed = CanonicalizeDistinctSelectedItems(
@@ -802,7 +775,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         }
         if (nativeResponses) ConvertNativePayloadToResponses(payload);
         var serializedPayload = JsonSerializer.Serialize(payload, JsonOptions);
-        if (hasSecondaryReadings || _options.VisualSourceCitationsEnabled || hasNativeReadings)
+        var hasDocumentaryCollection = (sourcePrompt.RootElement.TryGetProperty("evidence", out var primaryEvidence)
+                || sourcePrompt.RootElement.TryGetProperty("observations", out primaryEvidence))
+            && primaryEvidence.ValueKind == JsonValueKind.Array;
+        if (hasDocumentaryCollection || hasSecondaryReadings || _options.VisualSourceCitationsEnabled || hasNativeReadings)
         {
             var documentaryCharacters = MeasureSecondaryDocumentaryWireCharacters(serializedPayload);
             callProbe.Set("documentary_wire_characters", documentaryCharacters);
@@ -817,7 +793,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 var error = new AdvancedAnalysisProviderException(hasNativeReadings
                     ? "advanced_native_documentary_wire_budget_exceeded" : hasSecondaryReadings
                     ? "advanced_secondary_documentary_wire_budget_exceeded"
-                    : "advanced_visual_documentary_wire_budget_exceeded");
+                    : _options.VisualSourceCitationsEnabled ? "advanced_visual_documentary_wire_budget_exceeded"
+                    : "advanced_documentary_wire_budget_exceeded");
                 error.Data["documentaryWireCharacters"] = documentaryCharacters;
                 error.Data["maximumDocumentaryWireCharacters"] = maximumDocumentaryCharacters;
                 // This rejection precedes the HTTP try/catch. Close the probe

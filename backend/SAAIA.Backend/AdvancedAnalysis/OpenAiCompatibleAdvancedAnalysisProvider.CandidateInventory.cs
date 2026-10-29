@@ -1080,14 +1080,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
     private static Task SaveCandidateInventoryCheckpointAsync(
         SynthesisResearchContext context,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlySet<string>? protectedEvidenceIds = null)
     {
         var retained = BoundCandidateInventory(
-            context.CandidateInventory, pruneRejectedHistory: true).ToList();
+            context.CandidateInventory, pruneRejectedHistory: true)
+            .Where(item => protectedEvidenceIds is null || item.Status != "rejected").ToList();
         var checkpointJsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         var observedEvidenceIds = context.ObservedCandidateEvidenceIds
             .Concat(context.CandidateInventory
                 .SelectMany(item => item.LocatorEvidenceIds.Concat(item.BodyEvidenceIds)))
+            .Where(id => protectedEvidenceIds is null || protectedEvidenceIds.Contains(id))
             .Distinct(StringComparer.Ordinal).TakeLast(256).ToArray();
         if (context.EvidenceReadWindows.Count > 256)
             throw new AdvancedAnalysisProviderException(

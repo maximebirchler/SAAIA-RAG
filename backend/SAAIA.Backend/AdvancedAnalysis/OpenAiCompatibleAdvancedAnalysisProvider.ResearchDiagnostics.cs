@@ -7,7 +7,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private static bool HasDocumentaryResearchBudget(AdvancedAnalysisToolBudget? budget)
         => budget is null || budget.RemainingCalls > 0
             && budget.RemainingElapsedMilliseconds > 0
-            && budget.RemainingEvidenceItems is not 0;
+            && budget.EvidenceOperationsAllowed;
 
     // The complete diagnostic remains on the observation for SQL and probes.
     // Model context needs the admitted count and bounded refusal information,

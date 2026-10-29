@@ -182,6 +182,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             cancellationToken.ThrowIfCancellationRequested();
             if (completions.Count >= maximumCalls)
                 throw new AdvancedAnalysisProviderException("advanced_synthesis_research_call_budget_exhausted");
+            PruneRetiredEvidenceCopies(context);
             var toolBudget = context.Tools.Budget;
             var evidence = FilterEvidenceToRequestedDocumentSet(request,
                 OrderEvidenceForPrompt(context.Tools.Evidence, context.EvidenceGroups));
@@ -231,6 +232,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         .ConfigureAwait(false);
                 }
             }
+            context.Tools.BeginEvidenceBatch(RetainedResearchEvidenceIds(context, observations));
+            toolBudget = context.Tools.Budget;
             var userPrompt = buildUserPrompt(observations);
             if (_options.AdaptiveResearchEnabled || candidateSupportFeedback is not null || argumentFeedback is not null
                 || _options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
@@ -305,9 +308,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         tools = BuildResearchToolsForPrompt(includeEvidenceReading: _options.NativeResearchToolsEnabled),
                     researchAllowed = maximumCalls - completions.Count - 1 - reservedFinalCalls > 0
                         && context.ResourceLimit is null
-                        && (toolBudget is null || toolBudget.RemainingCalls > 0
-                            && toolBudget.RemainingElapsedMilliseconds > 0
-                            && toolBudget.RemainingEvidenceItems is not 0),
+                        && HasDocumentaryResearchBudget(toolBudget),
                     remainingModelCalls = Math.Max(0, maximumCalls - completions.Count - 1 - reservedFinalCalls),
                     evidenceReadingAllowed = maximumCalls - completions.Count - 1 - reservedFinalCalls > 0,
                     documentaryBudget = toolBudget,
@@ -556,13 +557,19 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (evidenceReadsChanged
                 || candidateInventoryChanged && CandidateInventoryEnabled(request))
                 await SaveCandidateInventoryCheckpointAsync(context, cancellationToken).ConfigureAwait(false);
+            if (workspaceUpdate is not null) context.Workspace = workspaceUpdate;
+            var retainedForBatch = RetainedResearchEvidenceIds(context, observations);
+            context.Tools.BeginEvidenceBatch(retainedForBatch);
+            if (context.Tools.Budget?.EvidenceRotationEnabled is true)
+                await SaveCandidateInventoryCheckpointAsync(context, cancellationToken,
+                    retainedForBatch.ToHashSet(StringComparer.Ordinal)).ConfigureAwait(false);
             var nativeResults = new Dictionary<string, AdvancedAnalysisSearchObservation>(StringComparer.OrdinalIgnoreCase);
             var resourceLimit = await ExecuteSearchBatchAsync(context.Tools, queries, context.PreviouslyExecuted,
                 context.PriorSearches, context.EvidenceGroups, context.RetrievalQueriesByEvidenceId,
                 cancellationToken, nativeResults, allowResourceLimitFeedback: true).ConfigureAwait(false);
+            PruneRetiredEvidenceCopies(context);
             RememberLatestExplicitRead(context, queries, nativeResults);
             context.ResourceLimit ??= resourceLimit;
-            if (workspaceUpdate is not null) context.Workspace = workspaceUpdate;
             if (completion.NativeToolCallsJson is { } executedCalls)
                 context.NativeTurn = new(executedCalls, queries, nativeResults!, ResponseOutputItemsJson: completion.NativeResponseOutputJson,
                     WorkspaceStored: workspaceChanged,

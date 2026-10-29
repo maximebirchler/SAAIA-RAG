@@ -21,7 +21,11 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     public async Task NativeProjectionCursor_every_visible_line_uses_the_admitted_prefix_cursor_without_changing_reader_data(
         string protocol, int offset, bool partial)
     {
-        const string raw = "Literal zero 😀.\r\nLiteral one é.\r\nLiteral two exact.\r\n";
+        // The full documentary budget can now admit both old short lines.
+        // Long indivisible literals keep this case about actual pagination,
+        // while the nonpartial case retains its original small complete view.
+        var padding = partial ? new string('λ', 4_000) : string.Empty;
+        var raw = $"Literal zero 😀.{padding}\r\nLiteral one é.{padding}\r\nLiteral two exact.{padding}\r\n";
         var rawSha = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw))).ToLowerInvariant();
         var document = new CanonicalDocument
         {
@@ -46,7 +50,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             SourceOverview = new(1, 1, 3), SourceQuality = new(null, null, codes),
             NativeObservation = new(line.Source, 3, offset, 2, window.NextOffset, codes)
         }).ToArray();
-        var body = await CaptureNativeBudgetAsync(protocol, evidence, rawSha, nativeOffset: offset, nativeLimit: 2);
+        var body = await CaptureNativeBudgetAsync(protocol, evidence, rawSha, nativeOffset: offset, nativeLimit: 2,
+            reserveCurrentNativeTurn: true);
         var user = WorkspaceUser(body);
         var items = user.GetProperty("evidence").EnumerateArray().ToArray();
         Assert.Equal(partial ? 1 : 2, items.Length);

@@ -6,7 +6,7 @@ using SAAIA.Contracts;
 
 namespace SAAIA.Backend.AdvancedAnalysis;
 
-internal sealed class AdvancedAnalysisWorker : BackgroundService
+internal sealed partial class AdvancedAnalysisWorker : BackgroundService
 {
     private static readonly JsonSerializerOptions JsonOptions =
         new(JsonSerializerDefaults.Web);
@@ -211,12 +211,17 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
         }
 
         IReadOnlyList<AdvancedAnalysisToolEventSummary> previousToolEvents;
+        IReadOnlyList<AdvancedAnalysisEvidenceReference> evidenceReferences;
         try
         {
             previousToolEvents = await _store.LoadToolHistoryAsync(
                 lease.TenantId,
                 lease.JobId,
                 cancellationToken).ConfigureAwait(false);
+            evidenceReferences = BuildResumeEvidenceReferences(
+                handoff.ResearchState.EvidenceReferences,
+                previousToolEvents,
+                _options.MaximumAccumulatedEvidenceItems);
         }
         catch (Exception ex)
         {
@@ -230,9 +235,6 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
             return true;
         }
 
-        var evidenceReferences = BuildResumeEvidenceReferences(
-            handoff.ResearchState.EvidenceReferences,
-            previousToolEvents);
         var evidenceResolution = await _resolver.ResolveAsync(
             lease.TenantId,
             evidenceReferences,
@@ -488,50 +490,6 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
                 errorCode,
                 jobId);
         }
-    }
-
-    private static IReadOnlyList<AdvancedAnalysisEvidenceReference>
-        BuildResumeEvidenceReferences(
-            IReadOnlyList<AdvancedAnalysisEvidenceReference> handoffEvidence,
-            IReadOnlyList<AdvancedAnalysisToolEventSummary> toolEvents)
-    {
-        var result = new List<AdvancedAnalysisEvidenceReference>();
-        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var reference in handoffEvidence.Concat(
-                     toolEvents
-                         .Where(static item => item.Status == "succeeded")
-                         .SelectMany(static item => item.Evidence)
-                         .Select(static item => new AdvancedAnalysisEvidenceReference
-                         {
-                             EvidenceId = item.EvidenceId,
-                             DocId = item.DocId,
-                             RevisionId = item.RevisionId,
-                             FileName = item.FileName,
-                             DocPath = item.DocPath,
-                             SourceHash = item.SourceHash,
-                             PageStart = item.PageStart,
-                             PageEnd = item.PageEnd,
-                             ChunkId = item.ChunkId,
-                             AnchorId = item.AnchorId,
-                             ContentCardId = item.ContentCardId,
-                             NativeObservation = item.NativeObservation
-                         })))
-        {
-            var key = string.Join(
-                "|",
-                reference.DocId ?? string.Empty,
-                reference.RevisionId ?? string.Empty,
-                reference.ChunkId ?? string.Empty,
-                reference.AnchorId ?? string.Empty,
-                reference.ContentCardId ?? string.Empty,
-                reference.PageStart,
-                reference.PageEnd,
-                reference.SourceHash ?? string.Empty,
-                reference.NativeObservation?.LineId ?? string.Empty);
-            if (keys.Add(key))
-                result.Add(reference);
-        }
-        return result;
     }
 
     private sealed record ProviderExecution(

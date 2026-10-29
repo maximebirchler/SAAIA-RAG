@@ -155,9 +155,12 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Theory]
-    [InlineData("chat-completions")]
-    [InlineData("responses")]
-    public async Task NativeCataloguePriority_a_second_current_source_cannot_silently_lose_its_metadata_after_first_admission(string protocol)
+    [InlineData("chat-completions", false)]
+    [InlineData("responses", false)]
+    [InlineData("chat-completions", true)]
+    [InlineData("responses", true)]
+    public async Task NativeCataloguePriority_a_second_current_source_cannot_silently_lose_its_metadata_after_first_admission(
+        string protocol, bool metadataExceedsFullBudget)
     {
         using var factory = new QueuedHttpClientFactory(protocol == "responses"
             ? NativeResponseAnswer("{\"ok\":true}") : Completion("{\"ok\":true}"));
@@ -171,6 +174,16 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         {
             var readings = new AdvancedAnalysisAlternativeNativeReadings(doc, revision, new string(hash, 64), 18,
                 new("unavailable", "no_captured_native_observation", null, 0, null, null), null);
+            if (metadataExceedsFullBudget)
+            {
+                // These two full current inventories carry real descriptor
+                // fields and warnings. Their metadata alone must not disappear
+                // merely because the first current source was already admitted.
+                var descriptor = new AdvancedAnalysisNativeObservationDescriptor(doc, revision, readings.SourceSha256,
+                    new string('d', 64), "native-" + id, new string('c', 64), 18,
+                    "native_layout_recovery", "fixture", "1", "native_text", "captured-fixture", 3, null, signals);
+                readings = readings with { Inventory = new("observed", null, 1, 0, null, [descriptor]) };
+            }
             return new(new() { EvidenceId = id, DocId = doc, RevisionId = revision, SourceHash = readings.SourceSha256,
                 FileName = id + ".pdf", DocPath = "Documents/" + id + ".pdf", PageStart = 18, PageEnd = 18, ChunkId = id },
                 new string('x', 2400), SourceOverview: new(1, 18, 1) { NativeObservations = readings })
@@ -204,10 +217,42 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             [BuildDirectRequest(), evidence.Take(1).ToArray(), new Dictionary<string, HashSet<string>>(), null, null, null, turn]);
         var firstItem = Assert.Single(((System.Collections.IEnumerable)first).Cast<object>());
         var firstCost = (int)InvokeNativeCataloguePriority(provider, "MeasurePromptEvidenceCharacters", [firstItem]);
-        var available = 20_000 - (int)InvokeNativeCataloguePriority(provider, "MeasureDocumentaryProjectionWireOverhead", []);
-        Assert.InRange(firstCost, available / 2 + 1, available);
-        Assert.Equal(2400, JsonSerializer.SerializeToElement(first, json)[0].GetProperty("content").GetString()!.Length);
+        var available = 40_000 - (int)InvokeNativeCataloguePriority(provider, "MeasureDocumentaryProjectionWireOverhead", []);
+        Assert.InRange(firstCost, 1, available);
+        if (metadataExceedsFullBudget)
+            Assert.InRange((int)InvokeNativeCataloguePriority(provider, "MeasureDocumentaryProjectionWireCharacters", [first, turn]),
+                20_001, 40_000);
+        var firstProjected = JsonSerializer.SerializeToElement(first, json)[0];
+        var firstText = firstProjected.GetProperty("content").GetString()!;
+        Assert.InRange(firstText.Length, 1, evidence[0].Content.Length);
+        Assert.Equal(evidence[0].Content[..firstText.Length], firstText);
+        Assert.Equal(firstText.Length < evidence[0].Content.Length, firstProjected.GetProperty("contentTruncated").GetBoolean());
+        Assert.Equal(firstText.Length < evidence[0].Content.Length ? firstText.Length : (int?)null,
+            firstProjected.GetProperty("nextContentOffset").ValueKind == JsonValueKind.Null ? null
+                : firstProjected.GetProperty("nextContentOffset").GetInt32());
+        Assert.Equal(signals, firstProjected.GetProperty("sourceQuality").GetProperty("signals").EnumerateArray().Select(value => value.GetString()));
 
+        if (!metadataExceedsFullBudget)
+        {
+            var projection = InvokeNativeCataloguePriority(provider, "BuildPromptEvidenceWithPersistentSourceKeys",
+                [BuildDirectRequest(), evidence, new Dictionary<string, HashSet<string>>(), null, null, null, turn]);
+            var history = (IReadOnlyList<object>)InvokeNativeCataloguePriority(provider, "BuildNativeToolTurnMessages", [turn, projection, protocol == "responses"]);
+            await (Task)InvokeNativeCataloguePriority(provider, "CompleteJsonAsync",
+                [Guid.NewGuid(), "writer", "Return JSON.", JsonSerializer.Serialize(new { evidence = projection }, json),
+                    16, CancellationToken.None, false, history, projection]);
+            var body = Assert.Single(factory.Requests).Body;
+            var user = WorkspaceUser(body);
+            var visible = user.GetProperty("evidence").EnumerateArray().ToArray();
+            Assert.Equal(new[] { "first", "second" }, visible.Select(item => item.GetProperty("evidenceId").GetString()));
+            foreach (var item in visible)
+                Assert.Equal(signals, item.GetProperty("sourceQuality").GetProperty("signals").EnumerateArray().Select(value => value.GetString()));
+            var inventories = user.GetProperty("alternativeNativeReadings").GetProperty("inventories").EnumerateArray().ToArray();
+            Assert.Equal(2, inventories.Length);
+            Assert.Equal(new[] { "internal-source-1", "internal-source-2" }, inventories.Select(item => item.GetProperty("sourceKey").GetString()));
+            Assert.All(inventories, item => Assert.Equal("no_captured_native_observation", item.GetProperty("inventory").GetProperty("reason").GetString()));
+            Assert.InRange(OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(body), 1, 40_000);
+            return;
+        }
         var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(async () =>
         {
             var projection = InvokeNativeCataloguePriority(provider, "BuildPromptEvidenceWithPersistentSourceKeys",
