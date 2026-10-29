@@ -8,17 +8,24 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private int MeasurePromptEvidenceCharacters(PromptEvidenceItem evidence)
     {
         var budgetEvidence = evidence;
-        if (_options.NativeObservationReadEnabled
-            && (evidence.NativeObservation is not null || evidence.SourceOverview?.NativeObservations is not null)
-            && evidence.SourceOverview is { } overview)
+        if (evidence.SourceOverview is { } overview
+            && (overview.TableRegionObservations is not null
+                || _options.NativeObservationReadEnabled && overview.NativeObservations is not null))
         {
-            // These inventories remain in the typed projection. The final
-            // serializer moves them into the shared current-user documentary
-            // sections, so they must not consume the per-excerpt budget again.
-            // The reserved shared budget and exact final-wire gate still apply.
+            // Table inventories move to the shared current-user section for
+            // every primary excerpt, including before any native audit read.
+            // Native inventories move there only when that feature is enabled.
+            // Charging the stored per-page table catalogue here can otherwise
+            // evict every excerpt even though its compact shared view fits.
+            // The reserved shared budget and exact final-wire gate still apply;
+            // no inventory or source text is shortened by this cost calculation.
             budgetEvidence = evidence with
             {
-                SourceOverview = overview with { TableRegionObservations = null, NativeObservations = null }
+                SourceOverview = overview with
+                {
+                    TableRegionObservations = null,
+                    NativeObservations = _options.NativeObservationReadEnabled ? null : overview.NativeObservations
+                }
             };
         }
         // Excerpts are nested JSON in user.content. Charge the representation
