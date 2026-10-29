@@ -28,7 +28,7 @@ $profile=@{
         nativeResearchTopology='agent';candidateExplorerEnabled=$false;researchWorkspaceEnabled=$false;semanticCriticEnabled=$false;
         plannerMaxTokens=1024;writerMaxTokens=8192;timeoutSeconds=900;backendPort=22501;fixturePort=22502;paidBackendPort=22503;preflightProviderPort=22504;
         maximumEvidencePromptCharacters=65536;maximumEvidenceCharactersTotal=96000;maximumEvidenceCharactersPerItem=14000;
-        maximumHistoryCharacters=131072;maximumAccumulatedEvidenceItems=512;
+        maximumHistoryCharacters=65536;maximumAccumulatedEvidenceItems=512;
         backendAssemblySha256=(Get-FileHash -LiteralPath (Join-Path $repo 'backend/SAAIA.Backend/bin/Release/net8.0/SAAIA.Backend.dll')).Hash};
     corpus=@{manifestPath=$manifest;manifestSha256=(Get-FileHash -LiteralPath $manifest).Hash;completeDocumentsRequired=$true};
     case=@{kind=$CaseKind;question=$question;rowLabels=$days;columns=@('petit-déjeuner','déjeuner','collation','souper');

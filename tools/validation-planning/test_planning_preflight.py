@@ -19,7 +19,7 @@ class PlanningPreflightPolicyTests(unittest.TestCase):
                 "selectionPolicy": "distinct_structured_layout" if kind == "one-day-4" else "structured_layout"}
         load = dict(case, atomicEvidenceCount=case["answerUnitCount"], rowCount=len(days), columnCount=4, structuredLayout=True)
         limits = {"maximumEvidencePromptCharacters": 65536, "maximumEvidenceCharactersTotal": 96000,
-                  "maximumEvidenceCharactersPerItem": 14000, "maximumHistoryCharacters": 131072,
+                  "maximumEvidenceCharactersPerItem": 14000, "maximumHistoryCharacters": 65536,
                   "maximumCallsPerJob": 64, "maximumToolCalls": 128, "writerMaxTokens": 8192,
                   "preflightProviderPort": 22504}
         profile = {"schemaVersion": "saaia-local-openai-planning-campaign.v1", "case": case,
@@ -82,6 +82,8 @@ class PlanningPreflightPolicyTests(unittest.TestCase):
             result = inspect(profile, runtime)
             self.assertTrue(result["passed"])
             self.assertEqual(2, len(result["envelopes"]))
+            self.assertTrue(result["exactCapturedRequestVerified"])
+            self.assertFalse(result["exactRequestParity"])
             self.assertFalse(result["paidWireReasoningLowQualifiedByThisPreflight"])
 
     def test_inspector_rejects_single_item_submission_disguised_as_planning(self):

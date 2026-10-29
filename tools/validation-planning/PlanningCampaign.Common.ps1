@@ -38,7 +38,7 @@ function Assert-PlanningProfile {
         throw 'Planning requires explicit bounded calls, tools, tokens, time and one job/HTTP attempt.'
     }
     foreach($pair in @(@('maximumEvidencePromptCharacters',14000,65536),@('maximumEvidenceCharactersTotal',24000,96000),
-        @('maximumEvidenceCharactersPerItem',1000,14000),@('maximumHistoryCharacters',16384,131072),@('maximumAccumulatedEvidenceItems',20,512))) {
+        @('maximumEvidenceCharactersPerItem',1000,14000),@('maximumHistoryCharacters',16384,65536),@('maximumAccumulatedEvidenceItems',20,512))) {
         if([int]$e[$pair[0]] -lt $pair[1] -or [int]$e[$pair[0]] -gt $pair[2]) { throw 'Planning context bounds are outside the reviewed envelope.' }
     }
     $ports=@($e.backendPort,$e.fixturePort,$e.paidBackendPort,$e.preflightProviderPort)
