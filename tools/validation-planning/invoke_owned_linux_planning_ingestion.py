@@ -23,6 +23,7 @@ from linux_owned_runtime import OwnedDocker, assert_owned_path, mounted_source, 
 from verify_worker_corpus import evaluate, validate_vectors, write_new
 import linux_planning_contracts as helpers
 import docling_memory_policy as docling_memory
+from export_worker_publication import capture_owned_publication
 
 
 def require(value, reason):
@@ -189,7 +190,8 @@ def run(args, owner, profile, manifest):
                 break
             require(time.monotonic() < deadline, "complete_pdf_worker_deadline_expired")
             time.sleep(2)
-        observation = json.loads(docker.sql((Path(__file__).parent / "worker-publication.sql").read_text(encoding="utf-8")))
+        publication = capture_owned_publication(docker, output / "publication-stream", digest(args.owner))
+        observation = read(Path(publication["publicationPath"]))
         for doc in observation["documents"]:
             case = next(c for c in manifest["cases"] if c["caseId"] + ".pdf" == doc["docPath"])
             doc["physicalPdfPath"] = case["physicalPdfPath"]
