@@ -47,4 +47,27 @@ public sealed class LlmPayloadDiagnosticsTests
         Assert.Equal(32, fields.RootElement.GetProperty("visible_evidence_ids").GetArrayLength());
         Assert.True(fields.RootElement.GetProperty("evidence_ids_sampled").GetBoolean());
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Secondary_catalogue_omission_reports_the_actual_wire_count_without_descriptor_text(bool omitted)
+    {
+        var inventory = omitted
+            ? "\"observationDescriptorsOmittedCount\":8,\"nextObservationDescriptorOffset\":0"
+            : "\"observations\":[{\"privateDescriptor\":\"sensitive native text\"}]";
+        var prompt = "{\"alternativeTableReadings\":{\"inventories\":[{" + inventory + "}]}}";
+        var logger = new DiagnosticRecordingLogger<LlmPayloadDiagnosticsTests>();
+        using (var probe = BackendDiagnostics.Start("test.payload", logger))
+        {
+            LlmPayloadDiagnostics.AnnotateRequest(probe, prompt, "{}");
+            probe.Complete();
+        }
+        var entry = Assert.Single(logger.Events);
+        using var fields = JsonDocument.Parse((string)entry.Values["Measurements"]!);
+        Assert.Equal(omitted ? 8 : 0, fields.RootElement.GetProperty("secondary_catalogue_descriptors_omitted").GetInt32());
+        Assert.Equal(omitted, fields.RootElement.GetProperty("secondary_catalogue_inventory_requery_required").GetBoolean());
+        Assert.DoesNotContain("sensitive native text", entry.Text);
+        Assert.DoesNotContain("privateDescriptor", entry.Text);
+    }
 }

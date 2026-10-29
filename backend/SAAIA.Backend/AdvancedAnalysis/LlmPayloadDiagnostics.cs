@@ -27,6 +27,17 @@ internal static class LlmPayloadDiagnostics
             probe.Set("user_payload_shape", "json_object");
             foreach (var section in Sections)
                 if (root.TryGetProperty(section, out var value)) probe.Set("section_" + section + "_characters", value.GetRawText().Length);
+            long omittedSecondaryDescriptors = 0;
+            if (root.TryGetProperty("alternativeTableReadings", out var secondary)
+                && secondary.ValueKind == JsonValueKind.Object
+                && secondary.TryGetProperty("inventories", out var inventories) && inventories.ValueKind == JsonValueKind.Array)
+                foreach (var inventory in inventories.EnumerateArray())
+                    if (inventory.ValueKind == JsonValueKind.Object
+                        && inventory.TryGetProperty("observationDescriptorsOmittedCount", out var count)
+                        && count.ValueKind == JsonValueKind.Number && count.TryGetInt32(out var omitted) && omitted > 0)
+                        omittedSecondaryDescriptors += omitted;
+            probe.Set("secondary_catalogue_descriptors_omitted", omittedSecondaryDescriptors);
+            probe.Set("secondary_catalogue_inventory_requery_required", omittedSecondaryDescriptors > 0);
             if (root.TryGetProperty("evidence", out var evidence) && evidence.ValueKind == JsonValueKind.Array)
             {
                 var items = evidence.EnumerateArray().Where(static item => item.ValueKind == JsonValueKind.Object).ToArray();

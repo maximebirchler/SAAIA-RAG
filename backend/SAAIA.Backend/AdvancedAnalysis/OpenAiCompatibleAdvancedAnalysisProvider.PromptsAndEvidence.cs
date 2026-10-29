@@ -823,6 +823,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         public AdvancedAnalysisNativeObservationLineSource? NativeObservation { get; init; }
         public IReadOnlyList<PromptEvidenceWindow> SupportingContentWindows { get; init; } = [];
         public int SupportingContentWindowsOmittedCount { get; init; }
+        // Internal projection decision, consumed and removed by the table enricher.
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public bool SecondaryCatalogueDescriptorsOmitted { get; init; }
     }
 
     private sealed record PromptEvidenceWindow(
@@ -1210,6 +1213,32 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             prioritizedEvidence = focusedEvidence.Concat(prioritizedEvidence.Where(item =>
                 !focusedIds.Contains(item.Reference.EvidenceId))).ToArray();
         }
+        var currentNativeRequests = _options.NativeObservationReadEnabled && nativeToolTurn?.Rejection is null
+            ? nativeToolTurn?.Requests?.Where(read => read.Operation == "read_source"
+                && read.NativeObservationView is not null && !string.IsNullOrWhiteSpace(read.DocId)
+                && !string.IsNullOrWhiteSpace(read.RevisionId)).ToArray() ?? [] : [];
+        bool MatchesCurrentNativeSource(AdvancedAnalysisResolvedEvidence item, AdvancedAnalysisSearchRequest read)
+            => string.Equals(read.DocId, item.Reference.DocId, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(read.RevisionId, item.Reference.RevisionId, StringComparison.OrdinalIgnoreCase)
+                && nativeToolTurn!.Results.TryGetValue(BuildSearchIdentity(read), out var observed)
+                && !observed.NotExecutedAfterResourceLimit && observed.ResourceLimit is null
+                && observed.AlternativeNativeReadings is { } captured
+                && string.Equals(captured.DocId, read.DocId, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(captured.RevisionId, read.RevisionId, StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(captured.SourceSha256)
+                && string.Equals(captured.SourceSha256, item.Reference.SourceHash, StringComparison.OrdinalIgnoreCase);
+        bool IsCurrentNativeSource(AdvancedAnalysisResolvedEvidence item)
+            => currentNativeRequests.Any(read => MatchesCurrentNativeSource(item, read));
+        bool IsCurrentNativeRawRead(AdvancedAnalysisResolvedEvidence item)
+            => item.NativeObservation is { } native && currentNativeRequests.Any(read => read.NativeObservationView == "raw"
+                && MatchesCurrentNativeSource(item, read)
+                && read.PageStart == native.Reference.PhysicalPage && read.PageEnd == native.Reference.PhysicalPage
+                && read.NativeObservationBlockId == native.Reference.BlockId
+                && string.Equals(read.NativeObservationRawSha256, native.Reference.RawTextSha256, StringComparison.OrdinalIgnoreCase)
+                && (read.NativeObservationOffset ?? 0) == native.LineOffset);
+        if (currentNativeRequests.Length > 0)
+            prioritizedEvidence = prioritizedEvidence.OrderByDescending(IsCurrentNativeRawRead)
+                .ThenByDescending(IsCurrentNativeSource).ToArray();
         foreach (var item in prioritizedEvidence)
         {
             if (remaining <= 0)
@@ -1315,12 +1344,24 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var separatorCharacters = promptEvidence.Count == 0 ? 0 : 1;
             var serializedCharacters = MeasurePromptEvidenceCharacters(observation)
                 + separatorCharacters;
+            var currentNativeCarrier = IsCurrentNativeSource(item)
+                && observation.SourceOverview?.NativeObservations is not null;
+            if (currentNativeCarrier && !FitsDocumentaryProjection(observation, serializedCharacters)
+                && observation.SourceOverview?.TableRegionObservations?.Observations is { Count: > 0 })
+            {
+                // Keep the current complete native locator window and its source
+                // capability ahead of unrelated secondary table descriptors.
+                // Stored metadata is unchanged; pages/counts and an explicit
+                // inventory re-read remain visible in this same request.
+                observation = observation with { SecondaryCatalogueDescriptorsOmitted = true };
+                serializedCharacters = MeasurePromptEvidenceCharacters(observation) + separatorCharacters;
+            }
             if (observation.SourceOverview?.NativeObservations is not null && serializedCharacters > remaining
                 && item.NativeObservation is null)
             {
                 // A later locator must not evict a complete, more recent read.
                 // Omit the whole item and announce it in evidenceProjection.
-                if (promptEvidence.Count > 0)
+                if (promptEvidence.Count > 0 && !currentNativeCarrier)
                     break;
                 throw new AdvancedAnalysisProviderException("advanced_native_documentary_metadata_budget_exceeded");
             }
@@ -1333,6 +1374,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 serializedCharacters = MeasurePromptEvidenceCharacters(observation) + separatorCharacters;
                 if (!FitsDocumentaryProjection(observation, serializedCharacters))
                 {
+                    if (currentNativeCarrier)
+                        throw new AdvancedAnalysisProviderException("advanced_native_documentary_metadata_budget_exceeded");
                     if (promptEvidence.Count > 0)
                         break;
                     throw new AdvancedAnalysisProviderException("advanced_secondary_documentary_metadata_budget_exceeded");
@@ -1407,7 +1450,25 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 }
                 lower = BoundEvidenceTextLength(content, 0, lower);
                 if (lower == 0)
-                    break;
+                {
+                    if (!currentNativeCarrier)
+                        break;
+                    // No literal excerpt fits. A source locator may still keep
+                    // the observed inventory and read tools usable; never turn
+                    // oversized current metadata into an empty successful read.
+                    var locator = observation with
+                    {
+                        Content = string.Empty, ContentTruncated = originalContentLength > 0,
+                        ContentRole = "source_locator_only", NextContentOffset = contentOffset < originalContentLength ? contentOffset : null,
+                        SupportingContentWindows = []
+                    };
+                    var locatorCharacters = MeasurePromptEvidenceCharacters(locator) + separatorCharacters;
+                    if (!FitsDocumentaryProjection(locator, locatorCharacters))
+                        throw new AdvancedAnalysisProviderException("advanced_native_documentary_metadata_budget_exceeded");
+                    remaining -= locatorCharacters;
+                    promptEvidence.Add(locator);
+                    continue;
+                }
                 observation = observation with
                 {
                     Content = content[..lower],

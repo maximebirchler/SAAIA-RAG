@@ -34,7 +34,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             .GroupBy(item => item.SourceKey, StringComparer.Ordinal).Select(group =>
             {
                 var inventory = group.First().SourceOverview!.TableRegionObservations!;
-                return (object)new
+                var projected = JsonSerializer.SerializeToNode(new
                 {
                     sourceKey = group.Key, inventory.Availability, inventory.ObservationCount, inventory.AttemptCount,
                     // Counts describe the stored catalogue. Page entries with no
@@ -43,7 +43,18 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     zeroOrUnavailablePagesNotListed = inventory.Pages?.Count(page => page.ObservationCount is not > 0),
                     observations = inventory.Observations,
                     rawFallbackAvailableWhenPhysicalReadingUnavailable = true
-                };
+                }, JsonOptions)!.AsObject();
+                if (group.Any(item => item.SecondaryCatalogueDescriptorsOmitted))
+                {
+                    // Absent descriptors are not a known-empty observation
+                    // list. The listed pages retain their stored provenance
+                    // and counts, and the tool can recover a page's inventory.
+                    projected.Remove("observations");
+                    projected["observationDescriptorsOmittedCount"] = inventory.Observations?.Count ?? 0;
+                    projected["nextObservationDescriptorOffset"] = 0;
+                    projected["observationDescriptorRecovery"] = "read_source tableObservationView=inventory on one listed physical page; line offsets must be null";
+                }
+                return (object)projected;
             }).ToArray();
         var views = evidence.Where(item => item.SourceObservation is not null)
             .GroupBy(item => new
@@ -103,7 +114,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         if (alternative is null) return prompt;
         node!["alternativeTableReadings"] = JsonSerializer.SerializeToNode(alternative, JsonOptions);
         foreach (var item in evidence.OfType<JsonObject>())
+        {
+            item.Remove("secondaryCatalogueDescriptorsOmitted");
             if (item["sourceOverview"] is JsonObject overview) overview.Remove("tableRegionObservations");
+        }
         var declarations = (node["researchTools"] as JsonObject)?["tools"] as JsonArray ?? node["tools"] as JsonArray;
         if (declarations is not null)
             declarations.Add(JsonSerializer.SerializeToNode(new
