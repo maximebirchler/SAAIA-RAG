@@ -4,6 +4,7 @@ import copy
 import gzip
 import json
 import pathlib
+import re
 import tempfile
 import unittest
 import uuid
@@ -111,6 +112,31 @@ def rebind_page(doc, mutate):
     doc["nativeRawCatalog"].update(uncompressed(catalog))
 
 
+def native_type_page(doc, block_type):
+    """Rebind all affected hashes exactly; a stale checksum must not be the refusal."""
+    bundle = adapter.worker.blob(doc["canonicalArtifact"])
+    block = bundle["document"]["pages"][0]["blocks"][0]
+    block["blockType"] = block_type
+    block["polygon"] = {"points": [{"x": 0.1, "y": 0.2}, {"x": 0.3, "y": 0.4}]}
+    doc["canonicalArtifact"].update(packed(bundle))
+    catalog = adapter.worker.blob(doc["nativeRawCatalog"], compressed=False)
+    root, generation = catalog["root"], catalog["generation"]
+    root["canonicalBundleSha256"] = doc["canonicalArtifact"]["contentHash"]
+    identity = root["identity"]
+    generation["generationId"] = adapter.planning.sha("\n".join([
+        "native_raw_page_v1", identity["tenantId"], doc["docId"], doc["revisionId"], doc["sourceSha256"],
+        generation["processingRunId"], generation["manifestSha256"], root["canonicalBundleSha256"]]).encode())
+    row = doc["nativeRawPages"][0]
+    snapshot = adapter.worker.blob(row)
+    snapshot.update(root=root, generation=generation, blocks=[adapter.expected_raw_block(block)])
+    row.update(packed(snapshot), generationId=generation["generationId"])
+    row.update(byte_size=row["byteSize"], stored_size=row["storedSize"])
+    catalog["pages"][0].update(sha256=row["contentHash"], utf8Bytes=row["byteSize"], compressedBytes=row["storedSize"])
+    doc["nativeRawCatalog"].update(uncompressed(catalog), canonicalBundleHash=root["canonicalBundleSha256"],
+                                  generationId=generation["generationId"])
+    return bundle
+
+
 class PlanningWorkerObservationTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -124,6 +150,48 @@ class PlanningWorkerObservationTests(unittest.TestCase):
     def reject(self, code):
         with self.assertRaisesRegex(ValueError, "^" + code + "$"):
             self.build()
+
+    def test_native_types_match_the_producer_selector_constants_exactly(self):
+        directory = pathlib.Path(__file__).resolve().parents[2] / "backend/SAAIA.Backend/DocumentIntelligence"
+        names = ("CanonicalNativeTextCoverageReconciler", "CanonicalNativeLayoutReconciler", "CanonicalNativeTableCellReconciler")
+        constants = set()
+        for name in names:
+            text = (directory / (name + ".cs")).read_text(encoding="utf-8-sig")
+            value, = re.findall(r'const string (?:RecoveryBlockType|ObservationBlockType)\s*=\s*"([^"]+)";', text)
+            constants.add(value)
+        selector = (directory / "CanonicalObservationSelector.cs").read_text(encoding="utf-8-sig")
+        references = re.findall(r'(CanonicalNative\w+Reconciler)\.(?:RecoveryBlockType|ObservationBlockType)',
+                                selector.split("internal static bool IsNativeObservation(string blockType)")[1].split(";")[0])
+        self.assertEqual(set(names), set(references))
+        self.assertEqual(constants, adapter.NATIVE_TYPES)
+
+    def test_native_table_cell_observation_is_retained_with_its_polygon(self):
+        doc = self.observation["documents"][0]
+        bundle = native_type_page(doc, "native_table_cell_observation")
+        self.assertEqual(1, adapter.verify_raw(doc, bundle)["pagesVerified"])
+
+    def test_invented_native_table_recovery_type_is_rejected_after_rehashing(self):
+        doc = self.observation["documents"][0]
+        bundle = native_type_page(doc, "native_table_recovery")
+        with self.assertRaisesRegex(ValueError, "^worker_adapter_raw_snapshot_differs_from_canonical$"):
+            adapter.verify_raw(doc, bundle)
+
+    def test_table_cell_raw_keeps_strict_text_polygon_type_and_inventory_guards(self):
+        mutations = [lambda page: page["blocks"][0].update(raw="Altered cell"),
+                     lambda page: page["blocks"][0].update(rawSha256="f" * 64),
+                     lambda page: page["blocks"][0].update(observedPolygon=None),
+                     lambda page: page["blocks"][0]["observedPolygon"]["points"][0].update(x=0.9),
+                     lambda page: page["blocks"][0].update(blockType="unknown_native_kind"),
+                     lambda page: page["blocks"].append(copy.deepcopy(page["blocks"][0])),
+                     lambda page: page["blocks"].clear()]
+        for number, mutation in enumerate(mutations):
+            with self.subTest(number=number):
+                observation, _ = fixture(self.root)
+                doc = observation["documents"][0]
+                bundle = native_type_page(doc, "native_table_cell_observation")
+                rebind_page(doc, mutation)
+                with self.assertRaisesRegex(ValueError, "^worker_adapter_raw_snapshot_differs_from_canonical$"):
+                    adapter.verify_raw(doc, bundle)
 
     def test_actual_sql_guids_at_version_seven_are_preserved_without_v1_reprojection(self):
         result = self.build()

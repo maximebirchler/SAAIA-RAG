@@ -23,7 +23,7 @@ from embedding_attestation import attest_info
 
 
 PROJECTIONS = {"retrievalChunks": "retrievalChunkId", "units": "unitId", "sections": "sectionId", "contentCards": "contentCardId"}
-NATIVE_TYPES = {"native_text_recovery", "native_layout_recovery", "native_table_recovery"}
+NATIVE_TYPES = {"native_text_recovery", "native_layout_recovery", "native_table_cell_observation"}
 RAW_FALLBACKS = {"native_raw_page_size_limit", "native_raw_document_size_limit", "native_raw_catalog_size_limit",
                  "native_raw_page_time_limit", "native_raw_page_inventory_noncontiguous", "native_raw_page_projection_unrepresentable"}
 

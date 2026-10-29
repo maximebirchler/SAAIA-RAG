@@ -99,9 +99,10 @@ def run_file(command, output, error_path, sql=None, timeout=600):
     require(output.stat().st_size <= 8 * 1024**3, "source_export_file_size_limit")
 
 
+# Database locale attributes are catalog fields, not PostgreSQL GUC settings.
 SCHEMA_QUERY = """SELECT jsonb_build_object(
  'serverMajor',current_setting('server_version_num')::int/10000,'serverVersion',version(),
- 'encoding',current_setting('server_encoding'),'lcCollate',current_setting('lc_collate'),'lcCtype',current_setting('lc_ctype'),
+ 'encoding',current_setting('server_encoding'),'lcCollate',db.datcollate,'lcCtype',db.datctype,
  'migrations',(SELECT jsonb_agg(version ORDER BY version COLLATE "C") FROM schema_migrations),
  'tables',(SELECT jsonb_agg(jsonb_build_object('name',c.relname,
   'primaryKey',(SELECT jsonb_agg(a.attname ORDER BY keys.ordinality) FROM pg_index i
@@ -113,7 +114,8 @@ SCHEMA_QUERY = """SELECT jsonb_build_object(
     FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
     WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped)) ORDER BY c.relname COLLATE "C")
     FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-    WHERE n.nspname='public' AND c.relkind='r' AND c.relname IN (__TABLES__)))"""
+    WHERE n.nspname='public' AND c.relkind='r' AND c.relname IN (__TABLES__)))
+ FROM pg_database db WHERE db.datname=current_database()"""
 
 
 def scope_query():
