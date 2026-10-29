@@ -234,11 +234,13 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Theory]
-    [InlineData("chat-completions")]
-    [InlineData("responses")]
-    public async Task Native_context_inventory_raw_a_raw_b_remain_visible_on_the_actual_fourteen_thousand_wire(string protocol)
+    [InlineData("chat-completions", false)]
+    [InlineData("responses", false)]
+    [InlineData("chat-completions", true)]
+    [InlineData("responses", true)]
+    public async Task Native_context_inventory_raw_a_raw_b_remain_visible_on_the_actual_fourteen_thousand_wire(string protocol, bool sourceCatalogue)
     {
-        var gateway = new NativeContextGateway();
+        var gateway = new NativeContextGateway(sourceCatalogue);
         string Arguments(string view, string? block = null, string? hash = null) => JsonSerializer.Serialize(new
         {
             sourceKey = "internal-source-1", pageStart = 1, pageEnd = 1, topK = 20,
@@ -247,16 +249,17 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         });
         HttpResponseMessage Tool(string args) => protocol == "responses"
             ? NativeResponseFunction("read_source", args) : NativeCompletion(("read_source", args));
+        var terminal = sourceCatalogue ? CandidateTerminal : NativeAnswered;
         using var factory = new QueuedHttpClientFactory(
             Completion("""{"queries":[{"query":"overview","topK":12}]}"""),
             Tool(Arguments("inventory")), Tool(Arguments("raw", "native-a", gateway.HashA)),
             Tool(Arguments("raw", "native-b", gateway.HashB)),
-            protocol == "responses" ? NativeResponseAnswer(NativeAnswered) : Completion(NativeAnswered));
+            protocol == "responses" ? NativeResponseAnswer(terminal) : Completion(terminal));
         var options = WorkspaceOptions(protocol); options.NativeObservationReadEnabled = true;
         options.MaximumEvidencePromptCharacters = 14_000;
         var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null)
             .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
-        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(sourceCatalogue ? "insufficient_documentation" : "answered", result.Outcome);
         Assert.Equal(new[] { "inventory", "raw", "raw" }, gateway.Searches.Where(request => request.NativeObservationView is not null)
             .Select(request => request.NativeObservationView));
         Assert.Equal(5, factory.Requests.Count);
@@ -317,7 +320,14 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     {
         private readonly (CanonicalDocument Document, AdvancedAnalysisResolvedEvidence Primary, string HashA, string HashB) fixture = NativeContextFixture();
         private readonly List<AdvancedAnalysisResolvedEvidence> evidence = [];
-        public NativeContextGateway() => evidence.Add(fixture.Primary with { Content = "Le seuil est 17 bar." });
+        public NativeContextGateway(bool sourceCatalogue = false) => evidence.Add(fixture.Primary with
+        {
+            Content = "Le seuil est 17 bar.",
+            SourceOverview = fixture.Primary.SourceOverview! with
+            {
+                TableRegionObservations = sourceCatalogue ? LargeNativeBudgetCatalog() : null
+            }
+        });
         public string HashA => fixture.HashA;
         public string HashB => fixture.HashB;
         public IEnumerable<string> Literals => fixture.Document.Pages[0].Blocks.Select(block => block.Text.Raw);

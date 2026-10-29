@@ -117,6 +117,39 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.True(view.TryGetProperty("qualitySignals", out _));
     }
 
+    [Theory]
+    [InlineData("chat-completions")]
+    [InlineData("responses")]
+    public async Task Native_documentary_projection_reserves_the_current_tool_wire_before_admitting_whole_lines(string protocol)
+    {
+        var fixture = new NativeAuditGateway();
+        var codes = Enumerable.Range(1, 10).Select(index => "observed_source_warning_" + index).ToArray();
+        var evidence = fixture.NativeEvidence.Select(item => item with
+        {
+            SourceOverview = item.SourceOverview! with { TableRegionObservations = LargeNativeBudgetCatalog() },
+            NativeObservation = item.NativeObservation! with { QualitySignals = codes },
+            SourceQuality = new(null, null, codes)
+        }).ToArray();
+        var counterfactual = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
+            CaptureNativeBudgetAsync(protocol, evidence, fixture.RawSha));
+        Assert.Equal("advanced_native_documentary_wire_budget_exceeded", counterfactual.ErrorCode);
+
+        var body = await CaptureNativeBudgetAsync(protocol, evidence, fixture.RawSha, reserveCurrentNativeTurn: true);
+        var current = WorkspaceUser(body);
+        var view = Assert.Single(current.GetProperty("alternativeNativeReadings").GetProperty("views").EnumerateArray());
+        Assert.Equal(0, view.GetProperty("offset").GetInt32());
+        Assert.Equal(1, view.GetProperty("nextOffset").GetInt32());
+        Assert.Equal(1, CountLiteralInJsonStrings(body, fixture.NativeLines[0]));
+        Assert.Equal(0, CountLiteralInJsonStrings(body, fixture.NativeLines[1]));
+        Assert.All(current.GetProperty("evidence").EnumerateArray(), item =>
+        {
+            var text = item.GetProperty("content").GetString()!;
+            Assert.True(text.Length == 0 || fixture.NativeLines.Contains(text));
+            Assert.Equal(text.Length == 0, item.GetProperty("contentTruncated").GetBoolean());
+        });
+        Assert.InRange(OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(body), 1, 14_000);
+    }
+
     private static JsonDocument NativeBudgetToolOutput(string body, string protocol)
     {
         using var wire = JsonDocument.Parse(body);
@@ -130,7 +163,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     private static async Task<string> CaptureNativeBudgetAsync(string protocol,
         AdvancedAnalysisResolvedEvidence[] evidence, string rawSha, int maximumCharacters = 14_000,
         AdvancedAnalysisResolvedEvidence[]? returnedEvidence = null, bool researchReview = false,
-        int nativeOffset = 0, int? nativeLimit = null)
+        int nativeOffset = 0, int? nativeLimit = null, bool reserveCurrentNativeTurn = false)
     {
         using var factory = new QueuedHttpClientFactory(protocol == "responses"
             ? NativeResponseAnswer("{\"ok\":true}") : Completion("{\"ok\":true}"));
@@ -165,6 +198,17 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var turn = Activator.CreateInstance(turnType, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
             null, new object?[] { calls, new[] { read }, new Dictionary<string, AdvancedAnalysisSearchObservation> { [key] = observation },
                 null, outputs, false, false, false }, null)!;
+        if (reserveCurrentNativeTurn)
+        {
+            projection = typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetMethod("BuildPromptEvidenceWithPersistentSourceKeys", flags)!
+                .Invoke(provider, new object?[] { BuildDirectRequest(), evidence, new Dictionary<string, HashSet<string>>(),
+                    null, null, null, turn })!;
+            user = researchReview
+                ? (string)typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetMethod("BuildResearchReviewUserPrompt", flags)!
+                    .Invoke(provider, new object?[] { BuildDirectRequest(), projection, Array.Empty<AdvancedAnalysisSearchRequest>(),
+                        Array.Empty<string>(), 0, 1, null })!
+                : JsonSerializer.Serialize(new { evidence = projection, researchTools = new { tools = Array.Empty<object>() } }, json);
+        }
         var history = (IReadOnlyList<object>)typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetMethod("BuildNativeToolTurnMessages", flags)!
             .Invoke(provider, new[] { turn, projection, protocol == "responses" })!;
         try

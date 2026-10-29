@@ -116,7 +116,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var options = WorkspaceOptions(protocol);
         options.NativeObservationReadEnabled = true;
         options.MaximumEvidencePromptCharacters = 8_000;
-        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null);
+        var logger = new DiagnosticRecordingLogger<OpenAiCompatibleAdvancedAnalysisProvider>();
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null, logger: logger);
         var method = typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetMethod("CompleteJsonAsync",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
         var emptyProjection = typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetMethod("BuildPromptEvidence",
@@ -130,6 +131,14 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() => task);
         Assert.Equal("advanced_native_documentary_wire_budget_exceeded", error.ErrorCode);
         Assert.Empty(factory.Requests);
+        var entry = Assert.Single(logger.Events, item => Equals(item.Values["Operation"], "llm.call"));
+        Assert.Equal("failed", entry.Values["Outcome"]);
+        Assert.Equal(error.ErrorCode, entry.Values["ReasonCode"]);
+        using var measurements = JsonDocument.Parse((string)entry.Values["Measurements"]!);
+        Assert.Equal(8_000, measurements.RootElement.GetProperty("documentary_wire_maximum_characters").GetInt32());
+        Assert.Equal(error.Data["documentaryWireCharacters"], measurements.RootElement.GetProperty("documentary_wire_characters").GetInt32());
+        Assert.True(measurements.RootElement.GetProperty("documentary_wire_characters").GetInt32() > 8_000);
+        Assert.DoesNotContain("native-read-1", entry.Text, StringComparison.Ordinal);
     }
 
     [Theory]

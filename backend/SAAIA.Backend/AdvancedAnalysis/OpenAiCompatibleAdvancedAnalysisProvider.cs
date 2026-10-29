@@ -802,16 +802,25 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         {
             var documentaryCharacters = MeasureSecondaryDocumentaryWireCharacters(serializedPayload);
             callProbe.Set("documentary_wire_characters", documentaryCharacters);
+            var maximumDocumentaryCharacters = Math.Clamp(_options.MaximumEvidencePromptCharacters, 8_000, 1_000_000);
+            callProbe.Set("documentary_wire_maximum_characters", maximumDocumentaryCharacters);
             if (sourcePrompt.RootElement.TryGetProperty("evidence", out var documentaryCollection)
                 || sourcePrompt.RootElement.TryGetProperty("observations", out documentaryCollection))
                 callProbe.Set("documentary_collection_wire_characters",
                     MeasureEscapedDocumentaryTextCharacters(documentaryCollection.GetRawText()));
-            if (documentaryCharacters > Math.Clamp(_options.MaximumEvidencePromptCharacters, 8_000, 1_000_000))
+            if (documentaryCharacters > maximumDocumentaryCharacters)
             {
-                throw new AdvancedAnalysisProviderException(hasNativeReadings
+                var error = new AdvancedAnalysisProviderException(hasNativeReadings
                     ? "advanced_native_documentary_wire_budget_exceeded" : hasSecondaryReadings
                     ? "advanced_secondary_documentary_wire_budget_exceeded"
                     : "advanced_visual_documentary_wire_budget_exceeded");
+                error.Data["documentaryWireCharacters"] = documentaryCharacters;
+                error.Data["maximumDocumentaryWireCharacters"] = maximumDocumentaryCharacters;
+                // This rejection precedes the HTTP try/catch. Close the probe
+                // explicitly, with the same content-free breakdown as a sent call.
+                LlmPayloadDiagnostics.AnnotateRequest(callProbe, userPrompt, serializedPayload);
+                callProbe.Fail(error, error.ErrorCode);
+                throw error;
             }
         }
         callProbe.Set("wire_protocol", nativeResponses ? "responses" : "chat-completions");

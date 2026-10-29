@@ -50,6 +50,38 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         }, JsonOptions));
     }
 
+    private int MeasureNativeDocumentaryProjectionCharacters(IReadOnlyList<PromptEvidenceItem> evidence,
+        NativeResearchTurn? turn)
+    {
+        // Measure the same shared inventories, views and escaped native result
+        // that will be sent. A fixed half-budget reservation is not a bound on
+        // these source-dependent metadata. "observations" is the longer of the
+        // two collection names; the final call still checks its exact payload.
+        var prompt = JsonSerializer.Serialize(new
+        {
+            observations = evidence,
+            structuredTables = BuildStructuredTablesForPrompt(evidence),
+            projectionBudgetBaseline = true
+        }, JsonOptions);
+        prompt = AddNativeObservationsToPrompt(AddVisualSourcesToPrompt(AddSecondaryTableReadingsToPrompt(prompt)));
+        var messages = new List<object> { new { role = "system", content = string.Empty } };
+        if (turn is not null)
+        {
+            try { messages.AddRange(BuildNativeToolTurnMessages(turn, evidence, UsesNativeResponses)); }
+            catch (AdvancedAnalysisProviderException error) when (error.ErrorCode == "advanced_native_tool_history_limit_exceeded")
+            {
+                // A candidate can change exact current-user references into a
+                // full captured tool result. Do not admit an oversized variant.
+                return int.MaxValue;
+            }
+        }
+        messages.Add(new { role = "user", content = prompt });
+        return MeasureSecondaryDocumentaryWireCharacters(JsonSerializer.Serialize(new Dictionary<string, object?>
+        {
+            [_options.NativeResearchToolsEnabled && UsesNativeResponses ? "input" : "messages"] = messages
+        }, JsonOptions));
+    }
+
     private JsonNode? TableReadingsForNativeToolResult(object alternative,
         AdvancedAnalysisSearchRequest? request, IReadOnlyList<PromptEvidenceItem> visible)
     {

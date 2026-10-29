@@ -207,7 +207,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             focusedEvidence = PrioritizeLatestExplicitRead(evidence, focusedEvidence, context.LatestExplicitReadEvidenceIds);
             var observations = BuildPromptEvidenceWithPersistentSourceKeys(
                 request, evidence, context.RetrievalQueriesByEvidenceId,
-                focusedEvidence, context.PromptSourceKeys, context.EvidenceReadWindows);
+                focusedEvidence, context.PromptSourceKeys, context.EvidenceReadWindows, context.NativeTurn);
             if (_options.NativeResearchToolsEnabled && _options.NativeResearchWorkspaceEnabled
                 && CandidateInventoryEnabled(request))
             {

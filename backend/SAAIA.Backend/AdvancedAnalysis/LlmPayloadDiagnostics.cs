@@ -6,7 +6,8 @@ namespace SAAIA.Backend.AdvancedAnalysis;
 internal static class LlmPayloadDiagnostics
 {
     private static readonly string[] Sections = ["request", "load", "evidence", "observations", "researchState",
-        "researchWorkspace", "researchTools", "tools", "priorSearches", "candidateInventory", "claimCoordinates", "originalWriterJson"];
+        "researchWorkspace", "researchTools", "tools", "priorSearches", "candidateInventory", "claimCoordinates", "originalWriterJson",
+        "alternativeTableReadings", "alternativeNativeReadings", "visualSources", "structuredTables"];
 
     internal static void AnnotateRequest(BackendDiagnostics.Operation probe, string userPrompt, string serializedPayload)
     {

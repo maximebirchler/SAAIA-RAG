@@ -8,6 +8,85 @@ namespace SAAIA.Backend.Tests;
 public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
     [Theory]
+    [InlineData("chat-completions")]
+    [InlineData("responses")]
+    public async Task Native_unavailable_inventory_reserves_tool_history_before_projecting_primary_excerpts(string protocol)
+    {
+        var fixture = new NativeAuditGateway();
+        var reference = fixture.Evidence[0].Reference;
+        var readings = new AdvancedAnalysisAlternativeNativeReadings(reference.DocId, reference.RevisionId!,
+            reference.SourceHash, 1, new("unavailable", "no_captured_native_observation", null, 0, null, null), null);
+        var catalogue = LargeNativeBudgetCatalog();
+        var evidence = fixture.Evidence.Select(item => item with
+        {
+            Content = new string('x', 880),
+            SourceOverview = new(1, 177, 753)
+            {
+                TableRegionObservations = catalogue, NativeObservations = readings,
+                VisualAssets = new("pixels_available", 13, [1], false, "not_performed", false)
+            },
+            SourceQuality = new("ok", false, ["document_intelligence_docling", "canonical_source_links",
+                "figure_semantics_not_extracted", "canonical_native_pdf_image_inventory"])
+        }).ToArray();
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic;
+        var type = typeof(OpenAiCompatibleAdvancedAnalysisProvider);
+        var json = (JsonSerializerOptions)type.GetField("JsonOptions", flags)!.GetValue(null)!;
+        var read = new AdvancedAnalysisSearchRequest("Read native inventory", Operation: "read_source",
+            DocId: reference.DocId, RevisionId: reference.RevisionId, DocPath: reference.DocPath,
+            PageStart: 1, PageEnd: 1, TopK: 1, NativeObservationView: "inventory",
+            NativeObservationOffset: 0, NativeObservationLimit: 4);
+        var observed = new AdvancedAnalysisSearchObservation(read.Query, [], [], 0, 2,
+            ReadDiagnostic: new("native_observation_unavailable", 1, 177, 0), AlternativeNativeReadings: readings);
+        var key = (string)type.GetMethod("BuildSearchIdentity", flags)!.Invoke(null, [read])!;
+        const string arguments = """{"sourceKey":"internal-source-1","pageStart":1,"pageEnd":1,"topK":1,"nativeObservationView":"inventory","nativeObservationOffset":0,"nativeObservationLimit":4}""";
+        var calls = JsonSerializer.Serialize(new[] { new { id = "inventory-call", type = "function",
+            function = new { name = "read_source", arguments } } });
+        var output = protocol == "responses" ? JsonSerializer.Serialize(new[] { new
+            { type = "function_call", id = "fc-inventory", call_id = "inventory-call", name = "read_source", arguments } }) : null;
+        var turn = Activator.CreateInstance(type.GetNestedType("NativeResearchTurn", flags)!,
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null,
+            new object?[] { calls, new[] { read }, new Dictionary<string, AdvancedAnalysisSearchObservation> { [key] = observed },
+                null, output, false, false, false }, null)!;
+        async Task<string> Capture(bool reserveHistory)
+        {
+            using var factory = new QueuedHttpClientFactory(protocol == "responses"
+                ? NativeResponseAnswer("{\"ok\":true}") : Completion("{\"ok\":true}"));
+            var options = WorkspaceOptions(protocol); options.NativeObservationReadEnabled = true;
+            options.VisualSourceCitationsEnabled = true; options.MaximumEvidencePromptCharacters = 14_000;
+            var provider = new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null);
+            var projection = reserveHistory
+                ? type.GetMethod("BuildPromptEvidenceWithPersistentSourceKeys", flags)!.Invoke(provider,
+                    new object?[] { BuildDirectRequest(), evidence, new Dictionary<string, HashSet<string>>(), null, null, null, turn })!
+                : type.GetMethod("BuildPromptEvidence", flags)!.Invoke(provider,
+                    new object?[] { BuildDirectRequest(), evidence, new Dictionary<string, HashSet<string>>(), null })!;
+            var history = (IReadOnlyList<object>)type.GetMethod("BuildNativeToolTurnMessages", flags)!
+                .Invoke(provider, new[] { turn, projection, protocol == "responses" })!;
+            try
+            {
+                await (Task)type.GetMethod("CompleteJsonAsync", flags)!.Invoke(provider,
+                    new object?[] { Guid.NewGuid(), "writer", "Return JSON.", JsonSerializer.Serialize(new { evidence = projection }, json),
+                        16, CancellationToken.None, false, history, projection })!;
+            }
+            catch (AdvancedAnalysisProviderException) { Assert.Empty(factory.Requests); throw; }
+            return Assert.Single(factory.Requests).Body;
+        }
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() => Capture(false));
+        Assert.Equal("advanced_native_documentary_wire_budget_exceeded", error.ErrorCode);
+        var body = await Capture(true);
+        var current = WorkspaceUser(body);
+        var visible = current.GetProperty("evidence").EnumerateArray().ToArray();
+        Assert.NotEmpty(visible);
+        Assert.All(visible, item => Assert.Equal(new string('x', 880)[..item.GetProperty("content").GetString()!.Length],
+            item.GetProperty("content").GetString()));
+        var inventory = Assert.Single(current.GetProperty("alternativeNativeReadings").GetProperty("inventories").EnumerateArray())
+            .GetProperty("inventory");
+        Assert.Equal("unavailable", inventory.GetProperty("availability").GetString());
+        Assert.Equal("no_captured_native_observation", inventory.GetProperty("reason").GetString());
+        Assert.Equal(JsonValueKind.Null, inventory.GetProperty("observationCount").ValueKind);
+        Assert.InRange(OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(body), 1, 14_000);
+    }
+
+    [Theory]
     [InlineData("chat-completions", "same")]
     [InlineData("responses", "same")]
     [InlineData("chat-completions", "quality")]
