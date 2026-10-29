@@ -315,6 +315,45 @@ def compare_planning_snapshot(snapshot, observation):
         require(current == original, "worker_adapter_planning_corpus_differs_from_real_worker")
 
 
+def verify_registration_evidence(scan, documents):
+    """Bind enqueue receipts without inventing a scanner invocation."""
+    if scan.get("mode") != "sequential_explicit_enqueue":
+        # Preserve the original scanner-count admission unchanged.
+        require(scan["scanned"] == scan["enqueued"] == len(documents),
+                "worker_adapter_scan_did_not_enqueue_originals")
+        return {"mode": scan.get("mode", "scan_count_response"), "scannerInvoked": scan.get("scannerInvoked"),
+                "scanned": scan["scanned"], "enqueued": scan["enqueued"], "scannerExecutionValidated": False}
+    require(len(documents) == 4 and scan.get("scannerInvoked") is False
+            and type(scan.get("scanned")) is int and scan["scanned"] == 0
+            and type(scan.get("enqueued")) is int and scan["enqueued"] == 4
+            and type(scan.get("hashVerifiedOriginalInputs")) is int and scan["hashVerifiedOriginalInputs"] == 4,
+            "worker_adapter_explicit_enqueue_counts_or_mode_invalid")
+    accepted, completed = scan.get("acceptedJobs"), scan.get("completedCases")
+    require(isinstance(accepted, list) and len(accepted) == 4
+            and all(isinstance(row, dict) and isinstance(row.get("jobId"), str)
+                    and isinstance(row.get("caseId"), str) and row["caseId"] for row in accepted)
+            and isinstance(completed, list) and len(completed) == 4
+            and all(isinstance(case, str) for case in completed), "worker_adapter_explicit_enqueue_inventory_invalid")
+    jobs = {doc["ingestionJob"]["job_id"]: doc for doc in documents}
+    cases = {row["caseId"] for row in accepted}
+    require(len(jobs) == len(cases) == len({row["jobId"] for row in accepted}) == 4
+            and set(jobs) == {row["jobId"] for row in accepted}
+            and set(completed) == cases, "worker_adapter_explicit_enqueue_inventory_invalid")
+    for row in accepted:
+        doc, response = jobs[row["jobId"]], row.get("response")
+        job = doc["ingestionJob"]
+        require(isinstance(response, dict) and response.get("jobId") == job["job_id"]
+                and row.get("docPath") == response.get("docPath") == doc["docPath"] == job["doc_path"] == row["caseId"] + ".pdf"
+                and row.get("action") == response.get("action") == job["action"] == "upsert"
+                and response.get("tenantId") == job["tenant_id"]
+                and response.get("docId") == doc["docId"] == job["payload"]["docId"]
+                and type(response.get("version")) is int and response["version"] > 0
+                and response["version"] == doc["indexedVersion"] == doc["ingestionVersion"] == job["payload"]["version"],
+                "worker_adapter_explicit_enqueue_job_binding_changed")
+    return {"mode": "sequential_explicit_enqueue", "scannerInvoked": False, "scanned": 0, "enqueued": 4,
+            "acceptedJobsBound": 4, "scannerExecutionValidated": False}
+
+
 def verify_execution_evidence(observation, transfer=None):
     required = {"backendLog", "emptyBaseline", "scanResponse", "terminalJobs", "doclingHealth", "embeddingInfo", "dependencyOwnership"}
     evidence = observation["workerExecutionEvidence"]
@@ -329,7 +368,7 @@ def verify_execution_evidence(observation, transfer=None):
     baseline = read_evidence("emptyBaseline")
     require(baseline and all(type(value) is int and value == 0 for value in baseline.values()), "worker_adapter_origin_store_not_empty")
     scan = read_evidence("scanResponse")
-    require(scan["scanned"] == scan["enqueued"] == len(observation["documents"]), "worker_adapter_scan_did_not_enqueue_originals")
+    registration = verify_registration_evidence(scan, observation["documents"])
     terminal = read_evidence("terminalJobs")
     jobs = {job["jobId"]: job for job in linux.parse_job_listing(terminal)}
     published_jobs = {doc["ingestionJob"]["job_id"]: doc["ingestionJob"] for doc in observation["documents"]}
@@ -381,7 +420,7 @@ def verify_execution_evidence(observation, transfer=None):
     return {"boundExecutionArtifacts": len(evidence), "observedLocalEmbeddingModel": embedding_model,
             "observedLocalEmbeddingRevision": embedding_revision, "observedEmbeddingRuntime": embedding_runtime,
             "embeddingProfileBound": embedding_runtime == "tei_cpu",
-            "doclingUpstreamObserved": True, "linuxProductionQualified": False}
+            "doclingUpstreamObserved": True, "linuxProductionQualified": False, "registrationEvidence": registration}
 
 
 def load_worker_corpus(manifest, transfer=None):

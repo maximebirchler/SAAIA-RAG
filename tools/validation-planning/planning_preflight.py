@@ -16,7 +16,28 @@ from verify_wire import extended_windows_path
 
 def preflight_reply(body, control, turn, ordinal):
     if fixture_wire.planner(body):
-        return {"kind": "answer", "text": json.dumps({"queries": [{"query": control["preflightQuery"], "topK": 8}]})}
+        current = []
+        for message in body.get("messages", body.get("input", [])):
+            if message.get("role") != "user" or not isinstance(message.get("content"), str):
+                continue
+            try:
+                payload = json.loads(message["content"])
+            except (ValueError, TypeError):
+                continue
+            if isinstance(payload, dict) and isinstance(payload.get("load"), dict):
+                current.append(payload)
+        if len(current) != 1:
+            raise ValueError("planning_preflight_current_load_required")
+        load = current[0]["load"]
+        modes = {"structured_layout": "repeatable_named_items",
+                 "distinct_structured_layout": "distinct_named_items"}
+        policy = load.get("selectionPolicy")
+        if load.get("structuredLayout") is not True or not isinstance(policy, str) or policy not in modes:
+            raise ValueError("planning_preflight_selection_policy_invalid")
+        if not isinstance(control, dict) or control.get("preflightQuery") != "recette":
+            raise ValueError("planning_preflight_generic_query_required")
+        return {"kind": "answer", "text": json.dumps({"selectionMode": modes[policy],
+                "queries": [{"query": "recette", "topK": 8}]})}
     raise ValueError("planning_preflight_stop_after_writer_capture")
 
 

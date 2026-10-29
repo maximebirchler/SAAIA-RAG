@@ -4,6 +4,7 @@ import hashlib
 import json
 import tempfile
 import unittest
+import copy
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'validation-wire'))
 from planning_preflight import preflight_reply
@@ -12,6 +13,39 @@ from verify_wire import utf16_length
 
 
 class PlanningPreflightPolicyTests(unittest.TestCase):
+    def planner_body(self, policy, protocol="responses"):
+        # BuildPlannerUserPrompt exposes load, not an evidence collection.
+        payload = {"request": "Planning de repas", "load": {"structuredLayout": True, "selectionPolicy": policy}}
+        return {"input" if protocol == "responses" else "messages": [
+            {"role": "system", "content": "research planner"},
+            {"role": "user", "content": json.dumps(payload)}]}
+
+    def test_scripted_planner_emits_the_selection_mode_required_by_the_visible_policy(self):
+        for policy, expected in (("structured_layout", "repeatable_named_items"),
+                                 ("distinct_structured_layout", "distinct_named_items")):
+            for protocol in ("responses", "chat-completions"):
+                with self.subTest(policy=policy, protocol=protocol):
+                    body = self.planner_body(policy, protocol)
+                    before = copy.deepcopy(body)
+                    answer = json.loads(preflight_reply(body, {"preflightQuery": "recette"}, 0, 1)["text"])
+                    self.assertEqual({"selectionMode": expected, "queries": [{"query": "recette", "topK": 8}]}, answer)
+                    self.assertEqual(before, body)
+
+    def test_scripted_planner_refuses_unknown_policy_instead_of_guessing(self):
+        for policy in (None, "unknown", "content_claims", {}, []):
+            with self.subTest(policy=policy), self.assertRaisesRegex(ValueError, "planning_preflight_selection_policy_invalid"):
+                preflight_reply(self.planner_body(policy), {"preflightQuery": "recette"}, 0, 1)
+
+    def test_scripted_planner_requires_one_unambiguous_current_load(self):
+        body = self.planner_body("structured_layout")
+        body["input"].append(copy.deepcopy(body["input"][-1]))
+        with self.assertRaisesRegex(ValueError, "planning_preflight_current_load_required"):
+            preflight_reply(body, {"preflightQuery": "recette"}, 0, 1)
+
+    def test_scripted_planner_never_uses_a_preselected_recipe_query(self):
+        with self.assertRaisesRegex(ValueError, "planning_preflight_generic_query_required"):
+            preflight_reply(self.planner_body("structured_layout"), {"preflightQuery": "recette attendue"}, 0, 1)
+
     def prepare_inspection(self, root, kind="one-day-4"):
         days = ["lundi"] if kind == "one-day-4" else ["lundi", "mardi", "mercredi", "jeudi", "vendredi"]
         case = {"kind": kind, "question": "planning", "answerUnitCount": len(days) * 4, "rowLabels": days,
