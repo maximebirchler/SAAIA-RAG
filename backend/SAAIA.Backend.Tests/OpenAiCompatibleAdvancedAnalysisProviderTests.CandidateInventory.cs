@@ -257,6 +257,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         using var factory = new QueuedHttpClientFactory(
             Completion(CandidatePlanner),
             NativeCompletion(("search_corpus", WorkspaceSearch)),
+            Completion(CandidateTerminal),
             Completion(CandidateTerminal));
         var options = WorkspaceOptions();
         var docId = Guid.NewGuid().ToString("D");
@@ -274,7 +275,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             revisionId: revisionId,
             exactTitle: "Omelette");
 
-        await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null)
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null)
             .ExecuteAsync(
                 BuildRequest(
                     answerUnitCount: 20,
@@ -293,6 +294,16 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Contains(items, candidate => candidate.GetProperty("locatorEvidenceIds")
             .EnumerateArray().Any(id => id.GetString() == "E-NAV"));
         Assert.Equal("E-BODY", item.GetProperty("bodyEvidenceIds")[0].GetString());
+        Assert.Equal("insufficient_documentation", result.Outcome);
+        Assert.Equal(4, result.ProviderCallCount);
+        Assert.Equal(4, factory.Requests.Count);
+        var review = WorkspaceUser(factory.Requests[3].Body);
+        Assert.Equal("insufficiency_after_partial_documentary_research",
+            review.GetProperty("insufficiencyReview").GetProperty("reasonCode").GetString());
+        Assert.Single(factory.Requests, call => WorkspaceUser(call.Body).TryGetProperty("insufficiencyReview", out _));
+        Assert.Equal(WorkspaceUser(factory.Requests[2].Body).GetProperty("candidateInventory").GetRawText(),
+            review.GetProperty("candidateInventory").GetRawText());
+        Assert.DoesNotContain(factory.Requests, call => PayloadAuditSystem(call.Body).Contains("final SAAIA synthesis completer", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -563,6 +574,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                 ("save_candidate_inventory", discovered),
                 ("search_corpus", WorkspaceSearch)),
             NativeCompletion(("save_candidate_inventory", verified)),
+            Completion(CandidateTerminal),
             Completion(CandidateTerminal));
         var options = WorkspaceOptions();
         var docId = Guid.NewGuid().ToString("D");
@@ -580,7 +592,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             revisionId: revisionId,
             exactTitle: "Omelette");
 
-        await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null)
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null)
             .ExecuteAsync(
                 BuildRequest(
                     answerUnitCount: 20,
@@ -595,6 +607,16 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal("body_verified", item.GetProperty("status").GetString());
         Assert.Equal("E-NAV", item.GetProperty("locatorEvidenceIds")[0].GetString());
         Assert.Equal("E-BODY", item.GetProperty("bodyEvidenceIds")[0].GetString());
+        Assert.Equal("insufficient_documentation", result.Outcome);
+        Assert.Equal(5, result.ProviderCallCount);
+        Assert.Equal(5, factory.Requests.Count);
+        var review = WorkspaceUser(factory.Requests[4].Body);
+        Assert.Equal("insufficiency_after_partial_documentary_research",
+            review.GetProperty("insufficiencyReview").GetProperty("reasonCode").GetString());
+        Assert.Single(factory.Requests, call => WorkspaceUser(call.Body).TryGetProperty("insufficiencyReview", out _));
+        Assert.Equal(WorkspaceUser(factory.Requests[3].Body).GetProperty("candidateInventory").GetRawText(),
+            review.GetProperty("candidateInventory").GetRawText());
+        Assert.DoesNotContain(factory.Requests, call => PayloadAuditSystem(call.Body).Contains("final SAAIA synthesis completer", StringComparison.Ordinal));
     }
 
     [Fact]
