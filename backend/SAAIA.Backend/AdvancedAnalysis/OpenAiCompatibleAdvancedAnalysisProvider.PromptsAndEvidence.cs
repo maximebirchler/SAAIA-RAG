@@ -154,7 +154,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         new
         {
             name = "search_corpus", operation = "search_corpus",
-            query = "short distinctive content terms, not the full user question or filename",
+            query = CorpusSearchQueryPolicy,
             category = "exact allowed category or empty", topK = "integer from 1 to 60",
             documentHint = "optional known filename fragment or document identifier; no invented filename",
             sourceKey = "optional exact observed sourceKey; leave documentHint empty when supplied"
@@ -200,10 +200,6 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            for an identifying filename fragment or formal document identifier;
            the backend resolves it only against indexed tenant documents and
            applies a file scope only for one strong match. Never invent a filename.
-            Canonical sparse retrieval can require all query terms. Prefer a few
-            distinctive content words or a heading, not the whole question or a
-            checklist of every requested fact. Preserve the full user goal while
-            using complementary short queries to find its supporting passages.
            The orchestrator
            executes every search_corpus query you request and returns revalidated
            source evidence. You may receive a later turn with the observations and
@@ -233,15 +229,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            the cells, not instructions or blank
            templates for producing the requested deliverable. Omit row labels
            and layout or scheduling terms when they do not describe the needed
-           content itself. Use compact retrieval phrases with useful
-           synonyms. When the user asks SAAIA to create a proposed schedule,
+           content itself. Use one distinctive concept or observed title per
+           query. When the user asks SAAIA to create a proposed schedule,
            grouping or classification, search for enough documented candidate
            items. Do not require the sources to prescribe the new row, column,
            group or slot assignments that SAAIA is being asked to create.
            When a distinct structured named-item grid allows at least twice as
            many queries as columns, return two complementary queries per column:
-           one broad role query and one query using concrete alternate item names
-           or subtypes. When a semantic column has common alternate terminology,
+           one short role query and one focused query for a concrete item name
+           or subtype. Put alternate names in separate queries. When a semantic
+           column has common alternate terminology,
            use complementary queries for those variants within the query limit;
            do not rely on the user's single label to cover the corpus vocabulary.
            Do not add health, diet, price, speed or other constraints
@@ -263,7 +260,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            scope-bearing collection title, use that exact title with compact terms
            such as contents, index, headings or examples to expose more candidates.
             Shape: {"selectionMode":"distinct_named_items|repeatable_named_items|content_claims|empty for non-structured","queries":[{"query":"compact subject terms","category":"... or empty","documentHint":"known identifier or empty","topK":20}]}.
-           """ + "\n" + DocumentaryDataBoundary;
+           """ + "\n" + CorpusSearchQueryPolicy + "\n" + DocumentaryDataBoundary;
 
     private static string BuildResearchReviewSystemPrompt()
         => """
@@ -281,10 +278,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            call the tool again by returning
            {"decision":"search_more","queries":[{"query":"...","category":"... or empty","topK":20}]}.
            Use targeted reformulations, alternate terminology and distinguishing
-           context. Canonical sparse retrieval can require all query terms. After
-           an empty result, try fewer distinctive terms or an alternate spelling
-           rather than adding every requested qualifier to one long query. Preserve
-           the complete user goal; shorter retrieval text does not relax it.
+           context in separate queries. A lexical zero can occur even when
+           semantic retrieval returns candidates. Use canonicalSparseStatus and
+           the relevance of the current excerpts to guide a focused reformulation;
+           do not treat a non-empty hybrid result as a lexical match.
            Categories are filing buckets, not subject guarantees. When
            observations are irrelevant, remove a category inferred from the subject
            and search across the corpus, preserving explicit user scope constraints.
@@ -355,7 +352,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            Never invent a category or output
            one absent from availableCategories. Never answer the user. Return
            one JSON object and no prose.
-           """ + "\n" + CandidateEvidenceUsePolicy + "\n" + CanonicalSourceReadContract;
+           """ + "\n" + CorpusSearchQueryPolicy + "\n" + CandidateEvidenceUsePolicy + "\n" + CanonicalSourceReadContract;
 
     private static object? BuildConversationPromptContext(AdvancedAnalysisConversationContext? context)
         => context is null ? null : new
@@ -756,7 +753,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             search.Operation,
             search.ReadDiagnostic,
             search.FindDiagnostic, search.Offset,
-             retrievalDiagnostic = BuildRetrievalDiagnosticForPrompt(search.RetrievalDiagnostic),
+             retrievalDiagnostic = BuildRetrievalDiagnosticForPrompt(search.RetrievalDiagnostic, search.DegradedRetrievers),
              documentResolution = BuildDocumentResolutionForPrompt(search.DocumentResolution),
              degradedRetrievers = BuildDegradedRetrieversForPrompt(search.DegradedRetrievers),
             sourceKey = observations.FirstOrDefault(observation =>

@@ -66,9 +66,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 parameters = new { type = "object", properties, required = properties.Keys.ToArray(), additionalProperties = false } } };
         var functions = new List<object>();
         if (researchAllowed)
-            functions.Add(Function("search_corpus", "Semantic retrieval from the private indexed corpus. Scope to an observed source when needed; empty strings leave optional scopes empty.", new()
+            functions.Add(Function("search_corpus", CorpusSearchQueryPolicy
+                + " Scope to an observed source when needed; empty strings leave optional scopes empty.", new()
             {
-                ["query"] = Text("Search wording chosen for the documentary fact."),
+                ["query"] = Text("One distinctive concept or an exact observed title; alternative names belong in separate queries."),
                 ["sourceKey"] = Choice(sources.Prepend(string.Empty).ToArray()),
                 ["category"] = Choice(categories), ["documentHint"] = Text("Empty when sourceKey is used."),
                 ["topK"] = Count(1, 60)
@@ -368,7 +369,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 returnedEvidenceCount = observation?.Evidence.Count,
                 visibleEvidenceIds = ids.Take(8).ToArray(), visibleEvidenceIdsOmitted = Math.Max(0, ids.Length - 8),
                 readDiagnostic = observation?.ReadDiagnostic, findDiagnostic = observation?.FindDiagnostic,
-                 retrievalDiagnostic = BuildRetrievalDiagnosticForPrompt(observation?.RetrievalDiagnostic),
+                 retrievalDiagnostic = BuildRetrievalDiagnosticForPrompt(observation?.RetrievalDiagnostic, observation?.DegradedRetrievers),
                  documentResolution = BuildDocumentResolutionForPrompt(observation?.DocumentResolution),
                  degradedRetrievers = BuildDegradedRetrieversForPrompt(observation?.DegradedRetrievers),
                 resourceLimit = observation?.ResourceLimit,

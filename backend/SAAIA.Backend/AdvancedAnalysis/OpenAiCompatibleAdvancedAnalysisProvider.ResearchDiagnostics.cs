@@ -10,13 +10,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             && budget.EvidenceOperationsAllowed;
 
     // The complete diagnostic remains on the observation for SQL and probes.
-    // Model context needs the admitted count and bounded refusal information,
-    // not phase timings or overlapping raw/final retriever counters. Those
-    // phase counts cannot be summed into distinct supported candidates.
-    private static object? BuildRetrievalDiagnosticForPrompt(RagRetrievalDiagnosticsDto? diagnostic)
+    // Model context keeps one bounded sparse status so a dense-positive result
+    // does not hide lexical zero hits. Phase timings and overlapping counters
+    // remain omitted; they cannot be summed into supported distinct candidates.
+    private static object? BuildRetrievalDiagnosticForPrompt(
+        RagRetrievalDiagnosticsDto? diagnostic,
+        IReadOnlyList<string>? degradedRetrievers)
         => diagnostic is null ? null : new
         {
             returnedEvidenceCandidates = diagnostic.Selection.Returned,
+            canonicalSparseStatus = BuildCanonicalSparseStatus(diagnostic, degradedRetrievers),
             omittedPhases = diagnostic.DroppedPhases + diagnostic.Phases.Count,
             rejectionCounts = diagnostic.RejectionCounts?.OrderBy(item => item.Key, StringComparer.Ordinal)
                 .Take(16).Select(item => new
@@ -26,7 +29,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 }).ToArray(),
             omittedRejectionReasons = Math.Max(0, (diagnostic.RejectionCounts?.Count ?? 0) - 16),
             diagnostic.DroppedRejections,
-            instruction = "Counts describe this operation: not distinct supported items, not exhaustive corpus coverage. Phase telemetry is omitted."
+            instruction = "Operation counts: not distinct supported items; not exhaustive corpus coverage. Phases omitted."
         };
 
     private static string[] BuildDegradedRetrieversForPrompt(IReadOnlyList<string>? retrievers)
