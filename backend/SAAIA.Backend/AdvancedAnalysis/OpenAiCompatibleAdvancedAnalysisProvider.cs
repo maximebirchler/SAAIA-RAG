@@ -730,6 +730,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         callProbe.Set("evidence_projection_status", ReadString(evidenceProjection, "status"));
         callProbe.Set("source_catalogue_count", sourcePrompt.RootElement.TryGetProperty("sourceCatalogue", out var sourceCatalogue)
             ? sourceCatalogue.GetProperty("sources").GetArrayLength() : 0);
+        if (sourceCatalogue.ValueKind == JsonValueKind.Object
+            && sourceCatalogue.TryGetProperty("admittedCardLocators", out var cardNavigation))
+        {
+            callProbe.Set("admitted_card_locator_observed_count", cardNavigation.GetProperty("observedLocatorCount").GetInt32());
+            callProbe.Set("admitted_card_locator_listed_count", cardNavigation.GetProperty("listedLocatorCount").GetInt32());
+            callProbe.Set("admitted_card_locator_omitted_count", cardNavigation.GetProperty("omittedLocatorCount").GetInt32());
+            callProbe.Set("admitted_card_locator_wire_chars", cardNavigation.GetProperty("wireCharacters").GetInt32());
+            callProbe.Set("admitted_card_locator_wire_cap", cardNavigation.GetProperty("wireCharacterLimit").GetInt32());
+        }
         if (evidenceProjection.TryGetProperty("canonicalProjection", out var canonicalCounts))
         {
             callProbe.Set("evidence_projection_input_count", canonicalCounts.GetProperty("inputCount").GetInt32());

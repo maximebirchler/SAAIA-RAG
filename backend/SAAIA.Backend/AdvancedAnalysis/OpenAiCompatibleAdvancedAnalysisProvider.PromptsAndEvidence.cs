@@ -1243,6 +1243,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         // Catalogue membership comes from the active canonical set, never an old focus or alias cache.
         sourceCatalogue = _options.AdaptiveResearchEnabled || _options.NativeResearchToolsEnabled
             ? BuildPromptSourceCatalogue(evidence, sourceKeys) : null;
+        if (sourceCatalogue is not null)
+            sourceCatalogue = BuildAdmittedCardSourceCatalogue(request.Handoff.Load, evidence, sourceCatalogue, configuredMaximum);
         if (sourceCatalogue is not null
             && MeasureDocumentaryProjectionWithSourcesWireCharacters([], null, sourceCatalogue) > configuredMaximum)
             throw new AdvancedAnalysisProviderException("advanced_source_catalogue_budget_exceeded");

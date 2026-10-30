@@ -62,11 +62,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         return result;
     }
 
-    private static object SourceCatalogueForPrompt(IReadOnlyList<PromptSourceHandle> sources) => new
+    private static object SourceCatalogueForPrompt(IReadOnlyList<PromptSourceHandle> sources)
     {
-        sources,
-        instruction = "Active revalidated source locators, independent of which excerpts fit this call. carrierEvidenceId identifies the admitted carrier; its absent body is not citable proof. displayName is a filename, not document contents. Indexed physical bounds summarize indexed chunks, not PDF completeness or an authorization extension. Use sourceKey with declared tools to inspect other bodies. A full working set may still admit whole results by replacing unprotected items; remainingEvidenceItems=0 does not itself forbid research. Tool, model, elapsed-time and documentary limits still apply."
-    };
+        const string instruction = "Active revalidated source locators, independent of which excerpts fit this call. carrierEvidenceId identifies the admitted carrier; its absent body is not citable proof. displayName is a filename, not document contents. Indexed physical bounds summarize indexed chunks, not PDF completeness or an authorization extension. Use sourceKey with declared tools to inspect other bodies. A full working set may still admit whole results by replacing unprotected items; remainingEvidenceItems=0 does not itself forbid research. Tool, model, elapsed-time and documentary limits still apply.";
+        if (sources is AdmittedCardSourceCatalogue navigation)
+            return new { sources, instruction, admittedCardLocators = navigation.Navigation };
+        return new { sources, instruction };
+    }
 
     private static string AddSourceCatalogueToPrompt(string userPrompt, IReadOnlyList<PromptEvidenceItem>? projection)
     {
