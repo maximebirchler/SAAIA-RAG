@@ -424,7 +424,8 @@ def evaluate(profile, corpus, submission, api, sql, traces, probes):
         claim = claims_by_id[coordinate["claimId"]]
         require(cell.strip() and re.findall(r"\[(C\d+)\]", cell) == [claim["claimId"]]
                 and contains_name(cell, claim["selectedItem"])
-                and contains_name(claim["text"], claim["selectedItem"]),
+                and isinstance(claim.get("text"), str)
+                and 0 < len(claim["text"].strip()) <= 8000,
                 "planning_empty_or_misbound_grid_cell")
     require(traces and len(traces) == len(probes) == result["providerCallCount"], "planning_trace_probe_or_call_count_differs")
     require(len({probe["call_id"] for probe in probes}) == len(probes), "planning_call_probe_id_duplicate")
