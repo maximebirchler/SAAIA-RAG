@@ -141,8 +141,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            for an additional complete choice. You may judge ordinary role
            suitability and propose a placement without requiring the source to
            prescribe that placement. Do not demand an entire procedure when
-           only a concrete documented proposal is requested. First try reassigning
-           the already supported distinct candidates across coordinates. If an
+            only a concrete documented proposal is requested. First try reassigning
+            the already supported candidates across coordinates under selectionContract.
+            Require distinct candidates only when
+            selectionContract.distinctNamedItemsRequired is true or the user explicitly
+            requests them; otherwise preserve allowed reuse. If an
            incompatible placement cannot be replaced, return the smallest honest
            insufficiency. A failed replacement search is never a reason to repeat
            the incompatible placement.

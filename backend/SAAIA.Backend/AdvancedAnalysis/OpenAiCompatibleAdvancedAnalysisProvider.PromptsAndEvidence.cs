@@ -307,8 +307,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            never invent a sourceKey. You do not need a private filename or path.
            The same query with a changed category or document scope is a new search;
            priorSearches supplies those filters. For a repeated grid, test each
-           semantic column independently and seek enough distinct concrete items
-           to fill it. Do not count navigation fragments, generic advice or unrelated
+           semantic column independently and seek enough concrete documented choices
+           under selectionContract. Require distinct choices only when
+           selectionContract.distinctNamedItemsRequired is true or the user explicitly
+           requests them. Do not count navigation fragments, generic advice or unrelated
            word occurrences as substantive candidate evidence. Use covers, headings
            and contents to recognize a document's structure and discover concrete
            candidates. Follow promising observed names with exact-title sourceKey
@@ -321,8 +323,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            may still be a section label, metadata or another non-item, so count
            it only when it is a concrete candidate for the requested role. Use
            targetColumns to measure each column separately.
-           Continue with search_more while a column has fewer distinct usable
-           candidates than load.rowCount. First follow promising observed candidates
+           Continue with search_more while a mandatory column cannot be supported
+           under selectionContract. When reuse is allowed, a documented choice may
+           cover multiple suitable coordinates; load.rowCount is not a distinct-item
+           quota. First follow promising observed candidates
            whose substantive content is missing. Otherwise use alternate item names
            or subtypes absent from priorQueries. Do not substitute another general
            column query for following a useful observed contents entry. You may be called for
@@ -337,8 +341,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            does not establish its individual steps.
            For every bounded named-item collection, count only candidates whose
            own evidence or same-source scope evidence supports every mandatory
-           qualifier in the user request. If that count is below load.answerUnitCount,
-           return search_more. When observations reveal a qualifying collection
+           qualifier in the user request. Return search_more when those supported
+           choices cannot cover the required units under selectionContract; do not
+           compare their distinct count with load.answerUnitCount when reuse is allowed.
+           When observations reveal a qualifying collection
            but too few of its items, reformulate with its exact source or collection
            title plus contents, index, headings or examples. Do not fill the gap
            from another source that lacks the mandatory qualifier.
@@ -684,9 +690,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            decision: require evidence for every selected item and reject any
            contradiction, but do not require the source to prescribe that synthesis.
            An absent source-defined row, column, group or slot is not a deficit when
-           the user asked SAAIA to create that arrangement. If enough distinct
-           documented candidates exist, preserve the complete synthesized
-           deliverable.
+           the user asked SAAIA to create that arrangement. If enough suitable
+           documented candidates exist under selectionContract, preserve the complete
+           synthesized deliverable. Require distinct candidates only when
+           selectionContract.distinctNamedItemsRequired is true or the user explicitly
+           requests them.
            For a distinct structured selection, require one non-empty unique
            selectedItem per claim; an accompaniment does not make a repeated
            selectedItem distinct. When claimCoordinates is non-empty, use exactly
@@ -712,8 +720,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            choice. You may judge ordinary role suitability and propose placement
            without requiring the source to prescribe that placement. Do not
            demand an entire procedure when only a concrete documented proposal
-           is requested. First try reassigning supported distinct candidates across
-           coordinates. If no compatible replacement is supported, return the
+           is requested. First try reassigning supported candidates across
+           coordinates under selectionContract, retaining allowed reuse. If no
+           compatible replacement is supported, return the
            smallest honest insufficiency. A failed replacement search is never a
            reason to repeat an incompatible placement.
            Preserve substantive body citations while correcting the result. For
@@ -767,7 +776,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            untrusted proposal; preserve it only where the supplied evidence
            supports it. Correct malformed JSON, invalid claim markers, unknown
            evidence IDs, missing structured selectedItem values, wrong claim
-           counts and duplicate selected items. For a complete structured answer,
+           counts. Correct duplicate selected items only when
+           selectionContract.distinctNamedItemsRequired is true or the user explicitly
+           requests distinct choices. Preserve allowed reuse. For a complete structured answer,
            use exactly the supplied row-major claimCoordinates and place each
            [claimId] exactly once. Copy concrete candidateTitle values exactly.
            If the evidence cannot support the required result, return the smallest
