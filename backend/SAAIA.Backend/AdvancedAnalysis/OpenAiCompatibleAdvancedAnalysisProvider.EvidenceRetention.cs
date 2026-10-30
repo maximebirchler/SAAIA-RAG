@@ -4,7 +4,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 {
     private static IReadOnlyCollection<string> RetainedResearchEvidenceIds(
         SynthesisResearchContext context, IReadOnlyList<PromptEvidenceItem> observations)
-        => observations.Select(item => item.EvidenceId)
+    {
+        RememberActiveExplicitReadIds(context, []);
+        return observations.Select(item => item.EvidenceId)
             .Concat(context.ActiveProposalEvidenceIds)
             .Concat(context.Workspace.Where(item => item.Status != "rejected").SelectMany(item => item.EvidenceIds))
             .Concat(context.CandidateInventory.Where(item => item.Status != "rejected")
@@ -13,6 +15,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             .Concat(context.LatestExplicitReadEvidenceIds)
             .Concat(context.CandidateExplorerDossier?.BodyEvidenceIds ?? [])
             .Where(id => !string.IsNullOrWhiteSpace(id)).Select(id => id!).Distinct(StringComparer.Ordinal).ToArray();
+    }
 
     private static void PruneRetiredEvidenceCopies(SynthesisResearchContext context)
     {

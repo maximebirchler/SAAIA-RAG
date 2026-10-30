@@ -111,9 +111,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         }
         if (changedIds.Count > 0)
         {
-            // A newer primary-window request supersedes a previous source read.
-            // Rejected or unchanged requests never mutate this ordering memory.
-            context.LatestExplicitReadEvidenceIds = [];
+            // A newer window leads the projection without forgetting other
+            // explicit reads that still belong to the active working set.
+            RememberActiveExplicitReadIds(context, updates.Keys.Where(changedIds.Contains));
             context.CandidateInventory = context.CandidateInventory.Select(candidate =>
                 candidate.Status == "needs_body" && candidate.BodyEvidenceIds.Any(changedIds.Contains)
                     ? candidate with { Status = "awaiting_review", TargetRoles = [], SelectedRoles = [] }
@@ -156,8 +156,18 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             .SelectMany(request => results.TryGetValue(BuildSearchIdentity(request), out var result)
                 ? result.Evidence : []).Select(item => item.Reference.EvidenceId)
             .Where(id => !string.IsNullOrEmpty(id)).Cast<string>().Distinct(StringComparer.Ordinal).ToArray();
-        if (ids.Length > 0)
-            context.LatestExplicitReadEvidenceIds = ids;
+        RememberActiveExplicitReadIds(context, ids);
+    }
+
+    private static void RememberActiveExplicitReadIds(
+        SynthesisResearchContext context, IEnumerable<string> ids)
+    {
+        // Keep identifiers only, bounded by the current canonical working set.
+        // A retired identifier can never recover a historical body or source.
+        var active = context.Tools.Evidence.Select(item => item.Reference.EvidenceId)
+            .Where(id => !string.IsNullOrWhiteSpace(id)).ToHashSet(StringComparer.Ordinal);
+        context.LatestExplicitReadEvidenceIds = ids.Concat(context.LatestExplicitReadEvidenceIds)
+            .Where(active.Contains).Distinct(StringComparer.Ordinal).ToArray();
     }
 
     private static IReadOnlyList<AdvancedAnalysisResolvedEvidence> PrioritizeLatestExplicitRead(
