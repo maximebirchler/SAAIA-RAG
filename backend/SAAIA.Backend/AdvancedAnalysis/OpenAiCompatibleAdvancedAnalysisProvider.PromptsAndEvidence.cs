@@ -463,7 +463,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            deliverable. Make the synthesized nature clear in the answer and cite
            the evidence that documents every selected item. Do not claim that the
            source prescribed your synthesis, and do not contradict an explicit
-           source role or constraint. If the user asks what a source itself assigns,
+           prohibition or binding source condition. If the user asks what a source itself assigns,
            classifies or prescribes, that relationship remains a documentary fact
            and must be explicit in the evidence. Every mandatory factual qualifier
            in the request must remain explicit and supported. For a schedule,

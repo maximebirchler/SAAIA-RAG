@@ -15,6 +15,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         create variety. Explain a material limitation without claiming that the
         corpus has no alternatives unless its contents establish that fact.
 
+        Descriptive categories, example contexts and positive recommendations
+        are not exclusive restrictions unless the source establishes that
+        exclusivity. "Recommended for X" does not mean "only permitted in X";
+        it does not by itself prove suitability elsewhere. For a requested
+        synthesis, judge ordinary compatibility from the documented item and
+        the actual request. Do not impose an unstated date, season or other
+        eligibility condition, or require a source label matching SAAIA's
+        proposed placement.
+
         Preserve source conditions as well as the qualifiers in the user's request.
         If a cited capability, suitability or recommendation requires additions,
         prerequisites, a particular variant or an exception, retain that condition
