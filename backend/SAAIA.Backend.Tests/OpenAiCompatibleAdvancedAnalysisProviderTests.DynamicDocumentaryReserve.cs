@@ -61,7 +61,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                 .Single(item => item["role"]?.GetValue<string>() == "user");
             var user = JsonNode.Parse(message["content"]!.GetValue<string>())!.AsObject();
             foreach (var field in new[] { "structuredTables", "alternativeTableReadings", "visualSources",
-                "visualSourceCapabilities", "alternativeNativeReadings", "nativeObservationCapabilities" }) user.Remove(field);
+                "visualSourceCapabilities", "alternativeNativeReadings", "nativeObservationCapabilities", "sourceCatalogue" }) user.Remove(field);
             message["content"] = user.ToJsonString(json);
             collectionCosts.Add(OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(payload.ToJsonString(json)));
         }

@@ -705,9 +705,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         userPrompt = AddVisualSourcesToPrompt(userPrompt);
         userPrompt = AddNativeObservationsToPrompt(userPrompt);
         userPrompt = AddEvidenceProjectionToPrompt(userPrompt, canonicalProjection);
+        userPrompt = AddSourceCatalogueToPrompt(userPrompt, canonicalProjection);
         using var sourcePrompt = JsonDocument.Parse(userPrompt);
         var evidenceProjection = sourcePrompt.RootElement.GetProperty("evidenceProjection");
         callProbe.Set("evidence_projection_status", ReadString(evidenceProjection, "status"));
+        callProbe.Set("source_catalogue_count", sourcePrompt.RootElement.TryGetProperty("sourceCatalogue", out var sourceCatalogue)
+            ? sourceCatalogue.GetProperty("sources").GetArrayLength() : 0);
         if (evidenceProjection.TryGetProperty("canonicalProjection", out var canonicalCounts))
         {
             callProbe.Set("evidence_projection_input_count", canonicalCounts.GetProperty("inputCount").GetInt32());

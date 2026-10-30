@@ -16,12 +16,20 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     [InlineData("responses", 97)]
     [InlineData("chat-completions", 112)]
     [InlineData("responses", 112)]
-    public async Task Native_quality_reference_keeps_one_whole_line_and_all_effective_codes_under_default_wire_budget(
+    public async Task Native_quality_reference_refuses_insufficient_metadata_budget_then_keeps_whole_line_at_qualified_capacity(
         string protocol, int characters)
     {
         var fixture = NativeQualityFixture(characters, 1);
-        var body = await CaptureNativeBudgetAsync(protocol, fixture.Evidence, fixture.RawSha);
-        Assert.InRange(OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(body), 1, 14_000);
+        // The complete line, quality codes, table descriptors and active-source
+        // catalogue must all fit; a historical 14k profile is no longer enough.
+        var refusal = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
+            CaptureNativeBudgetAsync(protocol, fixture.Evidence, fixture.RawSha, reserveCurrentNativeTurn: true));
+        Assert.Equal("advanced_secondary_documentary_metadata_budget_exceeded", refusal.ErrorCode);
+        var body = await CaptureNativeBudgetAsync(protocol, fixture.Evidence, fixture.RawSha, 20_000,
+            reserveCurrentNativeTurn: true);
+        var measured = OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(body);
+        Assert.InRange(measured, 14_001, 20_000);
+        Console.WriteLine($"native_quality_wire protocol={protocol} characters={characters} measured={measured} cap=20000");
         AssertNativeQualityReference(body, protocol, fixture);
     }
 

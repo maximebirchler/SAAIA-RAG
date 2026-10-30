@@ -299,7 +299,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         using var call = JsonDocument.Parse(factory.Requests[1].Body);
         using var prompt = JsonDocument.Parse(call.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
         Assert.Equal(61, prompt.RootElement.GetProperty("observations")[0].GetProperty("physicalPageStart").GetInt32());
-        Assert.All(factory.Requests, request => { Assert.DoesNotContain(header.Reference.DocId!, request.Body); Assert.DoesNotContain(header.Reference.RevisionId!, request.Body); Assert.DoesNotContain("Private_Manual.pdf", request.Body); });
+        Assert.All(factory.Requests, request => { Assert.DoesNotContain(header.Reference.DocId!, request.Body); Assert.DoesNotContain(header.Reference.RevisionId!, request.Body); Assert.DoesNotContain(header.Reference.DocPath!, request.Body); Assert.DoesNotContain(header.Reference.SourceHash!, request.Body); });
     }
 
     [Theory]
@@ -608,7 +608,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal(index.Reference.DocId, followup.DocId);
         Assert.All(factory.Requests, call =>
         {
-            Assert.DoesNotContain("Private_Device_Manual.pdf", call.Body, StringComparison.Ordinal);
+            Assert.DoesNotContain(index.Reference.DocPath!, call.Body, StringComparison.Ordinal);
+            Assert.DoesNotContain(index.Reference.RevisionId!, call.Body, StringComparison.Ordinal);
+            Assert.DoesNotContain(index.Reference.SourceHash!, call.Body, StringComparison.Ordinal);
             Assert.DoesNotContain(index.Reference.DocId!, call.Body, StringComparison.Ordinal);
         });
     }
@@ -656,13 +658,15 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal(4, factory.Requests.Count);
         Assert.All(factory.Requests, call =>
         {
-            Assert.DoesNotContain("Private_Scope.pdf", call.Body, StringComparison.Ordinal);
+            Assert.DoesNotContain(index.Reference.DocPath!, call.Body, StringComparison.Ordinal);
+            Assert.DoesNotContain(index.Reference.RevisionId!, call.Body, StringComparison.Ordinal);
+            Assert.DoesNotContain(index.Reference.SourceHash!, call.Body, StringComparison.Ordinal);
             Assert.DoesNotContain(index.Reference.DocId!, call.Body, StringComparison.Ordinal);
         });
     }
 
     [Fact]
-    public async Task Research_can_follow_an_opaque_observed_source_without_disclosing_its_identity()
+    public async Task Research_can_follow_an_opaque_observed_source_without_disclosing_canonical_ids_or_full_path()
     {
         const string privateName = "Private_Equipment_Manual.pdf";
         var index = BuildEvidence("E-INDEX",
@@ -684,7 +688,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Null(followup.DocumentHint);
         Assert.All(factory.Requests, call =>
         {
-            Assert.DoesNotContain(privateName, call.Body, StringComparison.Ordinal);
+            Assert.DoesNotContain(index.Reference.DocPath!, call.Body, StringComparison.Ordinal);
+            Assert.DoesNotContain(index.Reference.RevisionId!, call.Body, StringComparison.Ordinal);
+            Assert.DoesNotContain(index.Reference.SourceHash!, call.Body, StringComparison.Ordinal);
             Assert.DoesNotContain(index.Reference.DocId!, call.Body, StringComparison.Ordinal);
         });
         using var review = JsonDocument.Parse(factory.Requests[1].Body);

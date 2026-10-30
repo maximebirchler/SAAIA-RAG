@@ -1209,9 +1209,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         // observations is the longer documentary collection name used by review.
         remaining -= MeasureDocumentaryProjectionWireOverhead();
         var promptEvidence = new List<PromptEvidenceItem>();
+        IReadOnlyList<PromptSourceHandle>? sourceCatalogue = null;
         bool FitsDocumentaryProjection(PromptEvidenceItem candidate, int size)
             => size <= remaining
-                && MeasureDocumentaryProjectionWireCharacters(promptEvidence.Append(candidate).ToArray(), nativeToolTurn)
+                && MeasureDocumentaryProjectionWithSourcesWireCharacters(promptEvidence.Append(candidate).ToArray(), nativeToolTurn, sourceCatalogue)
                     <= configuredMaximum;
         var sourceKeys = persistentSourceKeys
             ?? new Dictionary<string, string>(StringComparer.Ordinal);
@@ -1227,6 +1228,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             prioritizedEvidence = focusedEvidence.Concat(prioritizedEvidence.Where(item =>
                 !focusedIds.Contains(item.Reference.EvidenceId))).ToArray();
         }
+        // Catalogue membership comes from the active canonical set, never an old focus or alias cache.
+        sourceCatalogue = _options.AdaptiveResearchEnabled || _options.NativeResearchToolsEnabled
+            ? BuildPromptSourceCatalogue(evidence, sourceKeys) : null;
+        if (sourceCatalogue is not null
+            && MeasureDocumentaryProjectionWithSourcesWireCharacters([], null, sourceCatalogue) > configuredMaximum)
+            throw new AdvancedAnalysisProviderException("advanced_source_catalogue_budget_exceeded");
         var currentNativeRequests = _options.NativeObservationReadEnabled && nativeToolTurn?.Rejection is null
             ? nativeToolTurn?.Requests?.Where(read => read.Operation == "read_source"
                 && read.NativeObservationView is not null && !string.IsNullOrWhiteSpace(read.DocId)
@@ -1287,16 +1294,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var sourceIdentity = BuildCanonicalSourceIdentity(
                 item,
                 evidenceId ?? sourceKeys.Count.ToString());
-            if (!sourceKeys.TryGetValue(sourceIdentity, out var sourceKey))
-            {
-                var nextSourceNumber = 1;
-                do
-                {
-                    sourceKey = $"internal-source-{nextSourceNumber++}";
-                }
-                while (sourceKeys.Values.Contains(sourceKey, StringComparer.Ordinal));
-                sourceKeys.Add(sourceIdentity, sourceKey);
-            }
+            var sourceKey = ResolvePromptSourceKey(sourceKeys, sourceIdentity);
             // The final prompt shares inventories by source and polygons by RAW
             // block view. Deduplicate before measuring, not only after rendering.
             var sourceOverview = NativeOverviewMetadata(item.SourceOverview);
@@ -1496,7 +1494,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             remaining -= serializedCharacters;
             promptEvidence.Add(observation);
         }
-        return new PromptEvidenceProjection(promptEvidence, prioritizedEvidence.Count);
+        return new PromptEvidenceProjection(promptEvidence, prioritizedEvidence.Count)
+        { SourceCatalogue = sourceCatalogue ?? [], SourceCatalogueEnabled = _options.AdaptiveResearchEnabled || _options.NativeResearchToolsEnabled };
     }
 
     internal static IReadOnlyList<AdvancedAnalysisResolvedEvidence>

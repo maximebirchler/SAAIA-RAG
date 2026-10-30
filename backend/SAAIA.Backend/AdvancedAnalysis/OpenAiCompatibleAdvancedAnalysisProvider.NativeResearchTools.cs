@@ -17,7 +17,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private const string NativeResearchContract = """
         If further documentary facts are needed and research is allowed, choose
         the appropriate declared function. Function results are bounded; current
-        source excerpts and opaque source handles are in the user evidence array.
+        source excerpts are in user.evidence; active opaque source handles remain
+        available in user.sourceCatalogue even when their bodies are not visible.
         A contents entry locates an item; it does not establish its own body.
         A limit or a missing visible excerpt does not prove absence in the corpus.
         Do not publish claims while calling functions. When ready, return the
@@ -52,9 +53,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             || research.TryGetProperty("evidenceReadingAllowed", out var readingAllowed)
             && readingAllowed.ValueKind == JsonValueKind.True;
         if (!researchAllowed && !evidenceReadingAllowed) return null;
-        var sources = root.GetProperty("evidence").EnumerateArray()
-            .Select(e => ReadString(e, "sourceKey")).Where(s => !string.IsNullOrEmpty(s))
-            .Distinct(StringComparer.Ordinal).ToArray();
+        var sources = SourceKeysForNativeTools(root);
         var categories = research.GetProperty("availableCategories").EnumerateArray()
             .Select(e => e.GetString() ?? string.Empty).Prepend(string.Empty)
             .Distinct(StringComparer.Ordinal).ToArray();

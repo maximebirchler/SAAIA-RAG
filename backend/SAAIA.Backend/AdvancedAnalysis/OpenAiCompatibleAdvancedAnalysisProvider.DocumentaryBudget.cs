@@ -52,6 +52,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
     private int MeasureDocumentaryProjectionWireCharacters(IReadOnlyList<PromptEvidenceItem> evidence,
         NativeResearchTurn? turn)
+        => MeasureDocumentaryProjectionWithSourcesWireCharacters(evidence, turn, null);
+
+    private int MeasureDocumentaryProjectionWithSourcesWireCharacters(IReadOnlyList<PromptEvidenceItem> evidence,
+        NativeResearchTurn? turn, IReadOnlyList<PromptSourceHandle>? sourceCatalogue)
     {
         // Measure the same shared inventories, views and escaped native result
         // that will be sent. A fixed half-budget reservation is not a bound on
@@ -63,6 +67,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             structuredTables = BuildStructuredTablesForPrompt(evidence),
             projectionBudgetBaseline = true
         }, JsonOptions);
+        if (sourceCatalogue is not null)
+        {
+            var node = JsonNode.Parse(prompt)!.AsObject();
+            node["sourceCatalogue"] = JsonSerializer.SerializeToNode(SourceCatalogueForPrompt(sourceCatalogue), JsonOptions);
+            prompt = node.ToJsonString(JsonOptions);
+        }
         prompt = AddNativeObservationsToPrompt(AddVisualSourcesToPrompt(AddSecondaryTableReadingsToPrompt(prompt)));
         var messages = new List<object> { new { role = "system", content = string.Empty } };
         if (turn is not null)

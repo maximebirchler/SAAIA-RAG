@@ -31,8 +31,17 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     private static AdvancedAnalysisResolvedEvidence[] WireProjectionSources()
-        => Enumerable.Range(1, 30).Select(index => BuildEvidence($"E{index}",
-            WireTextFact + new string('x', 3_000))).ToArray();
+    {
+        // Exercise excerpt projection across thirty chunks, with a small bounded
+        // source catalogue. Catalogue-only overflow has its own causal tests.
+        var documents = Enumerable.Range(1, 3).Select(_ => (Doc: Guid.NewGuid().ToString("D"),
+            Revision: Guid.NewGuid().ToString("D"))).ToArray();
+        return Enumerable.Range(1, 30).Select(index => BuildEvidence($"E{index}",
+            WireTextFact + new string('x', 3_000), fileName: $"projection-{(index - 1) % documents.Length}.pdf",
+            docId: documents[(index - 1) % documents.Length].Doc,
+            revisionId: documents[(index - 1) % documents.Length].Revision,
+            pageStart: index)).ToArray();
+    }
 
     [Theory]
     [InlineData("chat-completions")]

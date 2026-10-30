@@ -278,7 +278,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     }, JsonOptions),
                     request,
                     context.AvailableCategories,
-                    navigatorEvidence);
+                    observations);
                 if (requestCapacityRepair && queries.Count > 0)
                 {
                     context.CandidateExplorerDossier = BuildStagedBoundedDossier(coverage,

@@ -104,13 +104,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     && scopeValue.ValueKind is not JsonValueKind.String and not JsonValueKind.Null)
                     throw new JsonException();
                 var sourceKey = ReadString(item, "sourceKey").Trim();
-                var observedSource = sourceKey.Length == 0 ? null : observations?
-                    .FirstOrDefault(observation => string.Equals(
-                        observation.SourceKey, sourceKey, StringComparison.Ordinal));
+                var observedSource = sourceKey.Length == 0 ? null : ResolveObservedSource(observations, sourceKey);
                 if (sourceKey.Length > 0
                     && (observedSource is null || documentHint.Length > 0
-                        || string.IsNullOrWhiteSpace(observedSource.SourceReference.DocId)
-                        || string.IsNullOrWhiteSpace(observedSource.SourceReference.DocPath)))
+                        || string.IsNullOrWhiteSpace(observedSource.DocId)
+                        || string.IsNullOrWhiteSpace(observedSource.DocPath)))
                     throw new JsonException();
                 int? pageStart = null, pageEnd = null;
                 var offset = 0;
@@ -121,13 +119,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 }
                 if (isFind && (observedSource is null || query.Length is < 2 or > 512
                         || ReadString(item, "category").Trim().Length > 0 || documentHint.Length > 0
-                        || !Guid.TryParse(observedSource.SourceReference.RevisionId, out _)
+                        || !Guid.TryParse(observedSource.RevisionId, out _)
                         || item.TryGetProperty("pageStart", out _) || item.TryGetProperty("pageEnd", out _)))
                     throw new JsonException();
                 if (isRead)
                 {
                     if (observedSource is null || ReadString(item, "category").Trim().Length > 0 || documentHint.Length > 0
-                        || !Guid.TryParse(observedSource.SourceReference.RevisionId, out _)) throw new JsonException();
+                        || !Guid.TryParse(observedSource.RevisionId, out _)) throw new JsonException();
                     int? first = item.TryGetProperty("pageStart", out var start) && start.ValueKind == JsonValueKind.Number
                         && start.TryGetInt32(out var parsedFirst) ? parsedFirst : null;
                     int? last = item.TryGetProperty("pageEnd", out var end) && end.ValueKind == JsonValueKind.Number
@@ -150,11 +148,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         && string.IsNullOrWhiteSpace(documentHint)
                         ? 2
                         : null,
-                    DocId: observedSource?.SourceReference.DocId,
-                    DocPath: observedSource?.SourceReference.DocPath,
+                    DocId: observedSource?.DocId,
+                    DocPath: observedSource?.DocPath,
                     PageStart: pageStart, PageEnd: pageEnd,
                     DocumentHint: documentHint.Length == 0 ? null : documentHint,
-                    Operation: operation, RevisionId: observedSource?.SourceReference.RevisionId,
+                    Operation: operation, RevisionId: observedSource?.RevisionId,
                     Offset: offset,TableOrdinal:tableOrdinal,TableRowOffset:tableRowOffset,TableRowLimit:tableRowLimit,
                     TableObservationId: observationId, TableObservationView: observationView,
                     TableObservationBandOrdinal: observationBand, TableObservationLineOffset: observationOffset,
@@ -186,8 +184,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 }
                 try { AdvancedAnalysisVisualSourceReader.ValidateRequest(search, _options.VisualSourceCitationsEnabled); }
                 catch (AdvancedAnalysisToolException) { throw new JsonException(); }
-                if (observationView is not null && observedSource?.SourceOverview?.TableRegionObservations is null
-                    && observedSource?.SourceObservation is null) throw new JsonException();
+                if (observationView is not null && !HasObservedSecondaryTableSource(observations, sourceKey))
+                    throw new JsonException();
                 if (dedupe.Add(BuildSearchIdentity(search)))
                     result.Add(search);
             }

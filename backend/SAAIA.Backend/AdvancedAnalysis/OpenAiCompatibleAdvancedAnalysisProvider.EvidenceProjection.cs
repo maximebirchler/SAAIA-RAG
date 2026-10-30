@@ -80,6 +80,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         : ReadOnlyCollection<PromptEvidenceItem>(items)
     {
         public int InputCount { get; } = inputCount;
+        public IReadOnlyList<PromptSourceHandle> SourceCatalogue { get; init; } = [];
+        public bool SourceCatalogueEnabled { get; init; }
     }
 
     // This runs after the source-specific enrichments, against the actual user

@@ -213,14 +213,26 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var turn = Activator.CreateInstance(typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetNestedType("NativeResearchTurn", NativeCataloguePriorityFlags)!,
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null,
             new object?[] { JsonSerializer.Serialize(calls), reads, results, null, responseOutput, false, false, false }, null)!;
+        // The one-source control has one matching call/result. The two-source
+        // failure below still carries both complete current inventories.
+        var firstCalls = calls.Take(1).ToArray();
+        var firstReadKey = (string)InvokeNativeCataloguePriority(null, "BuildSearchIdentity", [reads[0]]);
+        var firstOutput = protocol == "responses" ? JsonSerializer.Serialize(firstCalls.Select(call => new
+            { type = "function_call", id = "fc-" + call.id, call_id = call.id, call.function.name, call.function.arguments })) : null;
+        var firstTurn = Activator.CreateInstance(typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetNestedType("NativeResearchTurn", NativeCataloguePriorityFlags)!,
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null,
+            new object?[] { JsonSerializer.Serialize(firstCalls), reads.Take(1).ToArray(),
+                new Dictionary<string, AdvancedAnalysisSearchObservation> { [firstReadKey] = results[firstReadKey] },
+                null, firstOutput, false, false, false }, null)!;
         var first = InvokeNativeCataloguePriority(provider, "BuildPromptEvidenceWithPersistentSourceKeys",
-            [BuildDirectRequest(), evidence.Take(1).ToArray(), new Dictionary<string, HashSet<string>>(), null, null, null, turn]);
+            [BuildDirectRequest(), evidence.Take(1).ToArray(), new Dictionary<string, HashSet<string>>(), null, null, null, firstTurn]);
         var firstItem = Assert.Single(((System.Collections.IEnumerable)first).Cast<object>());
         var firstCost = (int)InvokeNativeCataloguePriority(provider, "MeasurePromptEvidenceCharacters", [firstItem]);
         var available = 40_000 - (int)InvokeNativeCataloguePriority(provider, "MeasureDocumentaryProjectionWireOverhead", []);
         Assert.InRange(firstCost, 1, available);
         if (metadataExceedsFullBudget)
-            Assert.InRange((int)InvokeNativeCataloguePriority(provider, "MeasureDocumentaryProjectionWireCharacters", [first, turn]),
+            Assert.InRange((int)InvokeNativeCataloguePriority(provider, "MeasureDocumentaryProjectionWithSourcesWireCharacters",
+                    [first, firstTurn, first.GetType().GetProperty("SourceCatalogue")!.GetValue(first)]),
                 20_001, 40_000);
         var firstProjected = JsonSerializer.SerializeToElement(first, json)[0];
         var firstText = firstProjected.GetProperty("content").GetString()!;

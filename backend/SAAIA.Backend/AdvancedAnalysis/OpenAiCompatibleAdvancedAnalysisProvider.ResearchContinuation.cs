@@ -632,7 +632,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     }
 
     private static bool HasOpenResearchLocator(IReadOnlyList<PromptEvidenceItem> observations)
-        => observations.Any(item => !string.IsNullOrWhiteSpace(item.SourceKey)
+        => observations is PromptEvidenceProjection { SourceCatalogueEnabled: true } projection
+            && projection.SourceCatalogue.Any(source => observations.All(item => item.SourceKey != source.SourceKey))
+            || observations.Any(item => !string.IsNullOrWhiteSpace(item.SourceKey)
             && (item.ContentRole == RetrievalContentClassifier.NavigationRole
                 || item.ContentTruncated && item.NextContentOffset is not null
                 || item.SourceOverview is { } overview

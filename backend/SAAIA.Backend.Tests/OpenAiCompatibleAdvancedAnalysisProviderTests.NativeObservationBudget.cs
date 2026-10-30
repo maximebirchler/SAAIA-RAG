@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
 using SAAIA.Backend.AdvancedAnalysis;
 using SAAIA.Contracts;
@@ -79,10 +80,10 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                 Enumerable.Range(1, 10).Select(index => "observed_source_warning_" + index).ToArray())
         }).ToArray();
         var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
-            CaptureNativeBudgetAsync(protocol, evidence, fixture.RawSha));
+            CaptureNativeBudgetAsync(protocol, evidence, fixture.RawSha, projectionMaximumCharacters: 64_000));
         Assert.Equal("advanced_native_documentary_wire_budget_exceeded", error.ErrorCode);
         Assert.Equal(0, evidence[0].NativeObservation!.LineOffset);
-        var body = await CaptureNativeBudgetAsync(protocol, evidence.Take(1).ToArray(), fixture.RawSha);
+        var body = await CaptureNativeBudgetAsync(protocol, evidence.Take(1).ToArray(), fixture.RawSha, reserveCurrentNativeTurn: true);
         var current = WorkspaceUser(body);
         var view = Assert.Single(current.GetProperty("alternativeNativeReadings").GetProperty("views").EnumerateArray());
         Assert.Equal(0, view.GetProperty("offset").GetInt32());
@@ -131,7 +132,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             SourceQuality = new(null, null, codes)
         }).ToArray();
         var counterfactual = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
-            CaptureNativeBudgetAsync(protocol, evidence, fixture.RawSha));
+            CaptureNativeBudgetAsync(protocol, evidence, fixture.RawSha, projectionMaximumCharacters: 64_000));
         Assert.Equal("advanced_native_documentary_wire_budget_exceeded", counterfactual.ErrorCode);
 
         var body = await CaptureNativeBudgetAsync(protocol, evidence, fixture.RawSha, reserveCurrentNativeTurn: true);
@@ -163,18 +164,25 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     private static async Task<string> CaptureNativeBudgetAsync(string protocol,
         AdvancedAnalysisResolvedEvidence[] evidence, string rawSha, int maximumCharacters = 14_000,
         AdvancedAnalysisResolvedEvidence[]? returnedEvidence = null, bool researchReview = false,
-        int nativeOffset = 0, int? nativeLimit = null, bool reserveCurrentNativeTurn = false)
+        int nativeOffset = 0, int? nativeLimit = null, bool reserveCurrentNativeTurn = false,
+        int? projectionMaximumCharacters = null)
     {
         using var factory = new QueuedHttpClientFactory(protocol == "responses"
             ? NativeResponseAnswer("{\"ok\":true}") : Completion("{\"ok\":true}"));
         var options = WorkspaceOptions(protocol);
         options.NativeObservationReadEnabled = true;
-        options.MaximumEvidencePromptCharacters = maximumCharacters;
+        options.MaximumEvidencePromptCharacters = projectionMaximumCharacters ?? maximumCharacters;
         var provider = new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null);
         var flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic;
+        object Project(string name, object?[] arguments)
+        {
+            try { return typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetMethod(name, flags)!.Invoke(provider, arguments)!; }
+            catch (TargetInvocationException error) when (error.InnerException is not null)
+            { ExceptionDispatchInfo.Capture(error.InnerException).Throw(); throw; }
+        }
         var json = (JsonSerializerOptions)typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetField("JsonOptions", flags)!.GetValue(null)!;
-        var projection = typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetMethod("BuildPromptEvidence", flags)!.Invoke(provider,
-            new object?[] { BuildDirectRequest(), evidence, new Dictionary<string, HashSet<string>>(), null })!;
+        var projection = Project("BuildPromptEvidence",
+            [BuildDirectRequest(), evidence, new Dictionary<string, HashSet<string>>(), null]);
         var user = researchReview
             ? (string)typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetMethod("BuildResearchReviewUserPrompt", flags)!
                 .Invoke(provider, new object?[] { BuildDirectRequest(), projection, Array.Empty<AdvancedAnalysisSearchRequest>(),
@@ -200,9 +208,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                 null, outputs, false, false, false }, null)!;
         if (reserveCurrentNativeTurn)
         {
-            projection = typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetMethod("BuildPromptEvidenceWithPersistentSourceKeys", flags)!
-                .Invoke(provider, new object?[] { BuildDirectRequest(), evidence, new Dictionary<string, HashSet<string>>(),
-                    null, null, null, turn })!;
+            projection = Project("BuildPromptEvidenceWithPersistentSourceKeys",
+                [BuildDirectRequest(), evidence, new Dictionary<string, HashSet<string>>(), null, null, null, turn]);
             user = researchReview
                 ? (string)typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetMethod("BuildResearchReviewUserPrompt", flags)!
                     .Invoke(provider, new object?[] { BuildDirectRequest(), projection, Array.Empty<AdvancedAnalysisSearchRequest>(),
@@ -211,6 +218,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         }
         var history = (IReadOnlyList<object>)typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetMethod("BuildNativeToolTurnMessages", flags)!
             .Invoke(provider, new[] { turn, projection, protocol == "responses" })!;
+        // A deliberately oversized prebuilt projection can exercise the final
+        // guard independently of the normal builder's earlier whole-item refusal.
+        options.MaximumEvidencePromptCharacters = maximumCharacters;
         try
         {
             await (Task)typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetMethod("CompleteJsonAsync", flags)!.Invoke(provider,

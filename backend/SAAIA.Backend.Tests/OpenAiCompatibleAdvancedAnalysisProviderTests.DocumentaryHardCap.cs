@@ -23,9 +23,17 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         options.NativeObservationReadEnabled = nativeRead;
         options.MaximumEvidencePromptCharacters = configured;
         options.ExternalMaximumCallsPerJob = 2;
+        // Forty excerpt bodies exercise projection and continuation windows.
+        // Reuse four canonical documents so the distinct-source catalogue itself
+        // is not the separately tested incompressible-metadata counterexample.
+        var documents = Enumerable.Range(1, 4).Select(_ => (Doc: Guid.NewGuid().ToString("D"),
+            Revision: Guid.NewGuid().ToString("D"))).ToArray();
         var sources = Enumerable.Range(1, 40).Select(index => BuildEvidence("E" + index,
             "METHOD " + index + ": preserve ±0.125 mm, \"scope\" and the required prerequisite.\n" + new string('x', 4_000),
-            exactTitle: "METHOD " + index)).ToArray();
+            fileName: $"methods-{(index - 1) % documents.Length}.pdf",
+            docId: documents[(index - 1) % documents.Length].Doc,
+            revisionId: documents[(index - 1) % documents.Length].Revision,
+            pageStart: index, exactTitle: "METHOD " + index)).ToArray();
         var gateway = new RecordingToolGateway(sources);
 
         var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null)

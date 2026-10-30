@@ -169,6 +169,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             user.Remove("visualSourceCapabilities");
             user.Remove("alternativeNativeReadings");
             user.Remove("nativeObservationCapabilities");
+            user.Remove("sourceCatalogue");
             item["content"] = user.ToJsonString(JsonOptions);
         }
         return serializedPayload.Length - baseline.ToJsonString(JsonOptions).Length;
