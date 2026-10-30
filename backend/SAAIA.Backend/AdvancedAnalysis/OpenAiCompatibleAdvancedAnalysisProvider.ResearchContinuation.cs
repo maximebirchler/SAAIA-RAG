@@ -27,6 +27,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         public IReadOnlyList<string> ActiveProposalEvidenceIds { get; set; } = [];
         public int ActiveProposalOmittedEvidenceCount { get; set; }
         public AdvancedAnalysisResearchResourceLimit? ResourceLimit { get; set; }
+        public BootstrapResearchInterruption? BootstrapInterruption { get; set; }
+        public bool BootstrapInterruptionReported { get; set; }
+        public Dictionary<int, string> PriorSearchExecutionStatuses { get; init; } = [];
     }
 
     private sealed record SynthesisCompletion(
@@ -121,8 +124,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            researchTools describes actual categories and previous searches. If a needed item's content
            is missing, ambiguous or inconsistent, return this non-final object:
            {"outcome":"research_required","queries":[{"query":"exact observed title or targeted reformulation","sourceKey":"exact observed opaque sourceKey, or empty","category":"allowed category or empty","topK":20}]}.
-           Leave documentHint empty when using sourceKey. Do not repeat a search
-           with the same query and scope. Do not answer or publish claims in a
+           Leave documentHint empty when using sourceKey. Do not repeat a succeeded
+           search with the same query and scope. Retry a failed attempt only when
+           retryAllowed is explicitly true and the current budgets permit it.
+           Unknown execution status is not a successful result; use a justified
+           reformulation or declared tool within those budgets. Do not answer or publish claims in a
            research_required object. SAAIA executes the searches and calls you
            again with revalidated evidence. Request documentary facts, not optional
            user preferences. Only a subsequent terminal result reaches the user.
@@ -236,7 +242,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             toolBudget = context.Tools.Budget;
             var userPrompt = buildUserPrompt(observations);
             if (_options.AdaptiveResearchEnabled || candidateSupportFeedback is not null || argumentFeedback is not null
-                || _options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
+                || _options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled
+                || context.BootstrapInterruption is not null)
             {
                 var payload = JsonNode.Parse(userPrompt)!.AsObject();
                 if (_options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
@@ -336,6 +343,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         searches = BuildPriorSearchesForPrompt(repeatedSearches, observations),
                         instruction = "These searches already ran. Their existing evidence is prioritized in this context; they were not executed again. Use the available substantive content, or reformulate the query/scope if a different fact is needed. Do not repeat the same search. Lack of a visible passage does not prove corpus absence."
                     }, JsonOptions);
+                AddBootstrapResearchFeedback(payload, context, request.JobId);
                 userPrompt = payload.ToJsonString(JsonOptions);
             }
             var completion = await CompleteJsonAsync(request.JobId,
@@ -571,7 +579,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var nativeResults = new Dictionary<string, AdvancedAnalysisSearchObservation>(StringComparer.OrdinalIgnoreCase);
             var resourceLimit = await ExecuteSearchBatchAsync(context.Tools, queries, context.PreviouslyExecuted,
                 context.PriorSearches, context.EvidenceGroups, context.RetrievalQueriesByEvidenceId,
-                cancellationToken, nativeResults, allowResourceLimitFeedback: true).ConfigureAwait(false);
+                cancellationToken, nativeResults, allowResourceLimitFeedback: true,
+                executionStatuses: context.PriorSearchExecutionStatuses).ConfigureAwait(false);
             PruneRetiredEvidenceCopies(context);
             RememberLatestExplicitRead(context, queries, nativeResults);
             context.ResourceLimit ??= resourceLimit;

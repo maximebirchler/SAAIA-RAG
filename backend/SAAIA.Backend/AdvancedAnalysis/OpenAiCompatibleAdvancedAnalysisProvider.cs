@@ -121,20 +121,24 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 request,
                 ParsePlan(planner.Content, request, availableCategories));
             var priorSearches = request.PreviousToolEvents.Select(static item => item.Request).ToList();
-            var previouslyExecuted = priorSearches.Select(BuildSearchIdentity)
+            var searchExecutionStatuses = request.PreviousToolEvents
+                .Select((item, index) => (index, status: item.Status is "succeeded" or "failed" ? item.Status : "unknown"))
+                .ToDictionary(entry => entry.index, entry => entry.status);
+            var previouslyExecuted = request.PreviousToolEvents.Where(item => item.Status == "succeeded")
+                .Select(item => BuildSearchIdentity(item.Request))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            await ExecuteSearchBatchAsync(
+            var bootstrapInterruption = await ExecuteBootstrapSearchBatchAsync(
                     tools,
                     plannedQueries,
                     previouslyExecuted,
                     priorSearches,
                     evidenceGroups,
                     retrievalQueriesByEvidenceId,
-                    cancellationToken)
+                    cancellationToken, searchExecutionStatuses)
                 .ConfigureAwait(false);
 
-            if (_options.AdaptiveResearchEnabled
+            if (bootstrapInterruption is null && _options.AdaptiveResearchEnabled
                 && !(_options.NativeResearchToolsEnabled && _options.NativeResearchTopology == "agent"))
             {
                 var maximumCalls = Math.Clamp(
@@ -164,6 +168,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                         request, observations, priorSearches, availableCategories,
                         maximumCalls - completions.Count - reservedFinalCalls - 1,
                         reservedFinalCalls, tools.Budget);
+                    var reviewPayload = JsonNode.Parse(reviewUserPrompt)!.AsObject();
+                    AddPriorSearchExecutionFeedback(reviewPayload["priorSearches"] as JsonArray,
+                        priorSearches, searchExecutionStatuses, previouslyExecuted,
+                        HasDocumentaryResearchBudget(tools.Budget));
+                    reviewUserPrompt = reviewPayload.ToJsonString(JsonOptions);
                     if (reviewArgumentFeedback is not null)
                     {
                         var payload = JsonNode.Parse(reviewUserPrompt)!.AsObject();
@@ -206,7 +215,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                             priorSearches,
                             evidenceGroups,
                             retrievalQueriesByEvidenceId,
-                            cancellationToken)
+                            cancellationToken, executionStatuses: searchExecutionStatuses)
                         .ConfigureAwait(false);
                     // A repeated batch has no new observation to review. It must
                     // not consume the remaining model budget in an identical loop.
@@ -237,7 +246,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 evidence,
                 retrievalQueriesByEvidenceId);
             var synthesisResearch = new SynthesisResearchContext(tools, availableCategories,
-                priorSearches, previouslyExecuted, evidenceGroups, retrievalQueriesByEvidenceId);
+                priorSearches, previouslyExecuted, evidenceGroups, retrievalQueriesByEvidenceId)
+            {
+                BootstrapInterruption = bootstrapInterruption,
+                PriorSearchExecutionStatuses = searchExecutionStatuses
+            };
             synthesisResearch.FocusSearches.AddRange(priorSearches
                 .Where(IsSourceScopedResearch).TakeLast(20));
             if (CandidateExplorerEnabled(request))
@@ -523,7 +536,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         Dictionary<string, HashSet<string>> retrievalQueriesByEvidenceId,
         CancellationToken cancellationToken,
         Dictionary<string, AdvancedAnalysisSearchObservation>? observationsBySearch = null,
-        bool allowResourceLimitFeedback = false)
+        bool allowResourceLimitFeedback = false,
+        bool allowReadWindowResourceLimitFeedback = true,
+        bool stopBatchOnEvidenceCapacity = false,
+        Dictionary<int, string>? executionStatuses = null)
     {
         EnsureResearchBatchFitsToolBudget(tools, plannedQueries, previouslyExecuted);
         AdvancedAnalysisResearchResourceLimit? resourceLimit = null;
@@ -538,7 +554,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             }
             if (!previouslyExecuted.Add(BuildSearchIdentity(planned)))
                 continue;
-            var searchIndex=priorSearches.Count;
+            var searchIndex = priorSearches.Count;
             priorSearches.Add(planned);
             AdvancedAnalysisSearchObservation observation;
             try
@@ -550,7 +566,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             }
             catch (AdvancedAnalysisToolException error) when (allowResourceLimitFeedback
                 && (error.ErrorCode == "accumulated_evidence_limit_exceeded"
-                    || observationsBySearch is not null
+                    || allowReadWindowResourceLimitFeedback && observationsBySearch is not null
                         && string.Equals(planned.Operation, "read_source", StringComparison.Ordinal)
                         && error.ErrorCode == "canonical_read_window_result_limit_exceeded"))
             {
@@ -558,7 +574,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     ? new(error.ErrorCode, null, null, null, planned.TopK, null, StopsResearch: false)
                     : new(error.ErrorCode, tools.Budget?.MaximumEvidenceItems,
                         tools.Budget?.ConsumedEvidenceItems, null));
-                if (limit.StopsResearch)
+                if (limit.StopsResearch
+                    || stopBatchOnEvidenceCapacity && error.ErrorCode == "accumulated_evidence_limit_exceeded")
                     resourceLimit = limit;
                 else
                     previouslyExecuted.Remove(BuildSearchIdentity(planned));
@@ -567,6 +584,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             }
             if (observationsBySearch is not null)
                 observationsBySearch[BuildSearchIdentity(planned)] = observation;
+            if (executionStatuses is not null)
+                executionStatuses[searchIndex] = observation.ResourceLimit is null ? "succeeded" : "failed";
             priorSearches[searchIndex] = planned with
             {
                 ReadDiagnostic = observation.ReadDiagnostic,

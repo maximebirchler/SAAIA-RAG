@@ -288,7 +288,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            Use documentHint to identify a known document; its identity is validated
            by the backend. Keep that identifier separate from compact subject terms
            in query; do not make a filename an extra required content term.
-           Do not repeat an identical search with identical filters.
+           Do not repeat a succeeded search with identical query and filters.
+           Retry a failed attempt only when retryAllowed is explicitly true and
+           the current budgets permit it. Unknown execution status is not a
+           successful result; use a justified reformulation or declared tool.
            priorSearches includes bounded operational retrieval diagnostics,
            documentResolution and degradedRetrievers. A resolved document path is
            metadata, never an observed sourceKey or documentary proof. No matches,
@@ -325,7 +328,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            cover multiple suitable coordinates; load.rowCount is not a distinct-item
            quota. First follow promising observed candidates
            whose substantive content is missing. Otherwise use alternate item names
-           or subtypes absent from priorQueries. Do not substitute another general
+           or subtypes absent from succeeded priorSearches, or retry a failed attempt
+           only when explicitly permitted above. Do not substitute another general
            column query for following a useful observed contents entry. You may be called for
            more than one review round, and each round must use the newly supplied
            observations and priorQueries.
