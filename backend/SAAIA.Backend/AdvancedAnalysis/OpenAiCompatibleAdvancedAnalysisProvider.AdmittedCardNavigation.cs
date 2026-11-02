@@ -53,6 +53,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         const int maximumListed = 128;
         var limit = Math.Min(configuredMaximum / 4, 8_000);
         const string instruction = "Navigation only: exact titles and physical pages of active admitted content cards, including bodies omitted from this call. These are not evidence, citations, suitability decisions, distinct-item requirements or corpus counts. Use an offered read_source from physicalPageStart within its declared page-window limit, or find_source_text with the exact title, then assess the returned body. The full locator span does not prove complete body coverage. Omitted locators remain undisplayed admitted metadata; existing source lookup and budgets still apply. Counts describe this active admitted set only.";
+        // Keep locator admission at the existing conservative escaping layer.
         var baseline = MeasureEscapedDocumentaryTextCharacters(JsonSerializer.Serialize(SourceCatalogueForPrompt(sources), JsonOptions));
         AdmittedCardSourceCatalogue Measured(IReadOnlyList<AdmittedCardLocator> listed)
         {
@@ -83,6 +84,18 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         }
         // Whole locators only. Skipping one oversized title must not hide a
         // later short locator; omitted counts retain both budget and 128 limits.
-        return result;
+        // The exposed count describes the actual compact outer HTTP string.
+        // Recount only after legacy fitting; cheaper transport must not admit
+        // another locator or shorten any title, page span or instruction.
+        var wireBaseline = MeasureEscapedProviderWireTextCharacters(JsonSerializer.Serialize(SourceCatalogueForPrompt(sources), JsonOptions));
+        var actual = result.Navigation with { WireCharacters = 0 };
+        for (var attempt = 0; attempt < 8; attempt++)
+        {
+            var wrapped = new AdmittedCardSourceCatalogue(sources.ToList(), actual);
+            var measured = MeasureEscapedProviderWireTextCharacters(JsonSerializer.Serialize(SourceCatalogueForPrompt(wrapped), JsonOptions)) - wireBaseline;
+            if (actual.WireCharacters == measured) return wrapped;
+            actual = actual with { WireCharacters = measured };
+        }
+        throw new AdvancedAnalysisProviderException("advanced_card_navigation_budget_invalid");
     }
 }

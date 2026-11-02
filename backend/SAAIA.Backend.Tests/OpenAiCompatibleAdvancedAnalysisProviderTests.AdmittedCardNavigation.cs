@@ -284,7 +284,11 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var navigation = catalogue.GetProperty("admittedCardLocators");
         var baseline = JsonNode.Parse(catalogue.GetRawText())!.AsObject(); baseline.Remove("admittedCardLocators");
         var options = (JsonSerializerOptions)typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetField("JsonOptions", SourceCatalogueFlags)!.GetValue(null)!;
-        int Size(string text) => JsonSerializer.Serialize(text, options).Length - 2;
+        var wireOptions = new JsonSerializerOptions(options)
+        {
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
+        int Size(string text) => JsonSerializer.Serialize(text, wireOptions).Length - 2;
         var exactDelta = Size(catalogue.GetRawText()) - Size(baseline.ToJsonString(options));
         Assert.Equal(exactDelta, navigation.GetProperty("wireCharacters").GetInt32());
         Assert.Equal(expectedCap, navigation.GetProperty("wireCharacterLimit").GetInt32());
