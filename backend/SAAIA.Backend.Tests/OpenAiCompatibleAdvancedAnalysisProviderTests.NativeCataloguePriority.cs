@@ -213,6 +213,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var turn = Activator.CreateInstance(typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetNestedType("NativeResearchTurn", NativeCataloguePriorityFlags)!,
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null,
             new object?[] { JsonSerializer.Serialize(calls), reads, results, null, responseOutput, false, false, false }, null)!;
+        BindAdmittedNativeFixtureCalls(turn, ("source-0", reads[0]), ("source-1", reads[1]));
         // The one-source control has one matching call/result. The two-source
         // failure below still carries both complete current inventories.
         var firstCalls = calls.Take(1).ToArray();
@@ -224,6 +225,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             new object?[] { JsonSerializer.Serialize(firstCalls), reads.Take(1).ToArray(),
                 new Dictionary<string, AdvancedAnalysisSearchObservation> { [firstReadKey] = results[firstReadKey] },
                 null, firstOutput, false, false, false }, null)!;
+        BindAdmittedNativeFixtureCalls(firstTurn, ("source-0", reads[0]));
         var first = InvokeNativeCataloguePriority(provider, "BuildPromptEvidenceWithPersistentSourceKeys",
             [BuildDirectRequest(), evidence.Take(1).ToArray(), new Dictionary<string, HashSet<string>>(), null, null, null, firstTurn]);
         var firstItem = Assert.Single(((System.Collections.IEnumerable)first).Cast<object>());
@@ -375,6 +377,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null,
             new object?[] { calls, new[] { read }, new Dictionary<string, AdvancedAnalysisSearchObservation> { [searchIdentity] = observation },
                 null, responseOutput, false, false, false }, null)!;
+        BindAdmittedNativeFixtureCalls(turn, ("native-priority", read));
         Dictionary<string, string>? persistentKeys = null;
         if (sourceKey == "internal-source-2")
         {

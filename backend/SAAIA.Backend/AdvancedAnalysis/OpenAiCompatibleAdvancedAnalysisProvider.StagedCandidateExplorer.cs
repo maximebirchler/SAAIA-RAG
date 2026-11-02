@@ -1,3 +1,4 @@
+using SAAIA.Contracts;
 using System.Text.Json;
 
 namespace SAAIA.Backend.AdvancedAnalysis;
@@ -323,6 +324,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     "advanced_candidate_navigator_protocol_invalid");
             }
 
+            var nativeCallBindings = navigator.NativeToolCallsJson is { } nativeCalls
+                ? BuildNativeCallRequestBindings(nativeCalls, request, context.AvailableCategories, observations, queries)
+                : new NativeCallBindings(new Dictionary<string, AdvancedAnalysisSearchRequest>(StringComparer.Ordinal),
+                    new Dictionary<string, AdvancedAnalysisResultEvidence>(StringComparer.Ordinal));
             var hasNewOperation = evidenceReadCount > 0 || queries.Any(query =>
                 !context.PreviouslyExecuted.Contains(BuildSearchIdentity(query)));
             if (!hasNewOperation)
@@ -352,7 +357,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 if (navigator.NativeToolCallsJson is { } duplicateCalls)
                     navigatorTurns.Add(new(duplicateCalls, queries,
                         new Dictionary<string, AdvancedAnalysisSearchObservation>(),
-                        ResponseOutputItemsJson: navigator.NativeResponseOutputJson));
+                        ResponseOutputItemsJson: navigator.NativeResponseOutputJson) { CallRequests = nativeCallBindings.Requests, CallSourceScopes = nativeCallBindings.Sources });
                 continue;
             }
 
@@ -386,7 +391,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (navigator.NativeToolCallsJson is { } executedCalls)
                 navigatorTurns.Add(new(executedCalls, queries, navigatorResults,
                     ResponseOutputItemsJson: navigator.NativeResponseOutputJson,
-                    EvidenceReadsStored: evidenceReadCount > 0));
+                    EvidenceReadsStored: evidenceReadCount > 0) { CallRequests = nativeCallBindings.Requests, CallSourceScopes = nativeCallBindings.Sources });
             if (evidenceReadCount > 0)
             {
                 evidenceWindowReviewPending = true;

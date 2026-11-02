@@ -654,6 +654,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var visible = observations.Select(item => item.EvidenceId)
             .Where(static id => !string.IsNullOrWhiteSpace(id))
             .ToHashSet(StringComparer.Ordinal);
+        if (ResolveSelectionMode(request.Handoff.Load) == "repeatable_named_items")
+            return BuildRepeatableCandidateInventoryForPrompt(request, inventory, visible);
+
         var measuredCoverage = BuildCandidateExplorerCoverage(request, inventory);
         var measuredRoles = measuredCoverage.Roles.ToDictionary(
             role => role.TargetRole,
@@ -715,6 +718,58 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 .Where(visible.Contains)
                 .ToArray(),
             instruction = "Operational candidate memory, not proof. awaiting_review means observed substantive text without semantic approval; needs_body means an identifiable potentially suitable item needs complementary evidence. bodyVerifiedDistinctCount counts distinct semantically body-verified candidates assigned to a requested role, or suitable for the whole request when there are no roles. Never sum per-role coverage counts because one candidate can occur in several roles. For a structured layout, maximumAssignableCount is the maximum number of distinct coordinates fillable at once from your semantic targetRoles; missingByRole is the remaining global assignment gap. proposedAssignments is mechanical and does not add semantic roles. Use save_candidate_inventory to retain exact observed titles across focus changes. A navigation locator discovers an item; body_verified and selected require current substantive evidence and your semantic assessment, not necessarily an entire procedure unless requested. Same-heading observations remain separate until their identities are judged. Omitted active candidates remain stored, while rejected history is bounded separately. Continue research from measured assignment gaps, and do not turn a bounded search limit into corpus absence."
+        };
+    }
+
+    private static object BuildRepeatableCandidateInventoryForPrompt(
+        AdvancedAnalysisProviderRequest request,
+        IReadOnlyList<CandidateInventoryItem> inventory,
+        IReadOnlySet<string> visible)
+    {
+        var coordinates = BuildStructuredClaimCoordinates(request.Handoff.Load);
+        var bodyVerified = inventory.Where(item =>
+                IsSemanticallyVerifiedCandidate(item) && item.BodyEvidenceIds.Count > 0)
+            .ToArray();
+        var requestedRoles = request.Handoff.Load.Columns.ToHashSet(StringComparer.Ordinal);
+        return new
+        {
+            enabled = true,
+            version = "candidate-inventory.v2",
+            updateMode = "upsert",
+            selectionMode = "repeatable_named_items",
+            requiredClaimCount = request.Handoff.Load.AnswerUnitCount,
+            coordinateCoverageEvaluated = false,
+            items = inventory,
+            capacity = new
+            {
+                maximumActiveItems = CandidateInventoryMaximumActiveItems,
+                maximumRejectedHistoryItems = CandidateInventoryMaximumRejectedItems,
+                activeCount = inventory.Count(item => item.Status != "rejected"),
+                rejectedHistoryCount = inventory.Count(item => item.Status == "rejected"),
+                activeCapacityReached = inventory.Count(item => item.Status != "rejected")
+                                        >= CandidateInventoryMaximumActiveItems,
+                instruction = "Rejected history has a separate bounded capacity. At the active limit, assess pending candidates or explicitly reject unsuitable discoveries before admitting more; never interpret admission capacity as corpus absence."
+            },
+            rememberedBodyVerifiedCandidateCount = requestedRoles.Count == 0
+                ? bodyVerified.Length
+                : bodyVerified.Count(item => item.TargetRoles.Any(requestedRoles.Contains)),
+            totalRememberedBodyVerifiedCandidateCount = bodyVerified.Length,
+            observedRoles = request.Handoff.Load.Columns.Select(role => new
+            {
+                targetRole = role,
+                requestedCoordinateCount = coordinates.Count(coordinate =>
+                    string.Equals(coordinate.ColumnLabel, role, StringComparison.Ordinal)),
+                rememberedBodyVerifiedCandidateCount = bodyVerified.Count(item =>
+                    item.TargetRoles.Contains(role, StringComparer.Ordinal)),
+                selectedCandidateCount = inventory.Count(item => item.Status == "selected"
+                    && item.SelectedRoles.Contains(role, StringComparer.Ordinal))
+            }).ToArray(),
+            currentVisibleEvidenceIds = inventory
+                .SelectMany(item => item.LocatorEvidenceIds.Concat(item.BodyEvidenceIds))
+                .Distinct(StringComparer.Ordinal)
+                .Where(visible.Contains)
+                .ToArray(),
+            instruction = "Operational candidate memory, not proof or a completed assignment. requiredClaimCount counts coordinates in an answered deliverable, not distinct candidates or source excerpts. The same documented item may fill several suitable coordinates under selectionContract. observedRoles and remembered counts describe retained inventory observations only; they do not establish how many coordinates are supported or missing. No placement, coverage, readiness or distinct-item deficit is computed here. Assess each proposed placement from current substantive evidence and every applicable qualifier. Do not infer completeness or insufficiency from these counts. Retain exact observed titles across focus changes, follow missing substantive bodies and cite only current evidence."
         };
     }
 

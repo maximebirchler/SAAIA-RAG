@@ -206,6 +206,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var turn = Activator.CreateInstance(turnType, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
             null, new object?[] { calls, new[] { read }, new Dictionary<string, AdvancedAnalysisSearchObservation> { [key] = observation },
                 null, outputs, false, false, false }, null)!;
+        BindAdmittedNativeFixtureCalls(turn, ("catalog-read", read));
         if (reserveCurrentNativeTurn)
         {
             projection = Project("BuildPromptEvidenceWithPersistentSourceKeys",

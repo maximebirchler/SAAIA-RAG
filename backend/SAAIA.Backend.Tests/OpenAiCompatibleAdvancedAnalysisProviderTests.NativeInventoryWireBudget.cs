@@ -47,6 +47,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null,
             new object?[] { calls, new[] { read }, new Dictionary<string, AdvancedAnalysisSearchObservation> { [key] = observed },
                 null, output, false, false, false }, null)!;
+        BindAdmittedNativeFixtureCalls(turn, ("inventory-call", read));
         async Task<string> Capture(bool reserveHistory)
         {
             using var factory = new QueuedHttpClientFactory(protocol == "responses"
@@ -146,6 +147,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null,
             new object?[] { calls, new[] { read }, new Dictionary<string, AdvancedAnalysisSearchObservation> { [key] = observation },
                 null, responseOutput, false, false, false }, null)!;
+        BindAdmittedNativeFixtureCalls(turn, ("inventory-call", read));
         var history = (IReadOnlyList<object>)typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetMethod("BuildNativeToolTurnMessages", flags)!
             .Invoke(provider, new[] { turn, projection, protocol == "responses" })!;
         await (Task)typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetMethod("CompleteJsonAsync", flags)!.Invoke(provider,

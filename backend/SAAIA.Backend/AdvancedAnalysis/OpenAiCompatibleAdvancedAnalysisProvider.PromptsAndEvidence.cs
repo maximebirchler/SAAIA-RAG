@@ -255,8 +255,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             Do not add a filename to the content query: it need not occur in the
             indexed source text. The backend validates the document identity.
            For a bounded named-item collection with mandatory qualifiers, search
-           for both a scope statement and at least the requested number of item
-           names covered by that same source. When a result reveals a promising
+           for a scope statement and documented item names covered by that same
+           source. Require at least the requested number of distinct names only
+           when distinct selected objects are required. When reuse is allowed,
+           seek candidates that can support every requested coordinate under
+           the requested selection policy; the coordinate count is not a
+           distinct-name quota.
+           When a result reveals a promising
            scope-bearing collection title, use that exact title with compact terms
            such as contents, index, headings or examples to expose more candidates.
             Shape: {"selectionMode":"distinct_named_items|repeatable_named_items|content_claims|empty for non-structured","queries":[{"query":"compact subject terms","category":"... or empty","documentHint":"known identifier or empty","topK":20}]}.

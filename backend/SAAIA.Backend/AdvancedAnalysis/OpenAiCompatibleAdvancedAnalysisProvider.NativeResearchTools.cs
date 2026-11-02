@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using SAAIA.Contracts;
 
 namespace SAAIA.Backend.AdvancedAnalysis;
 
@@ -12,7 +13,19 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         string? ResponseOutputItemsJson = null,
         bool WorkspaceStored = false,
         bool CandidateInventoryStored = false,
-        bool EvidenceReadsStored = false);
+        bool EvidenceReadsStored = false)
+    {
+        // Only admitted request metadata, captured before working-set rotation.
+        // Original call order/IDs may contain aliases or duplicate operations.
+        public IReadOnlyDictionary<string, AdvancedAnalysisSearchRequest> CallRequests { get; init; }
+            = new Dictionary<string, AdvancedAnalysisSearchRequest>(StringComparer.Ordinal);
+        public IReadOnlyDictionary<string, AdvancedAnalysisResultEvidence> CallSourceScopes { get; init; }
+            = new Dictionary<string, AdvancedAnalysisResultEvidence>(StringComparer.Ordinal);
+    }
+
+    private sealed record NativeCallBindings(
+        IReadOnlyDictionary<string, AdvancedAnalysisSearchRequest> Requests,
+        IReadOnlyDictionary<string, AdvancedAnalysisResultEvidence> Sources);
 
     private const string NativeResearchContract = """
         If further documentary facts are needed and research is allowed, choose
@@ -126,7 +139,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             functions.Add(Function("read_source", HasSecondaryTableReadings(root)
                 ? "Read an observed physical source window. Primary reads use up to four pages. Secondary observation reads require exactly one page and the explicit observation view; do not mix primary row parameters. A secondary line is indivisible and may be refused when it does not fit. Raw remains readable when physical bands are unavailable."
                 : "Read a physical page window of an observed revision. Page bounds are inclusive; at most four pages per request. topK bounds every chunk intersecting the window: if the bounded result reports canonical_read_window_result_limit_exceeded, retry with a smaller window or a larger permitted topK instead of treating the source as absent. Useful for reading bodies located by contents or headings.", readProperties));
-            functions.Add(Function("find_source_text", "Locate literal words or an observed title inside one observed revision. Case and whitespace normalized; punctuation remains literal. Returns canonical excerpts and pagination diagnostics; no semantic search fallback.", new()
+            functions.Add(Function("find_source_text", "Locate literal words or an observed title inside one observed revision. Case and whitespace normalized; punctuation remains literal. Results follow physical page order, so contents or index matches may precede substantive bodies. topK counts chunks, not distinct items. Inspect contentRole and use pagination or an observed physical-page read when a body is still needed. Returns canonical excerpts and pagination diagnostics; no semantic search fallback.", new()
             {
                 ["sourceKey"] = Choice(sources), ["query"] = Text("Literal words, between 2 and 512 characters."),
                 ["offset"] = Count(0, 10_000), ["topK"] = Count(1, 60)
@@ -256,9 +269,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid");
             if (name == "read_source")
                 RequireObservedNativeRawLocator(arguments.RootElement, prompt.RootElement);
-            var query = JsonNode.Parse(arguments.RootElement.GetRawText())!.AsObject();
-            query["operation"] = name;
-            queries.Add(query);
+            queries.Add(BuildNormalizedNativeQuery(arguments.RootElement, name));
         }
         var normalized = new JsonObject { ["outcome"] = "research_required", ["queries"] = queries };
         if (state is not null) normalized["researchState"] = state;
@@ -268,8 +279,63 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         return normalized.ToJsonString(JsonOptions);
     }
 
+    private static JsonObject BuildNormalizedNativeQuery(JsonElement arguments, string operation)
+    {
+        var query = JsonNode.Parse(arguments.GetRawText())!.AsObject();
+        query["operation"] = operation;
+        return query;
+    }
+
+    private NativeCallBindings BuildNativeCallRequestBindings(
+        string callsJson, AdvancedAnalysisProviderRequest request,
+        IReadOnlyList<string> availableCategories, IReadOnlyList<PromptEvidenceItem> observations,
+        IReadOnlyList<AdvancedAnalysisSearchRequest> admittedRequests)
+    {
+        var admitted = admittedRequests.GroupBy(BuildSearchIdentity, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+        var bindings = new Dictionary<string, AdvancedAnalysisSearchRequest>(StringComparer.Ordinal);
+        var sources = new Dictionary<string, AdvancedAnalysisResultEvidence>(StringComparer.Ordinal);
+        using var calls = JsonDocument.Parse(callsJson);
+        foreach (var call in calls.RootElement.EnumerateArray())
+        {
+            var operation = ReadString(call.GetProperty("function"), "name");
+            if (operation is not ("search_corpus" or "read_source" or "find_source_text")) continue;
+            try
+            {
+                // The whole native batch already passed its offered schemas.
+                // Reuse its query construction and the exact admission parser,
+                // including defaults and requested-document scoping. Intersect
+                // afterward: this step cannot admit or execute another call.
+                using var arguments = JsonDocument.Parse(ReadString(call.GetProperty("function"), "arguments"));
+                var parsed = ParseResearchReview(JsonSerializer.Serialize(new
+                {
+                    decision = "search_more", queries = new[] { BuildNormalizedNativeQuery(arguments.RootElement, operation) }
+                }, JsonOptions), request, availableCategories, observations);
+                if (parsed.Count == 1 && admitted.TryGetValue(BuildSearchIdentity(parsed[0]), out var canonical))
+                {
+                    var id = ReadString(call, "id");
+                    bindings.Add(id, canonical);
+                    var sourceKey = ReadString(arguments.RootElement, "sourceKey");
+                    if (sourceKey.Length > 0 && ResolveObservedSource(observations, sourceKey) is { } source)
+                        sources.Add(id, source);
+                }
+            }
+            catch (Exception error) when (error is JsonException or InvalidOperationException or AdvancedAnalysisProviderException)
+            {
+                // An invalid, truncated-away or unadmitted call gets no proof;
+                // another call's position can never become its result binding.
+            }
+        }
+        return new(bindings, sources);
+    }
+
     private IReadOnlyList<object> BuildNativeToolTurnMessages(NativeResearchTurn? turn,
         IReadOnlyList<PromptEvidenceItem> visible, bool responses = false)
+        => BuildNativeToolTurnMessagesCore(turn, visible, responses,
+            emitDiagnostics: visible is PromptEvidenceProjection);
+
+    private IReadOnlyList<object> BuildNativeToolTurnMessagesCore(NativeResearchTurn? turn,
+        IReadOnlyList<PromptEvidenceItem> visible, bool responses, bool emitDiagnostics)
     {
         if (turn is null) return [];
         using var calls = JsonDocument.Parse(turn.CallsJson);
@@ -282,7 +348,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         else messages.Add(new { role = "assistant", content = (string?)null,
             tool_calls = calls.RootElement.Clone() });
         var visibleIds = visible.Select(e => e.EvidenceId).ToHashSet(StringComparer.Ordinal);
-        var index = 0;
+        var matchedCalls = 0; var unmatchedCalls = 0; var replayedCalls = 0;
+        var requestIdentities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var returnedIds = new HashSet<string>(StringComparer.Ordinal);
+        var projectedIds = new HashSet<string>(StringComparer.Ordinal);
+        var partialIds = new HashSet<string>(StringComparer.Ordinal);
         var documentaryInstructionWritten = false;
         foreach (var call in calls.RootElement.EnumerateArray())
         {
@@ -352,14 +422,35 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     });
                 continue;
             }
-            var request = turn.Requests?.ElementAtOrDefault(index++);
+            var callId = ReadString(call, "id");
+            turn.CallRequests.TryGetValue(callId, out var request);
             AdvancedAnalysisSearchObservation? observation = null;
             if (request is not null) turn.Results.TryGetValue(BuildSearchIdentity(request), out observation);
+            if (observation is not null && turn.CallSourceScopes.TryGetValue(callId, out var source)
+                && observation.Evidence.Any(item => !string.Equals(item.Reference.DocId, source.DocId, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(item.Reference.RevisionId, source.RevisionId, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(item.Reference.SourceHash, source.SourceHash, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(AdvancedAnalysisToolGateway.NormalizePath(item.Reference.DocPath),
+                        AdvancedAnalysisToolGateway.NormalizePath(source.DocPath), StringComparison.Ordinal)))
+            {
+                request = null; observation = null;
+            }
+            var identity = request is null ? null : BuildSearchIdentity(request);
+            var reusedResult = identity is not null && !requestIdentities.Add(identity);
+            if (request is null) unmatchedCalls++; else matchedCalls++;
+            if (reusedResult && observation is not null) replayedCalls++;
             var ids = observation?.Evidence.Select(e => e.Reference.EvidenceId)
-                .Where(id => id is not null && visibleIds.Contains(id)).Distinct(StringComparer.Ordinal).ToArray() ?? [];
+                .Where(id => !string.IsNullOrWhiteSpace(id) && visibleIds.Contains(id)).Cast<string>().Distinct(StringComparer.Ordinal).ToArray() ?? [];
+            var allIds = observation?.Evidence.Select(item => item.Reference.EvidenceId)
+                .Where(id => !string.IsNullOrWhiteSpace(id)).Cast<string>().Distinct(StringComparer.Ordinal).ToArray() ?? [];
+            var omittedIds = allIds.Where(id => !visibleIds.Contains(id)).ToArray();
+            var partial = visible.Where(item => allIds.Contains(item.EvidenceId, StringComparer.Ordinal) && item.ContentTruncated).ToArray();
+            returnedIds.UnionWith(allIds); projectedIds.UnionWith(ids.Cast<string>());
+            partialIds.UnionWith(partial.Select(item => item.EvidenceId!).Where(id => id is not null));
             var result = new
             {
                 status = turn.Rejection is not null ? "batch_rejected_before_execution"
+                    : request is null ? "result_correlation_unavailable"
                     : observation?.NotExecutedAfterResourceLimit == true ? "not_executed_after_resource_limit"
                     : observation?.ResourceLimit is not null ? "resource_limit_before_evidence_admission"
                     : observation is null ? "not_executed_again" : "executed",
@@ -367,6 +458,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 resolvedSource = request is null ? null : new { request.DocId, request.RevisionId, request.DocPath },
                 argumentFeedback = turn.Rejection,
                 returnedEvidenceCount = observation?.Evidence.Count,
+                resultReusedWithinBatch = reusedResult && observation is not null ? true : (bool?)null,
                 visibleEvidenceIds = ids.Take(8).ToArray(), visibleEvidenceIdsOmitted = Math.Max(0, ids.Length - 8),
                 readDiagnostic = observation?.ReadDiagnostic, findDiagnostic = observation?.FindDiagnostic,
                  retrievalDiagnostic = BuildRetrievalDiagnosticForPrompt(observation?.RetrievalDiagnostic, observation?.DegradedRetrievers),
@@ -374,9 +466,41 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                  degradedRetrievers = BuildDegradedRetrieversForPrompt(observation?.DegradedRetrievers),
                 resourceLimit = observation?.ResourceLimit,
                 structuredTableCount=observation?.StructuredTables?.Count,
-                instruction = "Bounded operational result. Documentary proof is only the current user.evidence excerpts and current user.structuredTables rows with their contributing evidenceIds. Historical source handles belong to their original turn; use current user.evidence handles. Unlisted rows or omitted evidence do not prove corpus absence. Complete table coverage means observed canonical rows, not PDF or visual fidelity."
+                instruction = "Operational metadata only, not documentary facts or item counts. Cite current user.evidence/structuredTables only. For omitted bodies request a smaller batch or read_source at an observed page with a current sourceKey; for shortened visible bodies use read_evidence at nextContentOffset. Navigation is a locator, not a body; gaps do not prove absence."
             };
             var outputNode = JsonSerializer.SerializeToNode(result, JsonOptions)!.AsObject();
+            // Native/secondary windows already carry exact line/cursor and
+            // omission diagnostics below. Do not duplicate that bounded wire.
+            var primaryResult = request?.NativeObservationView is null && request?.TableObservationView is null
+                && observation?.AlternativeNativeReadings is null && observation?.AlternativeTableReadings is null;
+            if (primaryResult && observation is not null)
+            {
+                JsonObject? feedback = null;
+                if (omittedIds.Length > 0)
+                {
+                    feedback = new JsonObject
+                    {
+                        ["status"] = "some_returned_evidence_omitted",
+                        ["visibleEvidenceIdCount"] = ids.Length,
+                        ["omittedEvidenceIdCount"] = omittedIds.Length,
+                        ["omittedEvidenceIds"] = JsonSerializer.SerializeToNode(omittedIds.Take(8), JsonOptions),
+                        ["omittedPhysicalLocators"] = JsonSerializer.SerializeToNode(observation.Evidence
+                            .Where(item => omittedIds.Contains(item.Reference.EvidenceId, StringComparer.Ordinal))
+                            .DistinctBy(item => item.Reference.EvidenceId).Take(8).Select(item => new
+                            { item.Reference.EvidenceId, item.Reference.PageStart, item.Reference.PageEnd }), JsonOptions)
+                    };
+                    if (omittedIds.Length > 8) feedback["omittedEvidenceIdsOmittedCount"] = omittedIds.Length - 8;
+                }
+                else if (allIds.Length == 0 && request?.Operation == "find_source_text")
+                    feedback = new JsonObject { ["status"] = "no_evidence_returned" };
+                var primaryPartialCount = partial.Count(item => item.SourceObservation is null && item.NativeObservation is null);
+                // Existing evidence.contentTruncated/nextContentOffset already
+                // describe visible windows. Add this count only beside a real
+                // omission alert, not to every otherwise complete tool result.
+                if (feedback is not null && primaryPartialCount > 0)
+                    feedback["partiallyVisibleEvidenceCount"] = primaryPartialCount;
+                if (feedback is not null) outputNode["projectionFeedback"] = feedback;
+            }
             if (_options.NativeObservationReadEnabled && request?.NativeObservationView is not null)
                 outputNode["instruction"] = "Native audit proof uses whole text in current user.evidence; metadata references below point into this same request. Historical or omitted lines are not proof.";
             var alternative = BuildAlternativeTableReadingsForPrompt(visible.Where(item =>
@@ -406,13 +530,34 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 }, JsonOptions);
             foreach (var property in outputNode.Where(property => property.Value is null).ToArray())
                 outputNode.Remove(property.Key);
-            if (documentaryInstructionWritten) outputNode.Remove("instruction");
+            if (documentaryInstructionWritten)
+            {
+                outputNode.Remove("instruction");
+            }
             documentaryInstructionWritten = true;
             var resultJson = outputNode.ToJsonString(JsonOptions);
             messages.Add(responses ? new { type = "function_call_output", call_id = ReadString(call, "id"), output = resultJson }
                 : (object)new { role = "tool", tool_call_id = ReadString(call, "id"), content = resultJson });
         }
         var historyCharacters = JsonSerializer.Serialize(messages, JsonOptions).Length;
+        // Budget fitting renders temporary arrays repeatedly. Only the actual
+        // canonical projection emits one content-free correlation observation.
+        if (emitDiagnostics)
+        {
+            using var probe = BackendDiagnostics.Start("advanced.native_tool_results", _logger);
+            probe.Set("native_call_count", calls.RootElement.GetArrayLength());
+            probe.Set("batch_rejected_before_execution", turn.Rejection is not null);
+            probe.Set("matched_retrieval_call_count", matchedCalls); probe.Set("unmatched_retrieval_call_count", unmatchedCalls);
+            probe.Set("unique_normalized_request_count", requestIdentities.Count); probe.Set("replayed_result_call_count", replayedCalls);
+            probe.Set("returned_evidence_unique_count", returnedIds.Count); probe.Set("visible_evidence_unique_count", projectedIds.Count);
+            probe.Set("omitted_evidence_unique_count", returnedIds.Count - projectedIds.Count); probe.Set("partially_visible_evidence_unique_count", partialIds.Count);
+            probe.Set("history_characters", historyCharacters); probe.Set("history_maximum_characters", _options.NativeResearchMaximumHistoryCharacters);
+            probe.Set("tool_execution_performed", false);
+            probe.Complete(turn.Rejection is not null || historyCharacters > _options.NativeResearchMaximumHistoryCharacters || unmatchedCalls > 0 ? "incomplete" : "success",
+                turn.Rejection is not null ? "native_batch_rejected_before_execution"
+                    : historyCharacters > _options.NativeResearchMaximumHistoryCharacters ? "native_history_budget_exceeded"
+                    : unmatchedCalls > 0 ? "native_result_correlation_unavailable" : null);
+        }
         if (historyCharacters > _options.NativeResearchMaximumHistoryCharacters)
         {
             var error = new AdvancedAnalysisProviderException("advanced_native_tool_history_limit_exceeded");

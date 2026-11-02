@@ -1,3 +1,4 @@
+using SAAIA.Contracts;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -534,6 +535,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 throw new AdvancedAnalysisProviderException("advanced_synthesis_research_protocol_invalid");
             }
             argumentFeedback = null;
+            var nativeCallBindings = completion.NativeToolCallsJson is { } nativeCalls
+                ? BuildNativeCallRequestBindings(nativeCalls, request, context.AvailableCategories, observations, queries)
+                : new NativeCallBindings(new Dictionary<string, AdvancedAnalysisSearchRequest>(StringComparer.Ordinal),
+                    new Dictionary<string, AdvancedAnalysisResultEvidence>(StringComparer.Ordinal));
             blockedCandidateAdmissionsForFeedback = blockedCandidateAdmissions;
             var workspaceChanged = workspaceUpdate is not null
                 && JsonSerializer.Serialize(workspaceUpdate, JsonOptions) != JsonSerializer.Serialize(context.Workspace, JsonOptions);
@@ -554,7 +559,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 repeatedSearches = queries;
                 if (completion.NativeToolCallsJson is { } duplicateCalls)
                     context.NativeTurn = new(duplicateCalls, queries,
-                        new Dictionary<string, AdvancedAnalysisSearchObservation>(), ResponseOutputItemsJson: completion.NativeResponseOutputJson);
+                        new Dictionary<string, AdvancedAnalysisSearchObservation>(), ResponseOutputItemsJson: completion.NativeResponseOutputJson)
+                    { CallRequests = nativeCallBindings.Requests, CallSourceScopes = nativeCallBindings.Sources };
                 nextPhase = $"{phase}-research-recovery-{noProgressRecovery}";
                 continue;
             }
@@ -589,7 +595,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 context.NativeTurn = new(executedCalls, queries, nativeResults!, ResponseOutputItemsJson: completion.NativeResponseOutputJson,
                     WorkspaceStored: workspaceChanged,
                     CandidateInventoryStored: candidateInventoryChanged,
-                    EvidenceReadsStored: evidenceReadUpdates?.Count > 0);
+                    EvidenceReadsStored: evidenceReadUpdates?.Count > 0) { CallRequests = nativeCallBindings.Requests, CallSourceScopes = nativeCallBindings.Sources };
             followup++;
             nextPhase = $"{phase}-research-followup-{followup}";
         }

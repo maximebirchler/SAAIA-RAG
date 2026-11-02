@@ -152,10 +152,37 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyList<AdvancedAnalysisSearchRequest> requests,
         IReadOnlyDictionary<string, AdvancedAnalysisSearchObservation> results)
     {
-        var ids = requests.Where(request => request.Operation is "read_source" or "find_source_text")
-            .SelectMany(request => results.TryGetValue(BuildSearchIdentity(request), out var result)
-                ? result.Evidence : []).Select(item => item.Reference.EvidenceId)
-            .Where(id => !string.IsNullOrEmpty(id)).Cast<string>().Distinct(StringComparer.Ordinal).ToArray();
+        var active = context.Tools.Evidence.Select(item => item.Reference.EvidenceId)
+            .Where(id => !string.IsNullOrWhiteSpace(id)).ToHashSet(StringComparer.Ordinal);
+        var groups = requests.Where(request => request.Operation is "read_source" or "find_source_text")
+            .Select(request => (results.TryGetValue(BuildSearchIdentity(request), out var result)
+                    ? result.Evidence : [])
+                .Select(item => item.Reference.EvidenceId)
+                .Where(id => !string.IsNullOrEmpty(id) && active.Contains(id))
+                .Cast<string>().Distinct(StringComparer.Ordinal).ToArray())
+            .Where(group => group.Length > 0).ToArray();
+        var positions = new int[groups.Length];
+        var ids = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        // Give every request in this batch one current body before a request
+        // consumes a second slot. Overlapping hits share one slot; advance to
+        // that request's next distinct body without caching any old content.
+        var advanced = true;
+        while (advanced)
+        {
+            advanced = false;
+            for (var group = 0; group < groups.Length; group++)
+            {
+                while (positions[group] < groups[group].Length)
+                {
+                    var id = groups[group][positions[group]++];
+                    if (!seen.Add(id)) continue;
+                    ids.Add(id);
+                    advanced = true;
+                    break;
+                }
+            }
+        }
         RememberActiveExplicitReadIds(context, ids);
     }
 
@@ -175,13 +202,19 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> focused,
         IReadOnlyList<string> requestedIds)
     {
-        if (requestedIds.Count == 0)
-            return focused;
         var current = evidence.Where(item => item.Reference.EvidenceId is not null)
             .GroupBy(item => item.Reference.EvidenceId!, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
-        var latest = requestedIds.Where(current.ContainsKey).Select(id => current[id]).ToArray();
+        var latest = requestedIds.Where(current.ContainsKey).Distinct(StringComparer.Ordinal)
+            .Select(id => current[id]).ToArray();
         var ids = latest.Select(item => item.Reference.EvidenceId!).ToHashSet(StringComparer.Ordinal);
-        return latest.Concat(focused.Where(item => !ids.Contains(item.Reference.EvidenceId!))).ToArray();
+        // Focus is an ordering hint, never a second store of documentary bodies.
+        // Rebind it too: an expired or replaced object cannot re-enter a prompt.
+        var activeFocused = focused.Select(item => item.Reference.EvidenceId is { } id
+                ? current.GetValueOrDefault(id)
+                : evidence.FirstOrDefault(active => ReferenceEquals(active, item)))
+            .Where(item => item is not null).Cast<AdvancedAnalysisResolvedEvidence>();
+        return latest.Concat(activeFocused.Where(item =>
+            item.Reference.EvidenceId is not { } id || ids.Add(id))).ToArray();
     }
 }

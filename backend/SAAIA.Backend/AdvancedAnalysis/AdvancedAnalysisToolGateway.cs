@@ -1198,7 +1198,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
     private static string? NullIfBlank(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static string? NormalizePath(string? value)
+    internal static string? NormalizePath(string? value)
         => NullIfBlank(value)?.Replace('\\', '/').TrimStart('/');
 
     internal static string? ResolveLeadingCanonicalFindTitle(

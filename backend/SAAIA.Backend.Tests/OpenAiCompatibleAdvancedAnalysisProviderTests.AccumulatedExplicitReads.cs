@@ -103,6 +103,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var turn = turnType.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
             .Single(ctor => ctor.GetParameters().Length == 8)
             .Invoke([calls, new[] { latestRequest }, latestResults, null, responseItems, false, false, false]);
+        BindAdmittedNativeFixtureCalls(turn, ("latest-call", latestRequest));
         context.GetType().GetProperty("NativeTurn")!.SetValue(context, turn);
 
         using var factory = new QueuedHttpClientFactory(protocol == "responses"
@@ -121,8 +122,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             new Dictionary<string, string>(), null, turn)!;
         var messages = InvokeSourceCatalogue(provider, "BuildNativeToolTurnMessages", turn, projection, protocol == "responses")!;
         var history = JsonSerializer.Serialize(messages);
-        Assert.Contains("latest-call", history);
-        Assert.DoesNotContain("read_source", history);
+        using var historyDocument = JsonDocument.Parse(history);
+        AssertLatestOnly(historyDocument.RootElement);
         Assert.InRange(history.Length, 1, options.NativeResearchMaximumHistoryCharacters);
         Assert.Same(turn, context.GetType().GetProperty("NativeTurn")!.GetValue(context));
 
@@ -130,6 +131,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             "writer", "Return JSON.", SourceCataloguePrompt(provider, projection), 128,
             CancellationToken.None, true, messages, projection));
         var body = Assert.Single(factory.Requests).Body;
+        using var requestDocument = JsonDocument.Parse(body);
+        AssertLatestOnly(requestDocument.RootElement.GetProperty(protocol == "responses" ? "input" : "messages"));
         Assert.InRange(OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(body), 1, cap);
         var visible = WorkspaceUser(body).GetProperty("evidence").EnumerateArray().ToArray();
         foreach (var expected in read)
@@ -140,6 +143,36 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         }
         // A tight cap may still omit other active bodies; absence remains explicit.
         Assert.True(visible.Length < active.Length);
+
+        void AssertLatestOnly(JsonElement rows)
+        {
+            // Instructions may recommend read_source without replaying it.
+            // Inspect actual calls/results so an older native turn cannot hide
+            // behind a text match or survive at the outgoing HTTP boundary.
+            var declaredCalls = protocol == "responses"
+                ? rows.EnumerateArray().Where(row => row.TryGetProperty("type", out var type)
+                    && type.GetString() == "function_call").Select(row => (
+                        Id: row.GetProperty("call_id").GetString(), Name: row.GetProperty("name").GetString(),
+                        Arguments: row.GetProperty("arguments").GetString())).ToArray()
+                : rows.EnumerateArray().Where(row => row.TryGetProperty("role", out var role)
+                    && role.GetString() == "assistant" && row.TryGetProperty("tool_calls", out _))
+                    .SelectMany(row => row.GetProperty("tool_calls").EnumerateArray()).Select(row => (
+                        Id: row.GetProperty("id").GetString(), Name: row.GetProperty("function").GetProperty("name").GetString(),
+                        Arguments: row.GetProperty("function").GetProperty("arguments").GetString())).ToArray();
+            var call = Assert.Single(declaredCalls);
+            Assert.Equal("latest-call", call.Id);
+            Assert.Equal("find_source_text", call.Name);
+            Assert.Equal("{}", call.Arguments);
+            var outputs = rows.EnumerateArray().Where(row => protocol == "responses"
+                ? row.TryGetProperty("type", out var type) && type.GetString() == "function_call_output"
+                : row.TryGetProperty("role", out var role) && role.GetString() == "tool").ToArray();
+            var output = Assert.Single(outputs);
+            Assert.Equal("latest-call", output.GetProperty(protocol == "responses" ? "call_id" : "tool_call_id").GetString());
+            using var value = JsonDocument.Parse(output.GetProperty(protocol == "responses" ? "output" : "content").GetString()!);
+            Assert.Equal("find_source_text", value.RootElement.GetProperty("operation").GetString());
+            Assert.Equal("executed", value.RootElement.GetProperty("status").GetString());
+            Assert.Equal(new[] { "B1", "B2" }, value.RootElement.GetProperty("visibleEvidenceIds").EnumerateArray().Select(id => id.GetString()));
+        }
     }
 
     private static AdvancedAnalysisResolvedEvidence AccumulatedReadBody(string id, string content)
