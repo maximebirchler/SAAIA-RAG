@@ -10,6 +10,9 @@ internal static class AdvancedAnalysisReadiness
         IAdvancedAnalysisProvider provider, IHttpClientFactory clients, IHostEnvironment environment,
         Dictionary<string, object?> details, CancellationToken cancellationToken)
     {
+        details.Remove("advanced_analysis_provider_http_status");
+        details.Remove("advanced_analysis_provider_error_type");
+        details.Remove("advanced_analysis_probe_scope");
         var required = license.AdvancedAnalysisEnabled && options.WorkerEnabled;
         details["advanced_analysis_entitled"] = license.AdvancedAnalysisEnabled;
         details["advanced_analysis_required"] = required;

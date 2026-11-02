@@ -52,8 +52,8 @@ public static class ReadyEndpoints
         // 1) Cache rapide
         if (cache.TryGetValue(ReadyCacheKey, out ReadinessSnapshot? cached) && cached is not null)
         {
-            var freshPayload = WithFreshRagSearchReadiness(cached.Payload, ragOpt.Value, ingestionOpt.Value, ragSearchBulkhead, teiGovernor,
-                requestId, advancedOpt.Value, advancedState, cached.Ok);
+            var freshPayload = await WithFreshRagSearchReadinessAsync(cached.Payload, ragOpt.Value, ingestionOpt.Value, ragSearchBulkhead, teiGovernor,
+                requestId, advancedOpt.Value, advancedState, cached.Ok, licenseOpt.Value, advancedProvider, httpFactory, env, ct);
             VectorGcReadiness.Apply(freshPayload.Details, ctx.RequestServices);
             return freshPayload.Ok
                 ? Results.Ok(freshPayload)
@@ -66,8 +66,8 @@ public static class ReadyEndpoints
         {
             if (cache.TryGetValue(ReadyCacheKey, out cached) && cached is not null)
             {
-                var freshPayload = WithFreshRagSearchReadiness(cached.Payload, ragOpt.Value, ingestionOpt.Value, ragSearchBulkhead, teiGovernor,
-                    requestId, advancedOpt.Value, advancedState, cached.Ok);
+                var freshPayload = await WithFreshRagSearchReadinessAsync(cached.Payload, ragOpt.Value, ingestionOpt.Value, ragSearchBulkhead, teiGovernor,
+                    requestId, advancedOpt.Value, advancedState, cached.Ok, licenseOpt.Value, advancedProvider, httpFactory, env, ct);
                 VectorGcReadiness.Apply(freshPayload.Details, ctx.RequestServices);
                 return freshPayload.Ok
                     ? Results.Ok(freshPayload)
@@ -287,7 +287,7 @@ public static class ReadyEndpoints
         return ready;
     }
 
-    private static ReadinessPayload WithFreshRagSearchReadiness(
+    private static async Task<ReadinessPayload> WithFreshRagSearchReadinessAsync(
         ReadinessPayload payload,
         RagOptions rag,
         IngestionOptions ingestion,
@@ -296,12 +296,19 @@ public static class ReadyEndpoints
         string requestId,
         AdvancedAnalysisOptions advanced,
         AdvancedAnalysisRuntimeState advancedState,
-        bool dependenciesOk)
+        bool dependenciesOk,
+        LicenseOptions license,
+        IAdvancedAnalysisProvider provider,
+        IHttpClientFactory httpFactory,
+        IHostEnvironment environment,
+        CancellationToken ct)
     {
         var details = new Dictionary<string, object?>(payload.Details, StringComparer.OrdinalIgnoreCase);
         ProbeRagSearchReadiness(rag, ragSearchBulkhead, details);
         ProbeTeiWorkloadReadiness(ingestion, teiGovernor, details);
         details["diagnostic_collection_failures"] = BackendDiagnostics.CollectionFailures;
+        if (advanced.DevelopmentTraceStrict && !string.IsNullOrWhiteSpace(advanced.DevelopmentTraceDirectory))
+            await AdvancedAnalysisReadiness.ProbeProviderAsync(advanced, license, provider, httpFactory, environment, details, ct);
         var advancedReady = AdvancedAnalysisReadiness.ApplyRuntime(advanced, advancedState, details);
         return RefreshIdentity(payload with { Ok = dependenciesOk && advancedReady, Details = details }, requestId, DateTimeOffset.UtcNow);
     }
