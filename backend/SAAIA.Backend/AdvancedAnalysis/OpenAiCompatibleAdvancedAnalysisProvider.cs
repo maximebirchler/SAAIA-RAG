@@ -852,6 +852,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         var httpAttemptCount = 0;
         try
         {
+            var captureFailure = await ProbeStrictDevelopmentTraceSinkAsync(jobId, role, cancellationToken).ConfigureAwait(false);
+            if (captureFailure is not null)
+                RecordCaptureFailure(captureFailure);
             if (_budget is not null)
             {
                 reservation = _budget.Reserve(jobId, role, serializedPayload, maximumOutputTokens);

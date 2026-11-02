@@ -29,6 +29,24 @@ internal static class AdvancedAnalysisReadiness
             details["advanced_analysis_provider_status"] = "configuration_invalid";
             return;
         }
+        var strictCaptureRequired = options.DevelopmentTraceStrict && !string.IsNullOrWhiteSpace(options.DevelopmentTraceDirectory);
+        details["advanced_analysis_capture_sink_required"] = strictCaptureRequired;
+        details["advanced_analysis_capture_sink_checked"] = false;
+        if (strictCaptureRequired)
+        {
+            var captureFailure = provider is OpenAiCompatibleAdvancedAnalysisProvider compatible
+                ? await compatible.ProbeStrictDevelopmentTraceSinkAsync(null, "readiness", cancellationToken).ConfigureAwait(false)
+                : "advanced_development_trace_directory_unavailable";
+            details["advanced_analysis_capture_sink_checked"] = provider is OpenAiCompatibleAdvancedAnalysisProvider;
+            details["advanced_analysis_capture_sink_ready"] = captureFailure is null;
+            details["advanced_analysis_capture_sink_failure_code"] = captureFailure;
+            if (captureFailure is not null)
+            {
+                details["advanced_analysis_provider_status"] = "capture_sink_unavailable";
+                details["advanced_analysis_probe_scope"] = "capture_sink_no_generation";
+                return;
+            }
+        }
         if (provider.Location == AdvancedAnalysisProviderLocation.ExternalService)
         {
             // A readiness GET must never transmit corpus or call a billed generation endpoint.
@@ -98,7 +116,10 @@ internal static class AdvancedAnalysisReadiness
         details["advanced_analysis_capture_last_failure_code"] = snapshot.LastCaptureFailureCode;
         details["advanced_analysis_capture_last_failure_utc"] = snapshot.LastCaptureFailureUtc;
         var required = details.TryGetValue("advanced_analysis_required", out var value) && value is true;
-        var ready = snapshot.WorkerLive && details.TryGetValue("advanced_analysis_provider_ready", out var providerReady) && providerReady is true;
+        var captureReady = !options.DevelopmentTraceStrict || string.IsNullOrWhiteSpace(options.DevelopmentTraceDirectory)
+            || details.TryGetValue("advanced_analysis_capture_sink_ready", out var captureSinkReady) && captureSinkReady is true;
+        var ready = snapshot.WorkerLive && details.TryGetValue("advanced_analysis_provider_ready", out var providerReady) && providerReady is true
+            && captureReady;
         details["advanced_analysis_ready"] = ready;
         return !required || ready;
     }

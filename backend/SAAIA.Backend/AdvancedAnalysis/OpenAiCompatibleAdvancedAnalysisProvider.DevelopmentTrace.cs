@@ -45,6 +45,68 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         }
     }
 
+    // Check with the backend's current identity, including its container caps.
+    // Directory.CreateDirectory alone does not prove that an existing sink is writable.
+    internal async Task<string?> ProbeStrictDevelopmentTraceSinkAsync(
+        Guid? jobId, string role, CancellationToken cancellationToken)
+    {
+        if (!_options.DevelopmentTraceStrict || string.IsNullOrWhiteSpace(_options.DevelopmentTraceDirectory)) return null;
+        using var probe = BackendDiagnostics.Start("llm.exact_capture_preflight", _logger);
+        if (jobId is { } id) probe.Set("job_id", id);
+        probe.Set("role", role);
+        probe.Set("strict", true);
+        probe.Set("provider_http_attempts", 0);
+        probe.Set("budget_reservation_created", false);
+        if (!Path.IsPathFullyQualified(_options.DevelopmentTraceDirectory))
+        {
+            probe.Complete("rejected", "advanced_development_trace_directory_invalid");
+            return "advanced_development_trace_directory_invalid";
+        }
+        string? path = null;
+        string? failure = null;
+        var acquired = false;
+        var created = false;
+        var removed = false;
+        var bytesWritten = 0;
+        try
+        {
+            await _traceWriteGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            acquired = true;
+            Directory.CreateDirectory(_options.DevelopmentTraceDirectory);
+            path = Path.Combine(_options.DevelopmentTraceDirectory, $".saaia-exact-sink-probe-{Guid.NewGuid():N}.tmp");
+            await using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                bufferSize: 1, options: FileOptions.Asynchronous);
+            created = true;
+            await stream.WriteAsync(new byte[1], cancellationToken).ConfigureAwait(false);
+            bytesWritten = 1;
+            await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            probe.Complete("cancelled", "advanced_llm_canceled");
+            throw;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            failure = "advanced_development_trace_write_failed";
+        }
+        finally
+        {
+            if (created && path is not null)
+            {
+                try { File.Delete(path); removed = true; }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
+                { failure = "advanced_development_trace_write_failed"; }
+            }
+            probe.Set("probe_bytes", bytesWritten);
+            probe.Set("probe_file_created", created);
+            probe.Set("probe_file_removed", removed);
+            if (acquired) _traceWriteGate.Release();
+        }
+        probe.Complete(failure is null ? "success" : "rejected", failure);
+        return failure;
+    }
+
     private async Task WriteDevelopmentTraceAsync(Guid jobId, string role,
         Dictionary<string, object?> requestPayload, JsonElement responseEnvelope,
         string completionJson, string? observedModelId, decimal? chargedCostUsd,
