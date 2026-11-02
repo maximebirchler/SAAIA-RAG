@@ -92,17 +92,38 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
             return _ledger.Locked(snapshot =>
             {
                 var job = snapshot.Job(jobId);
+                AdvancedAnalysisProviderException Rejected(string code)
+                {
+                    // Describe the rejected attempt from this same locked snapshot.
+                    // No start/request ID exists and no reservation was appended.
+                    var error = Exceeded(code);
+                    error.Data["budget_attempted_input_token_bound"] = estimatedInputTokens;
+                    error.Data["budget_attempted_maximum_output_tokens"] = maximumOutputTokens;
+                    error.Data["budget_attempted_reserve_usd"] = reservedCost;
+                    error.Data["budget_job_calls"] = job.Calls;
+                    error.Data["budget_job_call_limit"] = _options.ExternalMaximumCallsPerJob;
+                    error.Data["budget_job_charged_usd"] = job.Charged;
+                    error.Data["budget_job_reserved_usd"] = job.Reserved;
+                    error.Data["budget_job_cap_usd"] = _options.ExternalMaximumCostPerJobUsd;
+                    error.Data["budget_job_remaining_usd"] = _options.ExternalMaximumCostPerJobUsd - job.Charged - job.Reserved;
+                    error.Data["budget_campaign_charged_usd"] = snapshot.Charged;
+                    error.Data["budget_campaign_reserved_usd"] = snapshot.Reserved;
+                    error.Data["budget_campaign_cap_usd"] = _options.ExternalBudgetHardLimitUsd;
+                    error.Data["budget_campaign_remaining_usd"] = _options.ExternalBudgetHardLimitUsd - snapshot.Charged - snapshot.Reserved;
+                    error.Data["budget_reservation_created"] = false;
+                    return error;
+                }
                 if (job.Calls >= _options.ExternalMaximumCallsPerJob)
-                    throw Exceeded("advanced_external_budget_job_call_limit");
+                    throw Rejected("advanced_external_budget_job_call_limit");
                 if (job.Charged + job.Reserved + reservedCost
                     > _options.ExternalMaximumCostPerJobUsd)
                 {
-                    throw Exceeded("advanced_external_budget_job_cost_limit");
+                    throw Rejected("advanced_external_budget_job_cost_limit");
                 }
                 if (snapshot.Charged + snapshot.Reserved + reservedCost
                     > _options.ExternalBudgetHardLimitUsd)
                 {
-                    throw Exceeded("advanced_external_budget_campaign_hard_limit");
+                    throw Rejected("advanced_external_budget_campaign_hard_limit");
                 }
 
                 var reservation = new Reservation(

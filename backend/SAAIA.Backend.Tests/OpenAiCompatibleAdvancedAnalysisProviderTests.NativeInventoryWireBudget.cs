@@ -48,7 +48,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             new object?[] { calls, new[] { read }, new Dictionary<string, AdvancedAnalysisSearchObservation> { [key] = observed },
                 null, output, false, false, false }, null)!;
         BindAdmittedNativeFixtureCalls(turn, ("inventory-call", read));
-        async Task<string> Capture(bool reserveHistory)
+        async Task<string> Capture(bool reserveHistory, int finalMaximum = 14_000)
         {
             using var factory = new QueuedHttpClientFactory(protocol == "responses"
                 ? NativeResponseAnswer("{\"ok\":true}") : Completion("{\"ok\":true}"));
@@ -62,6 +62,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                     new object?[] { BuildDirectRequest(), evidence, new Dictionary<string, HashSet<string>>(), null })!;
             var history = (IReadOnlyList<object>)type.GetMethod("BuildNativeToolTurnMessages", flags)!
                 .Invoke(provider, new[] { turn, projection, protocol == "responses" })!;
+            // Projection remains the original conservative 14k decision. Only
+            // the independently exercised final compact-wire cap varies.
+            options.MaximumEvidencePromptCharacters = finalMaximum;
             try
             {
                 await (Task)type.GetMethod("CompleteJsonAsync", flags)!.Invoke(provider,
@@ -71,9 +74,12 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             catch (AdvancedAnalysisProviderException) { Assert.Empty(factory.Requests); throw; }
             return Assert.Single(factory.Requests).Body;
         }
-        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() => Capture(false));
+        var full = await Capture(false, 64_000);
+        var reserved = await Capture(true, 64_000);
+        var finalMaximum = NativeBudgetBoundaryBetween(reserved, full);
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() => Capture(false, finalMaximum));
         Assert.Equal("advanced_native_documentary_wire_budget_exceeded", error.ErrorCode);
-        var body = await Capture(true);
+        var body = await Capture(true, finalMaximum);
         var current = WorkspaceUser(body);
         var visible = current.GetProperty("evidence").EnumerateArray().ToArray();
         Assert.NotEmpty(visible);
@@ -84,7 +90,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal("unavailable", inventory.GetProperty("availability").GetString());
         Assert.Equal("no_captured_native_observation", inventory.GetProperty("reason").GetString());
         Assert.Equal(JsonValueKind.Null, inventory.GetProperty("observationCount").ValueKind);
-        Assert.InRange(OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(body), 1, 14_000);
+        Assert.InRange(OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(body), 1, finalMaximum);
     }
 
     [Theory]

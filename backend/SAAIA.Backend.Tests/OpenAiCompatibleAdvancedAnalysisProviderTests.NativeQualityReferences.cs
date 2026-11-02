@@ -20,15 +20,19 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         string protocol, int characters)
     {
         var fixture = NativeQualityFixture(characters, 1);
-        // The complete line, quality codes, table descriptors and active-source
-        // catalogue must all fit; a historical 14k profile is no longer enough.
+        // The conservative fitting projection still refuses the complete line
+        // and metadata at 14k. The compact outer transport does not change that
+        // selection decision, but its final wire contribution is now smaller.
         var refusal = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
             CaptureNativeBudgetAsync(protocol, fixture.Evidence, fixture.RawSha, reserveCurrentNativeTurn: true));
         Assert.Equal("advanced_secondary_documentary_metadata_budget_exceeded", refusal.ErrorCode);
         var body = await CaptureNativeBudgetAsync(protocol, fixture.Evidence, fixture.RawSha, 20_000,
             reserveCurrentNativeTurn: true);
         var measured = OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(body);
-        Assert.InRange(measured, 14_001, 20_000);
+        Assert.InRange(measured, 1, 20_000);
+        var legacyMeasured = LegacyEscapedNativeBudgetContribution(body);
+        Assert.True(legacyMeasured > 14_000);
+        Assert.True(measured < legacyMeasured);
         Console.WriteLine($"native_quality_wire protocol={protocol} characters={characters} measured={measured} cap=20000");
         AssertNativeQualityReference(body, protocol, fixture);
     }

@@ -805,7 +805,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             payload["temperature"] = 0;
         }
         if (nativeResponses) ConvertNativePayloadToResponses(payload);
-        var serializedPayload = JsonSerializer.Serialize(payload, JsonOptions);
+        var serializedPayload = SerializeProviderPayload(payload);
         var hasDocumentaryCollection = (sourcePrompt.RootElement.TryGetProperty("evidence", out var primaryEvidence)
                 || sourcePrompt.RootElement.TryGetProperty("observations", out primaryEvidence))
             && primaryEvidence.ValueKind == JsonValueKind.Array;
@@ -818,7 +818,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             if (sourcePrompt.RootElement.TryGetProperty("evidence", out var documentaryCollection)
                 || sourcePrompt.RootElement.TryGetProperty("observations", out documentaryCollection))
                 callProbe.Set("documentary_collection_wire_characters",
-                    MeasureEscapedDocumentaryTextCharacters(documentaryCollection.GetRawText()));
+                    MeasureEscapedProviderWireTextCharacters(documentaryCollection.GetRawText()));
             if (documentaryCharacters > maximumDocumentaryCharacters)
             {
                 var error = new AdvancedAnalysisProviderException(hasNativeReadings
@@ -960,7 +960,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     rejectedErrorCode = terminalQuotaError
                         ? "advanced_llm_quota_exhausted"
                         : $"advanced_llm_http_{(int)response.StatusCode}";
-                    await WriteDevelopmentHttpRejectionAsync(jobId, role, payload, response,
+                    await WriteDevelopmentHttpRejectionAsync(jobId, role, serializedPayload, response,
                         rejectedErrorCode, httpAttemptCount, stopwatch.ElapsedMilliseconds, timeout.Token, cancellationToken,
                         responseErrorBody).ConfigureAwait(false);
                     throw new AdvancedAnalysisProviderException(
@@ -1058,7 +1058,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                                 httpAttemptCount);
                             reservation = null;
                         }
-                        await WriteDevelopmentTraceAsync(jobId, role, payload, document.RootElement,
+                        await WriteDevelopmentTraceAsync(jobId, role, serializedPayload, document.RootElement,
                             completionContent ?? string.Empty, observedModelId, null,
                             httpAttemptCount, stopwatch.ElapsedMilliseconds, cancellationToken,
                             nativeResponses ? completionOrigin : nativeCallsJson is not null
@@ -1085,7 +1085,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                         }
                     }
                     callProbe.Set("provider_elapsed_ms", stopwatch.ElapsedMilliseconds);
-                    await WriteDevelopmentTraceAsync(jobId, role, payload, document.RootElement,
+                    await WriteDevelopmentTraceAsync(jobId, role, serializedPayload, document.RootElement,
                         completionContent!, observedModelId, charge?.CostUsd,
                         httpAttemptCount, stopwatch.ElapsedMilliseconds, cancellationToken,
                         nativeResponses ? completionOrigin : nativeCallsJson is null ? "message.content" : "tool_calls.normalized").ConfigureAwait(false);
@@ -1156,6 +1156,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         }
         catch (AdvancedAnalysisProviderException ex)
         {
+            AnnotateRejectedBudget(callProbe, ex);
             callProbe.Fail(ex, ex.ErrorCode);
             if (reservation is not null)
             {

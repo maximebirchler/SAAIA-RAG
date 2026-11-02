@@ -1,6 +1,9 @@
 using System.Reflection;
 using System.Runtime.ExceptionServices;
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Unicode;
 using SAAIA.Backend.AdvancedAnalysis;
 using SAAIA.Contracts;
 using Xunit;
@@ -79,16 +82,23 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             SourceQuality = new(null, null,
                 Enumerable.Range(1, 10).Select(index => "observed_source_warning_" + index).ToArray())
         }).ToArray();
+        var full = await CaptureNativeBudgetAsync(protocol, evidence, fixture.RawSha, 64_000,
+            projectionMaximumCharacters: 64_000);
+        var single = await CaptureNativeBudgetAsync(protocol, evidence.Take(1).ToArray(), fixture.RawSha, 64_000,
+            reserveCurrentNativeTurn: true, projectionMaximumCharacters: 14_000);
+        var finalMaximum = NativeBudgetBoundaryBetween(single, full);
         var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
-            CaptureNativeBudgetAsync(protocol, evidence, fixture.RawSha, projectionMaximumCharacters: 64_000));
+            CaptureNativeBudgetAsync(protocol, evidence, fixture.RawSha, finalMaximum, projectionMaximumCharacters: 64_000));
         Assert.Equal("advanced_native_documentary_wire_budget_exceeded", error.ErrorCode);
         Assert.Equal(0, evidence[0].NativeObservation!.LineOffset);
-        var body = await CaptureNativeBudgetAsync(protocol, evidence.Take(1).ToArray(), fixture.RawSha, reserveCurrentNativeTurn: true);
+        var body = await CaptureNativeBudgetAsync(protocol, evidence.Take(1).ToArray(), fixture.RawSha, finalMaximum,
+            reserveCurrentNativeTurn: true, projectionMaximumCharacters: 14_000);
         var current = WorkspaceUser(body);
         var view = Assert.Single(current.GetProperty("alternativeNativeReadings").GetProperty("views").EnumerateArray());
         Assert.Equal(0, view.GetProperty("offset").GetInt32());
         Assert.Equal(1, view.GetProperty("nextOffset").GetInt32());
         Assert.Equal(fixture.NativeLines[0], Assert.Single(current.GetProperty("evidence").EnumerateArray()).GetProperty("content").GetString());
+        Assert.InRange(OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(body), 1, finalMaximum);
     }
 
     [Theory]
@@ -131,11 +141,17 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             NativeObservation = item.NativeObservation! with { QualitySignals = codes },
             SourceQuality = new(null, null, codes)
         }).ToArray();
+        var full = await CaptureNativeBudgetAsync(protocol, evidence, fixture.RawSha, 64_000,
+            projectionMaximumCharacters: 64_000);
+        var reserved = await CaptureNativeBudgetAsync(protocol, evidence, fixture.RawSha, 64_000,
+            reserveCurrentNativeTurn: true, projectionMaximumCharacters: 14_000);
+        var finalMaximum = NativeBudgetBoundaryBetween(reserved, full);
         var counterfactual = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
-            CaptureNativeBudgetAsync(protocol, evidence, fixture.RawSha, projectionMaximumCharacters: 64_000));
+            CaptureNativeBudgetAsync(protocol, evidence, fixture.RawSha, finalMaximum, projectionMaximumCharacters: 64_000));
         Assert.Equal("advanced_native_documentary_wire_budget_exceeded", counterfactual.ErrorCode);
 
-        var body = await CaptureNativeBudgetAsync(protocol, evidence, fixture.RawSha, reserveCurrentNativeTurn: true);
+        var body = await CaptureNativeBudgetAsync(protocol, evidence, fixture.RawSha, finalMaximum,
+            reserveCurrentNativeTurn: true, projectionMaximumCharacters: 14_000);
         var current = WorkspaceUser(body);
         var view = Assert.Single(current.GetProperty("alternativeNativeReadings").GetProperty("views").EnumerateArray());
         Assert.Equal(0, view.GetProperty("offset").GetInt32());
@@ -148,7 +164,44 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             Assert.True(text.Length == 0 || fixture.NativeLines.Contains(text));
             Assert.Equal(text.Length == 0, item.GetProperty("contentTruncated").GetBoolean());
         });
-        Assert.InRange(OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(body), 1, 14_000);
+        Assert.InRange(OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(body), 1, finalMaximum);
+    }
+
+    private static int NativeBudgetBoundaryBetween(string smaller, string larger)
+    {
+        var small = OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(smaller);
+        var large = OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(larger);
+        Assert.InRange(small, 1, 14_000);
+        Assert.True(large > small);
+        var boundary = Math.Min(14_000, Math.Max(8_000, small + (large - small) / 2));
+        Assert.True(small <= boundary && boundary < large,
+            "The measured compact payloads must lie on opposite sides of a permitted final cap.");
+        return boundary;
+    }
+
+    private static int LegacyEscapedNativeBudgetContribution(string body)
+    {
+        var original = JsonNode.Parse(body)!.AsObject();
+        var baseline = (JsonObject)original.DeepClone();
+        var messages = baseline[baseline.ContainsKey("input") ? "input" : "messages"]!.AsArray();
+        foreach (var message in messages.OfType<JsonObject>().ToArray())
+        {
+            if (message["role"]?.GetValue<string>() == "tool" || message.ContainsKey("tool_calls")
+                || message["type"]?.GetValue<string>() is "function_call" or "function_call_output")
+            {
+                messages.Remove(message);
+                continue;
+            }
+            if (message["role"]?.GetValue<string>() != "user") continue;
+            var user = JsonNode.Parse(message["content"]!.GetValue<string>())!.AsObject();
+            foreach (var field in new[] { "evidence", "observations", "structuredTables", "alternativeTableReadings",
+                "visualSources", "visualSourceCapabilities", "alternativeNativeReadings", "nativeObservationCapabilities", "sourceCatalogue" })
+                user.Remove(field);
+            var legacy = new JsonSerializerOptions(JsonSerializerDefaults.Web) { Encoder = JavaScriptEncoder.Create(UnicodeRanges.All) };
+            message["content"] = user.ToJsonString(legacy);
+        }
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web) { Encoder = JavaScriptEncoder.Create(UnicodeRanges.All) };
+        return original.ToJsonString(options).Length - baseline.ToJsonString(options).Length;
     }
 
     private static JsonDocument NativeBudgetToolOutput(string body, string protocol)

@@ -7,7 +7,7 @@ namespace SAAIA.Backend.AdvancedAnalysis;
 internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 {
     private async Task WriteDevelopmentHttpRejectionAsync(Guid jobId, string role,
-        Dictionary<string, object?> payload, HttpResponseMessage response, string errorCode,
+        string serializedPayload, HttpResponseMessage response, string errorCode,
         int attempts, long elapsed, CancellationToken cancellationToken, CancellationToken requestCancellationToken,
         ProviderErrorBody? errorBody = null)
     {
@@ -26,7 +26,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         try { document = JsonDocument.Parse(body); }
         catch (JsonException) { document = JsonDocument.Parse(JsonSerializer.Serialize(new { providerErrorText = body }, JsonOptions)); }
         using (document)
-            await WriteDevelopmentTraceAsync(jobId, role, payload, document.RootElement, string.Empty,
+            await WriteDevelopmentTraceAsync(jobId, role, serializedPayload, document.RootElement, string.Empty,
                 null, 0m, attempts, elapsed, cancellationToken, "http.error", errorCode).ConfigureAwait(false);
     }
 
@@ -108,7 +108,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     }
 
     private async Task WriteDevelopmentTraceAsync(Guid jobId, string role,
-        Dictionary<string, object?> requestPayload, JsonElement responseEnvelope,
+        string requestJson, JsonElement responseEnvelope,
         string completionJson, string? observedModelId, decimal? chargedCostUsd,
         int httpAttemptCount, long elapsedMilliseconds, CancellationToken cancellationToken,
         string completionOrigin = "message.content", string? normalizationError = null)
@@ -125,7 +125,6 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         await _traceWriteGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var requestJson = JsonSerializer.Serialize(requestPayload, JsonOptions);
             var traceJson = JsonSerializer.Serialize(new
             {
                 schema = completionOrigin == "message.content" ? "advanced-development-trace.v1" : "advanced-development-trace.v2", jobId, role,

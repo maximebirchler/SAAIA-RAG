@@ -157,21 +157,30 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Single(factory.Requests); // The ordinary planner precedes documentary admission.
     }
 
-    [Fact]
-    public void Secondary_table_wire_measure_includes_nested_escaped_tool_output_and_actual_wrappers()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Secondary_table_wire_measure_includes_nested_escaped_tool_output_and_actual_wrappers(bool compactInput)
     {
         var output = JsonSerializer.Serialize(new { alternativeTableReadings = new { lines = new[] { "quoted\"\\value", "é\t-3" } } });
         var user = JsonSerializer.Serialize(new { request = "unchanged", evidence = new[] { new { content = "exact\"\\line" } },
             structuredTables = Array.Empty<object>(), alternativeTableReadings = new { views = Array.Empty<object>() } });
         var messages = new object[] { new { role = "system", content = "not documentary" },
             new { role = "tool", tool_call_id = "call_1", content = output }, new { role = "user", content = user } };
-        var wire = JsonSerializer.Serialize(new { messages }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        var compact = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
+        var payload = new { messages };
+        var compactWire = JsonSerializer.Serialize(payload, compact);
+        var wire = compactInput ? compactWire
+            : JsonSerializer.Serialize(payload, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         var baseline = JsonSerializer.Serialize(new { messages = new object[] { messages[0],
             new { role = "user", content = JsonSerializer.Serialize(new { request = "unchanged" }) } } },
-            new JsonSerializerOptions(JsonSerializerDefaults.Web));
-        Assert.Equal(wire.Length - baseline.Length,
+            compact);
+        Assert.Equal(compactWire.Length - baseline.Length,
             OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(wire));
-        Assert.True(wire.Length - baseline.Length > output.Length + "exact\"\\line".Length);
+        Assert.True(compactWire.Length - baseline.Length > output.Length + "exact\"\\line".Length);
     }
 
     [Theory]

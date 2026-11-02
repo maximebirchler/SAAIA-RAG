@@ -148,6 +148,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     // Removing documentary fields from an otherwise identical serialized request
     // isolates their exact contribution without estimating tokens or characters.
     internal static int MeasureSecondaryDocumentaryWireCharacters(string serializedPayload)
+        => MeasureDocumentaryWireCharacters(serializedPayload, WireJsonOptions.Value);
+
+    // Keep the existing conservative fitting policy. Compact transport must not
+    // change which excerpts are selected before the final exact-wire check.
+    private static int MeasureFittingDocumentaryWireCharacters(string serializedPayload)
+        => MeasureDocumentaryWireCharacters(serializedPayload, JsonOptions);
+
+    private static int MeasureDocumentaryWireCharacters(string serializedPayload, JsonSerializerOptions wireOptions)
     {
         var original = JsonNode.Parse(serializedPayload)!.AsObject();
         var baseline = (JsonObject)original.DeepClone();
@@ -172,6 +180,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             user.Remove("sourceCatalogue");
             item["content"] = user.ToJsonString(JsonOptions);
         }
-        return serializedPayload.Length - baseline.ToJsonString(JsonOptions).Length;
+        // Normalize both sides with the same outer encoder. Mixing compact
+        // HTTP and legacy baseline escaping can undercount, even below zero.
+        return original.ToJsonString(wireOptions).Length
+            - baseline.ToJsonString(wireOptions).Length;
     }
 }

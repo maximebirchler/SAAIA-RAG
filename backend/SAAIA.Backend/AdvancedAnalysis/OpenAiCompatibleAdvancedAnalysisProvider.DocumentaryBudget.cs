@@ -44,7 +44,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         // the separating comma that is present in every real documentary call.
         var prompt = AddNativeObservationsToPrompt(AddVisualSourcesToPrompt(
             "{\"observations\":[],\"structuredTables\":[],\"projectionBudgetBaseline\":true}"));
-        return MeasureSecondaryDocumentaryWireCharacters(JsonSerializer.Serialize(new
+        return MeasureFittingDocumentaryWireCharacters(JsonSerializer.Serialize(new
         {
             messages = new[] { new { role = "user", content = prompt } }
         }, JsonOptions));
@@ -86,7 +86,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }
         }
         messages.Add(new { role = "user", content = prompt });
-        return MeasureSecondaryDocumentaryWireCharacters(JsonSerializer.Serialize(new Dictionary<string, object?>
+        return MeasureFittingDocumentaryWireCharacters(JsonSerializer.Serialize(new Dictionary<string, object?>
         {
             [_options.NativeResearchToolsEnabled && UsesNativeResponses ? "input" : "messages"] = messages
         }, JsonOptions));
