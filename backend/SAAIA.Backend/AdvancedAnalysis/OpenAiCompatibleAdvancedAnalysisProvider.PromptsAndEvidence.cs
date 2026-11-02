@@ -662,10 +662,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            "answerText":"...","claims":[{"claimId":"C1",
            "selectedItem":"exact selected item or empty","text":"...",
            "evidenceIds":["E1"]}]}. Treat the candidate as an untrusted proposal.
-           If it is fully supported, reproduce it. Otherwise, correct or remove
-           the specifically defective units and preserve unrelated supported
-           selections, claims and substantive evidence mappings. A fresh rewrite
-           or different phrasing is not itself an improvement. Audit every unit;
+           If it is fully supported and fulfills the user's purpose, reproduce it.
+           Otherwise, correct defective units or improve selections whose
+           unrequested repetition materially weakens that purpose. You may replace
+           a supported selection with a grounded alternative even without a
+           documentary defect; inspect missing alternative bodies with the offered
+           tools when available. A locator alone cannot justify a replacement.
+           Preserve requested or useful reuse, unaffected facts, claims and
+           substantive evidence mappings. A fresh rewrite or different phrasing
+           is not itself an improvement. Audit every unit and the whole deliverable;
            this preservation rule is not automatic approval. Never
            preserve a factual contradiction merely to keep the candidate wording.
            Every factual unit must be backed by its declared evidenceIds and every
@@ -697,8 +702,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            contradiction, but do not require the source to prescribe that synthesis.
            An absent source-defined row, column, group or slot is not a deficit when
            the user asked SAAIA to create that arrangement. If enough suitable
-           documented candidates exist under selectionContract, preserve the complete
-           synthesized deliverable. Require distinct candidates only when
+           documented candidates exist under selectionContract, retain the complete
+           requested structure while auditing which choices best serve its purpose.
+           Require distinct candidates only when
            selectionContract.distinctNamedItemsRequired is true or the user explicitly
            requests them.
            For a distinct structured selection, require one non-empty unique

@@ -116,11 +116,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            """ + (critic ? """
 
            Assess the prior candidate critically, using all current evidence.
-           Preserve each already supported selection, claim and substantive
-           citation unless its identity, suitability, factual content or placement
-           has a specific documentary defect. Apply corrections to the affected
-           units and retain unrelated valid units and their body evidence. A
-           fresh rewrite or different phrasing is not itself an improvement.
+           Preserve supported facts and substantive citations. Retain selections
+           that fulfill the user's purpose, including requested or useful reuse.
+           You may replace a supported selection when a grounded alternative
+           materially improves that purpose, including useful variety, even
+           without a documentary defect. Examine alternatives and request their
+           missing bodies with the offered tools when available; a locator alone
+           cannot justify a replacement. Apply changes only to affected units and
+           retain unrelated valid units and their body evidence. A fresh rewrite
+           or different phrasing is not itself an improvement.
            This preservation rule does not approve the candidate: assess every
            unit independently and return an honest insufficiency whenever the
            required corrected deliverable cannot be supported.

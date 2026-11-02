@@ -653,6 +653,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     {
         var visible = observations.Select(item => item.EvidenceId)
             .Where(static id => !string.IsNullOrWhiteSpace(id))
+            .Select(static id => id!)
             .ToHashSet(StringComparer.Ordinal);
         if (ResolveSelectionMode(request.Handoff.Load) == "repeatable_named_items")
             return BuildRepeatableCandidateInventoryForPrompt(request, inventory, visible);

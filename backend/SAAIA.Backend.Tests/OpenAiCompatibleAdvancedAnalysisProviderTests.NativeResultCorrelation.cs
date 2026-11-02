@@ -241,7 +241,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.InRange(feedback.GetProperty("omittedEvidenceIds").GetArrayLength(), 1, 8);
         Assert.Equal(feedback.GetProperty("omittedEvidenceIds").GetArrayLength(), feedback.GetProperty("omittedPhysicalLocators").GetArrayLength());
         Assert.Contains("not documentary facts", output.GetProperty("instruction").GetString());
-        var probe = Assert.Single(logger.Entries.Where(entry => entry.Contains("operation=advanced.native_tool_results ", StringComparison.Ordinal)));
+        var probe = Assert.Single(logger.Entries, entry => entry.Contains("operation=advanced.native_tool_results ", StringComparison.Ordinal));
         Assert.Contains("\"unmatched_retrieval_call_count\":0", probe);
         Assert.DoesNotContain("Private synthetic canonical marker", probe);
         Assert.DoesNotContain("Title", probe);
@@ -286,7 +286,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             Assert.Equal("executed", row.Body.GetProperty("status").GetString());
             Assert.Equal(0, row.Body.GetProperty("returnedEvidenceCount").GetInt32());
         });
-        Assert.Single(logger.Entries.Where(entry => entry.Contains("operation=advanced.native_tool_results ", StringComparison.Ordinal)));
+        Assert.Single(logger.Entries, entry => entry.Contains("operation=advanced.native_tool_results ", StringComparison.Ordinal));
     }
 
     private static string NativeCorrelationFind(string sourceKey, string query, int topK = 3)

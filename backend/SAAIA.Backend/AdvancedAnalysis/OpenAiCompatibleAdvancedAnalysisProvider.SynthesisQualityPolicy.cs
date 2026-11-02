@@ -5,11 +5,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private const string SynthesisQualityPolicy = """
         Synthesis quality policy: permission to reuse an item is not a request
         to repeat it. Respect an explicitly requested repetition or stable choice.
-        Otherwise, judge whether supported alternatives would make the requested
-        synthesis more useful for its stated purpose. When they would, inspect
-        promising alternatives within the available research budget before using
-        repetition to fill the output. Do not mistake the current sample for all
-        available choices. Useful variety is a selection objective, not an extra
+        Assess the whole deliverable's usefulness for the stated purpose, not
+        only the support of each separate unit. When unrequested repetition
+        materially weakens that usefulness, compare supported alternatives and
+        inspect promising observed alternatives whose substantive content is
+        still missing, using offered research tools within the available budget
+        before finalizing. A supported selection may be replaced for this
+        substantive improvement even when it has no documentary defect. Preserve
+        unaffected facts and citations; a cosmetic rewrite is not an improvement.
+        Keep repetition that is requested or useful; do not change choices merely
+        to increase a count. Do not mistake the current sample for all available
+        choices. Useful variety is a selection objective, not an extra
         mandatory distinct-item quota or a reason by itself to declare documentary
         insufficiency. Never invent alternatives or change a source identity to
         create variety. Explain a material limitation without claiming that the
