@@ -551,7 +551,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             probe.Set("unique_normalized_request_count", requestIdentities.Count); probe.Set("replayed_result_call_count", replayedCalls);
             probe.Set("returned_evidence_unique_count", returnedIds.Count); probe.Set("visible_evidence_unique_count", projectedIds.Count);
             probe.Set("omitted_evidence_unique_count", returnedIds.Count - projectedIds.Count); probe.Set("partially_visible_evidence_unique_count", partialIds.Count);
-            probe.Set("history_characters", historyCharacters); probe.Set("history_maximum_characters", _options.NativeResearchMaximumHistoryCharacters);
+            // Report the real outer HTTP encoding, while retaining the
+            // existing conservative count for fitting, rejection and outcome.
+            probe.Set("history_characters", JsonSerializer.Serialize(messages, WireJsonOptions.Value).Length);
+            probe.Set("history_fitting_characters", historyCharacters);
+            probe.Set("history_maximum_characters", _options.NativeResearchMaximumHistoryCharacters);
             probe.Set("tool_execution_performed", false);
             probe.Complete(turn.Rejection is not null || historyCharacters > _options.NativeResearchMaximumHistoryCharacters || unmatchedCalls > 0 ? "incomplete" : "success",
                 turn.Rejection is not null ? "native_batch_rejected_before_execution"
