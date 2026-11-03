@@ -25,6 +25,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         public int LatestExplicitReadPrimaryCount { get; set; }
         public bool LatestExplicitReadIsFindOnly { get; set; }
         public IReadOnlyList<string> PreviousProjectionEvidenceIds { get; set; } = [];
+        public IReadOnlyList<string>? DiscoveryBaselineEvidenceIds { get; set; }
         public IReadOnlyList<string> PreviousCitedEvidenceIds { get; set; } = [];
         public Dictionary<string, string> PromptSourceKeys { get; } = new(StringComparer.Ordinal);
         public bool CandidateInventoryCheckpointLoaded { get; set; }
@@ -595,6 +596,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 context.PriorSearches, context.EvidenceGroups, context.RetrievalQueriesByEvidenceId,
                 cancellationToken, nativeResults, allowResourceLimitFeedback: true,
                 executionStatuses: context.PriorSearchExecutionStatuses).ConfigureAwait(false);
+            if (completion.NativeToolCallsJson is not null
+                && nativeResults.Values.Any(observation => observation.Evidence.Count > 0))
+                context.DiscoveryBaselineEvidenceIds = queries.Any(query => query.Operation == "read_source")
+                    ? null : context.PreviousProjectionEvidenceIds;
             PruneRetiredEvidenceCopies(context);
             RememberLatestExplicitRead(context, queries, nativeResults);
             context.ResourceLimit ??= resourceLimit;

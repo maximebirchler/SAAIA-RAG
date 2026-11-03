@@ -93,14 +93,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     }
 
     private JsonNode? TableReadingsForNativeToolResult(object alternative,
-        AdvancedAnalysisSearchRequest? request, IReadOnlyList<PromptEvidenceItem> visible)
+        AdvancedAnalysisSearchRequest? request, IReadOnlyList<PromptEvidenceItem> visible,
+        Lazy<JsonNode?> currentTableReadings, bool primaryResult = false)
     {
         var node = JsonSerializer.SerializeToNode(alternative, JsonOptions);
-        if (!_options.NativeObservationReadEnabled || request?.NativeObservationView is null
+        var scopedNativeRead = _options.NativeObservationReadEnabled && request?.NativeObservationView is not null;
+        if ((!scopedNativeRead && !primaryResult) || request is null
             || node is not JsonObject result || result["inventories"] is not JsonArray inventories)
             return node;
 
-        var current = JsonSerializer.SerializeToNode(BuildAlternativeTableReadingsForPrompt(visible), JsonOptions);
+        var current = currentTableReadings.Value;
         var currentInventories = current?["inventories"] as JsonArray;
         for (var index = 0; index < inventories.Count; index++)
         {
@@ -111,10 +113,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 && item.SourceOverview?.TableRegionObservations is not null).ToArray();
             var currentInventory = currentInventories?.OfType<JsonObject>().SingleOrDefault(item =>
                 item["sourceKey"]?.GetValue<string>() == sourceKey);
-            if (sources.Length == 0 || !JsonNode.DeepEquals(inventory, currentInventory)
+            var sourceReference = sources.FirstOrDefault()?.SourceReference;
+            if (sourceReference is null || !JsonNode.DeepEquals(inventory, currentInventory)
                 || sources.Any(item => item.SourceReference is not { } reference
-                    || !string.Equals(reference.DocId, request.DocId, StringComparison.OrdinalIgnoreCase)
-                    || !string.Equals(reference.RevisionId, request.RevisionId, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(reference.DocId, request.DocId ?? (primaryResult ? sourceReference.DocId : null),
+                        StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(reference.RevisionId, request.RevisionId ?? (primaryResult ? sourceReference.RevisionId : null),
+                        StringComparison.OrdinalIgnoreCase)
                     || !string.Equals(reference.SourceHash, item.SourceOverview!.TableRegionObservations!.SourceSha256,
                         StringComparison.OrdinalIgnoreCase))
                 || sources.Select(item => JsonSerializer.Serialize(item.SourceOverview!.TableRegionObservations, JsonOptions))
@@ -126,15 +131,20 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             // explicitly instead of duplicating its pages and descriptors in
             // the escaped tool string. Native page/block/window data is never
             // deduplicated by this document-scoped table-inventory reference.
-            inventories[index] = JsonSerializer.SerializeToNode(new
+            var inventoryReference = JsonSerializer.SerializeToNode(new
             {
                 sourceKey,
                 inventoryReference = "current_user.alternativeTableReadings.inventories[sourceKey]"
-            }, JsonOptions);
+            }, JsonOptions)!;
+            if (!primaryResult || MeasureEscapedProviderWireTextCharacters(inventoryReference.ToJsonString(JsonOptions))
+                < MeasureEscapedProviderWireTextCharacters(inventory.ToJsonString(JsonOptions)))
+                inventories[index] = inventoryReference;
         }
         // This contract and capability remain in the same current-user section.
         // A tool carrying any unreplaced inventory retains its original wrapper.
-        if (inventories.Count > 0 && inventories.OfType<JsonObject>().All(item => item.ContainsKey("inventoryReference")))
+        if (inventories.Count > 0 && inventories.OfType<JsonObject>().All(item => item.ContainsKey("inventoryReference"))
+            && (!primaryResult || JsonNode.DeepEquals(result["instruction"], current?["instruction"])
+                && JsonNode.DeepEquals(result["imageInspectionAvailable"], current?["imageInspectionAvailable"])))
         {
             result.Remove("instruction");
             result.Remove("imageInspectionAvailable");

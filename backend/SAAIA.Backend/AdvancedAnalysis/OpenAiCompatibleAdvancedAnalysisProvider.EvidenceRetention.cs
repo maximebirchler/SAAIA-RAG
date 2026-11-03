@@ -45,6 +45,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         if (context.Tools.Budget?.EvidenceRotationEnabled is not true) return;
         var activeIds = context.Tools.Evidence.Select(item => item.Reference.EvidenceId).ToHashSet(StringComparer.Ordinal);
         context.PreviousProjectionEvidenceIds = context.PreviousProjectionEvidenceIds.Where(activeIds.Contains).ToArray();
+        if (context.DiscoveryBaselineEvidenceIds is { } baseline)
+            context.DiscoveryBaselineEvidenceIds = baseline.Where(activeIds.Contains).ToArray();
         context.PreviousCitedEvidenceIds = context.PreviousCitedEvidenceIds.Where(activeIds.Contains).ToArray();
         for (var index = context.EvidenceGroups.Count - 1; index >= 0; index--)
         {

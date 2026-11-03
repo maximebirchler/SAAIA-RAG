@@ -159,11 +159,11 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         }).ToArray()).ToArray();
 
     private static void RememberBalancedExplicitBatch(object context,
-        IReadOnlyList<AdvancedAnalysisResolvedEvidence>[] groups)
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence>[] groups, string operation = "find_source_text")
     {
         var requests = groups.Select((group, index) => new AdvancedAnalysisSearchRequest(
             "Observed literal query " + index, TopK: 3, PageStart: 1, PageEnd: 1,
-            Operation: "find_source_text")).ToArray();
+            Operation: operation)).ToArray();
         var results = requests.Select((request, index) => new
         {
             Key = (string)InvokeSourceCatalogue(null, "BuildSearchIdentity", request)!,

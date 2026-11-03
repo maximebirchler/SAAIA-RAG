@@ -25,7 +25,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         PreviousProjectionQueries(context)["A3"] = ["first intent"];
         PreviousProjectionQueries(context)["C1"] = ["other intent"];
         PreviousProjectionRemember(context, initial);
-        RememberBalancedExplicitBatch(context, current);
+        RememberBalancedExplicitBatch(context, current, "read_source");
         var priority = PreviousProjectionPriority(context, active, active);
         Assert.Equal(new[] { "B1", "D1", "A1", "B2", "C1", "D2", "A2", "B3", "A3", "D3" },
             priority.Select(item => item.Reference.EvidenceId));
@@ -65,7 +65,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var groups = BalancedExplicitBodies(false);
         var active = initial.Concat(groups.SelectMany(group => group)).ToArray();
         var context = AccumulatedReadContext(new AccumulatedReadGateway(active));
-        PreviousProjectionRemember(context, initial); RememberBalancedExplicitBatch(context, groups);
+        PreviousProjectionRemember(context, initial); RememberBalancedExplicitBatch(context, groups, "read_source");
         var priority = PreviousProjectionPriority(context, active, active);
         Assert.Equal(groups.Select(group => group[0].Reference.EvidenceId), priority.Take(6).Select(item => item.Reference.EvidenceId));
         var beforeEmpty = priority.Select(item => item.Reference.EvidenceId).ToArray();

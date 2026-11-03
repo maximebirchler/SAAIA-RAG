@@ -118,7 +118,9 @@ Charlotte
     {
         var original=BuildEvidence("E1","Le seuil est 17 bar.");
         var newcomers=Enumerable.Range(2,5).Select(i=>BuildEvidence("E"+i,"Le seuil est 17 bar. "+new string('x',2300))).ToArray();
-        var additional=NativeAnswered.Replace("[\"E1\"]","[\"E1\",\"E2\"]");
+        // Choose a later admitted result, still outside the bounded view when
+        // search continuity also keeps the original body visible.
+        var additional=NativeAnswered.Replace("[\"E1\"]","[\"E2\",\"E6\"]");
         using var factory=new QueuedHttpClientFactory(Completion("""{"queries":[{"query":"overview","topK":12}]}"""),Completion(NativeAnswered),
             NativeCompletion(("search_corpus",WorkspaceSearch)),Completion(additional),Completion(NativeAnswered.Replace("E1","E2")));
         var options=WorkspaceOptions();options.SemanticCriticEnabled=true;options.MaximumEvidencePromptCharacters=8000;
@@ -138,6 +140,11 @@ Charlotte
             Assert.Equal("advanced_synthesis_candidate_evidence_not_visible",error.ErrorCode);Assert.Equal(4,factory.Requests.Count);
         }
         Assert.Equal(2,gateway.Searches.Count);
+        Assert.Contains(gateway.Evidence, item => item.Reference.EvidenceId == "E6");
+        var visible = WorkspaceUser(factory.Requests[3].Body).GetProperty("evidence").EnumerateArray()
+            .Select(item => item.GetProperty("evidenceId").GetString()).ToArray();
+        Assert.Contains("E2", visible);
+        Assert.DoesNotContain("E6", visible);
     }
 
     [Theory]

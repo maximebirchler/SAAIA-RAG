@@ -28,7 +28,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     [Fact]
     public async Task Active_proposal_does_not_resurrect_a_reference_already_invisible_when_model_selects_it()
     {
-        var original=BuildEvidence("E1","Le seuil est 17 bar.");
+        // An omitted navigation hit does not receive substantive continuity.
+        var original=BuildEvidence("E1","Table of contents\nAlpha 124\nBeta 130\nGamma 140");
         var newcomers=Enumerable.Range(2,5).Select(i=>BuildEvidence("E"+i,"Le seuil est 17 bar. "+new string('x',2300))).ToArray();
         using var factory=new QueuedHttpClientFactory(Completion("""{"queries":[{"query":"overview","topK":12}]}"""),
             NativeCompletion(("search_corpus",WorkspaceSearch)),Completion(NativeAnswered),Completion(NativeAnswered.Replace("E1","E2")),Completion(NativeAnswered.Replace("E1","E2")));
@@ -36,6 +37,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         options.MaximumEvidencePromptCharacters=8000;options.ExternalMaximumCallsPerJob=5;
         var result=await new OpenAiCompatibleAdvancedAnalysisProvider(factory,options,null)
             .ExecuteAsync(BuildDirectRequest(),new SequencedToolGateway([original],newcomers),CancellationToken.None);
+        Assert.DoesNotContain(WorkspaceUser(factory.Requests[2].Body).GetProperty("evidence").EnumerateArray(),
+            e=>e.GetProperty("evidenceId").GetString()=="E1");
         var frame=WorkspaceUser(factory.Requests[3].Body);
         Assert.Empty(frame.GetProperty("activeProposal").GetProperty("retainedEvidenceIds").EnumerateArray());
         Assert.DoesNotContain(frame.GetProperty("evidence").EnumerateArray(),e=>e.GetProperty("evidenceId").GetString()=="E1");
@@ -75,7 +78,10 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         }
         else
         {
-            Assert.DoesNotContain(projected.EnumerateArray(),e=>e.GetProperty("evidenceId").GetString()=="E1");
+            // Search continuity can keep a prior body as a soft second choice.
+            // Only an enabled model proposal gives it first priority.
+            Assert.Equal("E1",projected[1].GetProperty("evidenceId").GetString());
+            Assert.Equal(original.Content,projected[1].GetProperty("content").GetString());
             Assert.False(frame.TryGetProperty("activeProposal",out _));
         }
     }

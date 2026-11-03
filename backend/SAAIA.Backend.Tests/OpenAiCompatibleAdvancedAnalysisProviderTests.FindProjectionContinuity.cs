@@ -13,6 +13,72 @@ namespace SAAIA.Backend.Tests;
 public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
     [Theory]
+    [InlineData("chat-completions", true)]
+    [InlineData("responses", true)]
+    [InlineData("chat-completions", false)]
+    [InlineData("responses", false)]
+    public async Task Discovery_batch_retains_uncited_substantive_source_groups_on_writer_and_critic_wire(
+        string protocol, bool mixed)
+    {
+        const int cap = 25_000;
+        var initial = new[]
+        {
+            PreviousProjectionBody("INITIAL-INDEX", "Table of contents\nAlpha 124\nBeta 130\nGamma 140")
+                with { SourceOverview = new(1, 200, 200) },
+            PreviousProjectionBody("INITIAL-ONE", "Canonical first condition: isolate the assembly before opening.", page: 124),
+            PreviousProjectionBody("INITIAL-TWO", "Canonical independent condition: retain the specified seal.", source: 2, page: 27)
+        };
+        Assert.Equal(RetrievalContentClassifier.NavigationRole,
+            RetrievalContentClassifier.AnalyzeEvidenceContent(initial[0].Content, initial[0].ExactTitle).ContentRole);
+        var groups = Enumerable.Range(1, 8).Select(index => index == 7 ? [] : Enumerable.Range(1, 3)
+            .Select(hit => PreviousProjectionBody($"DISCOVERY{index}-{hit}",
+                $"Setting {index}: isolate the assembly before using the prescribed value. "
+                + string.Concat(Enumerable.Repeat("\"scope\\path\" setting ", 112)), page: 130 + index)).ToArray()).ToArray();
+        var calls = Enumerable.Range(1, 8).Select(index => mixed && index <= 7
+            ? ("find_source_text", JsonSerializer.Serialize(new { sourceKey = "internal-source-1", query = $"Setting {index}", offset = 0, topK = 4 }))
+            : ("search_corpus", JsonSerializer.Serialize(new { sourceKey = "", query = $"Setting {index}", category = "", documentHint = "", topK = 4 }))).ToArray();
+        const string insufficient = """{"outcome":"insufficient_documentation","answerText":"Le seuil ne peut pas être confirmé.","claims":[]}""";
+        using var factory = new QueuedHttpClientFactory(Completion(RepeatablePlan),
+            protocol == "responses" ? BudgetNativeResponseFunctions(calls) : NativeCompletion(calls),
+            EarlyReply(protocol, insufficient), EarlyReply(protocol, insufficient));
+        var options = WorkspaceOptions(protocol);
+        options.MaximumEvidencePromptCharacters = cap;
+        options.ExternalMaximumCallsPerJob = 4;
+        options.SemanticCriticEnabled = true;
+        options.NativeResearchWorkspaceEnabled = false;
+        options.NativeResearchActiveProposalEnabled = false;
+        var gateway = new SequencedToolGateway([initial, .. groups]);
+
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null)
+            .ExecuteAsync(BuildRequest(20, "named_item", "structured_layout", "documented_option"), gateway, CancellationToken.None);
+
+        Assert.Equal("insufficient_documentation", result.Outcome);
+        Assert.Empty(result.Claims);
+        Assert.Equal(4, factory.Requests.Count);
+        Assert.Equal(9, gateway.Searches.Count);
+        Assert.Equal(mixed ? 7 : 0, gateway.Searches.Count(request => request.Operation == "find_source_text"));
+        Assert.DoesNotContain(gateway.Searches, request => request.Operation == "read_source");
+        Assert.Equal(initial.Length + groups.Sum(group => group.Length), gateway.Evidence.Count);
+        foreach (var call in factory.Requests.Skip(2))
+        {
+            var wire = call.Body;
+            var evidence = WorkspaceUser(wire).GetProperty("evidence").EnumerateArray().ToArray();
+            Assert.StartsWith("DISCOVERY", evidence[0].GetProperty("evidenceId").GetString());
+            Assert.Equal("INITIAL-ONE", evidence[1].GetProperty("evidenceId").GetString());
+            Assert.Equal("INITIAL-TWO", evidence[3].GetProperty("evidenceId").GetString());
+            foreach (var prior in initial.Skip(1))
+            {
+                var visible = Assert.Single(evidence, item => item.GetProperty("evidenceId").GetString() == prior.Reference.EvidenceId);
+                Assert.Equal(prior.Content, visible.GetProperty("content").GetString());
+                Assert.False(visible.GetProperty("contentTruncated").GetBoolean());
+            }
+            Assert.True(evidence.Length < gateway.Evidence.Count);
+            Assert.Equal(8, NativeCorrelationOutputs(wire, protocol).Length);
+            Assert.InRange(CrossBatchDocumentaryDifference(wire, compact: true), 1, cap);
+        }
+    }
+
+    [Theory]
     [InlineData("chat-completions", false, true)]
     [InlineData("responses", false, true)]
     [InlineData("chat-completions", true, true)]
@@ -161,7 +227,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
-    public void Find_projection_without_citations_preserves_balanced_current_primaries()
+    public void Find_projection_without_citations_interleaves_current_primaries_and_prior_bodies()
     {
         var prior = new[] { PreviousProjectionBody("A1"), PreviousProjectionBody("A2"),
             PreviousProjectionBody("C1", source: 2) };
@@ -172,9 +238,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         PreviousProjectionRemember(context, prior);
         RememberBalancedExplicitBatch(context, groups);
         var ordered = PreviousProjectionPriority(context, active, active);
-        // No structured citation was admitted. Preserve the existing complete
-        // current-primary round before the fair previous source/query groups.
-        Assert.Equal(new[] { "B1", "D1", "F1", "A1", "B2", "C1", "D2", "A2", "F2" },
+        // Discovery keeps the first fresh hit, but does not require a citation
+        // to retain prior substantive groups between current literal finds.
+        Assert.Equal(new[] { "B1", "A1", "D1", "C1", "F1", "A2", "B2", "D2", "F2" },
             ordered.Select(item => item.Reference.EvidenceId));
         Assert.Empty((IReadOnlyList<string>)context.GetType().GetProperty("PreviousCitedEvidenceIds")!.GetValue(context)!);
         Assert.Equal(active.Length, ordered.Count);

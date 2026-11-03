@@ -358,6 +358,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var projectedIds = new HashSet<string>(StringComparer.Ordinal);
         var partialIds = new HashSet<string>(StringComparer.Ordinal);
         var documentaryInstructionWritten = false;
+        var currentTableReadings = new Lazy<JsonNode?>(() =>
+            JsonSerializer.SerializeToNode(BuildAlternativeTableReadingsForPrompt(visible), JsonOptions));
         foreach (var call in calls.RootElement.EnumerateArray())
         {
             if (turn.Rejection is not null)
@@ -531,7 +533,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var alternative = BuildAlternativeTableReadingsForPrompt(visible.Where(item =>
                 ids.Contains(item.EvidenceId, StringComparer.Ordinal)).ToArray());
             if (alternative is not null)
-                outputNode["alternativeTableReadings"] = TableReadingsForNativeToolResult(alternative, request, visible);
+                outputNode["alternativeTableReadings"] = TableReadingsForNativeToolResult(alternative, request, visible, currentTableReadings,
+                    primaryResult: primaryResult && observation is not null
+                        && request?.Operation is "find_source_text" or "search_corpus");
             var nativeAlternative = BuildAlternativeNativeReadingsForPrompt(visible.Where(item =>
                 ids.Contains(item.EvidenceId, StringComparer.Ordinal)).ToArray());
             if (nativeAlternative is not null)

@@ -204,7 +204,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         }
         RememberActiveExplicitReadIds(context, ids, firstRoundCount);
         if (ids.Count > 0)
-            context.LatestExplicitReadIsFindOnly = requests.All(request => request.Operation == "find_source_text");
+            // Ordinary searches in the same batch do not turn literal finds
+            // into explicit page reads. An actual page request keeps its priority.
+            context.LatestExplicitReadIsFindOnly = !requests.Any(request => request.Operation == "read_source");
     }
 
     private static void RememberActiveExplicitReadIds(
@@ -241,7 +243,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> focused)
     {
         var explicitOrder = PrioritizeLatestExplicitRead(evidence, focused, context.LatestExplicitReadEvidenceIds);
-        if (context.PreviousProjectionEvidenceIds.Count == 0
+        if ((context.DiscoveryBaselineEvidenceIds ?? context.PreviousProjectionEvidenceIds).Count == 0
+            && context.PreviousProjectionEvidenceIds.Count == 0
             && (!context.LatestExplicitReadIsFindOnly || context.PreviousCitedEvidenceIds.Count == 0))
             return explicitOrder;
         var current = evidence.Where(item => item.Reference.EvidenceId is not null)
@@ -251,10 +254,28 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             .Where(current.ContainsKey).Distinct(StringComparer.Ordinal).ToArray();
         context.PreviousCitedEvidenceIds = context.PreviousCitedEvidenceIds
             .Where(current.ContainsKey).Distinct(StringComparer.Ordinal).ToArray();
-        if (context.LatestExplicitReadEvidenceIds.Count == 0)
-            return explicitOrder;
         var primaryIds = context.LatestExplicitReadEvidenceIds.Take(context.LatestExplicitReadPrimaryCount)
             .Where(current.ContainsKey).ToHashSet(StringComparer.Ordinal);
+        var interleavePriorBodies = primaryIds.Count == 0 || context.LatestExplicitReadIsFindOnly;
+        // Keep the pre-batch cohort stable through Writer and Critic. A second
+        // role inspecting the same discovery batch must not relabel its first
+        // fresh result as old and displace an initial source yet again.
+        var priorProjectionIds = interleavePriorBodies && context.DiscoveryBaselineEvidenceIds is { } baseline
+            ? baseline : context.PreviousProjectionEvidenceIds;
+        if (primaryIds.Count == 0)
+        {
+            // Preserve an explicit model selection ahead of this implicit
+            // continuity hint. Without a native discovery batch, leave the
+            // legacy focus ordering unchanged.
+            if (context.DiscoveryBaselineEvidenceIds is null
+                || context.ActiveProposalEvidenceIds.Any(current.ContainsKey)
+                || context.Workspace.Any(item => item.Status != "rejected" && item.EvidenceIds.Any(current.ContainsKey))
+                || context.CandidateInventory.Any(item => item.Status is "body_verified" or "selected"
+                    && item.BodyEvidenceIds.Any(current.ContainsKey))
+                || !explicitOrder.Any(item => !priorProjectionIds.Contains(
+                    item.Reference.EvidenceId!, StringComparer.Ordinal)))
+                return explicitOrder;
+        }
         var rejectedIds = context.Workspace.Where(item => item.Status == "rejected")
             .SelectMany(item => item.EvidenceIds)
             .Concat(context.CandidateInventory.Where(item => item.Status == "rejected")
@@ -279,30 +300,40 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             return BuildCanonicalSourceIdentity(item, item.Reference.EvidenceId!) + "\n"
                 + string.Join("\n", queries);
         }
-        var groups = context.PreviousProjectionEvidenceIds.Where(current.ContainsKey)
+        var groups = priorProjectionIds.Where(current.ContainsKey)
             .Where(id => !primaryIds.Contains(id) && !rejectedIds.Contains(id) && !citedIds.Contains(id)).Distinct(StringComparer.Ordinal)
-            .Select(id => current[id]).GroupBy(Group, StringComparer.OrdinalIgnoreCase)
+            .Select(id => current[id])
+            .Where(item => !interleavePriorBodies || (!string.IsNullOrWhiteSpace(item.Content)
+                && item.SourceObservation is null && item.NativeObservation is null
+                && RetrievalContentClassifier.AnalyzeEvidenceContent(item.Content, item.ExactTitle).ContentRole
+                    != RetrievalContentClassifier.NavigationRole))
+            .GroupBy(Group, StringComparer.OrdinalIgnoreCase)
             .Select(group => new Queue<AdvancedAnalysisResolvedEvidence>(group)).ToArray();
         var previous = new List<AdvancedAnalysisResolvedEvidence>(cited);
-        while (groups.Any(group => group.Count > 0))
+        // Ordinary discovery gets a bounded soft allowance, not a new pin or
+        // an entitlement to the entire previous prompt. Explicit page/window
+        // reads retain the existing ordering and allowance.
+        const int maximumPriorDiscoveryBodies = 8;
+        var previousLimit = interleavePriorBodies ? cited.Length + maximumPriorDiscoveryBodies : int.MaxValue;
+        while (previous.Count < previousLimit && groups.Any(group => group.Count > 0))
             foreach (var group in groups)
-                if (group.Count > 0) previous.Add(group.Dequeue());
+                if (previous.Count < previousLimit && group.Count > 0) previous.Add(group.Dequeue());
+        if (previous.Count == 0) return explicitOrder;
         var previousIds = previous.Select(item => item.Reference.EvidenceId!).ToHashSet(StringComparer.Ordinal);
         var primary = explicitOrder.Where(item => primaryIds.Contains(item.Reference.EvidenceId!)).ToArray();
         var rest = explicitOrder.Where(item => !primaryIds.Contains(item.Reference.EvidenceId!)
             && !previousIds.Contains(item.Reference.EvidenceId!)).ToArray();
-        if (context.LatestExplicitReadIsFindOnly && cited.Length > 0)
+        if (interleavePriorBodies)
         {
-            // A title search must not crowd every previously cited body behind
-            // the whole batch of new locators. This is a bounded ordering hint:
-            // all bodies are rebound above, and normal omission limits apply.
+            // Give current discovery its first place, but do not let a whole
+            // batch of searches/finds consume the prompt before earlier bodies.
+            var discovery = primary.Concat(rest).ToArray();
             var interleaved = new List<AdvancedAnalysisResolvedEvidence>();
-            for (var index = 0; index < Math.Max(primary.Length, previous.Count); index++)
+            for (var index = 0; index < Math.Max(discovery.Length, previous.Count); index++)
             {
-                if (index < primary.Length) interleaved.Add(primary[index]);
+                if (index < discovery.Length) interleaved.Add(discovery[index]);
                 if (index < previous.Count) interleaved.Add(previous[index]);
             }
-            interleaved.AddRange(rest);
             return interleaved;
         }
         var result = primary.ToList();
