@@ -15,13 +15,13 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var context = AccumulatedReadContext(new AccumulatedReadGateway(active));
         AccumulatedRemember(context, "read_source", active[..2]);
         AccumulatedRemember(context, "find_source_text", active[2..]);
-        Assert.Equal(new[] { "B1", "B2", "A1", "A2" }, AccumulatedReadIds(context));
+        Assert.Equal(new[] { "B1", "A1", "B2", "A2" }, AccumulatedReadIds(context));
 
         AccumulatedRemember(context, "read_source", [active[1], active[3], active[1]]);
-        Assert.Equal(new[] { "A2", "B2", "B1", "A1" }, AccumulatedReadIds(context));
+        Assert.Equal(new[] { "A2", "B1", "B2", "A1" }, AccumulatedReadIds(context));
         // An empty result neither erases earlier reads nor invents a body.
         AccumulatedRemember(context, "find_source_text", []);
-        Assert.Equal(new[] { "A2", "B2", "B1", "A1" }, AccumulatedReadIds(context));
+        Assert.Equal(new[] { "A2", "B1", "B2", "A1" }, AccumulatedReadIds(context));
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         // The previous implementation placed only B before this noise. A stayed
         // active but was hidden; the fix must preserve both small read batches.
         var focused = AccumulatedReadPriority(context, active, noise);
-        Assert.Equal(new[] { "B1", "B2", "A1", "A2" }, focused.Take(4).Select(item => item.Reference.EvidenceId));
+        Assert.Equal(new[] { "B1", "A1", "B2", "A2" }, focused.Take(4).Select(item => item.Reference.EvidenceId));
         var projection = InvokeSourceCatalogue(provider, "BuildPromptEvidenceWithPersistentSourceKeys",
             BuildDirectRequest(), active, new Dictionary<string, HashSet<string>>(), focused,
             new Dictionary<string, string>(), null, turn)!;

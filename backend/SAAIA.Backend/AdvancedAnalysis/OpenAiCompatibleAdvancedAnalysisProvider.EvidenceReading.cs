@@ -164,6 +164,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var positions = new int[groups.Length];
         var ids = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
+        var firstRoundCount = 0;
+        var firstRound = true;
         // Give every request in this batch one current body before a request
         // consumes a second slot. Overlapping hits share one slot; advance to
         // that request's next distinct body without caching any old content.
@@ -182,19 +184,37 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     break;
                 }
             }
+            if (firstRound)
+            {
+                firstRoundCount = ids.Count;
+                firstRound = false;
+            }
         }
-        RememberActiveExplicitReadIds(context, ids);
+        RememberActiveExplicitReadIds(context, ids, firstRoundCount);
     }
 
     private static void RememberActiveExplicitReadIds(
-        SynthesisResearchContext context, IEnumerable<string> ids)
+        SynthesisResearchContext context, IEnumerable<string> ids, int preferredPrefixCount = 1)
     {
         // Keep identifiers only, bounded by the current canonical working set.
         // A retired identifier can never recover a historical body or source.
         var active = context.Tools.Evidence.Select(item => item.Reference.EvidenceId)
             .Where(id => !string.IsNullOrWhiteSpace(id)).ToHashSet(StringComparer.Ordinal);
-        context.LatestExplicitReadEvidenceIds = ids.Concat(context.LatestExplicitReadEvidenceIds)
-            .Where(active.Contains).Distinct(StringComparer.Ordinal).ToArray();
+        var current = ids.Where(active.Contains).Distinct(StringComparer.Ordinal).ToArray();
+        var currentIds = current.ToHashSet(StringComparer.Ordinal);
+        var retained = context.LatestExplicitReadEvidenceIds.Where(active.Contains)
+            .Where(id => !currentIds.Contains(id)).Distinct(StringComparer.Ordinal).ToArray();
+        var prefixCount = Math.Clamp(preferredPrefixCount, 0, current.Length);
+        var ordered = current.Take(prefixCount).ToList();
+        // Every current request gets its first turn before retained reads.
+        // Then keep earlier active alternatives ahead of another whole batch
+        // of secondary hits. These are IDs, never remembered documentary text.
+        for (var index = 0; index < Math.Max(retained.Length, current.Length - prefixCount); index++)
+        {
+            if (index < retained.Length) ordered.Add(retained[index]);
+            if (prefixCount + index < current.Length) ordered.Add(current[prefixCount + index]);
+        }
+        context.LatestExplicitReadEvidenceIds = ordered.ToArray();
     }
 
     private static IReadOnlyList<AdvancedAnalysisResolvedEvidence> PrioritizeLatestExplicitRead(

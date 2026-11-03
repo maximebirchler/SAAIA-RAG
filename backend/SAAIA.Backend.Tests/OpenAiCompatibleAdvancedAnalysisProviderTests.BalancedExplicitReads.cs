@@ -65,7 +65,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         AccumulatedRemember(context, "read_source", older);
         RememberBalancedExplicitBatch(context, groups);
         Assert.Equal(groups.Select(group => group[0].Reference.EvidenceId), AccumulatedReadIds(context).Take(6));
-        Assert.Equal(new[] { "OLD1", "OLD2" }, AccumulatedReadIds(context).TakeLast(2));
+        Assert.Equal(new[] { "OLD1", "Q1H2", "OLD2", "Q2H2" }, AccumulatedReadIds(context).Skip(6).Take(4));
         var beforeEmpty = AccumulatedReadIds(context).ToArray();
         AccumulatedRemember(context, "find_source_text", []);
         Assert.Equal(beforeEmpty, AccumulatedReadIds(context));
