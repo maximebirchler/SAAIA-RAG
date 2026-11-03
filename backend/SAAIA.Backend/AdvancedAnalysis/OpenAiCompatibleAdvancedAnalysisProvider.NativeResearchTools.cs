@@ -107,7 +107,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         {
             if (_options.NativeSourceTitleNavigationEnabled)
                 functions.Add(Function(AdvancedAnalysisSourceTitlePage.Operation,
-                    "Browse the canonical contents and title anchors of one observed source without guessing keywords. Start at offset 0, then use nextOffset if more titles are needed. At most four title pages per batch; the character cap may return fewer than limit. Set cardBackedOnly=true to browse only locators corroborated by a safe indexed content card at the same title and pages. This filter provides no semantic suitability decision and is not exhaustive. Titles and physical locations are navigation only, never citations, item counts or suitability decisions. Read a located body with read_source or find_source_text before using it.", new()
+                    "Browse canonical contents and title anchors of an observed source. For additional named bodies, prefer cardBackedOnly=true: it prioritizes locating bodies by limiting results to titles corroborated by an indexed card at the same physical pages. Use false for broader contents coverage. Neither mode establishes suitability. Start at offset 0 and use nextOffset to continue the same filters. At most four title pages per batch; the character cap can return fewer than limit. Titles and physical locations are navigation only. Read a located body with read_source or find_source_text before using it.", new()
                     {
                         ["sourceKey"] = Choice(sources),
                         ["offset"] = Count(0, AdvancedAnalysisSourceTitlePage.MaximumOffset),
@@ -404,6 +404,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             activeSourceCatalogue: visible is PromptEvidenceProjection { SourceCatalogueEnabled: true } projection
                 ? projection.SourceCatalogue : null);
 
+    private static string? CurrentNativeSourceKey(
+        IReadOnlyList<PromptSourceHandle>? activeSourceCatalogue,
+        AdvancedAnalysisResultEvidence locatorScope)
+        => activeSourceCatalogue?.FirstOrDefault(item =>
+            item.SourceReference.DocId == locatorScope.DocId
+            && item.SourceReference.RevisionId == locatorScope.RevisionId
+            && item.SourceReference.SourceHash == locatorScope.SourceHash
+            && item.SourceReference.DocPath == locatorScope.DocPath)?.SourceKey;
+
     private IReadOnlyList<object> BuildNativeToolTurnMessagesCore(NativeResearchTurn? turn,
         IReadOnlyList<PromptEvidenceItem> visible, bool responses, bool emitDiagnostics,
         IReadOnlyList<PromptSourceHandle>? activeSourceCatalogue)
@@ -517,11 +526,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (ReadString(call.GetProperty("function"), "name") == AdvancedAnalysisSourceTitlePage.Operation)
             {
                 var sourceKey = turn.CallSourceScopes.TryGetValue(callId, out var locatorScope)
-                    ? activeSourceCatalogue?.FirstOrDefault(item =>
-                        item.SourceReference.DocId == locatorScope.DocId
-                        && item.SourceReference.RevisionId == locatorScope.RevisionId
-                        && item.SourceReference.SourceHash == locatorScope.SourceHash
-                        && item.SourceReference.DocPath == locatorScope.DocPath)?.SourceKey
+                    ? CurrentNativeSourceKey(activeSourceCatalogue, locatorScope)
                     : null;
                 var output = JsonSerializer.Serialize(new
                 {

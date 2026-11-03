@@ -334,6 +334,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     }, JsonOptions)!.AsObject();
                     if (researchAllowed && BuildSourceTitleExplorationGuidance(request.Handoff.Load, observations, context) is { } guidance)
                         researchTools["sourceTitleExploration"] = JsonSerializer.SerializeToNode(guidance, JsonOptions);
+                    if (researchAllowed && BuildSourceTitleBodyReadGuidance(request.Handoff.Load, observations, context.NativeTurn) is { } bodyRead)
+                        researchTools["sourceTitleBodyRead"] = JsonSerializer.SerializeToNode(bodyRead, JsonOptions);
                     payload["researchTools"] = researchTools;
                 }
                 if (context.ResourceLimit is not null)
@@ -722,7 +724,58 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             observedSourceCount = projection.SourceCatalogue.Count,
             successfulTitleListings = completed.Count(search => search.Operation == AdvancedAnalysisSourceTitlePage.Operation),
             documentaryEvidence = false,
-            instruction = "If you still need additional named bodies, use the current source catalogue to choose a different documentary check. Consider list_source_titles in an observed source to browse specific headings without guessing another broad query, then read a promising physical page before judging the item. Use a focused lexical search when it tests a different documentary hypothesis. This is a summary of operations already run, not a count of items available or a decision about any source or placement."
+            instruction = "If you still need additional named bodies, use the current source catalogue to choose a different documentary check. Consider list_source_titles with cardBackedOnly=true in an observed source to find headings linked to indexed physical pages, then read a promising page before judging the item. Use false for broader contents coverage or a focused lexical search to test a different documentary hypothesis. This is a summary of operations already run, not a count of items available or a decision about any source or placement."
+        };
+    }
+
+    private static object? BuildSourceTitleBodyReadGuidance(
+        AdvancedAnalysisLoadDescriptor load,
+        IReadOnlyList<PromptEvidenceItem> observations,
+        NativeResearchTurn? turn)
+    {
+        if (!load.StructuredLayout || load.AnswerUnitCount < 2
+            || !string.Equals(load.AtomicEvidenceMode, "named_item", StringComparison.OrdinalIgnoreCase)
+            || observations is not PromptEvidenceProjection { SourceCatalogueEnabled: true, SourceCatalogue.Count: > 0 } projection
+            || turn is null || turn.Rejection is not null)
+            return null;
+
+        static bool HasVisibleBody(PromptEvidenceItem item)
+            => item.ContentRole != RetrievalContentClassifier.NavigationRole
+                && GetVisibleEvidenceContents(item).Any(content => !string.IsNullOrWhiteSpace(content)
+                    && RetrievalContentClassifier.AnalyzeEvidenceContent(content, item.CandidateTitle).ContentRole
+                        != RetrievalContentClassifier.NavigationRole
+                    && (item.CandidateTitle is not { Length: > 0 } title
+                        || !RetrievalContentClassifier.IsIdentityOnlyCandidateEvidence(content, title, title)));
+
+        var located = new HashSet<(string SourceKey, int Page, string Title)>();
+        var returnedBody = false;
+        foreach (var (callId, request) in turn.CallRequests)
+        {
+            if (!turn.Results.TryGetValue(BuildSearchIdentity(request), out var result)
+                || result.ResourceLimit is not null || result.NotExecutedAfterResourceLimit)
+                continue;
+            if (request.Operation is "read_source" or "find_source_text"
+                && request.NativeObservationView is null && request.TableObservationView is null
+                && result.Evidence.Any(item => item.Reference.EvidenceId is { } id
+                    && observations.Any(visible => visible.EvidenceId == id && HasVisibleBody(visible))))
+                returnedBody = true;
+            if (request.Operation != AdvancedAnalysisSourceTitlePage.Operation || result.SourceTitlePage is not { } page
+                || !turn.CallSourceScopes.TryGetValue(callId, out var scope)
+                || CurrentNativeSourceKey(projection.SourceCatalogue, scope) is not { } sourceKey)
+                continue;
+            foreach (var item in page.Items)
+                if (item.PhysicalPageStart is > 0)
+                    located.Add((sourceKey, item.PhysicalPageStart.Value, item.Title));
+        }
+        if (returnedBody || located.Count == 0)
+            return null;
+
+        return new
+        {
+            reasonCode = "located_titles_without_body_read",
+            visiblePhysicalLocators = located.Count,
+            documentaryEvidence = false,
+            instruction = "The latest tool results exposed physical title locations without a visible body from a direct read in that batch. If more bodies are needed, choose a few promising locators from these tool results and try read_source with the current sourceKey, the locator's physicalPageStart as pageStart, and pageCount=1, or find_source_text with an exact observed title. Prefer this body check before another navigation page or a conclusion of insufficient documentation. Use a different observed source or cardBackedOnly=true when these locators are irrelevant. A locator does not prove an item, suitability, or absence."
         };
     }
 
