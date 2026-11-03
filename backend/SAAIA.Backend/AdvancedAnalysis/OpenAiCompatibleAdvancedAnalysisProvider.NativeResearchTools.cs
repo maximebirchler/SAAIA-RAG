@@ -27,6 +27,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyDictionary<string, AdvancedAnalysisSearchRequest> Requests,
         IReadOnlyDictionary<string, AdvancedAnalysisResultEvidence> Sources);
 
+    private const int MaximumNativeSourceReadPages = 4;
+
     private const string NativeResearchContract = """
         If further documentary facts are needed and research is allowed, choose
         the appropriate declared function. Function results are bounded; current
@@ -118,7 +120,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var readProperties = new Dictionary<string, object>
             {
                 ["sourceKey"] = Choice(sources), ["pageStart"] = Count(1, int.MaxValue),
-                ["pageEnd"] = Count(1, int.MaxValue), ["topK"] = new
+                ["pageCount"] = new
+                {
+                    type = "integer", minimum = 1, maximum = MaximumNativeSourceReadPages,
+                    description = "Number of consecutive physical pages, including pageStart. Start with 1 at an observed title or body page. Use separate bounded calls for additional windows. Use 1 for secondary observation reads."
+                },
+                ["topK"] = new
                 {
                     type = "integer", minimum = 1, maximum = 60,
                     description = "For primary reads, maximum chunks in the whole physical window, not a ranked sample. For a single page of unknown density, start at 12; a smaller cap can refuse the entire read. Follow readRetry when supplied."
@@ -175,8 +182,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 readProperties["nativeObservationLimit"] = OptionalCount(1, 64);
             }
             functions.Add(Function("read_source", HasSecondaryTableReadings(root)
-                ? "Read an observed physical source window. Primary reads use up to four pages. Secondary observation reads require exactly one page and the explicit observation view; do not mix primary row parameters. A secondary line is indivisible and may be refused when it does not fit. Raw remains readable when physical bands are unavailable."
-                : "Read a physical page window of an observed revision. Page bounds are inclusive; at most four pages per request. topK bounds every chunk intersecting the window: if the bounded result reports canonical_read_window_result_limit_exceeded, retry with a smaller window or a larger permitted topK instead of treating the source as absent. Useful for reading bodies located by contents or headings.", readProperties));
+                ? "Read an observed physical source window starting at pageStart for pageCount consecutive pages. Secondary observation reads require pageCount=1 and the explicit observation view; do not mix primary row parameters. A secondary line is indivisible and may be refused when it does not fit. Raw remains readable when physical bands are unavailable."
+                : "Read canonical bodies from an observed revision starting at pageStart for pageCount consecutive physical pages. topK bounds all chunks intersecting the window. If the result reports canonical_read_window_result_limit_exceeded, follow readRetry. Use the physical page from the title locator.", readProperties));
             functions.Add(Function("find_source_text", "Locate literal words or an observed title inside one observed revision. Case and whitespace normalized; punctuation remains literal. Results follow physical page order, so contents or index matches may precede substantive bodies. topK counts chunks, not distinct items. Inspect contentRole and use pagination or an observed physical-page read when a body is still needed. Returns canonical excerpts and pagination diagnostics; no semantic search fallback.", new()
             {
                 ["sourceKey"] = Choice(sources), ["query"] = Text("Literal words, between 2 and 512 characters."),
@@ -226,7 +233,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         }
         var reason = error is AdvancedAnalysisProviderException providerError
             ? providerError.ErrorCode : "native_function_arguments_json_invalid";
-        feedback = new(reason, "native_function_batch", string.Empty, null, null, 4);
+        feedback = (error as AdvancedAnalysisProviderException)?.ResearchArgumentFeedback
+            ?? new(reason, "native_function_batch", string.Empty, null, null, MaximumNativeSourceReadPages);
         return true;
     }
 
@@ -289,7 +297,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             string[] properties = name switch
             {
                 "search_corpus" => ["query", "sourceKey", "category", "documentHint", "topK"],
-                "read_source" => ["sourceKey", "pageStart", "pageEnd", "topK"],
+                "read_source" => ["sourceKey", "pageStart", "pageCount", "topK"],
                 "find_source_text" => ["sourceKey", "query", "offset", "topK"],
                 AdvancedAnalysisSourceTitlePage.Operation => ["sourceKey", "offset", "limit", "titleContains", "pageStart", "pageEnd", "cardBackedOnly"],
                 _ => throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid")
@@ -297,6 +305,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             using var arguments = JsonDocument.Parse(ReadString(function, "arguments"));
             if (arguments.RootElement.ValueKind != JsonValueKind.Object)
                 throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid");
+            // Historical completions may still use the original inclusive
+            // range. Accept that exact shape through its existing bounds.
+            if (name == "read_source" && !arguments.RootElement.TryGetProperty("pageCount", out _))
+                properties = ["sourceKey", "pageStart", "pageEnd", "topK"];
             var names = arguments.RootElement.EnumerateObject().Select(p => p.Name).ToArray();
             var optionalProperties=name=="read_source" ? new[] { "tableOrdinal","tableRowOffset","tableRowLimit" }
                 .Concat(HasSecondaryTableReadings(prompt.RootElement) ? new[] { "tableObservationId", "tableObservationView",
@@ -309,9 +321,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 || names.Any(n => !properties.Contains(n, StringComparer.Ordinal) && !optionalProperties.Contains(n,StringComparer.Ordinal))
                 || properties.Any(n => !names.Contains(n, StringComparer.Ordinal)))
                 throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid");
-            if (name == "read_source")
-                RequireObservedNativeRawLocator(arguments.RootElement, prompt.RootElement);
-            queries.Add(BuildNormalizedNativeQuery(arguments.RootElement, name));
+            var query = BuildNormalizedNativeQuery(arguments.RootElement, name);
+            if (name == "read_source" && ReadString(arguments.RootElement, "nativeObservationView") == "raw")
+                RequireObservedNativeRawLocator(JsonSerializer.SerializeToElement(query, JsonOptions), prompt.RootElement);
+            queries.Add(query);
         }
         var normalized = new JsonObject { ["outcome"] = "research_required", ["queries"] = queries };
         if (state is not null) normalized["researchState"] = state;
@@ -324,6 +337,19 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private static JsonObject BuildNormalizedNativeQuery(JsonElement arguments, string operation)
     {
         var query = JsonNode.Parse(arguments.GetRawText())!.AsObject();
+        if (operation == "read_source" && arguments.TryGetProperty("pageCount", out var count))
+        {
+            int? firstPage = arguments.TryGetProperty("pageStart", out var start)
+                && start.ValueKind == JsonValueKind.Number && start.TryGetInt32(out var first) ? first : null;
+            if (count.ValueKind != JsonValueKind.Number || !count.TryGetInt32(out var pages)
+                || pages is < 1 or > MaximumNativeSourceReadPages
+                || firstPage is null or < 1 || (long)firstPage.Value + pages - 1 > int.MaxValue)
+                throw new AdvancedAnalysisProviderException("advanced_native_read_source_page_count_invalid",
+                    researchArgumentFeedback: new("advanced_native_read_source_page_count_invalid", operation,
+                        string.Empty, firstPage, null, MaximumNativeSourceReadPages));
+            query.Remove("pageCount");
+            query["pageEnd"] = firstPage.Value + (pages - 1);
+        }
         query["operation"] = operation;
         return query;
     }
@@ -411,7 +437,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     operation = ReadString(call.GetProperty("function"), "name"),
                     argumentFeedback = turn.Rejection,
                     visibleEvidenceIds = Array.Empty<string>(),
-                    instruction = "No call in this batch executed and no state or evidence window changed. Correct the complete batch using the currently declared function schemas and current visible evidence."
+                    instruction = turn.Rejection.ReasonCode is "advanced_native_read_source_page_count_invalid" or "read_source_page_window_invalid"
+                        ? "No call in this batch executed. Correct the complete batch. For each read_source, use its observed physical pageStart and a pageCount from 1 to 4. Do not send pageEnd. Use separate calls for additional windows."
+                        : "No call in this batch executed and no state or evidence window changed. Correct the complete batch using the currently declared function schemas and current visible evidence."
                 }, JsonOptions);
                 messages.Add(responses ? new { type = "function_call_output", call_id = ReadString(call, "id"), output = rejected }
                     : (object)new { role = "tool", tool_call_id = ReadString(call, "id"), content = rejected });
@@ -559,6 +587,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 {
                     pageStart,
                     pageEnd,
+                    pageCount = pageEnd - pageStart + 1,
                     suggestedTopK,
                     instruction = pageStart != pageEnd
                         ? "No text was returned. If this evidence is still useful, retry a smaller page window with the same sourceKey. The observed chunk count is a lower bound, not the page's size."
