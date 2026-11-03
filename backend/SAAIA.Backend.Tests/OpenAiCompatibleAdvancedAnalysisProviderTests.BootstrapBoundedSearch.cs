@@ -52,7 +52,11 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             gateway.Searches.Select(search => search.Query));
         Assert.Equal(0, gateway.CapacityRefusals);
         Assert.Empty(gateway.Retired);
-        Assert.Equal(128, gateway.Evidence.Count);
+        // Conservative five-reference allocation need not fill all slots when
+        // this older fixture returns only one reference per match.
+        Assert.Equal(initialCount == 0 ? 54 : 127, gateway.Evidence.Count);
+        Assert.Equal(initialCount == 0 ? new[] { 3, 3, 4, 4, 5, 7, 10, 18 } : Enumerable.Repeat(1, 8),
+            gateway.Searches.Select(search => search.TopK));
         Assert.True(gateway.MaximumObservedActiveCount <= 128);
         Assert.All(gateway.Initial, old => Assert.Contains(gateway.Evidence,
             item => item.Reference == old.Reference && item.Content == old.Content));

@@ -247,6 +247,9 @@ internal sealed class AdvancedAnalysisToolGatewayFactory :
 
 internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
 {
+    // A canonical match can contribute four content cards plus its chunk.
+    // Bootstrap capacity planning must use the same upper bound as this builder.
+    internal const int MaximumEvidenceReferencesPerMatch = 5;
     private const int MaximumQueryCharacters = 8_000;
     private const int MaximumScopeCharacters = 2_000;
     private readonly Guid _jobId;
@@ -943,7 +946,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var match in matches)
         {
-            foreach (var card in match.MatchedContentCards?.Take(4)
+            foreach (var card in match.MatchedContentCards?.Take(MaximumEvidenceReferencesPerMatch - 1)
                          ?? Enumerable.Empty<RagMatchedContentCard>())
             {
                 if (string.Equals(

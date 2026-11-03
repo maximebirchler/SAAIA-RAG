@@ -72,17 +72,29 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         if (request.Operation != "search_corpus" || remainingOperations < 1
             || budget is null || budget.RemainingEvidenceItems is not { } available || available <= 0)
             return request;
-        var effective = Math.Min(request.TopK, Math.Max(1, available / remainingOperations));
-        if (effective == request.TopK) return request;
+        // TopK counts RagMatch objects, not the references admitted afterwards.
+        // Keep every returned card/chunk: bound matches using the builder's
+        // conservative expansion instead of truncating canonical references.
+        var expansion = AdvancedAnalysisToolGateway.MaximumEvidenceReferencesPerMatch;
+        var remainingMatchCapacity = available / expansion;
+        var batchCapacitySufficient = remainingMatchCapacity >= remainingOperations;
+        var effective = Math.Min(request.TopK, Math.Max(1, remainingMatchCapacity / remainingOperations));
+        if (effective == request.TopK && batchCapacitySufficient) return request;
         using var probe = BackendDiagnostics.Start("advanced.bootstrap_search_bound", _logger);
         probe.Set("requested_top_k", request.TopK);
         probe.Set("effective_top_k", effective);
         probe.Set("remaining_bootstrap_operations", remainingOperations);
         probe.Set("remaining_evidence_items", available);
+        probe.Set("maximum_evidence_references_per_match", expansion);
+        probe.Set("remaining_match_capacity", remainingMatchCapacity);
+        probe.Set("conservative_batch_capacity_sufficient", batchCapacitySufficient);
         probe.Set("maximum_evidence_items", budget.MaximumEvidenceItems);
         probe.Set("consumed_evidence_items", budget.ConsumedEvidenceItems);
         probe.Set("working_set_rotation_enabled", budget.EvidenceRotationEnabled);
         probe.Complete();
+        // At least one match is requested even when fewer than five slots per
+        // pending operation remain. That case is explicitly not guaranteed to
+        // fit; existing atomic refusal/partial-batch feedback remains in charge.
         // TopK is part of the ordinary request/SQL-history identity. The model
         // therefore sees the effective bound, never an unexecuted requested one.
         return request with { TopK = effective };
