@@ -8,7 +8,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "validation-wire"))
 from verify_wire import extended_windows_path, read_call_probes, require, utf16_length, verify_projection
-from verify_planning_result import selection_policy
+from verify_planning_result import coordinates, require_distinct_five_day_wire_contract, selection_policy
 
 
 def digest(path):
@@ -26,6 +26,10 @@ def inspect(profile_path, runtime):
     load = submission["handoff"]["load"]
     case = profile["case"]
     policy = selection_policy(case)
+    if case["kind"] == "five-day-20-distinct":
+        coordinates(case)
+        require(load.get("atomicEvidenceMode") == "named_item" and load.get("rowCount") == 5
+                and load.get("columnCount") == 4, "planning_handoff_grid_or_initial_evidence_invalid")
     require(submission["handoff"]["transferStage"] == "before_retrieval"
             and submission["handoff"]["requestText"] == case["question"]
             and submission["handoff"]["researchState"]["evidenceReferences"] == []
@@ -88,6 +92,7 @@ def inspect(profile_path, runtime):
                     and actual_load["rowLabels"] == case["rowLabels"] and actual_load["columns"] == case["columns"]
                     and actual_load["structuredLayout"] is True and actual_load["selectionPolicy"] == policy,
                     "actual_writer_grid_contract_changed_before_provider")
+            require_distinct_five_day_wire_contract(case, users[0])
             require({"search_corpus", "read_source", "find_source_text", "read_evidence"} <= tools,
                     "planning_writer_native_tools_missing")
             reader = next(item for item in body["tools"] if item.get("name") == "read_source")
@@ -111,6 +116,8 @@ def inspect(profile_path, runtime):
             + Decimal(str(profile["budget"]["baselineCostUsd"])) <= Decimal("0.50"),
             "initial_envelopes_do_not_fit_cumulative_budget")
     return {"schemaVersion": "saaia-planning-envelope-preflight.v1", "profileSha256": digest(profile_path),
+            **({"caseKind": case["kind"], "distinctSelectionContractObserved": True}
+               if case["kind"] == "five-day-20-distinct" else {}),
             "selectionPolicy": policy,
             "corpusManifestSha256": profile["corpus"]["manifestSha256"], "writerToolsObserved": True,
             "exactCapturedRequestVerified": True, "exactRequestParity": False,

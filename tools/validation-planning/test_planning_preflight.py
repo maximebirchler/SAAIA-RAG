@@ -9,6 +9,7 @@ import copy
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'validation-wire'))
 from planning_preflight import preflight_reply
 from verify_planning_inputs import inspect
+from verify_planning_result import coordinates
 from verify_wire import utf16_length
 
 
@@ -50,8 +51,11 @@ class PlanningPreflightPolicyTests(unittest.TestCase):
         days = ["lundi"] if kind == "one-day-4" else ["lundi", "mardi", "mercredi", "jeudi", "vendredi"]
         case = {"kind": kind, "question": "planning", "answerUnitCount": len(days) * 4, "rowLabels": days,
                 "columns": ["petit-déjeuner", "déjeuner", "collation", "souper"],
-                "selectionPolicy": "distinct_structured_layout" if kind == "one-day-4" else "structured_layout"}
+                "selectionPolicy": "structured_layout" if kind == "five-day-20" else "distinct_structured_layout"}
         load = dict(case, atomicEvidenceCount=case["answerUnitCount"], rowCount=len(days), columnCount=4, structuredLayout=True)
+        if kind == "five-day-20-distinct":
+            case["functionalFiveDayAcceptance"] = True
+            load["atomicEvidenceMode"] = "named_item"
         limits = {"maximumEvidencePromptCharacters": 65536, "maximumEvidenceCharactersTotal": 96000,
                   "maximumEvidenceCharactersPerItem": 14000, "maximumHistoryCharacters": 65536,
                   "maximumCallsPerJob": 64, "maximumToolCalls": 128, "writerMaxTokens": 8192,
@@ -93,6 +97,10 @@ class PlanningPreflightPolicyTests(unittest.TestCase):
                     "collection": "evidence", "visibleCount": 0, "fromCanonicalProjectionCount": 0,
                     "outsideCanonicalProjectionCount": 0, "canonicalProjectedNotSelectedCount": 0,
                     "truncatedContentCount": 0, "supportingWindowsOmittedCount": 0}, "instruction": "not corpus absence"})
+                if kind == "five-day-20-distinct":
+                    payload.update(claimCoordinates=coordinates(case), selectionContract={
+                        "selectionMode": "distinct_named_items", "requiredClaimCount": 20,
+                        "distinctNamedItemsRequired": True, "namedItemReuseAllowed": False})
             body = {"model": "gpt-5.6-luna", "store": False, "stream": False, "max_output_tokens": 8192,
                     "input": [{"role": "user", "content": json.dumps(payload)}], "tools": tools if role == "writer" else []}
             raw = json.dumps(body).encode("utf-8")
@@ -135,35 +143,55 @@ class PlanningPreflightPolicyTests(unittest.TestCase):
             profile, runtime = self.prepare_inspection(pathlib.Path(folder), "five-day-20")
             self.assertEqual("structured_layout", inspect(profile, runtime)["selectionPolicy"])
 
+    def test_twenty_distinct_preflight_admits_the_explicit_wire_contract(self):
+        with tempfile.TemporaryDirectory() as folder:
+            profile, runtime = self.prepare_inspection(pathlib.Path(folder), "five-day-20-distinct")
+            receipt = inspect(profile, runtime)
+            self.assertEqual("distinct_structured_layout", receipt["selectionPolicy"])
+            self.assertEqual("five-day-20-distinct", receipt["caseKind"])
+            self.assertTrue(receipt["distinctSelectionContractObserved"])
+
+    def test_twenty_distinct_preflight_refuses_repeatable_selection_mode_even_with_distinct_load(self):
+        with tempfile.TemporaryDirectory() as folder:
+            profile, runtime = self.prepare_inspection(pathlib.Path(folder), "five-day-20-distinct")
+            self.rebind_writer(runtime, lambda payload: payload["selectionContract"].update(
+                selectionMode="repeatable_named_items", namedItemReuseAllowed=True))
+            with self.assertRaisesRegex(ValueError, "planning_twenty_distinct_wire_contract_required"):
+                inspect(profile, runtime)
+
     def test_writer_policy_drift_is_rejected_after_wire_trace_and_probe_hashes_are_rebound(self):
         with tempfile.TemporaryDirectory() as folder:
             profile, runtime = self.prepare_inspection(pathlib.Path(folder), "five-day-20")
-            captures = runtime / "runtime/planning-wire-captures"
-            metadata_path = captures / "request-0002.http.json"
-            metadata = json.loads(metadata_path.read_bytes())
-            body_path = captures / metadata["bodyFile"]
-            body = json.loads(body_path.read_bytes())
-            payload = json.loads(body["input"][0]["content"])
-            payload["load"]["selectionPolicy"] = "distinct_structured_layout"
-            body["input"][0]["content"] = json.dumps(payload)
-            raw = json.dumps(body).encode("utf-8")
-            request_sha = hashlib.sha256(raw).hexdigest()
-            body_path.write_bytes(raw)
-            metadata.update(bodySha256=request_sha, bodyBytes=len(raw))
-            metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
-            trace_path = runtime / "runtime/private-traces/writer.json"
-            trace = json.loads(trace_path.read_bytes())
-            trace.update(requestSha256=request_sha, requestJson=raw.decode("utf-8"))
-            trace_path.write_text(json.dumps(trace), encoding="utf-8")
-            log_path = runtime / "runtime/paid-backend.stdout.log"
-            lines = log_path.read_text(encoding="ascii").splitlines()
-            prefix, measurement = lines[1].split("measurements=", 1)
-            probe = json.loads(measurement)
-            probe.update(request_sha256=request_sha, request_characters=utf16_length(raw.decode("utf-8")))
-            lines[1] = prefix + "measurements=" + json.dumps(probe)
-            log_path.write_bytes(("\n".join(lines)).encode("ascii"))
+            self.rebind_writer(runtime, lambda payload: payload["load"].update(selectionPolicy="distinct_structured_layout"))
             with self.assertRaisesRegex(ValueError, "actual_writer_grid_contract_changed_before_provider"):
                 inspect(profile, runtime)
+
+    @staticmethod
+    def rebind_writer(runtime, mutate):
+        captures = runtime / "runtime/planning-wire-captures"
+        metadata_path = captures / "request-0002.http.json"
+        metadata = json.loads(metadata_path.read_bytes())
+        body_path = captures / metadata["bodyFile"]
+        body = json.loads(body_path.read_bytes())
+        payload = json.loads(body["input"][0]["content"])
+        mutate(payload)
+        body["input"][0]["content"] = json.dumps(payload)
+        raw = json.dumps(body).encode("utf-8")
+        request_sha = hashlib.sha256(raw).hexdigest()
+        body_path.write_bytes(raw)
+        metadata.update(bodySha256=request_sha, bodyBytes=len(raw))
+        metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+        trace_path = runtime / "runtime/private-traces/writer.json"
+        trace = json.loads(trace_path.read_bytes())
+        trace.update(requestSha256=request_sha, requestJson=raw.decode("utf-8"))
+        trace_path.write_text(json.dumps(trace), encoding="utf-8")
+        log_path = runtime / "runtime/paid-backend.stdout.log"
+        lines = log_path.read_text(encoding="ascii").splitlines()
+        prefix, measurement = lines[1].split("measurements=", 1)
+        probe = json.loads(measurement)
+        probe.update(request_sha256=request_sha, request_characters=utf16_length(raw.decode("utf-8")))
+        lines[1] = prefix + "measurements=" + json.dumps(probe)
+        log_path.write_bytes(("\n".join(lines)).encode("ascii"))
 
     def test_writer_stops_after_capture_instead_of_faking_a_planning_answer(self):
         with self.assertRaisesRegex(ValueError, 'planning_preflight_stop_after_writer_capture'):

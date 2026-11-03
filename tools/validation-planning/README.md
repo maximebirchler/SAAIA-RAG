@@ -2,7 +2,25 @@
 
 Ce harnais traite la demande historique complète : cinq jours, quatre créneaux et vingt cellules concrètes et sourcées. La question demande des sources utiles non dupliquées, sans exiger vingt recettes différentes. Le profil `five-day-20` déclare donc explicitement `selectionPolicy=structured_layout` : une recette documentée peut revenir dans plusieurs cellules adaptées, sous son vrai nom et avec les mêmes preuves dédupliquées. Le reçu indique le nombre réel de recettes distinctes et les coordonnées des répétitions ; il ne les cache pas et ne transforme pas une grille répétée en approbation sémantique. Une cellule vide, un corps non lu, une recette inventée ou une citation incorrecte reste refusé. La pertinence de chaque repas et des répétitions reste à vérifier.
 
-Il ne réemploie pas le contrat du microtest factuel, ses huit pages ou ses quatre appels. Le diagnostic `one-day-4` demande explicitement quatre propositions distinctes et conserve `selectionPolicy=distinct_structured_layout` ; il ne valide jamais le planning final. Ces deux cas exigent une policy présente et cohérente dans le profil, le handoff, le prévol et le dernier message réellement envoyé au modèle. Les anciennes captures/profils sans cette déclaration ne sont pas requalifiés silencieusement : un nouvel essai doit figer son profil et son prévol.
+Il ne réemploie pas le contrat du microtest factuel, ses huit pages ou ses quatre appels. Le diagnostic `one-day-4` demande explicitement quatre propositions distinctes et conserve `selectionPolicy=distinct_structured_layout` ; il ne valide jamais le planning final. Le cas indépendant `five-day-20-distinct` demande explicitement vingt recettes différentes, sans réutilisation. Il exige `selectionPolicy=distinct_structured_layout`, vingt coordonnées et le contrat `distinct_named_items` dans le Writer de prévol et dans la requête du modèle qui a produit la réponse finale. Le résultat doit présenter vingt identités lexicalement distinctes, même après normalisation des accents, de la casse et de la ponctuation. La revue manuelle vérifie encore les alias et la pertinence des recettes.
+
+Les trois cas exigent une politique présente et cohérente dans le profil, le handoff, le prévol et le dernier message réellement envoyé au modèle. Les anciennes captures/profils ne sont pas requalifiés silencieusement : un nouvel essai doit figer son propre profil et son prévol.
+
+Pour créer uniquement le profil du nouveau cas, depuis la racine du dépôt, en fournissant un manifeste de corpus déjà revu et la racine de campagne autorisée (celle qui conserve le même registre de dépenses) :
+
+```powershell
+pwsh -NoProfile -File tools/validation-planning/new-planning-campaign-profile.ps1 `
+  -OutputPath $nouveauProfil -CampaignRoot $racineCampagne -CorpusManifestPath $manifesteCorpus `
+  -CaseKind five-day-20-distinct
+```
+
+Cette commande ne lance aucun test réel et laisse le profil `PROPOSED`. Pour une publication par le worker réel, ajouter `-RealRagProfilePath $profilRagRevu`. Avant toute exécution payante, utiliser un nouveau prévol loopback avec ce profil ; un reçu d’un autre cas ne convient pas. Vérifications hors ligne du harnais :
+
+```powershell
+pwsh -NoProfile -File tools/validation-planning/Test-PlanningGuards.ps1
+Push-Location tools/validation-planning
+try { python -B -m unittest test_planning_preflight test_planning_result } finally { Pop-Location }
+```
 
 Le profil décrit Responses, `gpt-5.6-luna`, un raisonnement `low`, les outils natifs et les lectures RAW. Ses bornes sont explicites : jusqu'à 64 appels et 128 outils, Writer 8192 tokens, documentaire 65536 caractères, historique 65536, qui est le maximum admis par le produit. Les anciens profils à historique 131072 sont refusés et doivent être remplacés par un nouveau profil figé ; leurs captures restent historiques. Ces maxima ne sont pas des objectifs de consommation : la réserve monétaire durable peut arrêter le travail avant.
 

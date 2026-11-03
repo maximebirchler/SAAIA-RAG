@@ -14,18 +14,22 @@ def encoded(value):
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
 
-def fixture(count=4, extra_proofs=0):
+def fixture(count=4, extra_proofs=0, strict=False):
     days = ["lundi", "mardi", "mercredi", "jeudi", "vendredi"][:count // 4]
     columns = ["petit-déjeuner", "déjeuner", "collation", "souper"]
-    policy = "distinct_structured_layout" if count == 4 else "structured_layout"
-    case = {"kind": "one-day-4" if count == 4 else "five-day-20",
+    policy = "distinct_structured_layout" if count == 4 or strict else "structured_layout"
+    case = {"kind": "five-day-20-distinct" if strict else "one-day-4" if count == 4 else "five-day-20",
             "question": "Quatre propositions distinctes." if count == 4 else "Un planning documentaire.",
             "rowLabels": days, "columns": columns, "answerUnitCount": count, "functionalFiveDayAcceptance": count == 20,
             "selectionPolicy": policy}
+    if strict:
+        case["question"] = "Vingt recettes distinctes sans aucune répétition."
     profile = {"case": case, "provider": {"model": "economical-fixture", "apiProtocol": "responses", "reasoningEffort": "low"}}
     load = {"rowLabels": days, "columns": columns, "rowCount": len(days), "columnCount": 4,
             "answerUnitCount": count, "atomicEvidenceCount": count, "structuredLayout": True,
             "selectionPolicy": policy}
+    if strict:
+        load["atomicEvidenceMode"] = "named_item"
     handoff = {"requestText": case["question"], "transferStage": "before_retrieval", "load": load,
                "researchState": {"evidenceReferences": []}}
     doc_id, revision = "11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"
@@ -67,6 +71,9 @@ def fixture(count=4, extra_proofs=0):
     sql = {**copy.deepcopy(api), "handoff": copy.deepcopy(handoff), "canonicalHashes": [{"revisionId": revision, "sha256": doc["canonicalHash"]}],
            "events": [{"sequence": 1, "status": "succeeded", "evidence": copy.deepcopy(references)}]}
     payload = {"request": case["question"], "load": copy.deepcopy(load), "claimCoordinates": verifier.coordinates(case), "evidence": items}
+    if strict:
+        payload["selectionContract"] = {"selectionMode": "distinct_named_items", "requiredClaimCount": 20,
+                                        "distinctNamedItemsRequired": True, "namedItemReuseAllowed": False}
     value = {"profile": profile, "corpus": corpus, "submission": {"handoff": handoff}, "api": api, "sql": sql,
              "payload": payload, "traces": [], "probes": []}
     rebind(value)
@@ -313,6 +320,28 @@ class PlanningResultMechanicalTests(unittest.TestCase):
         self.assertEqual(1, review["repeatedRecipeReuseCount"])
         self.assertEqual(["C1", "C5"], review["repeatedRecipeGroups"][0]["claimIds"])
         self.assertFalse(review["semanticPlanningApproved"])
+
+    def test_twenty_distinct_is_a_separate_mechanically_qualified_case(self):
+        review = evaluate(fixture(20, strict=True))
+        self.assertEqual("five-day-20-distinct", review["caseKind"])
+        self.assertTrue(review["distinctSelectionRequired"])
+        self.assertEqual(20, review["distinctSelectedRecipeIdentityCount"])
+        self.assertEqual(0, review["repeatedRecipeReuseCount"])
+        self.assertFalse(review["functionalFiveDayAccepted"])
+
+    def test_twenty_distinct_rejects_a_repeated_identity_despite_different_citations_or_spelling(self):
+        for variant in ("Recette 1", "RECETTE--1", "Récette 1"):
+            with self.subTest(variant=variant):
+                value = fixture(20, strict=True)
+                value["api"]["result"]["claims"][4]["selectedItem"] = variant
+                rebind(value)
+                self.rejects(value, "planning_duplicate_recipe_identity")
+
+    def test_twenty_distinct_rejects_weakened_final_wire_contract(self):
+        value = fixture(20, strict=True)
+        value["payload"]["selectionContract"]["namedItemReuseAllowed"] = True
+        rebind(value)
+        self.rejects(value, "planning_twenty_distinct_wire_contract_required")
 
     def test_missing_or_unknown_selection_policy_cannot_silently_weaken_explicit_case(self):
         for policy in (None, "unrestricted"):

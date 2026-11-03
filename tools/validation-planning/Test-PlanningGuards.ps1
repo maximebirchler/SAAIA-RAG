@@ -34,9 +34,11 @@ try{
     }
     try{
         & (Join-Path $PSScriptRoot 'new-planning-campaign-profile.ps1') -OutputPath $profilePath -CampaignRoot (Join-Path $testRoot 'envelope') -CorpusManifestPath $manifest |Out-Null
+        $distinctPath=Join-Path $testRoot 'distinct-planning-profile.json'
+        & (Join-Path $PSScriptRoot 'new-planning-campaign-profile.ps1') -OutputPath $distinctPath -CampaignRoot (Join-Path $testRoot 'envelope') -CorpusManifestPath $manifest -CaseKind 'five-day-20-distinct' |Out-Null
     }finally{Remove-Item Function:\Get-FileHash}
     $p=Get-ValidatedPlanningProfile -ProfilePath $profilePath -RepositoryRoot $repo
-    Check ($syntheticHashState.Reads -eq 1 -and $p.execution.backendAssemblySha256 -ceq $syntheticBackendSha) 'Only the single backend assembly identity may be synthetic in this pure profile test.'
+    Check ($syntheticHashState.Reads -eq 2 -and $p.execution.backendAssemblySha256 -ceq $syntheticBackendSha) 'Only the backend assembly identity may be synthetic in this pure profile test.'
     Check ($p.corpus.manifestSha256 -ceq (Microsoft.PowerShell.Utility\Get-FileHash -LiteralPath $manifest -Algorithm SHA256).Hash) 'The synthetic backend hash must never replace the actual manifest hash.'
     $handoff=New-PlanningHandoff -Profile $p
     Check ($handoff.load.answerUnitCount -eq 20 -and $handoff.load.rowCount -eq 5 -and $handoff.load.columnCount -eq 4) 'The real planning load must remain five by four.'
@@ -48,6 +50,14 @@ try{
     $q=Copy-Profile $oneDay;$q.case.selectionPolicy='structured_layout';Reject $q 'The explicit distinct diagnostic cannot silently allow repetitions.'
     $q=Copy-Profile $p;$q.case.Remove('selectionPolicy');Reject $q 'Old profiles without a declared selection policy require a newly frozen profile.'
     $q=Copy-Profile $p;$q.case.selectionPolicy='distinct_structured_layout';Reject $q 'The historical question cannot silently acquire a twenty-distinct requirement.'
+    $distinct=Get-ValidatedPlanningProfile -ProfilePath $distinctPath -RepositoryRoot $repo
+    $distinctHandoff=New-PlanningHandoff -Profile $distinct
+    Check ($distinct.case.kind -ceq 'five-day-20-distinct' -and $distinct.case.functionalFiveDayAcceptance -eq $true -and
+        $distinct.case.question.Contains('vingt recettes distinctes') -and $distinct.case.question.Contains('sans répéter') -and
+        $distinctHandoff.load.answerUnitCount -eq 20 -and $distinctHandoff.load.rowCount -eq 5 -and $distinctHandoff.load.columnCount -eq 4 -and
+        $distinctHandoff.load.selectionPolicy -ceq 'distinct_structured_layout' -and $distinctHandoff.load.atomicEvidenceMode -ceq 'named_item') 'The new profile must explicitly require 20 distinct named slots and carry that requirement into the handoff.'
+    $q=Copy-Profile $distinct;$q.case.selectionPolicy='structured_layout';Reject $q 'The twenty-distinct case cannot silently allow repetitions.'
+    $q=Copy-Profile $distinct;$q.case.answerUnitCount=19;Reject $q 'The twenty-distinct case cannot accept 19 slots.'
     $options=Get-PlanningAdvancedOptions -Profile $p -OutputDirectory $testRoot -RepositoryRoot $repo
     Check ($options.NativeResearchToolsEnabled -and $options.NativeObservationReadEnabled -and $options.NativeResearchApiProtocol -ceq 'responses') 'Planning must expose the production native/RAW protocol.'
     Check ($options.ExternalBudgetHardLimitUsd -eq [decimal]0.49321314 -and $options.ExternalUsageLedgerPath -eq $p.budget.sharedLedgerPath) 'The durable planning envelope must include the historical baseline exactly once.'

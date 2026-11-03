@@ -43,14 +43,15 @@ def contains_name(text, name):
 
 
 def selection_policy(case):
-    expected = {"five-day-20": "structured_layout", "one-day-4": "distinct_structured_layout"}.get(case.get("kind"))
+    expected = {"five-day-20": "structured_layout", "one-day-4": "distinct_structured_layout",
+                "five-day-20-distinct": "distinct_structured_layout"}.get(case.get("kind"))
     require(expected is not None and case.get("selectionPolicy") == expected, "planning_case_selection_policy_invalid")
     return expected
 
 
 def coordinates(case):
     rows, columns = case["rowLabels"], case["columns"]
-    expected_rows = {"one-day-4": 1, "five-day-20": 5}.get(case["kind"])
+    expected_rows = {"one-day-4": 1, "five-day-20": 5, "five-day-20-distinct": 5}.get(case["kind"])
     require(expected_rows == len(rows) and len(columns) == 4
             and case["answerUnitCount"] == len(rows) * 4
             and case["functionalFiveDayAcceptance"] is (expected_rows == 5)
@@ -59,6 +60,21 @@ def coordinates(case):
             "planning_grid_profile_invalid")
     return [{"claimId": f"C{index + 1}", "rowLabel": row, "columnLabel": column}
             for index, (row, column) in enumerate((row, column) for row in rows for column in columns)]
+
+
+def require_distinct_five_day_wire_contract(case, payload):
+    """The new acceptance case must prove both the grid and selection contract."""
+    if case["kind"] != "five-day-20-distinct":
+        return
+    contract = payload.get("selectionContract")
+    require(isinstance(contract, dict)
+            and contract.get("selectionMode") == "distinct_named_items"
+            and contract.get("requiredClaimCount") == 20
+            and contract.get("distinctNamedItemsRequired") is True
+            and contract.get("namedItemReuseAllowed") is False
+            and payload.get("load", {}).get("atomicEvidenceMode") == "named_item"
+            and payload.get("claimCoordinates") == coordinates(case),
+            "planning_twenty_distinct_wire_contract_required")
 
 
 def split_table_row(line):
@@ -394,6 +410,8 @@ def evaluate(profile, corpus, submission, api, sql, traces, probes):
     expected_load = {"rowLabels": case["rowLabels"], "columns": case["columns"], "rowCount": len(case["rowLabels"]),
                      "columnCount": 4, "answerUnitCount": case["answerUnitCount"], "atomicEvidenceCount": case["answerUnitCount"],
                      "structuredLayout": True, "selectionPolicy": policy}
+    if case["kind"] == "five-day-20-distinct":
+        expected_load["atomicEvidenceMode"] = "named_item"
     require(all(handoff["load"].get(key) == value for key, value in expected_load.items()), "planning_actual_grid_load_changed")
     canonical_hashes = {doc["revisionId"]: doc["canonicalHash"] for doc in corpus["documents"].values()}
     require(len(sql["canonicalHashes"]) == len(canonical_hashes)
@@ -405,7 +423,9 @@ def evaluate(profile, corpus, submission, api, sql, traces, probes):
             "planning_claim_coordinates_incomplete_or_duplicate")
     require(all(isinstance(claim.get("selectedItem"), str) and normal(claim["selectedItem"]) for claim in claims),
             "planning_selected_recipe_identity_missing")
-    identities = [normal(claim["selectedItem"]) for claim in claims]
+    # Count cosmetic accent variants as one identity for the new strict case.
+    fold_distinct_accents = case["kind"] == "five-day-20-distinct"
+    identities = [normal(claim["selectedItem"], fold_distinct_accents) for claim in claims]
     if policy == "distinct_structured_layout":
         require(len(set(identities)) == len(identities), "planning_duplicate_recipe_identity")
     require(references and len({reference["evidenceId"] for reference in references}) == len(references),
@@ -467,6 +487,7 @@ def evaluate(profile, corpus, submission, api, sql, traces, probes):
             and payload.get("request") == case["question"]
             and all(payload["load"].get(key) == value for key, value in expected_load.items()),
             "planning_final_model_grid_contract_changed")
+    require_distinct_five_day_wire_contract(case, payload)
     known = {}
     for event in sql["events"]:
         if event["status"] == "succeeded":
@@ -525,7 +546,7 @@ def evaluate(profile, corpus, submission, api, sql, traces, probes):
                         "supportingWindowsExplicitlyOmitted": sum(proof["supportingWindowsOmitted"] for proof in own)})
     repeated = {}
     for coordinate in expected_coordinates:
-        identity = normal(claims_by_id[coordinate["claimId"]]["selectedItem"])
+        identity = normal(claims_by_id[coordinate["claimId"]]["selectedItem"], fold_distinct_accents)
         repeated.setdefault(identity, []).append(coordinate)
     repeat_groups = [{"normalizedSelectedItemSha256": sha(identity.encode("utf-8")),
                       "claimIds": [cell["claimId"] for cell in locations], "coordinates": locations}

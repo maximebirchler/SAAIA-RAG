@@ -54,11 +54,11 @@ function Assert-PlanningProfile {
         throw 'The reviewed conservative long-context upper bound and separately recorded base rates are required.'
     }
     $null=ConvertTo-PaidUtcStamp $r.observedAtUtc
-    if($p.case.kind -cnotin @('five-day-20','one-day-4') -or [string]::IsNullOrWhiteSpace($p.case.question)) {
+    if($p.case.kind -cnotin @('five-day-20','five-day-20-distinct','one-day-4') -or [string]::IsNullOrWhiteSpace($p.case.question)) {
         throw 'An explicit planning case is required.'
     }
-    $days=if($p.case.kind -ceq 'five-day-20'){5}else{1}
-    $selectionPolicy=if($p.case.kind -ceq 'one-day-4'){'distinct_structured_layout'}else{'structured_layout'}
+    $days=if($p.case.kind -ceq 'one-day-4'){1}else{5}
+    $selectionPolicy=if($p.case.kind -ceq 'five-day-20'){'structured_layout'}else{'distinct_structured_layout'}
     if($p.case.selectionPolicy -cne $selectionPolicy){throw 'An explicit selection policy matching the registered planning case is required.'}
     if(@($p.case.rowLabels).Count -ne $days -or @($p.case.columns).Count -ne 4 -or
        [int]$p.case.answerUnitCount -ne ($days*4) -or

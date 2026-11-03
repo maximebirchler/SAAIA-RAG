@@ -2559,3 +2559,11 @@ OCR : reproduction hors ligne sur 19 entrées synthétiques et fixtures, deux gr
 Deuxième suite Unit Backend : 4 081 réussites, aucun échec, deux exclusions existantes. Les demandes simples conservent le rejet strict ; la réparation est réservée aux grilles complètes autorisant la répétition. Les régressions de recherche couvrent FDS, certificat/rapport et type libre, distinguent une demande de rédaction d’un type de source et vérifient que les alias FDS exigent un signal explicite.
 
 Trois lignes OCR réelles de mathématiques historiques ont aussi été vérifiées isolément après leur annotation visuelle : le prédicat général signale les trois comme bruit, le prédicat d’unité publiée n’en signale aucune et aucune n’est réécrite. Cela ne démontre pas une perte en ingestion, où le contexte et les règles d’admission diffèrent. Restent nécessaires des régions OCR ancrées à l’image dans plusieurs domaines, dont du bruit avéré.
+
+### 2026-11-03 — Reprise de l’acceptation stricte du planning
+
+GitHub Offline validation 41667013366 réussit sur e0c07ed. L’accès SSH possédé est rétabli. BUILD28 Linux compile le même commit, avec 609 fichiers vérifiés et inspection indépendante de l’image et du binaire. La compilation n’a pas démarré le backend de qualification.
+
+Le rejeu hors ligne des vraies trames PAID22 retrouve uniquement la case C9 non soutenue au rédacteur et au critique, sur les 44 occurrences documentaires déjà contrôlées. Six scénarios simulés passent pour la réparation et l’insuffisance au plafond d’appels. Six autres passent pour une grille stricte 5×4 : le Planner ne peut relâcher la distinction, la grille distincte et sourcée est admise, un doublon persistant donne une insuffisance sans claim. Ces contrôles ne démontrent pas une sélection réelle.
+
+Le cas historique accepte les répétitions et reste un diagnostic. Le cas d’acceptation distinct exige vingt choix adaptés avec preuve exacte et trois réussites réelles consécutives sur le même état. Les témoins de faisabilité du corpus ne sont pas transmis au modèle. Le nouveau harnais est séparé des scénarios historiques. Aucun appel payant effectué pendant cette reprise ; **TESTE_NON_APPROUVE**.

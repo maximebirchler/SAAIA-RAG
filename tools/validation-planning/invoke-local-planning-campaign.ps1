@@ -36,6 +36,10 @@ if($Execute){
        $pre.corpusManifestSha256 -ine $profile.corpus.manifestSha256 -or $pre.writerToolsObserved -ne $true){
         throw 'Paid execution requires a successful exact-profile loopback envelope preflight.'
     }
+    if($profile.case.kind -ceq 'five-day-20-distinct' -and ($pre.caseKind -cne $profile.case.kind -or
+       $pre.selectionPolicy -cne $profile.case.selectionPolicy -or $pre.distinctSelectionContractObserved -ne $true)){
+        throw 'The twenty-distinct case requires its distinct Writer wire contract to have been observed in preflight.'
+    }
     if(-not [IO.Path]::IsPathFullyQualified($SecretStorePath) -or -not (Test-Path -LiteralPath $SecretStorePath -PathType Leaf)){
         throw 'An explicit existing DPAPI store is required after all authorization gates; no secret was read.'
     }

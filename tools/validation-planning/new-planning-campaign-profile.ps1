@@ -1,7 +1,7 @@
 #requires -Version 7.4
 [CmdletBinding()]
 param([Parameter(Mandatory)][string]$OutputPath,[Parameter(Mandatory)][string]$CampaignRoot,
-    [Parameter(Mandatory)][string]$CorpusManifestPath,[ValidateSet('five-day-20','one-day-4')][string]$CaseKind='five-day-20',
+    [Parameter(Mandatory)][string]$CorpusManifestPath,[ValidateSet('five-day-20','five-day-20-distinct','one-day-4')][string]$CaseKind='five-day-20',
     [string]$RealRagProfilePath='')
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'PlanningCampaign.Common.ps1')
@@ -15,6 +15,9 @@ $question=($bank.validationCases|Where-Object id -CEQ 'A755-ADV-01-meal-grid-5x4
 $days=@('lundi','mardi','mercredi','jeudi','vendredi')
 $manifestValue=Get-Content -LiteralPath $manifest -Raw|ConvertFrom-Json -AsHashtable -Depth 40
 if($CaseKind -ceq 'one-day-4'){$days=@('lundi');$question="Prépare un planning de repas pour lundi incluant petit-déjeuner, déjeuner, collation et souper. Quatre propositions concrètes distinctes, un format clair, avec des preuves utiles. N'invente rien."}
+if($CaseKind -ceq 'five-day-20-distinct'){
+    $question="Prépare un planning de repas du lundi au vendredi, avec petit-déjeuner, déjeuner, collation et souper chaque jour. Propose exactement vingt recettes distinctes, sans répéter une recette dans deux cases, même sous un autre nom. Présente les vingt propositions dans une grille claire, chacune avec une source utile qui documente la recette elle-même. N'invente rien."
+}
 $profile=@{
     schemaVersion='saaia-local-openai-planning-campaign.v1';campaignId=[Guid]::NewGuid().ToString('N');
     provider=@{model='gpt-5.6-luna';baseUrl='https://api.openai.com/v1';reasoningEffort='low';apiProtocol='responses'};
@@ -32,8 +35,8 @@ $profile=@{
         backendAssemblySha256=(Get-FileHash -LiteralPath (Join-Path $repo 'backend/SAAIA.Backend/bin/Release/net8.0/SAAIA.Backend.dll')).Hash};
     corpus=@{manifestPath=$manifest;manifestSha256=(Get-FileHash -LiteralPath $manifest).Hash;completeDocumentsRequired=$true};
     case=@{kind=$CaseKind;question=$question;rowLabels=$days;columns=@('petit-déjeuner','déjeuner','collation','souper');
-        answerUnitCount=($days.Count*4);functionalFiveDayAcceptance=($CaseKind -ceq 'five-day-20');
-        selectionPolicy=$(if($CaseKind -ceq 'one-day-4'){'distinct_structured_layout'}else{'structured_layout'})};
+        answerUnitCount=($days.Count*4);functionalFiveDayAcceptance=($days.Count -eq 5);
+        selectionPolicy=$(if($CaseKind -ceq 'five-day-20'){'structured_layout'}else{'distinct_structured_layout'})};
     spendAuthorization=@{status='PROPOSED';authorizedAtUtc=$null;basis=$null};
     boundaries=@{newIngestionValidated=$false;denseRetrievalValidated=$false;clientUiValidated=$false;semanticApproval='PENDING'}
 }
