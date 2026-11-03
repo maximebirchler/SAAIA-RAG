@@ -689,6 +689,7 @@ internal sealed class AdvancedAnalysisJobStore
     {
         "read_source" => "source_backed_canonical_read",
         "find_source_text" => "source_backed_canonical_find",
+        AdvancedAnalysisSourceTitlePage.Operation => "source_backed_canonical_navigation",
         "search_corpus" => "source_backed_canonical_search",
         _ => throw new ArgumentOutOfRangeException(nameof(operation), "Unsupported canonical tool operation.")
     };

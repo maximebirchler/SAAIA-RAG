@@ -48,7 +48,9 @@ internal sealed record AdvancedAnalysisSearchRequest(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? NativeObservationRawSha256 = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? NativeObservationOffset = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? NativeObservationLimit = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] AdvancedAnalysisEvidenceWorkingSet? EvidenceWorkingSet = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] AdvancedAnalysisEvidenceWorkingSet? EvidenceWorkingSet = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? TitleContains = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool CardBackedTitlesOnly = false);
 
 internal sealed record AdvancedAnalysisEvidenceWorkingSet(
     string SchemaVersion, int MaximumEvidenceItems, IReadOnlyList<AdvancedAnalysisResultEvidence> Evidence)
@@ -84,7 +86,8 @@ internal sealed record AdvancedAnalysisSearchObservation(
     IReadOnlyList<AdvancedAnalysisStructuredTableView>? StructuredTables = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] AdvancedAnalysisAlternativeTableReadings? AlternativeTableReadings = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] AdvancedAnalysisVisualSources? VisualSources = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] AdvancedAnalysisAlternativeNativeReadings? AlternativeNativeReadings = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] AdvancedAnalysisAlternativeNativeReadings? AlternativeNativeReadings = null,
+    AdvancedAnalysisSourceTitlePage? SourceTitlePage = null);
 
 internal sealed record AdvancedAnalysisResearchResourceLimit(string ReasonCode,
     int? MaximumEvidenceItems, int? ConsumedEvidenceItems, int? RequestedNewEvidenceItems,
@@ -265,6 +268,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
     private readonly int _attemptCount;
     private readonly int _maximumToolCalls;
     private readonly int _maximumSearchTopK;
+    private readonly bool _sourceTitleNavigationEnabled;
     private readonly int _maximumEvidenceItems;
     private readonly int _maximumStructuredTableCharacters;
     private readonly int _maximumNativeLineCharacters;
@@ -308,6 +312,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
         _attemptCount = attemptCount;
         _maximumToolCalls = Math.Clamp(options.MaximumToolCalls, 1, 256);
         _maximumSearchTopK = Math.Clamp(options.MaximumSearchTopK, 1, 500);
+        _sourceTitleNavigationEnabled = options.NativeResearchToolsEnabled && options.NativeSourceTitleNavigationEnabled;
         _maximumStructuredTableCharacters=Math.Clamp(options.MaximumEvidencePromptCharacters,1_000,200_000);
         _maximumNativeLineCharacters = Math.Clamp(options.MaximumEvidenceCharactersPerItem, 1_000, 200_000);
         _maximumNativeTotalCharacters = Math.Clamp(options.MaximumEvidenceCharactersTotal, _maximumNativeLineCharacters, 2_000_000);
@@ -466,6 +471,18 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                 .ConfigureAwait(false);
             if (admission is null)
                 throw new AdvancedAnalysisToolException("retrieval_capacity_busy");
+
+            if (request.Operation == AdvancedAnalysisSourceTitlePage.Operation)
+            {
+                ValidateObservedReadScope(request);
+                var page = await ListCanonicalSourceTitlesAsync(request, cancellationToken).ConfigureAwait(false);
+                var elapsed = ChargeElapsedOnce();
+                await PersistEventAsync("succeeded", request, [], [], elapsed, null, cancellationToken).ConfigureAwait(false);
+                probe.Set("locator_count", page.Items.Count);
+                probe.Set("tool_call_number", callNumber);
+                probe.Complete();
+                return new(request.Query, [], [], elapsed, callNumber, SourceTitlePage: page);
+            }
 
             var context = new RetrievalExecutionContext(_tenantId,
                 $"advanced:{_jobId:N}:{callNumber}", cancellationToken,
@@ -1146,6 +1163,24 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
         {
             throw new AdvancedAnalysisToolException("search_query_invalid");
         }
+        if (request.Operation == AdvancedAnalysisSourceTitlePage.Operation)
+        {
+            if (!_sourceTitleNavigationEnabled)
+                throw new AdvancedAnalysisToolException("canonical_title_navigation_disabled");
+            if (!Guid.TryParse(request.DocId, out _) || !Guid.TryParse(request.RevisionId, out _)
+                || string.IsNullOrWhiteSpace(request.DocPath) || HasOversizedScope(request.DocPath)
+                || request.Category is not null || request.DocumentHint is not null
+                || request.PageStart is < 1 || request.PageEnd is < 1 || request.PageStart > request.PageEnd
+                || request.TitleContains is { Length: < 2 or > AdvancedAnalysisSourceTitlePage.MaximumTitleFilterCharacters }
+                || request.TitleContains is not null && (string.IsNullOrWhiteSpace(request.TitleContains) || request.TitleContains.Any(char.IsControl))
+                || request.TableOrdinal is not null || request.TableRowOffset is not null || request.TableRowLimit is not null
+                || request.Query != AdvancedAnalysisSourceTitlePage.Query
+                || !AdvancedAnalysisSourceTitlePage.IsValidWindow(request.Offset, request.TopK))
+                throw new AdvancedAnalysisToolException("canonical_title_navigation_scope_or_window_invalid");
+            return;
+        }
+        if (request.TitleContains is not null || request.CardBackedTitlesOnly)
+            throw new AdvancedAnalysisToolException("canonical_title_navigation_filter_not_allowed");
         if (request.TopK is <= 0 || request.TopK > _maximumSearchTopK)
             throw new AdvancedAnalysisToolException("search_top_k_invalid");
         if (request.Operation is not "search_corpus" and not "read_source" and not "find_source_text")

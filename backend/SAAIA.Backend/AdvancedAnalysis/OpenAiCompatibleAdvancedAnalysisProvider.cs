@@ -124,7 +124,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             var searchExecutionStatuses = request.PreviousToolEvents
                 .Select((item, index) => (index, status: item.Status is "succeeded" or "failed" ? item.Status : "unknown"))
                 .ToDictionary(entry => entry.index, entry => entry.status);
-            var previouslyExecuted = request.PreviousToolEvents.Where(item => item.Status == "succeeded")
+            var previouslyExecuted = request.PreviousToolEvents.Where(item => item.Status == "succeeded"
+                    && item.Request.Operation != AdvancedAnalysisSourceTitlePage.Operation)
                 .Select(item => BuildSearchIdentity(item.Request))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -774,7 +775,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         // stateless endpoint and response envelope as Navigator and Writer.
         var nativeResponses = _options.NativeResearchToolsEnabled && UsesNativeResponses;
         if (nativeFunctions is not null)
+        {
             systemPrompt = systemPrompt.Replace(BuildSynthesisResearchContract(), NativeResearchContract, StringComparison.Ordinal);
+            if (_options.NativeSourceTitleNavigationEnabled)
+                systemPrompt += "\nWhen list_source_titles is offered, use it to browse an observed source for additional candidates when lexical searches do not expose enough plausible bodies. Start at offset 0, narrow by title or physical pages when useful, and use nextOffset to continue the same filter. Read selected locations before evaluating or citing them.";
+        }
         if (nativeResponses
             && !systemPrompt.Contains("json", StringComparison.OrdinalIgnoreCase)
             && !userPrompt.Contains("json", StringComparison.OrdinalIgnoreCase))

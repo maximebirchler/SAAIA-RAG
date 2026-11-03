@@ -30,6 +30,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var allowedCategories = BuildAllowedPlannerCategories(
                 request,
                 availableCategories);
+            var titleNavigationCount = 0;
             foreach (var item in queries.EnumerateArray())
             {
                 if (result.Count >= maximumQueries
@@ -41,6 +42,47 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 if (item.TryGetProperty("operation", out var operationValue)
                     && operationValue.ValueKind is not JsonValueKind.String and not JsonValueKind.Null) throw new JsonException();
                 if (operation.Length == 0) operation = "search_corpus";
+                if (operation == AdvancedAnalysisSourceTitlePage.Operation)
+                {
+                    int? PhysicalBound(string name)
+                    {
+                        if (!item.TryGetProperty(name, out var value)) throw new JsonException();
+                        if (value.ValueKind == JsonValueKind.Null) return null;
+                        if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out var bound) || bound < 1)
+                            throw new JsonException();
+                        return bound;
+                    }
+                    var firstPage = PhysicalBound("pageStart");
+                    var lastPage = PhysicalBound("pageEnd");
+                    if (!_options.NativeResearchToolsEnabled || !_options.NativeSourceTitleNavigationEnabled
+                        || ++titleNavigationCount > AdvancedAnalysisSourceTitlePage.MaximumPagesPerBatch
+                        || item.EnumerateObject().Count() != 8
+                        || firstPage > lastPage
+                        || !item.TryGetProperty("cardBackedOnly", out var cardFilter)
+                        || cardFilter.ValueKind is not (JsonValueKind.True or JsonValueKind.False)
+                        || !item.TryGetProperty("titleContains", out var literal)
+                        || literal.ValueKind is not (JsonValueKind.String or JsonValueKind.Null)
+                        || !item.TryGetProperty("offset", out var locatorOffset) || locatorOffset.ValueKind != JsonValueKind.Number
+                        || !locatorOffset.TryGetInt32(out var firstLocator)
+                        || !item.TryGetProperty("limit", out var locatorLimit) || locatorLimit.ValueKind != JsonValueKind.Number
+                        || !locatorLimit.TryGetInt32(out var locatorCount)
+                        || !AdvancedAnalysisSourceTitlePage.IsValidWindow(firstLocator, locatorCount)
+                        || ResolveObservedSource(observations, ReadString(item, "sourceKey")) is not { } locatorSource
+                        || !Guid.TryParse(locatorSource.DocId, out _) || !Guid.TryParse(locatorSource.RevisionId, out _)
+                        || string.IsNullOrWhiteSpace(locatorSource.DocPath) || string.IsNullOrWhiteSpace(locatorSource.SourceHash))
+                        throw new JsonException();
+                    var titleFilter = literal.GetString()?.Trim();
+                    if (titleFilter is { Length: < 2 or > AdvancedAnalysisSourceTitlePage.MaximumTitleFilterCharacters }
+                        || titleFilter?.Any(char.IsControl) == true)
+                        throw new JsonException();
+                    var locatorRequest = new AdvancedAnalysisSearchRequest(AdvancedAnalysisSourceTitlePage.Query,
+                        TopK: locatorCount, DocId: locatorSource.DocId, DocPath: locatorSource.DocPath,
+                        Operation: operation, RevisionId: locatorSource.RevisionId, Offset: firstLocator,
+                        PageStart: firstPage, PageEnd: lastPage, TitleContains: titleFilter,
+                        CardBackedTitlesOnly: cardFilter.GetBoolean());
+                    if (dedupe.Add(BuildSearchIdentity(locatorRequest))) result.Add(locatorRequest);
+                    continue;
+                }
                 if (operation is not "search_corpus" and not "read_source" and not "find_source_text") throw new JsonException();
                 var isRead = operation == "read_source";
                 var isFind = operation == "find_source_text";
@@ -844,7 +886,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             ? "|visual|" + JsonSerializer.Serialize(new
             {
                 search.IncludeVisualSources, search.VisualSourceOffset, search.VisualSourceLimit
-            }) : "") + (AdvancedAnalysisNativeObservationReader.HasRequest(search)
+            }) : "") + (search.Operation == AdvancedAnalysisSourceTitlePage.Operation
+            ? "|titles|" + JsonSerializer.Serialize(new { search.TitleContains, search.CardBackedTitlesOnly }) : "")
+        + (AdvancedAnalysisNativeObservationReader.HasRequest(search)
             ? "|native|" + JsonSerializer.Serialize(new { search.NativeObservationView, search.NativeObservationBlockId,
                 search.NativeObservationRawSha256, search.NativeObservationOffset, search.NativeObservationLimit }) : "");
 

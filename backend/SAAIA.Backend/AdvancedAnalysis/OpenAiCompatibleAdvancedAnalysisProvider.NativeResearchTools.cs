@@ -102,6 +102,18 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }));
         if (researchAllowed && sources.Length > 0)
         {
+            if (_options.NativeSourceTitleNavigationEnabled)
+                functions.Add(Function(AdvancedAnalysisSourceTitlePage.Operation,
+                    "Browse the canonical contents and title anchors of one observed source without guessing keywords. Start at offset 0, then use nextOffset if more titles are needed. At most four title pages per batch; the character cap may return fewer than limit. Set cardBackedOnly=true to browse only locators corroborated by a safe indexed content card at the same title and pages. This filter provides no semantic suitability decision and is not exhaustive. Titles and physical locations are navigation only, never citations, item counts or suitability decisions. Read a located body with read_source or find_source_text before using it.", new()
+                    {
+                        ["sourceKey"] = Choice(sources),
+                        ["offset"] = Count(0, AdvancedAnalysisSourceTitlePage.MaximumOffset),
+                        ["limit"] = Count(1, AdvancedAnalysisSourceTitlePage.MaximumLimit),
+                        ["titleContains"] = new { type = new[] { "string", "null" }, description = "Optional case-insensitive literal substring of the title (2–128 characters), or null." },
+                        ["pageStart"] = OptionalCount(1, int.MaxValue),
+                        ["pageEnd"] = OptionalCount(1, int.MaxValue),
+                        ["cardBackedOnly"] = new { type = "boolean" }
+                    }));
             var readProperties = new Dictionary<string, object>
             {
                 ["sourceKey"] = Choice(sources), ["pageStart"] = Count(1, int.MaxValue),
@@ -210,6 +222,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         JsonNode? state = null;
         JsonNode? candidateInventoryUpdates = null;
         var evidenceReads = new JsonArray();
+        var titlePages = 0;
         foreach (var call in calls.EnumerateArray())
         {
             var id = ReadString(call, "id");
@@ -218,10 +231,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid");
             var name = ReadString(function, "name");
             if (name is not ("search_corpus" or "read_source" or "find_source_text"
-                or "read_evidence" or "save_research_state" or "save_candidate_inventory"))
+                or "read_evidence" or "save_research_state" or "save_candidate_inventory" or AdvancedAnalysisSourceTitlePage.Operation))
                 throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid");
             if (!offered.Contains(name))
                 throw new AdvancedAnalysisProviderException("advanced_native_tool_not_available");
+            if (name == AdvancedAnalysisSourceTitlePage.Operation && ++titlePages > AdvancedAnalysisSourceTitlePage.MaximumPagesPerBatch)
+                throw new AdvancedAnalysisProviderException("advanced_native_title_navigation_batch_limit");
             if (name == "read_evidence")
             {
                 using var value = JsonDocument.Parse(ReadString(function, "arguments"));
@@ -254,6 +269,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 "search_corpus" => ["query", "sourceKey", "category", "documentHint", "topK"],
                 "read_source" => ["sourceKey", "pageStart", "pageEnd", "topK"],
                 "find_source_text" => ["sourceKey", "query", "offset", "topK"],
+                AdvancedAnalysisSourceTitlePage.Operation => ["sourceKey", "offset", "limit", "titleContains", "pageStart", "pageEnd", "cardBackedOnly"],
                 _ => throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid")
             };
             using var arguments = JsonDocument.Parse(ReadString(function, "arguments"));
@@ -303,7 +319,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         foreach (var call in calls.RootElement.EnumerateArray())
         {
             var operation = ReadString(call.GetProperty("function"), "name");
-            if (operation is not ("search_corpus" or "read_source" or "find_source_text")) continue;
+            if (operation is not ("search_corpus" or "read_source" or "find_source_text" or AdvancedAnalysisSourceTitlePage.Operation)) continue;
             try
             {
                 // The whole native batch already passed its offered schemas.
@@ -445,6 +461,37 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var reusedResult = identity is not null && !requestIdentities.Add(identity);
             if (request is null) unmatchedCalls++; else matchedCalls++;
             if (reusedResult && observation is not null) replayedCalls++;
+            if (ReadString(call.GetProperty("function"), "name") == AdvancedAnalysisSourceTitlePage.Operation)
+            {
+                var sourceKey = turn.CallSourceScopes.TryGetValue(callId, out var locatorScope)
+                    && visible is PromptEvidenceProjection { SourceCatalogueEnabled: true } current
+                    ? current.SourceCatalogue.FirstOrDefault(item =>
+                        item.SourceReference.DocId == locatorScope.DocId
+                        && item.SourceReference.RevisionId == locatorScope.RevisionId
+                        && item.SourceReference.SourceHash == locatorScope.SourceHash
+                        && item.SourceReference.DocPath == locatorScope.DocPath)?.SourceKey
+                    : null;
+                var output = JsonSerializer.Serialize(new
+                {
+                    operation = AdvancedAnalysisSourceTitlePage.Operation,
+                    navigationOnly = true,
+                    status = turn.Rejection is not null ? "batch_rejected_before_execution"
+                        : request is null ? "result_correlation_unavailable"
+                        : observation?.NotExecutedAfterResourceLimit == true ? "not_executed_after_resource_limit"
+                        : observation?.ResourceLimit is not null ? "resource_limit"
+                        : observation?.SourceTitlePage is null ? "not_executed_again"
+                        : sourceKey is null ? "source_no_longer_observed" : "executed",
+                    argumentFeedback = turn.Rejection,
+                    resourceLimit = observation?.ResourceLimit,
+                    sourceKey,
+                    page = sourceKey is null || reusedResult ? null : observation?.SourceTitlePage,
+                    resultReusedWithinBatch = reusedResult ? true : (bool?)null,
+                    instruction = "Locators only. Read a physical page or find a literal title in the same source before citing evidence."
+                }, JsonOptions);
+                messages.Add(responses ? new { type = "function_call_output", call_id = callId, output }
+                    : (object)new { role = "tool", tool_call_id = callId, content = output });
+                continue;
+            }
             var ids = observation?.Evidence.Select(e => e.Reference.EvidenceId)
                 .Where(id => !string.IsNullOrWhiteSpace(id) && visibleIds.Contains(id)).Cast<string>().Distinct(StringComparer.Ordinal).ToArray() ?? [];
             var allIds = observation?.Evidence.Select(item => item.Reference.EvidenceId)

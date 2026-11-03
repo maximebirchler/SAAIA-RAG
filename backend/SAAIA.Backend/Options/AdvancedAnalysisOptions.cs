@@ -39,6 +39,7 @@ sealed class AdvancedAnalysisOptions
     public bool AdaptiveResearchEnabled { get; set; } = true;
 
     public bool NativeResearchToolsEnabled { get; set; }
+    public bool NativeSourceTitleNavigationEnabled { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public bool VisualSourceCitationsEnabled { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
