@@ -10,8 +10,8 @@ public sealed partial class SourceBackedAgentV2Runner
            et qui n'apparait pas dans la demande originale.
            Une qualite explicite comme simple, facile, accessible, technique ou economique
            est un critere semantique a evaluer dans les preuves. Ne la remplace jamais par
-           un seuil non demande tel qu'un nombre d'ingredients, une duree, un prix ou des
-           calories, et n'exige pas que la source emploie exactement le meme adjectif.
+           un seuil ou un indicateur quantitatif non demande, et n'exige pas que la
+           source emploie exactement le meme adjectif.
            Une instance complete est la valeur directement demandee, pas une fiche enrichie:
            n'exige aucun attribut ou sous-champ absent si l'utilisateur demande seulement
            le nom d'une instance.

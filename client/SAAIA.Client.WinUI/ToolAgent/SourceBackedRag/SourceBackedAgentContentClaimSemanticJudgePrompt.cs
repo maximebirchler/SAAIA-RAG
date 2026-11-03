@@ -12,8 +12,8 @@ public sealed partial class SourceBackedAgentV2Runner
               pas necessairement une instance nommee ni un titre autonome.
 
               Juge uniquement depuis la demande explicite, le brouillon et les extraits
-              visibles. N'utilise aucune connaissance externe, convention du domaine,
-              recette traditionnelle ou pratique supposee pour contredire le corpus.
+              visibles. N'utilise aucune connaissance externe, convention du domaine
+              ou pratique supposee pour contredire le corpus.
               Une instruction ou une action est une preuve valide lorsque la demande porte
               sur des etapes, instructions ou actions et que l'extrait la soutient directement.
               N'exige jamais qu'un claim ait un nom, un titre ou repete le vocabulaire exact

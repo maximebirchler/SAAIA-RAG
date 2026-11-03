@@ -138,16 +138,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            supported terminal result, not an approval label or a reformatted
            copy of the prior candidate.
            Suitability is a separate test from documentary identity. Do not keep
-           an item in a requested slot merely because it is a documented recipe,
-           procedure or object. Determine whether it can ordinarily fulfill that
+           an item in a requested slot merely because its identity is documented.
+           Determine whether it can ordinarily fulfill that
            slot as a standalone choice at the level the user requested. Do not
            mistake a component, auxiliary part, generic heading or open template
            for an additional complete choice. You may judge ordinary role
            suitability and propose a placement without requiring the source to
-           prescribe that placement. Do not demand an entire procedure when
-            only a concrete documented proposal is requested. First try reassigning
-            the already supported candidates across coordinates under selectionContract.
-            Require distinct candidates only when
+           prescribe that placement. Do not demand full instructions when only
+           a concrete documented proposal is requested. First try reassigning
+           the already supported candidates across coordinates under selectionContract.
+           Require distinct candidates only when
             selectionContract.distinctNamedItemsRequired is true or the user explicitly
             requests them; otherwise preserve allowed reuse. If an
            incompatible placement cannot be replaced, return the smallest honest

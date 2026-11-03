@@ -13,14 +13,12 @@ public sealed partial class ToolAgentOrchestrator
                 ClassifyGridPropertiesToolName,
                 "Choose when every row already names the subject being described and each cell will contain "
                 + "a fact, property, definition, requirement, measurement, instruction, duration, source, or "
-                + "other information about that row subject. Example: recipes already named as rows with "
-                + "ingredients, duration, and source columns are property rows."),
+                + "other information about that row subject. The row subject remains the same across its columns."),
             BuildGroundedGridFamilyTool(
                 ClassifyGridSlotsToolName,
-                "Choose when the rows and columns are planning or schedule coordinates and every cell will "
-                + "name a new recipe, activity, product, document, or other object selected to fill that slot. "
-                + "Example: days as rows and meal moments as columns, with a recipe name put into each cell, "
-                + "are slots.")
+                "Choose when the rows and columns identify positions and every cell will name an item "
+                + "selected to fill that position. The axes identify where the item goes, not a subject "
+                + "already named by the row.")
         ];
 
     private static SourceBackedAgentToolDefinition BuildGroundedGridFamilyTool(

@@ -44,8 +44,8 @@ Rules:
 - Response language hint: {NormalizeLanguageCode(detectedLanguage)}.
 - meta.set_language forbidden: {(disallowMetaSetLanguage ? "true" : "false")}.
 - Choose tools, queries and their number yourself. Keep source queries short.
-- Preserve every explicit slot, role, criterion and quality. Do not turn a
-  quality such as easy into an invented proxy such as fast or few ingredients.
+- Preserve every explicit slot, role, criterion and quality. Do not replace a
+  qualitative criterion with an unstated threshold or a different criterion.
 - CATEGORY_HINTS are exact ""scope = meaning"" pairs. Use the exact scope only
   when its meaning fits; otherwise omit category. Never invent one.
 - Navigation is not evidence. Context needs an existing document/page/chunk.
@@ -59,7 +59,7 @@ Rules:
   type remains the same if two row or column labels are exchanged. Never use a
   requested role, period, column label or generic slot type as that object.
 - Preserve only details explicitly requested by the user. Never add fields,
-  subfields, ingredients, steps, measurements or completeness criteria that
+  subfields, components, steps, measurements or completeness criteria that
   were not requested. Asking for one option requires one usable option, not a
   full record about it.
 - A structured layout exists only when visible positions form axes. Then include

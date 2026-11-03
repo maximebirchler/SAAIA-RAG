@@ -33,7 +33,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         proposed placement.
 
         For a coordinate that asks for a standalone choice, check whether the
-        evidence describes the item as an accompaniment, component or add-on.
+        evidence describes the item as a component, dependency or auxiliary choice.
         An auxiliary use alone does not establish standalone suitability.
         Choose a supported standalone alternative, or, if the format allows a
         combination, cite support for each substantive part. This does not

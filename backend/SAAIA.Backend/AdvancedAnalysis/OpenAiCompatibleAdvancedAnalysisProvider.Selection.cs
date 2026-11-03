@@ -370,15 +370,6 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
         var normalizedSelected = NormalizeClaimText(safeSelectedItem);
         var foldedSelected = NormalizeClaimText(FoldDiacritics(safeSelectedItem));
-        if (ContainsSelectedTokenSequenceWithIgnorableInterruptions(
-                safeSelectedItem,
-                safeContent))
-        {
-            return new ContentPhraseMatch(
-                NormalizeDisplayWhitespace(safeSelectedItem),
-                true,
-                1);
-        }
         if (ContainsSelectedTitleSplitAcrossPageMarker(
                 safeSelectedItem,
                 safeContent))
@@ -447,69 +438,6 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         }
         return best;
     }
-
-    private static bool ContainsSelectedTokenSequenceWithIgnorableInterruptions(
-        string selectedItem,
-        string content)
-    {
-        var selectedTokens = Regex.Matches(
-                FoldDiacritics(selectedItem),
-                @"[\p{L}\p{N}]+",
-            RegexOptions.CultureInvariant)
-            .Cast<Match>()
-            .Select(static match => match.Value.ToLowerInvariant())
-            .ToArray();
-        var contentTokens = Regex.Matches(
-                FoldDiacritics(content),
-                @"[\p{L}\p{N}]+",
-            RegexOptions.CultureInvariant)
-            .Cast<Match>()
-            .Select(static match => match.Value.ToLowerInvariant())
-            .ToArray();
-        if (selectedTokens.Length == 0
-            || contentTokens.Length < selectedTokens.Length)
-        {
-            return false;
-        }
-
-        for (var start = 0; start < contentTokens.Length; start++)
-        {
-            var selectedIndex = 0;
-            var contentIndex = start;
-            var skipped = 0;
-            while (selectedIndex < selectedTokens.Length
-                   && contentIndex < contentTokens.Length)
-            {
-                if (string.Equals(
-                        selectedTokens[selectedIndex],
-                        contentTokens[contentIndex],
-                        StringComparison.Ordinal))
-                {
-                    selectedIndex++;
-                    contentIndex++;
-                    continue;
-                }
-                if (skipped < 2
-                    && IsIgnorableEvidenceInterruption(
-                        contentTokens[contentIndex]))
-                {
-                    skipped++;
-                    contentIndex++;
-                    continue;
-                }
-                break;
-            }
-            if (selectedIndex == selectedTokens.Length)
-                return true;
-        }
-        return false;
-    }
-
-    private static bool IsIgnorableEvidenceInterruption(string token)
-        => Regex.IsMatch(
-            token,
-            @"^(?:\d+|pers|personnes?|portions?|min|minutes?|h|heures?|pages?|p)$",
-            RegexOptions.CultureInvariant);
 
     private static bool ContainsSelectedTitleSplitAcrossPageMarker(
         string selectedItem,

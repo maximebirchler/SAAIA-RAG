@@ -224,14 +224,6 @@ public sealed partial class ToolAgentOrchestrator
             return true;
         }
 
-        if (!raw.Any(char.IsLower)
-            && !Regex.IsMatch(raw, @"\s", RegexOptions.CultureInvariant)
-            && Regex.IsMatch(raw, @"\d$", RegexOptions.CultureInvariant)
-            && Regex.Matches(raw, @"\p{L}", RegexOptions.CultureInvariant).Count >= 10)
-        {
-            return true;
-        }
-
         if (LooksLikeGenericStructuredInventoryTitle(normalized))
             return true;
 
@@ -253,29 +245,19 @@ public sealed partial class ToolAgentOrchestrator
             return true;
         }
 
-        if (Regex.IsMatch(normalized, @"\b\d{2,4}\b", RegexOptions.CultureInvariant)
-            && !Regex.IsMatch(
-                normalized,
-                @"\b(?:g|kg|mg|ml|cl|l|oz|lb|lbs|min|minutes?|h|heures?|portions?|personnes?|pers)\b",
+        // The complete surface must be a fragment. Digits embedded in an
+        // observed title can be part of its literal identity.
+        if (Regex.IsMatch(raw, @"^(?:(?:pp?|pg|pages?)(?:\.\s*|\s+))?\d+(?:\s*[-–/]\s*\d+)?$",
+                RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)
+            || Regex.IsMatch(raw, @"^(?:[<>=≤≥±~]\s*)?\d+(?:[.,]\d+)?(?:\s*[%°]|\s+\p{L}{1,3})$",
                 RegexOptions.CultureInvariant))
-        {
             return true;
-        }
 
         if (Regex.IsMatch(normalized, @"\bsuite$", RegexOptions.CultureInvariant))
             return true;
 
         if (Regex.IsMatch(normalized, @"\b(?:vers|towards|around|between|entre|avant|before|after)$", RegexOptions.CultureInvariant))
             return true;
-
-        if (Regex.IsMatch(normalized, @"\b\d{1,3}$", RegexOptions.CultureInvariant)
-            && !Regex.IsMatch(
-                normalized,
-                @"\b(?:g|kg|mg|ml|cl|l|oz|lb|lbs|min|minutes?|h|heures?|portions?|personnes?|pers)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
 
         if (raw.Contains(',', StringComparison.Ordinal)
             && Regex.Matches(raw, @"\p{Lu}[\p{Ll}]+", RegexOptions.CultureInvariant).Count >= 2)
@@ -381,15 +363,6 @@ public sealed partial class ToolAgentOrchestrator
 
         if (Regex.IsMatch(normalized, @"^(?:ps|p\s*s)\b", RegexOptions.CultureInvariant))
             return true;
-
-        if (Regex.IsMatch(
-                raw,
-                @"^[A-Z]{2,}\d{3,}[A-Za-z0-9_\-]*",
-                RegexOptions.CultureInvariant)
-            && Regex.IsMatch(raw, @"[_\-\d]", RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
 
         if (Regex.IsMatch(raw, @"^[A-Z0-9\s]{3,}COM$", RegexOptions.CultureInvariant))
             return true;
@@ -927,7 +900,7 @@ public sealed partial class ToolAgentOrchestrator
 
         return Regex.IsMatch(
             normalizedTitle,
-            @"\b(?:le|la|les|du|de|des|au|aux)\s+con\s+[a-z]{4,}\b|\bcon\s+(?:servation|combre)\b",
+            @"\b(?:le|la|les|du|de|des|au|aux)\s+con\s+[a-z]{4,}\b",
             RegexOptions.CultureInvariant);
     }
 

@@ -660,8 +660,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
 
     [Theory]
     [InlineData(
-        "SANDWICH COMPLET ET ÉQUILIBRÉ SELON VOS ENVIES",
-        "SANDWICH\n/pers.\nCOMPLET ET ÉQUILIBRÉ\nSELON VOS ENVIES\nPain, viande et légumes.")]
+        "ÉTALON PORTABLE DE PRESSION DIFFÉRENTIELLE",
+        "ÉTALON PORTABLE\nDE PRESSION DIFFÉRENTIELLE\nVérifier le raccordement avant la mesure.")]
     [InlineData(
         "Mousse yaourt et fruits rouges",
         "Mousse yaourt\nIngrédients\nFraises, framboises et yaourt.\nMatériel\n1 saladier\nPage 11\net fruits rouges\nTechnique\nMixer la préparation.")]

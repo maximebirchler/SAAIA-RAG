@@ -223,7 +223,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            A transfer or validation action is a fact about its given step; its
            data item does not make it a new named-object selection. Preserve any
            explicit requirement for distinct or different objects. Do not use
-           fixed_subject_attributes for a grid selecting new candidates such as meals.
+           fixed_subject_attributes for a grid that selects new candidates.
            For a repeated grid, plan searches for concrete candidates in each
            semantic column or item family. Search for the content that will fill
            the cells, not instructions or blank
@@ -241,11 +241,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            column has common alternate terminology,
            use complementary queries for those variants within the query limit;
            do not rely on the user's single label to cover the corpus vocabulary.
-           Do not add health, diet, price, speed or other constraints
-           that the user did not request. For a list of named candidates, search
+           Do not introduce constraints that the user did not request.
+           For a list of named candidates, search
            for names, headings, indexes or examples; do not append generic words
-           such as ingredients or preparation because they rank fragments whose
-           item name may be outside the chunk. Never invent a category or output a
+           for body fields unless the user requested those fields: a generic
+           field label may rank fragments whose item name is outside the chunk.
+           Never invent a category or output a
            category absent from availableCategories.
            Indexes locate candidates; they do not replace the item's actual
            content when selecting usable options for a proposed deliverable.

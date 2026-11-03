@@ -182,8 +182,8 @@ public sealed partial class SourceBackedAgentV2Runner
                 + "la query vide pour explorer un inventaire large.");
             context.AppendLine(
                 "FIDELITE STRICTE: chaque propriete de recherche doit etre explicitement presente "
-                + "dans la demande, le role canonique ou le motif du juge. N'ajoute aucune contrainte "
-                + "alimentaire, sanitaire, d'audience, de lieu, de cout ou de style. Un qualificatif "
+                + "dans la demande, le role canonique ou le motif du juge. N'ajoute aucune "
+                + "contrainte issue d'une supposition sur le domaine ou le public. Un qualificatif "
                 + "portant sur le format, le ton ou la presentation du livrable ne decrit pas les "
                 + "preuves atomiques.");
             context.AppendLine(

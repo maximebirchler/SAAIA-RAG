@@ -20,11 +20,9 @@ internal static class SourceBackedCanonicalContentCardInventory
     internal const string ExactSourceItemSelectionMode = "exact_source_item_selection";
     private const int HardCardLimit = 40;
     internal const int CompatibilityCardLimit = HardCardLimit;
-    // Measured with Qwen3-4B Q5_K_M on a real 120-card structured inventory.
-    // A 30/20 split reduced call count but degraded complete five-day coverage
-    // to four snacks and three suppers. The 24/10 split retained 28 legitimate
-    // cards with at least five choices for every requested meal column. These
-    // are context-size limits only; semantic selection remains with the LLM.
+    // Context limits calibrated on a 120-card structured inventory with Qwen3-4B Q5_K_M.
+    // The smaller batches improved slot coverage in that run. Semantic selection
+    // remains with the model; the same limits apply across domains.
     internal const int CompatibilityBatchSize = 10;
     internal const int ShortlistBatchSize = 24;
     internal const int ShortlistBatchSelectionLimit = ShortlistBatchSize;

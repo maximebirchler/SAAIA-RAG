@@ -1,7 +1,7 @@
 using System.Text;
 using System.Diagnostics;
 
-// LLM-owned semantic review protocol; domain examples belong to its prompt.
+// The model evaluates the requested detail against the visible evidence.
 namespace SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag;
 
 public sealed partial class SourceBackedAgentV2Runner
@@ -152,11 +152,11 @@ public sealed partial class SourceBackedAgentV2Runner
               leur ordre. Une fenetre partageant un EvidenceId est ordonnee. Utilise
               uniquement les identites et extraits visibles; n'invente aucun detail.
 
-              Une demande explicite de recette, d'etapes ou de methode exige une
-              methode actionnable complete: utilise writer si la preuve suffit,
-              sinon context/research. « Donne-moi un element facile a faire » reste
-              une recommandation, pas une demande de procedure: utilise answer avec
-              le nom exact et un ou deux faits visibles, en 180 caracteres maximum.
+              Si la demande exige une methode actionnable, utilise writer lorsque
+              les etapes essentielles sont etayees, sinon context/research. Une
+              recommandation assortie d'un critere de facilite ne demande pas a
+              elle seule une procedure: utilise answer avec le nom exact et un
+              ou deux faits visibles, en 180 caracteres maximum.
 
               Retourne uniquement un objet JSON avec exactement action,
               evidenceId, anchorId, text. action vaut answer, writer, context ou

@@ -1853,7 +1853,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             BuildEvidence("E2", "R2 est une recette documentée."),
             BuildEvidence(
                 "E3",
-                "2,5 € 10 min SANDWICH /pers. COMPLET ET ÉQUILIBRÉ SELON VOS ENVIES. Préparation."),
+                "SANDWICH COMPLET ET ÉQUILIBRÉ SELON VOS ENVIES\n2,5 € /pers. — 10 min. Préparation."),
             BuildEvidence("E4", "R4 est une recette documentée."),
             BuildEvidence("E9", "Une autre recette documentée."));
 
@@ -2003,8 +2003,10 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal(["E3"], result.Claims[2].EvidenceIds);
     }
 
-    [Fact]
-    public async Task Structured_distant_fragments_without_page_marker_are_not_joined()
+    [Theory]
+    [InlineData("Mousse yaourt\nIngrédients\n200 g de fraises\n2 yaourts nature\net fruits rouges\nTechnique\nLaver les fruits.")]
+    [InlineData("Mousse yaourt 2 portions et fruits rouges\nDocument distinct.")]
+    public async Task Structured_fragments_without_literal_identity_or_page_marker_are_not_joined(string source)
     {
         const string unsupportedResult = """
             {"outcome":"answered","answerText":"R1 [C1], R2 [C2], Mousse yaourt et fruits rouges [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"R1 est documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R2","text":"R2 est documentée.","evidenceIds":["E2"]},{"claimId":"C3","selectedItem":"Mousse yaourt et fruits rouges","text":"La mousse est documentée.","evidenceIds":["E3"]},{"claimId":"C4","selectedItem":"R4","text":"R4 est documentée.","evidenceIds":["E4"]}]}
@@ -2027,9 +2029,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var gateway = new RecordingToolGateway(
             BuildEvidence("E1", "R1 est une recette documentée."),
             BuildEvidence("E2", "R2 est une recette documentée."),
-            BuildEvidence(
-                "E3",
-                "Mousse yaourt\nIngrédients\n200 g de fraises\n2 yaourts nature\net fruits rouges\nTechnique\nLaver les fruits."),
+            BuildEvidence("E3", source),
             BuildEvidence("E4", "R4 est une recette documentée."));
 
         var result = await provider.ExecuteAsync(

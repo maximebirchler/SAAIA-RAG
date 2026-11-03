@@ -8,10 +8,11 @@ public sealed partial class SourceBackedAgentV2Runner
             ? """
                 Respecte le nombre, la structure, la portee et l'utilite demandes. Lis chaque
                 EXTRAIT dans l'ordre. N'ajoute aucun detail suppose et ne parle ni des outils
-                ni des controles. Distingue strictement une liste de composants ou
-                d'ingredients des actions ordonnees: la presence d'un composant ne prouve
-                jamais qu'il faut l'utiliser dans l'etape courante. Respecte l'ordre explicite
-                des actions, ajouts, temperatures et attentes. Si les preuves du pool ne
+                ni des controles. Distingue strictement une liste de composants ou de
+                ressources des actions ordonnees: une mention dans la liste ne prouve
+                pas l'utilisation dans l'etape courante. Respecte l'ordre des actions
+                et les conditions explicites, notamment les temperatures et les attentes
+                lorsqu'elles sont documentees. Si les preuves du pool ne
                 permettent pas une formulation complete et honnete, n'invente rien.
                 """
             : """
@@ -19,11 +20,11 @@ public sealed partial class SourceBackedAgentV2Runner
                 composants visibles definissent l'element: ne le renomme pas, ne le reclasse
                 pas et n'en omets aucun composant qui changerait sa nature. N'ajoute aucun
                 detail suppose et ne parle ni des outils ni des controles. Distingue
-                strictement une liste de composants ou d'ingredients des actions ordonnees:
-                la presence d'un composant ne prouve jamais qu'il faut l'utiliser dans l'etape
-                courante. Respecte l'ordre explicite des actions, ajouts, temperatures et
-                attentes. Si la source ajoute un composant apres une action, ne l'introduis
-                pas aussi avant cette action.
+                strictement une liste de composants ou de ressources des actions ordonnees:
+                une mention dans la liste ne prouve pas l'utilisation dans l'etape courante.
+                Respecte l'ordre des actions et les conditions explicites, notamment les
+                temperatures et les attentes lorsqu'elles sont documentees. Si la source
+                indique une intervention apres une etape, ne la deplace pas avant cette etape.
 
                 Adapte le detail a la demande. Pour une simple option selectionnee, produis
                 une phrase de 30 mots maximum avec son nom puis seulement les faits visibles

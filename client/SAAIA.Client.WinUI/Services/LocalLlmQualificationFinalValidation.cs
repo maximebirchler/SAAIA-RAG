@@ -590,14 +590,14 @@ internal static class LocalLlmStructuredQualificationProbe
         {
             new SourceBackedStructuredValueTypeCandidate(
                 "V1",
-                "meal",
-                "roasted vegetable soup",
+                "inspection instrument",
+                "portable vibration analyzer",
                 new[] { "E1" },
                 new[] { "C1" }),
             new SourceBackedStructuredValueTypeCandidate(
                 "V2",
-                "meal",
-                "stir until smooth",
+                "record transfer method",
+                "sign the transfer receipt",
                 new[] { "E2" },
                 new[] { "C2" }),
             new SourceBackedStructuredValueTypeCandidate(
@@ -608,8 +608,8 @@ internal static class LocalLlmStructuredQualificationProbe
                 new[] { "C3" }),
             new SourceBackedStructuredValueTypeCandidate(
                 "V4",
-                "complete meal",
-                "2 tablespoons flour",
+                "complete emergency lighting unit",
+                "one spare battery",
                 new[] { "E4" },
                 new[] { "C4" })
         };
@@ -620,10 +620,10 @@ internal static class LocalLlmStructuredQualificationProbe
             "Classify four immutable candidate values for a source-backed structured plan.",
             new[]
             {
-                Evidence("E1", "Roasted vegetable soup. Ingredients: vegetables and stock. Preparation: roast, blend and serve."),
-                Evidence("E2", "For the complete sauce recipe, add the liquid and stir until smooth before serving."),
+                Evidence("E1", "A portable vibration analyzer measures the vibration of a machine during inspection."),
+                Evidence("E2", "At the end of a secured record transfer, sign the transfer receipt."),
                 Evidence("E3", "Industrial components is the broad catalogue category containing several unrelated product families."),
-                Evidence("E4", "The complete meal is vegetable stew. Its ingredients include 2 tablespoons flour, vegetable stock and onions.")
+                Evidence("E4", "The complete emergency lighting unit contains a housing, a lamp, a control circuit and a battery.")
             },
             Array.Empty<SourceBackedTraceEvent>());
 

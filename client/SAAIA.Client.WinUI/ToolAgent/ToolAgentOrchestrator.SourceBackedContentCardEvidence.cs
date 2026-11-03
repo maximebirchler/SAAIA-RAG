@@ -307,36 +307,7 @@ public sealed partial class ToolAgentOrchestrator
     }
 
     private static bool PageEvidenceHasStructuredBodyProofCue(string? text)
-    {
-        var value = CollapseWhitespace(text ?? string.Empty);
-        if (value.Length < 32)
-            return false;
-
-        var normalized = NormalizeStructuredScanText(value);
-        if (string.IsNullOrWhiteSpace(normalized))
-            return false;
-
-        var hasComponentCue = Regex.IsMatch(
-            normalized,
-            @"\b(?:components?)\s*:",
-            RegexOptions.CultureInvariant);
-        var hasPreparationCue = Regex.IsMatch(
-            normalized,
-            @"(?:^|\s)(?:pr[eÃ©]paration)\s*:",
-            RegexOptions.CultureInvariant);
-        if (!hasComponentCue || !hasPreparationCue)
-            return false;
-
-        var hasMeasuredOrServingCue = CountMeasuredValueMarkers(normalized) >= 1
-            || CountNumericFactMarkers(normalized) >= 1
-            || Regex.IsMatch(
-                normalized,
-                @"\b(?:pour\s+\d{1,3}\s+(?:portions?|personnes?|pieces?|pi[eÃ¨]ces?)|\d+\s*(?:min|minutes?|h|heures?))\b",
-                RegexOptions.CultureInvariant);
-
-        return hasMeasuredOrServingCue
-            && !LooksLikeStructuredPlanningNavigationOrIndexNoise(value);
-    }
+        => HasPopulatedPageFieldStructure(text, requireTwoFields: true);
 
     private static bool ContentCardCarriesStructuredPlanningEvidence(
         RagHitContentCardSummary card,
@@ -365,31 +336,43 @@ public sealed partial class ToolAgentOrchestrator
     }
 
     private static bool PageEvidenceHasStructuredCardProofCue(string? text)
+        => HasPopulatedPageFieldStructure(text, requireTwoFields: false);
+
+    private static bool HasPopulatedPageFieldStructure(string? text, bool requireTwoFields)
     {
-        var value = CollapseWhitespace(text ?? string.Empty);
-        if (value.Length < 24)
+        if (string.IsNullOrWhiteSpace(text) || text.Length < (requireTwoFields ? 32 : 24)
+            || LooksLikeStructuredPlanningNavigationOrIndexNoise(text))
             return false;
 
-        var normalized = NormalizeStructuredScanText(value);
-        if (string.IsNullOrWhiteSpace(normalized))
-            return false;
-
-        var hasStructuredCardCue = Regex.IsMatch(
-            normalized,
-            @"\b(?:components?|preparation|pr[eÃ©]paration|temps\s+de\s+(?:preparation|pr[eÃ©]paration|operation)|operation\s*:|categories?\s+de\s+options?|modes?\s+de\s+preparation|pour\s+\d{1,3}\s+(?:portions?|personnes?|pieces?|pi[eÃ¨]ces?))\b",
+        // A layout signal only. The caller still checks the observed title,
+        // source and page. Accept the same shape in flattened or multiline text.
+        var fields = Regex.Matches(text, @"(?<![\p{L}\p{N}])(?<label>\p{L}[\p{L}'’\-]{2,31})[ \t]*:(?![/\\])",
             RegexOptions.CultureInvariant);
-        if (!hasStructuredCardCue)
-            return false;
+        var populatedLabels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var hasIndependentShape = false;
+        for (var index = 0; index < fields.Count; index++)
+        {
+            var field = fields[index];
+            var end = index + 1 < fields.Count ? fields[index + 1].Index : text.Length;
+            var value = text[(field.Index + field.Length)..end].Trim();
+            // Physical page references are navigation, not measured facts.
+            var body = Regex.Replace(value, @"(?:\b(?:pp?|pages?)(?:\.\s*|\s+)|§\s*)\d+(?:\.\d+)*(?:\s*[-–]\s*\d+)?\b", string.Empty,
+                RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+            var wordCount = Regex.Matches(body, @"\p{L}{2,}", RegexOptions.CultureInvariant).Count;
+            if (wordCount < 2)
+                continue;
 
-        var hasMeasuredOrServingCue = CountMeasuredValueMarkers(normalized) >= 1
-            || CountNumericFactMarkers(normalized) >= 1
-            || Regex.IsMatch(
-                normalized,
-                @"\b(?:pour\s+\d{1,3}\s+(?:portions?|personnes?|pieces?|pi[eÃ¨]ces?)|\d+\s*(?:min|minutes?|h|heures?))\b",
-                RegexOptions.CultureInvariant);
+            var normalized = NormalizeStructuredScanText(body);
+            var hasShape = CountMeasuredValueMarkers(normalized) > 0
+                || CountProcedureStepMarkers(normalized) >= 2 || CountBulletListMarkers(body) >= 2;
+            if (wordCount < 3 && !hasShape)
+                continue;
 
-        return hasMeasuredOrServingCue
-            && !LooksLikeStructuredPlanningNavigationOrIndexNoise(value);
+            populatedLabels.Add(field.Groups["label"].Value);
+            hasIndependentShape |= hasShape;
+        }
+
+        return hasIndependentShape && populatedLabels.Count >= (requireTwoFields ? 2 : 1);
     }
 
     private static bool HasConcreteContentCardEvidenceForTitle(

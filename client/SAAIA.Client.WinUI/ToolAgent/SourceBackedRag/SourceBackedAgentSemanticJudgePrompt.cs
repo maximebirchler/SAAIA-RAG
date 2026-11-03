@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-// LLM-owned semantic review protocol; domain examples belong to its prompt.
+// The model judges semantic fit; the protocol carries its decision.
 namespace SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag;
 
 public sealed partial class SourceBackedAgentV2Runner
@@ -326,8 +326,8 @@ public sealed partial class SourceBackedAgentV2Runner
 
                Les qualites demandees comme simple, facile, accessible, technique ou
                economique sont des criteres semantiques. Evalue-les d'apres l'ensemble de la
-               preuve sans exiger le mot exact et sans les remplacer par un seuil absent
-               (nombre d'ingredients, duree, prix, calories ou autre proxy quantitatif).
+               preuve sans exiger le mot exact et sans les remplacer par un seuil
+               ou un indicateur quantitatif non demande.
 
                Pour chaque valeur concrete: exige une instance complete et utilisable,
                directement soutenue par son extrait. Refuse composant isole, instruction,

@@ -177,7 +177,7 @@ internal static class NativeRouterPrompts
             with passages is source-backed. Never turn nested fragments into
             clarification options.
 
-            Source-back facts, instructions, recipes, recommendations, comparisons,
+            Source-back facts, instructions, recommendations, comparisons,
             selections and plans when documents can help. Social chat, fiction,
             rewriting, translation, settings, inventory, export and diagnostics are
             operational.
