@@ -841,7 +841,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         callProbe.Set("system_characters", systemPrompt.Length);
         callProbe.Set("user_characters", userPrompt.Length);
         callProbe.Set("history_characters", nativeToolTurnMessages is null ? 0 : JsonSerializer.Serialize(nativeToolTurnMessages, WireJsonOptions.Value).Length);
-        callProbe.Set("history_fitting_characters", nativeToolTurnMessages is null ? 0 : JsonSerializer.Serialize(nativeToolTurnMessages, JsonOptions).Length);
+        callProbe.Set("history_fitting_characters", nativeToolTurnMessages is null ? 0 : JsonSerializer.Serialize(nativeToolTurnMessages, WireJsonOptions.Value).Length);
         callProbe.Set("history_messages", nativeToolTurnMessages?.Count ?? 0);
         callProbe.Set("contract_version", "advanced-analysis.v1");
         LlmPayloadDiagnostics.AnnotateRequest(callProbe, userPrompt, serializedPayload);

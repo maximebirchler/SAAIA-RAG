@@ -48,22 +48,24 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             new object?[] { calls, new[] { read }, new Dictionary<string, AdvancedAnalysisSearchObservation> { [key] = observed },
                 null, output, false, false, false }, null)!;
         BindAdmittedNativeFixtureCalls(turn, ("inventory-call", read));
-        async Task<string> Capture(bool reserveHistory, int finalMaximum = 14_000)
+        async Task<string> Capture(bool reserveHistory, int finalMaximum = 14_000,
+            int projectionMaximum = 14_000, bool firstOnly = false)
         {
             using var factory = new QueuedHttpClientFactory(protocol == "responses"
                 ? NativeResponseAnswer("{\"ok\":true}") : Completion("{\"ok\":true}"));
             var options = WorkspaceOptions(protocol); options.NativeObservationReadEnabled = true;
-            options.VisualSourceCitationsEnabled = true; options.MaximumEvidencePromptCharacters = 14_000;
+            options.VisualSourceCitationsEnabled = true; options.MaximumEvidencePromptCharacters = projectionMaximum;
             var provider = new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null);
+            var currentEvidence = firstOnly ? evidence.Take(1).ToArray() : evidence;
             var projection = reserveHistory
                 ? type.GetMethod("BuildPromptEvidenceWithPersistentSourceKeys", flags)!.Invoke(provider,
-                    new object?[] { BuildDirectRequest(), evidence, new Dictionary<string, HashSet<string>>(), null, null, null, turn })!
+                    new object?[] { BuildDirectRequest(), currentEvidence, new Dictionary<string, HashSet<string>>(), null, null, null, turn })!
                 : type.GetMethod("BuildPromptEvidence", flags)!.Invoke(provider,
-                    new object?[] { BuildDirectRequest(), evidence, new Dictionary<string, HashSet<string>>(), null })!;
+                    new object?[] { BuildDirectRequest(), currentEvidence, new Dictionary<string, HashSet<string>>(), null })!;
             var history = (IReadOnlyList<object>)type.GetMethod("BuildNativeToolTurnMessages", flags)!
                 .Invoke(provider, new[] { turn, projection, protocol == "responses" })!;
-            // Projection remains the original conservative 14k decision. Only
-            // the independently exercised final compact-wire cap varies.
+            // Keep the exact chosen projection for the independent final-cap
+            // refusal; rebuilding at the smaller cap could legitimately fit.
             options.MaximumEvidencePromptCharacters = finalMaximum;
             try
             {
@@ -74,12 +76,13 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             catch (AdvancedAnalysisProviderException) { Assert.Empty(factory.Requests); throw; }
             return Assert.Single(factory.Requests).Body;
         }
-        var full = await Capture(false, 64_000);
-        var reserved = await Capture(true, 64_000);
-        var finalMaximum = NativeBudgetBoundaryBetween(reserved, full);
-        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() => Capture(false, finalMaximum));
+        var full = await Capture(false, 64_000, projectionMaximum: 64_000);
+        var single = await Capture(true, 64_000, projectionMaximum: 64_000, firstOnly: true);
+        var finalMaximum = NativeBudgetBoundaryBetween(single, full);
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
+            Capture(false, finalMaximum, projectionMaximum: 64_000));
         Assert.Equal("advanced_native_documentary_wire_budget_exceeded", error.ErrorCode);
-        var body = await Capture(true, finalMaximum);
+        var body = await Capture(true, finalMaximum, projectionMaximum: finalMaximum);
         var current = WorkspaceUser(body);
         var visible = current.GetProperty("evidence").EnumerateArray().ToArray();
         Assert.NotEmpty(visible);

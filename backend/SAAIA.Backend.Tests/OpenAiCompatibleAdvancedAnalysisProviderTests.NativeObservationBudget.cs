@@ -143,15 +143,15 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         }).ToArray();
         var full = await CaptureNativeBudgetAsync(protocol, evidence, fixture.RawSha, 64_000,
             projectionMaximumCharacters: 64_000);
-        var reserved = await CaptureNativeBudgetAsync(protocol, evidence, fixture.RawSha, 64_000,
-            reserveCurrentNativeTurn: true, projectionMaximumCharacters: 14_000);
-        var finalMaximum = NativeBudgetBoundaryBetween(reserved, full);
+        var single = await CaptureNativeBudgetAsync(protocol, evidence.Take(1).ToArray(), fixture.RawSha, 64_000,
+            reserveCurrentNativeTurn: true, projectionMaximumCharacters: 64_000);
+        var finalMaximum = NativeBudgetBoundaryBetween(single, full);
         var counterfactual = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
             CaptureNativeBudgetAsync(protocol, evidence, fixture.RawSha, finalMaximum, projectionMaximumCharacters: 64_000));
         Assert.Equal("advanced_native_documentary_wire_budget_exceeded", counterfactual.ErrorCode);
 
         var body = await CaptureNativeBudgetAsync(protocol, evidence, fixture.RawSha, finalMaximum,
-            reserveCurrentNativeTurn: true, projectionMaximumCharacters: 14_000);
+            reserveCurrentNativeTurn: true, projectionMaximumCharacters: finalMaximum);
         var current = WorkspaceUser(body);
         var view = Assert.Single(current.GetProperty("alternativeNativeReadings").GetProperty("views").EnumerateArray());
         Assert.Equal(0, view.GetProperty("offset").GetInt32());
@@ -169,13 +169,16 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
 
     private static int NativeBudgetBoundaryBetween(string smaller, string larger)
     {
-        var small = OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(smaller);
-        var large = OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(larger);
+        var small = CrossBatchDocumentaryDifference(smaller, compact: true);
+        var large = CrossBatchDocumentaryDifference(larger, compact: true);
+        Assert.Equal(small, OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(smaller));
+        Assert.Equal(large, OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(larger));
         Assert.InRange(small, 1, 14_000);
-        Assert.True(large > small);
+        Assert.True(large > small, $"Independent compact controls must differ: small={small}, large={large}.");
         var boundary = Math.Min(14_000, Math.Max(8_000, small + (large - small) / 2));
         Assert.True(small <= boundary && boundary < large,
-            "The measured compact payloads must lie on opposite sides of a permitted final cap.");
+            $"The measured compact payloads must lie on opposite sides of a permitted final cap: small={small}, boundary={boundary}, large={large}.");
+        Console.WriteLine($"native_budget_boundary compactSmall={small} compactFull={large} cap={boundary}");
         return boundary;
     }
 

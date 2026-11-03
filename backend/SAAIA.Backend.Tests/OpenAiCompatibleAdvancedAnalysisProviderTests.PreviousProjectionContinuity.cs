@@ -155,9 +155,11 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             item => item!["evidenceId"]!.GetValue<string>(), item => item!, StringComparer.Ordinal);
         var needed = groups.Select(group => group[0].Reference.EvidenceId!).Concat(new[] { "INITIAL-CARD", "PAGE1H2" }).ToArray();
         var control = PreviousProjectionOracleWire(sent, records, needed, inner);
-        Assert.InRange(CrossBatchDocumentaryDifference(control, compact: false), 1, cap);
+        // Both fitting and the final gate now use compact outer HTTP encoding;
+        // preserve the legacy inner prompt JSON in this independent oracle.
+        Assert.InRange(CrossBatchDocumentaryDifference(control, compact: true), 1, cap);
         Assert.True(CrossBatchDocumentaryDifference(PreviousProjectionOracleWire(sent, records,
-            groups.SelectMany(group => group).Select(item => item.Reference.EvidenceId!), inner), compact: false) > cap);
+            groups.SelectMany(group => group).Select(item => item.Reference.EvidenceId!), inner), compact: true) > cap);
         foreach (var id in needed)
         {
             // All calls above use existing APIs, so OLD fails this documentary
@@ -173,8 +175,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal(groups.Select(group => group[0].Reference.EvidenceId), visible.Take(4).Select(item => item.GetProperty("evidenceId").GetString()));
         Assert.Equal("content_card", Assert.Single(visible, item => item.GetProperty("evidenceId").GetString() == "INITIAL-CARD")
             .GetProperty("evidenceKind").GetString());
-        Assert.InRange(CrossBatchDocumentaryDifference(sent, compact: false), 1, cap);
-        Assert.InRange(OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(sent), 1, cap);
+        var actualWire = CrossBatchDocumentaryDifference(sent, compact: true);
+        Assert.InRange(actualWire, 1, cap);
+        Assert.Equal(actualWire, OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(sent));
         Assert.True(visible.Length < gateway.Evidence.Count);
         Assert.Equal(4, NativeCorrelationOutputs(sent, protocol).Length);
     }

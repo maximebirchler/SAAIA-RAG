@@ -86,7 +86,11 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         {
             using var metric = JsonDocument.Parse(entry.Values["Measurements"]!.ToString()!);
             Assert.Equal(actualArray.Length, metric.RootElement.GetProperty("history_characters").GetInt32());
-            Assert.Equal(legacyArray.Length, metric.RootElement.GetProperty("history_fitting_characters").GetInt32());
+            // Documentary fitting follows compact HTTP; the separate native
+            // history guard intentionally retains its conservative legacy cap.
+            var fittingCharacters = entry.Values.GetValueOrDefault("Operation")?.ToString() == "llm.call"
+                ? actualArray.Length : legacyArray.Length;
+            Assert.Equal(fittingCharacters, metric.RootElement.GetProperty("history_fitting_characters").GetInt32());
             Assert.Equal(0, metric.RootElement.GetProperty("diagnostic_dropped_measurements").GetInt32());
             Assert.Equal(0, metric.RootElement.GetProperty("diagnostic_truncated_values").GetInt32());
             Assert.DoesNotContain(special, metric.RootElement.GetRawText(), StringComparison.Ordinal);

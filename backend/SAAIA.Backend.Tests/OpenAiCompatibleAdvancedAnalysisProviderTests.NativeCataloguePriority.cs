@@ -61,14 +61,14 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Theory]
-    [InlineData("chat-completions", 14_000, false)]
-    [InlineData("responses", 14_000, false)]
-    [InlineData("chat-completions", 20_000, true)]
-    [InlineData("responses", 20_000, true)]
-    [InlineData("chat-completions", 24_000, true)]
-    [InlineData("responses", 24_000, true)]
+    [InlineData("chat-completions", 14_000, true)]
+    [InlineData("responses", 14_000, true)]
+    [InlineData("chat-completions", 20_000, false)]
+    [InlineData("responses", 20_000, false)]
+    [InlineData("chat-completions", 24_000, false)]
+    [InlineData("responses", 24_000, false)]
     public async Task NativeCataloguePriority_two_independent_raw_reconstructions_preserve_full_metadata_when_profile_fits(
-        string protocol, int maximumDocumentaryCharacters, bool fits)
+        string protocol, int maximumDocumentaryCharacters, bool checkExactRefusalBoundary)
     {
         var fixture = new NativeCataloguePriorityFixture();
         var originalInventory = JsonSerializer.Serialize(fixture.Inventory, NativeCataloguePriorityJson);
@@ -82,17 +82,6 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             var window = AdvancedAnalysisNativeObservationWindows.Raw(fixture.Document, 18,
                 block.BlockId, block.Text.RawSha256, 0, 1, 100_000);
             var rawReadings = current with { View = window };
-            if (!fits)
-            {
-                using var factory = new QueuedHttpClientFactory(protocol == "responses"
-                    ? NativeResponseAnswer("{\"ok\":true}") : Completion("{\"ok\":true}"));
-                var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
-                    CaptureNativeCataloguePriorityAsync(protocol, fixture, rawReadings, "raw", factory,
-                        maximumDocumentaryCharacters: maximumDocumentaryCharacters));
-                Assert.Equal("advanced_native_documentary_metadata_budget_exceeded", error.ErrorCode);
-                Assert.Empty(factory.Requests);
-                continue;
-            }
             var body = await CaptureNativeCataloguePriorityAsync(protocol, fixture, rawReadings, "raw",
                 maximumDocumentaryCharacters: maximumDocumentaryCharacters);
             var rawUser = WorkspaceUser(body);
@@ -111,6 +100,23 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                 view.GetProperty("observedBlockPolygon").GetRawText());
             Assert.Equal(JsonValueKind.Null, view.GetProperty("nextOffset").ValueKind);
             Assert.InRange(OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(body), 1, maximumDocumentaryCharacters);
+            if (checkExactRefusalBoundary)
+            {
+                // Compact fitting legitimately admits this full object at14k.
+                // Preserve a real refusal with that same complete projection
+                // and a final cap just below its independent actual wire cost.
+                var measured = CrossBatchDocumentaryDifference(body, compact: true);
+                Assert.Equal(measured, OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(body));
+                Assert.InRange(measured, 8_001, maximumDocumentaryCharacters);
+                using var factory = new QueuedHttpClientFactory(protocol == "responses"
+                    ? NativeResponseAnswer("{\"ok\":true}") : Completion("{\"ok\":true}"));
+                var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
+                    CaptureNativeCataloguePriorityAsync(protocol, fixture, rawReadings, "raw", factory,
+                        maximumDocumentaryCharacters: maximumDocumentaryCharacters,
+                        finalMaximumDocumentaryCharacters: measured - 1));
+                Assert.Equal("advanced_native_documentary_wire_budget_exceeded", error.ErrorCode);
+                Assert.Empty(factory.Requests);
+            }
         }
         Assert.Equal(canonicalCatalogue, JsonSerializer.Serialize(fixture.Catalogue));
         Assert.Equal(originalInventory, JsonSerializer.Serialize(fixture.Inventory, NativeCataloguePriorityJson));
@@ -324,7 +330,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     private async Task<string> CaptureNativeCataloguePriorityAsync(string protocol, NativeCataloguePriorityFixture fixture,
         AdvancedAnalysisAlternativeNativeReadings readings, string view, QueuedHttpClientFactory? suppliedFactory = null,
         int maximumHistoryCharacters = 16_384, int maximumDocumentaryCharacters = 14_000,
-        bool olderPrimaryFirst = false, string sourceKey = "internal-source-1")
+        bool olderPrimaryFirst = false, string sourceKey = "internal-source-1",
+        int? finalMaximumDocumentaryCharacters = null)
     {
         using var ownedFactory = suppliedFactory is null ? new QueuedHttpClientFactory(protocol == "responses"
             ? NativeResponseAnswer("{\"ok\":true}") : Completion("{\"ok\":true}")) : null;
@@ -390,6 +397,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var history = (IReadOnlyList<object>)InvokeNativeCataloguePriority(provider, "BuildNativeToolTurnMessages", [turn, projection, protocol == "responses"]);
         var prompt = JsonSerializer.Serialize(new { evidence = projection, researchTools = new
             { tools = Array.Empty<object>(), researchAllowed = true, evidenceReadingAllowed = true, maximumQueries = 6, availableCategories = Array.Empty<string>() } }, json);
+        if (finalMaximumDocumentaryCharacters is { } finalMaximum)
+            options.MaximumEvidencePromptCharacters = finalMaximum;
         await (Task)InvokeNativeCataloguePriority(provider, "CompleteJsonAsync",
             [Guid.NewGuid(), "writer", "Return JSON.", prompt, 16, CancellationToken.None, true, history, projection]);
         return Assert.Single(factory.Requests).Body;

@@ -168,14 +168,20 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             Assert.Equal(false, record.GetType().GetProperty("ContentTruncated")!.GetValue(record));
             return record;
         }, StringComparer.Ordinal);
-        var primaryIds = groups.Select(group => group[0].Reference.EvidenceId!).ToArray();
-        var neededIds = primaryIds.Concat(new[] { "A1", "B1H2" }).ToArray();
+        // The first physical result B1H1 is an index. Find projection now leads
+        // with the substantive hit; spell out the independent expected round.
+        var primaryIds = new[] { "B1H2", "B2H1", "B3H1", "B4H1", "B5H1", "B6H1" };
+        var neededIds = primaryIds.Concat(new[] { "A1", "B1H3" }).ToArray();
         var neededWire = CrossBatchOraclePayload(provider, turn, fullProjection, fullItems, neededIds, protocol);
         var allCurrentWire = CrossBatchOraclePayload(provider, turn, fullProjection, fullItems,
             current.Select(item => item.Reference.EvidenceId!).ToArray(), protocol);
-        Assert.InRange(CrossBatchDocumentaryDifference(neededWire, compact: false), 1, cap);
-        Assert.True(CrossBatchDocumentaryDifference(allCurrentWire, compact: false) > cap,
-            "The current secondary hits must really saturate the unchanged conservative cap before older alternatives.");
+        // Keep legacy inner documentary JSON, but measure the actual compact
+        // outer HTTP representation in both independent full/control oracles.
+        var neededCharacters = CrossBatchDocumentaryDifference(neededWire, compact: true);
+        var allCurrentCharacters = CrossBatchDocumentaryDifference(allCurrentWire, compact: true);
+        Assert.InRange(neededCharacters, 1, cap);
+        Assert.True(allCurrentCharacters > cap,
+            $"All current hits must saturate the compact cap: measured={allCurrentCharacters}, cap={cap}.");
 
         options.MaximumEvidencePromptCharacters = cap;
         var focused = AccumulatedReadPriority(context, active, active);
@@ -197,12 +203,21 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             Assert.False(item.GetProperty("contentTruncated").GetBoolean());
         }
         Assert.Equal(primaryIds, focused.Take(6).Select(item => item.Reference.EvidenceId));
-        Assert.Equal(new[] { "A1", "B1H2" }, focused.Skip(6).Take(2).Select(item => item.Reference.EvidenceId));
-        Assert.Equal("navigation", Assert.Single(visible, item => item.GetProperty("evidenceId").GetString() == "B1H1")
+        Assert.Equal(new[] { "A1", "B1H3" }, focused.Skip(6).Take(2).Select(item => item.Reference.EvidenceId));
+        // The index remains a canonical result in its original physical order;
+        // it is a locator, not one of the six required substantive primaries.
+        Assert.Equal("navigation", JsonSerializer.SerializeToElement(fullItems["B1H1"], CrossBatchInnerJson)
             .GetProperty("contentRole").GetString());
-        Assert.Contains("isolate the assembly", Assert.Single(visible, item => item.GetProperty("evidenceId").GetString() == "B1H2")
+        for (var index = 0; index < requests.Length; index++)
+        {
+            var key = (string)InvokeSourceCatalogue(null, "BuildSearchIdentity", requests[index])!;
+            Assert.Equal(groups[index].Select(item => item.Reference.EvidenceId),
+                results[key].Evidence.Select(item => item.Reference.EvidenceId));
+            for (var hit = 0; hit < groups[index].Length; hit++)
+                Assert.Same(groups[index][hit], results[key].Evidence[hit]);
+        }
+        Assert.Contains("isolate the assembly", Assert.Single(visible, item => item.GetProperty("evidenceId").GetString() == "B1H3")
             .GetProperty("content").GetString());
-        Assert.InRange(CrossBatchDocumentaryDifference(sent, compact: false), 1, cap);
         var actual = CrossBatchDocumentaryDifference(sent, compact: true);
         Assert.InRange(actual, 1, cap);
         Assert.Equal(actual, OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(sent));

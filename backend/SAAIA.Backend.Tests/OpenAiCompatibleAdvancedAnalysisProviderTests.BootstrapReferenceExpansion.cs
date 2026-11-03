@@ -171,7 +171,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                 new AdvancedAnalysisResultEvidence
                 {
                     EvidenceId = "fanout-" + (reference.ContentCardId ?? reference.ChunkId),
-                    DocId = reference.DocId, FileName = reference.FileName, DocPath = reference.DocPath,
+                    DocId = reference.DocId ?? throw new InvalidOperationException("Fixture document ID is required."),
+                    FileName = reference.FileName ?? throw new InvalidOperationException("Fixture file name is required."),
+                    DocPath = reference.DocPath ?? throw new InvalidOperationException("Fixture document path is required."),
                     RevisionId = "22222222-2222-4222-8222-222222222222", SourceHash = "sha256:test",
                     ContentCardId = reference.ContentCardId, ChunkId = reference.ChunkId,
                     PageStart = reference.PageStart, PageEnd = reference.PageEnd

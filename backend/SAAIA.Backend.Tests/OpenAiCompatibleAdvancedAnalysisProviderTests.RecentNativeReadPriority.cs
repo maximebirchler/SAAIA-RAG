@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using SAAIA.Backend.AdvancedAnalysis;
 using SAAIA.Contracts.DocumentIntelligence;
 using Xunit;
@@ -12,7 +13,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     [InlineData("responses")]
     public async Task RecentNativeReadPriority_requested_whole_line_survives_old_windows_at_the_same_budget(string protocol)
     {
-        var gateway = new RecentNativeReadGateway();
+        // The old two-primary context now fits compact transport. Preserve real
+        // competition with extra old canonical bodies, not an obsolete encoder.
+        var gateway = new RecentNativeReadGateway(extraPrimaryCount: 8);
         string NativeRead(string view) => JsonSerializer.Serialize(new
         {
             sourceKey = "internal-source-1", pageStart = 1, pageEnd = 1, topK = 20,
@@ -29,8 +32,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             protocol == "responses" ? NativeResponseAnswer(CandidateTerminal) : Completion(CandidateTerminal));
         var options = WorkspaceOptions(protocol); options.NativeObservationReadEnabled = true;
         options.MaximumEvidencePromptCharacters = 14_000;
-        var run = new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null)
-            .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null);
+        var run = provider.ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
         var error = await Record.ExceptionAsync(async () => await run);
         Assert.Equal(1, gateway.RawReadCount);
         Assert.Null(error);
@@ -42,9 +45,27 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal(gateway.RawText, native.GetProperty("content").GetString());
         Assert.False(native.GetProperty("contentTruncated").GetBoolean());
         Assert.Equal("N0", items[0].GetProperty("evidenceId").GetString());
+        // Independent full-context control proves the fixture still applies
+        // pressure under the actual compact wire, with unchanged14k cap.
+        options.MaximumEvidencePromptCharacters = 1_000_000;
+        var all = InvokeSourceCatalogue(provider, "BuildPromptEvidenceWithPersistentSourceKeys", BuildDirectRequest(),
+            gateway.Evidence, new Dictionary<string, HashSet<string>>(), gateway.Evidence,
+            new Dictionary<string, string>(), null, null)!;
+        var inner = CrossBatchInnerJson;
+        var control = JsonNode.Parse(factory.Requests[^1].Body)!.AsObject();
+        var messages = control[control.ContainsKey("input") ? "input" : "messages"]!.AsArray();
+        var userMessage = messages.OfType<JsonObject>().Single(item => item["role"]?.GetValue<string>() == "user");
+        var fullUser = JsonNode.Parse(userMessage["content"]!.GetValue<string>())!.AsObject();
+        fullUser["evidence"] = JsonSerializer.SerializeToNode(all, inner);
+        userMessage["content"] = fullUser.ToJsonString(inner);
+        var fullCost = CrossBatchDocumentaryDifference(control.ToJsonString(inner), compact: true);
+        Assert.True(fullCost > 14_000, $"The complete old-context control must exceed the actual compact cap: full={fullCost}.");
         Assert.True(prompt.GetProperty("evidenceProjection").GetProperty("canonicalProjection")
             .GetProperty("omittedByPromptBudgetCount").GetInt32() > 0);
-        Assert.InRange(OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(factory.Requests[^1].Body), 1, 14_000);
+        var actualCost = CrossBatchDocumentaryDifference(factory.Requests[^1].Body, compact: true);
+        Assert.InRange(actualCost, 1, 14_000);
+        Assert.Equal(actualCost, OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(factory.Requests[^1].Body));
+        Console.WriteLine($"recent_native_pressure active={gateway.Evidence.Count} visible={items.Length} compactFull={fullCost} compactActual={actualCost} cap=14000");
     }
 
     [Theory]
@@ -126,7 +147,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         private AdvancedAnalysisResolvedEvidence[] _primary;
         private readonly AdvancedAnalysisResolvedEvidence _native;
         private readonly AdvancedAnalysisAlternativeNativeReadings _raw;
-        public RecentNativeReadGateway(int rawCharacters = 2_500, bool compactStructure = false)
+        public RecentNativeReadGateway(int rawCharacters = 2_500, bool compactStructure = false,
+            int extraPrimaryCount = 0)
         {
             RawText = "Native literal: " + new string('r', rawCharacters) + "\r\n";
             var document = new CanonicalDocument
@@ -149,8 +171,12 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             _primary = new[] { BuildEvidence("E1", WireTextPrefix(3_000) + new string('x', 6_000), docId: _raw.DocId, revisionId: _raw.RevisionId),
                 BuildEvidence("E2", WireTextFact + new string('y', 400), docId: _raw.DocId, revisionId: _raw.RevisionId) }.Select(item => item with
                 {
-                    SourceStructure = item.Reference.EvidenceId == "E1" && !compactStructure ? structure : null, SourceOverview = new(1, 1, 2)
+                    SourceStructure = item.Reference.EvidenceId == "E1" && !compactStructure ? structure : null, SourceOverview = new(1, 1, 2 + extraPrimaryCount)
                 }).ToArray();
+            _primary = _primary.Concat(Enumerable.Range(3, extraPrimaryCount).Select(index =>
+                BuildEvidence("E" + index, "Older canonical context " + index + ": " + new string('p', 2_400),
+                    docId: _raw.DocId, revisionId: _raw.RevisionId) with
+                { SourceOverview = new(1, 1, 2 + extraPrimaryCount) })).ToArray();
             var line = view.Lines[0];
             _native = new(new() { EvidenceId = "N0", DocId = _raw.DocId, RevisionId = _raw.RevisionId,
                 SourceHash = document.Source.Sha256, FileName = _primary[0].Reference.FileName,

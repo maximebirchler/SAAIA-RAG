@@ -31,7 +31,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         // Excerpts are nested JSON in user.content. Charge the representation
         // actually sent on the wire, including the second escaping layer.
         // Shared inventories are measured with the collection and final gate.
-        return MeasureEscapedDocumentaryTextCharacters(JsonSerializer.Serialize(budgetEvidence, JsonOptions));
+        return MeasureEscapedProviderWireTextCharacters(JsonSerializer.Serialize(budgetEvidence, JsonOptions));
     }
 
     private static int MeasureEscapedDocumentaryTextCharacters(string text)

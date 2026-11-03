@@ -114,6 +114,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             // A newer window leads the projection without forgetting other
             // explicit reads that still belong to the active working set.
             RememberActiveExplicitReadIds(context, updates.Keys.Where(changedIds.Contains));
+            context.LatestExplicitReadIsFindOnly = false;
             context.CandidateInventory = context.CandidateInventory.Select(candidate =>
                 candidate.Status == "needs_body" && candidate.BodyEvidenceIds.Any(changedIds.Contains)
                     ? candidate with { Status = "awaiting_review", TargetRoles = [], SelectedRoles = [] }
@@ -152,14 +153,25 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyList<AdvancedAnalysisSearchRequest> requests,
         IReadOnlyDictionary<string, AdvancedAnalysisSearchObservation> results)
     {
-        var active = context.Tools.Evidence.Select(item => item.Reference.EvidenceId)
-            .Where(id => !string.IsNullOrWhiteSpace(id)).ToHashSet(StringComparer.Ordinal);
+        var active = context.Tools.Evidence.Where(item => !string.IsNullOrWhiteSpace(item.Reference.EvidenceId))
+            .GroupBy(item => item.Reference.EvidenceId!, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
         var groups = requests.Where(request => request.Operation is "read_source" or "find_source_text")
             .Select(request => (results.TryGetValue(BuildSearchIdentity(request), out var result)
                     ? result.Evidence : [])
                 .Select(item => item.Reference.EvidenceId)
-                .Where(id => !string.IsNullOrEmpty(id) && active.Contains(id))
-                .Cast<string>().Distinct(StringComparer.Ordinal).ToArray())
+                .Where(id => !string.IsNullOrEmpty(id) && active.ContainsKey(id))
+                .Cast<string>().Distinct(StringComparer.Ordinal)
+                // Find results retain canonical physical order in the tool result.
+                // Only the prompt preference leads with a substantive hit when
+                // one exists; an index is still available as a locator.
+                .OrderBy(id => request.Operation == "find_source_text"
+                    ? RetrievalContentClassifier.AnalyzeEvidenceContent(active[id].Content, active[id].ExactTitle).ContentRole switch
+                    {
+                        RetrievalContentClassifier.ContentRole => 0,
+                        RetrievalContentClassifier.MixedNavigationContentRole => 1,
+                        _ => 2
+                    } : 0).ToArray())
             .Where(group => group.Length > 0).ToArray();
         var positions = new int[groups.Length];
         var ids = new List<string>();
@@ -191,6 +203,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }
         }
         RememberActiveExplicitReadIds(context, ids, firstRoundCount);
+        if (ids.Count > 0)
+            context.LatestExplicitReadIsFindOnly = requests.All(request => request.Operation == "find_source_text");
     }
 
     private static void RememberActiveExplicitReadIds(
@@ -227,14 +241,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> focused)
     {
         var explicitOrder = PrioritizeLatestExplicitRead(evidence, focused, context.LatestExplicitReadEvidenceIds);
-        if (context.PreviousProjectionEvidenceIds.Count == 0)
+        if (context.PreviousProjectionEvidenceIds.Count == 0
+            && (!context.LatestExplicitReadIsFindOnly || context.PreviousCitedEvidenceIds.Count == 0))
             return explicitOrder;
         var current = evidence.Where(item => item.Reference.EvidenceId is not null)
             .GroupBy(item => item.Reference.EvidenceId!, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
         context.PreviousProjectionEvidenceIds = context.PreviousProjectionEvidenceIds
             .Where(current.ContainsKey).Distinct(StringComparer.Ordinal).ToArray();
-        if (context.LatestExplicitReadEvidenceIds.Count == 0 || context.PreviousProjectionEvidenceIds.Count == 0)
+        context.PreviousCitedEvidenceIds = context.PreviousCitedEvidenceIds
+            .Where(current.ContainsKey).Distinct(StringComparer.Ordinal).ToArray();
+        if (context.LatestExplicitReadEvidenceIds.Count == 0)
             return explicitOrder;
         var primaryIds = context.LatestExplicitReadEvidenceIds.Take(context.LatestExplicitReadPrimaryCount)
             .Where(current.ContainsKey).ToHashSet(StringComparer.Ordinal);
@@ -243,6 +260,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             .Concat(context.CandidateInventory.Where(item => item.Status == "rejected")
                 .SelectMany(item => item.LocatorEvidenceIds.Concat(item.BodyEvidenceIds)))
             .ToHashSet(StringComparer.Ordinal);
+        var cited = context.LatestExplicitReadIsFindOnly
+            ? context.PreviousCitedEvidenceIds.Where(current.ContainsKey)
+                .Where(id => !primaryIds.Contains(id) && !rejectedIds.Contains(id))
+                .Distinct(StringComparer.Ordinal).Select(id => current[id])
+                .Where(item => RetrievalContentClassifier.AnalyzeEvidenceContent(item.Content, item.ExactTitle).ContentRole
+                    != RetrievalContentClassifier.NavigationRole).ToArray()
+            : [];
+        var citedIds = cited.Select(item => item.Reference.EvidenceId!).ToHashSet(StringComparer.Ordinal);
         // Keep one current hit per explicit request first. Then let previously
         // visible query/source groups take turns before further current hits.
         // An earlier prompt is never a second store of documentary bodies.
@@ -255,17 +280,32 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 + string.Join("\n", queries);
         }
         var groups = context.PreviousProjectionEvidenceIds.Where(current.ContainsKey)
-            .Where(id => !primaryIds.Contains(id) && !rejectedIds.Contains(id)).Distinct(StringComparer.Ordinal)
+            .Where(id => !primaryIds.Contains(id) && !rejectedIds.Contains(id) && !citedIds.Contains(id)).Distinct(StringComparer.Ordinal)
             .Select(id => current[id]).GroupBy(Group, StringComparer.OrdinalIgnoreCase)
             .Select(group => new Queue<AdvancedAnalysisResolvedEvidence>(group)).ToArray();
-        var previous = new List<AdvancedAnalysisResolvedEvidence>();
+        var previous = new List<AdvancedAnalysisResolvedEvidence>(cited);
         while (groups.Any(group => group.Count > 0))
             foreach (var group in groups)
                 if (group.Count > 0) previous.Add(group.Dequeue());
         var previousIds = previous.Select(item => item.Reference.EvidenceId!).ToHashSet(StringComparer.Ordinal);
-        var result = explicitOrder.Where(item => primaryIds.Contains(item.Reference.EvidenceId!)).ToList();
+        var primary = explicitOrder.Where(item => primaryIds.Contains(item.Reference.EvidenceId!)).ToArray();
         var rest = explicitOrder.Where(item => !primaryIds.Contains(item.Reference.EvidenceId!)
             && !previousIds.Contains(item.Reference.EvidenceId!)).ToArray();
+        if (context.LatestExplicitReadIsFindOnly && cited.Length > 0)
+        {
+            // A title search must not crowd every previously cited body behind
+            // the whole batch of new locators. This is a bounded ordering hint:
+            // all bodies are rebound above, and normal omission limits apply.
+            var interleaved = new List<AdvancedAnalysisResolvedEvidence>();
+            for (var index = 0; index < Math.Max(primary.Length, previous.Count); index++)
+            {
+                if (index < primary.Length) interleaved.Add(primary[index]);
+                if (index < previous.Count) interleaved.Add(previous[index]);
+            }
+            interleaved.AddRange(rest);
+            return interleaved;
+        }
+        var result = primary.ToList();
         for (var index = 0; index < Math.Max(previous.Count, rest.Length); index++)
         {
             if (index < previous.Count) result.Add(previous[index]);

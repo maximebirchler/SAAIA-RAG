@@ -16,25 +16,34 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     [InlineData("responses", 97)]
     [InlineData("chat-completions", 112)]
     [InlineData("responses", 112)]
-    public async Task Native_quality_reference_refuses_insufficient_metadata_budget_then_keeps_whole_line_at_qualified_capacity(
+    public async Task Compact_documentary_fitting_keeps_whole_line_that_fits_wire_and_still_refuses_a_smaller_final_cap(
         string protocol, int characters)
     {
         var fixture = NativeQualityFixture(characters, 1);
-        // The conservative fitting projection still refuses the complete line
-        // and metadata at 14k. The compact outer transport does not change that
-        // selection decision, but its final wire contribution is now smaller.
-        var refusal = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
-            CaptureNativeBudgetAsync(protocol, fixture.Evidence, fixture.RawSha, reserveCurrentNativeTurn: true));
-        Assert.Equal("advanced_secondary_documentary_metadata_budget_exceeded", refusal.ErrorCode);
-        var body = await CaptureNativeBudgetAsync(protocol, fixture.Evidence, fixture.RawSha, 20_000,
+        // The old transport-only fix preserved a legacy fitting refusal at14k
+        // even though this unchanged complete line and metadata fit the actual
+        // compact wire. Qualify the exact object first, then keep it at14k.
+        var qualified = await CaptureNativeBudgetAsync(protocol, fixture.Evidence, fixture.RawSha, 20_000,
             reserveCurrentNativeTurn: true);
-        var measured = OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(body);
-        Assert.InRange(measured, 1, 20_000);
-        var legacyMeasured = LegacyEscapedNativeBudgetContribution(body);
+        var measured = OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(qualified);
+        Assert.InRange(measured, 8_001, 14_000);
+        var legacyMeasured = LegacyEscapedNativeBudgetContribution(qualified);
         Assert.True(legacyMeasured > 14_000);
         Assert.True(measured < legacyMeasured);
-        Console.WriteLine($"native_quality_wire protocol={protocol} characters={characters} measured={measured} cap=20000");
+        var body = await CaptureNativeBudgetAsync(protocol, fixture.Evidence, fixture.RawSha, 14_000,
+            reserveCurrentNativeTurn: true);
+        Assert.Equal(measured, OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(body));
         AssertNativeQualityReference(body, protocol, fixture);
+        Assert.Equal(WorkspaceUser(qualified).GetRawText(), WorkspaceUser(body).GetRawText());
+
+        // Keep an actual before-HTTP refusal on the opposite side of the exact
+        // compact boundary, using the same unshortened prebuilt projection.
+        var smallerCap = measured - 1;
+        var refusal = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
+            CaptureNativeBudgetAsync(protocol, fixture.Evidence, fixture.RawSha, smallerCap,
+                reserveCurrentNativeTurn: true, projectionMaximumCharacters: 20_000));
+        Assert.Equal("advanced_native_documentary_wire_budget_exceeded", refusal.ErrorCode);
+        Console.WriteLine($"native_quality_wire protocol={protocol} characters={characters} measured={measured} cap=14000 refusedCap={smallerCap}");
     }
 
     [Theory]

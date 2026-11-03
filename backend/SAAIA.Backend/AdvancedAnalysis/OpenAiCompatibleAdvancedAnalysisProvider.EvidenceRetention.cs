@@ -2,6 +2,23 @@ namespace SAAIA.Backend.AdvancedAnalysis;
 
 internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 {
+    private static void RememberPreviousCitedEvidence(string raw,
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
+        IReadOnlyList<PromptEvidenceItem> observations,
+        AdvancedAnalysisProviderRequest request, SynthesisResearchContext context)
+    {
+        AdvancedAnalysisProviderResult proposal;
+        try { proposal = ParseResult(raw, evidence, request); }
+        catch (AdvancedAnalysisProviderException) { return; }
+        var visible = observations.Where(item => GetVisibleEvidenceContents(item)
+                .Any(content => !string.IsNullOrWhiteSpace(content)))
+            .Select(item => item.EvidenceId).ToHashSet(StringComparer.Ordinal);
+        // Independent of the optional active-proposal feature: only a bounded
+        // ordering hint, never copied text or an extra working-set protection.
+        context.PreviousCitedEvidenceIds = proposal.Claims.SelectMany(claim => claim.EvidenceIds)
+            .Where(visible.Contains).Distinct(StringComparer.Ordinal).Take(256).ToArray();
+    }
+
     private static IReadOnlyCollection<string> RetainedResearchEvidenceIds(
         SynthesisResearchContext context, IReadOnlyList<PromptEvidenceItem> observations)
     {
@@ -28,6 +45,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         if (context.Tools.Budget?.EvidenceRotationEnabled is not true) return;
         var activeIds = context.Tools.Evidence.Select(item => item.Reference.EvidenceId).ToHashSet(StringComparer.Ordinal);
         context.PreviousProjectionEvidenceIds = context.PreviousProjectionEvidenceIds.Where(activeIds.Contains).ToArray();
+        context.PreviousCitedEvidenceIds = context.PreviousCitedEvidenceIds.Where(activeIds.Contains).ToArray();
         for (var index = context.EvidenceGroups.Count - 1; index >= 0; index--)
         {
             var retained = context.EvidenceGroups[index]

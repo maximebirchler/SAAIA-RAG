@@ -150,10 +150,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     internal static int MeasureSecondaryDocumentaryWireCharacters(string serializedPayload)
         => MeasureDocumentaryWireCharacters(serializedPayload, WireJsonOptions.Value);
 
-    // Keep the existing conservative fitting policy. Compact transport must not
-    // change which excerpts are selected before the final exact-wire check.
+    // Select excerpts against the same outer encoding as the final wire gate.
+    // Inner documentary JSON, complete-line rules and the configured cap stay
+    // unchanged; legacy HTML escaping must not consume nonexistent wire space.
     private static int MeasureFittingDocumentaryWireCharacters(string serializedPayload)
-        => MeasureDocumentaryWireCharacters(serializedPayload, JsonOptions);
+        => MeasureDocumentaryWireCharacters(serializedPayload, WireJsonOptions.Value);
 
     private static int MeasureDocumentaryWireCharacters(string serializedPayload, JsonSerializerOptions wireOptions)
     {

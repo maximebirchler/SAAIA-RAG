@@ -23,7 +23,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         public Dictionary<string, EvidenceReadWindow> EvidenceReadWindows { get; } = new(StringComparer.Ordinal);
         public IReadOnlyList<string> LatestExplicitReadEvidenceIds { get; set; } = [];
         public int LatestExplicitReadPrimaryCount { get; set; }
+        public bool LatestExplicitReadIsFindOnly { get; set; }
         public IReadOnlyList<string> PreviousProjectionEvidenceIds { get; set; } = [];
+        public IReadOnlyList<string> PreviousCitedEvidenceIds { get; set; } = [];
         public Dictionary<string, string> PromptSourceKeys { get; } = new(StringComparer.Ordinal);
         public bool CandidateInventoryCheckpointLoaded { get; set; }
         public CandidateExplorerDossier? CandidateExplorerDossier { get; set; }
@@ -360,6 +362,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             {
                 if (candidateExplorer)
                     return new SynthesisCompletion(completion, evidence, observations);
+                if (_options.NativeResearchToolsEnabled)
+                    RememberPreviousCitedEvidence(completion.Content, evidence, observations, request, context);
                 if (_options.AdaptiveResearchEnabled && _options.NativeResearchToolsEnabled
                     && phase == "writer" && request.Handoff.Load.StructuredLayout
                     && string.Equals(request.Handoff.Load.AtomicEvidenceMode, "named_item", StringComparison.OrdinalIgnoreCase)
@@ -387,6 +391,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         probe.Set("remaining_tool_ms", toolBudget?.RemainingElapsedMilliseconds);
                         probe.Set("remaining_evidence_items", toolBudget?.RemainingEvidenceItems);
                         probe.Set("visible_evidence_count", observations.Count);
+                        probe.Set("previous_cited_evidence_count", context.PreviousCitedEvidenceIds.Count);
                         probe.Set("visible_source_count", observations.Select(item => item.SourceKey).Distinct(StringComparer.Ordinal).Count());
                         probe.Set("prior_documentary_followup_count", followup);
                         probe.Set("native_turn_present", context.NativeTurn is not null);
