@@ -317,19 +317,25 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         context.CandidateExplorerDossier,
                         JsonOptions);
                 if (_options.AdaptiveResearchEnabled)
-                    payload["researchTools"] = JsonSerializer.SerializeToNode(new
                 {
-                        tools = BuildResearchToolsForPrompt(includeEvidenceReading: _options.NativeResearchToolsEnabled),
-                    researchAllowed = maximumCalls - completions.Count - 1 - reservedFinalCalls > 0
+                    var researchAllowed = maximumCalls - completions.Count - 1 - reservedFinalCalls > 0
                         && context.ResourceLimit is null
-                        && HasDocumentaryResearchBudget(toolBudget),
-                    remainingModelCalls = Math.Max(0, maximumCalls - completions.Count - 1 - reservedFinalCalls),
-                    evidenceReadingAllowed = maximumCalls - completions.Count - 1 - reservedFinalCalls > 0,
-                    documentaryBudget = toolBudget,
-                    maximumQueries = ResolveMaximumPlanQueries(request),
-                    availableCategories = context.AvailableCategories,
-                    priorSearches = BuildPriorSearchesForPrompt(context.PriorSearches, observations)
-                }, JsonOptions);
+                        && HasDocumentaryResearchBudget(toolBudget);
+                    var researchTools = JsonSerializer.SerializeToNode(new
+                    {
+                        tools = BuildResearchToolsForPrompt(includeEvidenceReading: _options.NativeResearchToolsEnabled),
+                        researchAllowed,
+                        remainingModelCalls = Math.Max(0, maximumCalls - completions.Count - 1 - reservedFinalCalls),
+                        evidenceReadingAllowed = maximumCalls - completions.Count - 1 - reservedFinalCalls > 0,
+                        documentaryBudget = toolBudget,
+                        maximumQueries = ResolveMaximumPlanQueries(request),
+                        availableCategories = context.AvailableCategories,
+                        priorSearches = BuildPriorSearchesForPrompt(context.PriorSearches, observations)
+                    }, JsonOptions)!.AsObject();
+                    if (researchAllowed && BuildSourceTitleExplorationGuidance(request.Handoff.Load, observations, context) is { } guidance)
+                        researchTools["sourceTitleExploration"] = JsonSerializer.SerializeToNode(guidance, JsonOptions);
+                    payload["researchTools"] = researchTools;
+                }
                 if (context.ResourceLimit is not null)
                     payload["researchResourceLimit"] = JsonSerializer.SerializeToNode(new
                     {
@@ -690,6 +696,34 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var text = ReadString(document.RootElement, "answerText");
         var length = BoundEvidenceTextLength(text, 0, 2_000);
         return new { text = text[..length], truncated = length < text.Length, documentaryEvidence = false };
+    }
+
+    private object? BuildSourceTitleExplorationGuidance(
+        AdvancedAnalysisLoadDescriptor load,
+        IReadOnlyList<PromptEvidenceItem> observations,
+        SynthesisResearchContext context)
+    {
+        if (!_options.NativeResearchToolsEnabled || !_options.NativeSourceTitleNavigationEnabled
+            || !load.StructuredLayout || load.AnswerUnitCount < 2
+            || !string.Equals(load.AtomicEvidenceMode, "named_item", StringComparison.OrdinalIgnoreCase)
+            || observations is not PromptEvidenceProjection { SourceCatalogueEnabled: true, SourceCatalogue.Count: > 0 } projection)
+            return null;
+
+        var completed = context.PriorSearches.Where((_, index) =>
+            context.PriorSearchExecutionStatuses.GetValueOrDefault(index) == "succeeded").ToArray();
+        var consecutiveSearches = completed.Reverse().TakeWhile(search => search.Operation == "search_corpus").Count();
+        if (consecutiveSearches < 4)
+            return null;
+
+        return new
+        {
+            reasonCode = "lexical_only_documentary_route",
+            consecutiveCorpusSearches = consecutiveSearches,
+            observedSourceCount = projection.SourceCatalogue.Count,
+            successfulTitleListings = completed.Count(search => search.Operation == AdvancedAnalysisSourceTitlePage.Operation),
+            documentaryEvidence = false,
+            instruction = "If you still need additional named bodies, use the current source catalogue to choose a different documentary check. Consider list_source_titles in an observed source to browse specific headings without guessing another broad query, then read a promising physical page before judging the item. Use a focused lexical search when it tests a different documentary hypothesis. This is a summary of operations already run, not a count of items available or a decision about any source or placement."
+        };
     }
 
     private static bool HasOpenResearchLocator(IReadOnlyList<PromptEvidenceItem> observations)

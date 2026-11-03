@@ -777,6 +777,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         if (nativeFunctions is not null)
         {
             systemPrompt = systemPrompt.Replace(BuildSynthesisResearchContract(), NativeResearchContract, StringComparison.Ordinal);
+            userPrompt = CompactNativeResearchUserPrompt(userPrompt, out var liftedDiagnosticInstruction);
+            if (liftedDiagnosticInstruction)
+                systemPrompt += "\nPrior-search retrieval diagnostics. " + ResearchDiagnosticPromptInstruction;
             if (_options.NativeSourceTitleNavigationEnabled)
                 systemPrompt += "\nWhen list_source_titles is offered, use it to browse an observed source for additional candidates when lexical searches do not expose enough plausible bodies. Start at offset 0, narrow by title or physical pages when useful, and use nextOffset to continue the same filter. Read selected locations before evaluating or citing them.";
         }

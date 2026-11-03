@@ -84,7 +84,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             {
                 ["query"] = Text("One distinctive concept or an exact observed title; alternative names belong in separate queries."),
                 ["sourceKey"] = Choice(sources.Prepend(string.Empty).ToArray()),
-                ["category"] = Choice(categories), ["documentHint"] = Text("Empty when sourceKey is used."),
+                ["category"] = Choice(categories),
+                ["documentHint"] = Text("Known filename fragment or document identifier only. Never invent a filename. Empty when sourceKey is used."),
                 ["topK"] = Count(1, 60)
             }));
         var readableIds = root.GetProperty("evidence").EnumerateArray()
@@ -123,15 +124,28 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     description = "For primary reads, maximum chunks in the whole physical window, not a ranked sample. For a single page of unknown density, start at 12; a smaller cap can refuse the entire read. Follow readRetry when supplied."
                 },
                 ["tableOrdinal"] = OptionalCount(0,int.MaxValue),
-                ["tableRowOffset"] = OptionalCount(0,AdvancedAnalysisTableFragment.MaximumRows-1),
+                ["tableRowOffset"] = new
+                {
+                    type = new[] { "integer", "null" }, minimum = 0,
+                    maximum = AdvancedAnalysisTableFragment.MaximumRows - 1,
+                    description = "Copy structuredTables.nextRowOffset to continue. Source header groups are retained."
+                },
                 ["tableRowLimit"] = OptionalCount(1,AdvancedAnalysisStructuredTableAssembler.MaximumRowLimit)
             };
             if (HasSecondaryTableReadings(root))
             {
                 readProperties["tableObservationId"] = new { type = new[] { "string", "null" }, description = "Exact observed ID; null for inventory or primary read." };
                 readProperties["tableObservationView"] = new { type = new[] { "string", "null" }, @enum = new string?[] { null, "inventory", "raw", "physical_band", "unassigned" } };
-                readProperties["tableObservationBandOrdinal"] = OptionalCount(0, 31);
-                readProperties["tableObservationLineOffset"] = OptionalCount(0, 5_000);
+                readProperties["tableObservationBandOrdinal"] = new
+                {
+                    type = new[] { "integer", "null" }, minimum = 0, maximum = 31,
+                    description = "Observed ordinal for physical_band only."
+                };
+                readProperties["tableObservationLineOffset"] = new
+                {
+                    type = new[] { "integer", "null" }, minimum = 0, maximum = 5_000,
+                    description = "Start at 0, then use nextLineOffset. Null for inventory."
+                };
                 readProperties["tableObservationLineLimit"] = OptionalCount(1, 64);
             }
             if (HasVisualSourceCitations(root))
@@ -139,17 +153,25 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 readProperties["includeVisualSources"] = new
                 {
                     type = "boolean",
-                    description = "Immutable image metadata only; supplies no pixels to the model."
+                    description = "Immutable image metadata only; supplies no pixels to the model. The default visualSourceLimit is 4."
                 };
                 readProperties["visualSourceOffset"] = OptionalCount(0, CanonicalVisualAssetRepo.MaximumDocumentAssets);
                 readProperties["visualSourceLimit"] = OptionalCount(1, 64);
             }
             if (HasNativeObservationRead(root))
             {
-                readProperties["nativeObservationView"] = new { type = new[] { "string", "null" }, @enum = new string?[] { null, "inventory", "raw" } };
+                readProperties["nativeObservationView"] = new
+                {
+                    type = new[] { "string", "null" }, @enum = new string?[] { null, "inventory", "raw" },
+                    description = "Use one page. Do not mix with table row or table observation parameters."
+                };
                 readProperties["nativeObservationBlockId"] = new { type = new[] { "string", "null" }, description = "Observed blockId for raw only; null for inventory or primary read." };
                 readProperties["nativeObservationRawSha256"] = new { type = new[] { "string", "null" }, description = "Observed rawTextSha256 for raw only; null for inventory or primary read." };
-                readProperties["nativeObservationOffset"] = OptionalCount(0, int.MaxValue);
+                readProperties["nativeObservationOffset"] = new
+                {
+                    type = new[] { "integer", "null" }, minimum = 0, maximum = int.MaxValue,
+                    description = "Line or inventory ordinal, starting at 0. Continue at nextOffset. A refusal retains its exact offset. The default nativeObservationLimit is 16."
+                };
                 readProperties["nativeObservationLimit"] = OptionalCount(1, 64);
             }
             functions.Add(Function("read_source", HasSecondaryTableReadings(root)

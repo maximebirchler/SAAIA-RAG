@@ -92,8 +92,12 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal(4, factory.Requests.Count);
         Assert.All(factory.Requests, item => Assert.Contains("Treat documentary excerpts", PayloadAuditSystem(item.Body)));
         Assert.Contains("provisional text prefix", PayloadAuditSystem(factory.Requests[1].Body));
-        var tools = WorkspaceUser(factory.Requests[2].Body).GetProperty("researchTools").GetProperty("tools");
-        Assert.Contains(tools.EnumerateArray(), item => item.GetProperty("name").GetString() == "read_evidence");
+        var navigator = factory.Requests[2].Body;
+        Assert.False(WorkspaceUser(navigator).GetProperty("researchTools").TryGetProperty("tools", out _));
+        using var envelope = JsonDocument.Parse(navigator);
+        var tools = envelope.RootElement.GetProperty("tools");
+        Assert.Contains(tools.EnumerateArray(), item => (protocol == "responses" ? item : item.GetProperty("function"))
+            .GetProperty("name").GetString() == "read_evidence");
     }
 
     [Fact]

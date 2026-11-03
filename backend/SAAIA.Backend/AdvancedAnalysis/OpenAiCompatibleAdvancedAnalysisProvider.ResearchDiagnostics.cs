@@ -4,6 +4,9 @@ namespace SAAIA.Backend.AdvancedAnalysis;
 
 internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 {
+    private const string ResearchDiagnosticPromptInstruction =
+        "Operation counts: not distinct supported items; not exhaustive corpus coverage. Phases omitted.";
+
     private static bool HasDocumentaryResearchBudget(AdvancedAnalysisToolBudget? budget)
         => budget is null || budget.RemainingCalls > 0
             && budget.RemainingElapsedMilliseconds > 0
@@ -29,7 +32,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 }).ToArray(),
             omittedRejectionReasons = Math.Max(0, (diagnostic.RejectionCounts?.Count ?? 0) - 16),
             diagnostic.DroppedRejections,
-            instruction = "Operation counts: not distinct supported items; not exhaustive corpus coverage. Phases omitted."
+            instruction = ResearchDiagnosticPromptInstruction
         };
 
     private static string[] BuildDegradedRetrieversForPrompt(IReadOnlyList<string>? retrievers)

@@ -97,6 +97,26 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
 
         Assert.Equal("answered", result.Outcome);
+        foreach (var request in factory.Requests.Skip(1))
+        {
+            var research = WorkspaceUser(request.Body).GetProperty("researchTools");
+            Assert.False(research.TryGetProperty("tools", out _));
+            Assert.Contains(research.GetProperty("priorSearches").EnumerateArray(), search =>
+                search.TryGetProperty("retrievalDiagnostic", out _));
+            foreach (var search in research.GetProperty("priorSearches").EnumerateArray())
+            {
+                var diagnosticFeedback = search.GetProperty("retrievalDiagnostic");
+                Assert.False(diagnosticFeedback.TryGetProperty("instruction", out _));
+                Assert.Equal(20, diagnosticFeedback.GetProperty("returnedEvidenceCandidates").GetInt32());
+            }
+            using var native = JsonDocument.Parse(request.Body);
+            Assert.NotEmpty(native.RootElement.GetProperty("tools").EnumerateArray());
+            var nativeMessages = native.RootElement.GetProperty(protocol == "responses" ? "input" : "messages");
+            var system = nativeMessages[0].GetProperty("content").GetString()!;
+            Assert.Contains("Prior-search retrieval diagnostics. Operation counts", system);
+            Assert.Contains("not exhaustive corpus coverage", system);
+        }
+
         using var body = JsonDocument.Parse(factory.Requests[2].Body);
         var messages = body.RootElement.GetProperty(protocol == "responses" ? "input" : "messages").EnumerateArray();
         var tool = messages.Single(message => protocol == "responses"
