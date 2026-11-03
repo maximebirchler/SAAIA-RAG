@@ -77,7 +77,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var messages = new List<object> { new { role = "system", content = string.Empty } };
         if (turn is not null)
         {
-            try { messages.AddRange(BuildNativeToolTurnMessages(turn, evidence, UsesNativeResponses)); }
+            // Trial excerpts are plain arrays. Supply their active source
+            // catalogue explicitly so title pages render and count exactly as
+            // they do in the final native tool output.
+            try
+            {
+                messages.AddRange(BuildNativeToolTurnMessagesCore(turn, evidence, UsesNativeResponses,
+                    emitDiagnostics: false, activeSourceCatalogue: sourceCatalogue));
+            }
             catch (AdvancedAnalysisProviderException error) when (error.ErrorCode == "advanced_native_tool_history_limit_exceeded")
             {
                 // A candidate can change exact current-user references into a

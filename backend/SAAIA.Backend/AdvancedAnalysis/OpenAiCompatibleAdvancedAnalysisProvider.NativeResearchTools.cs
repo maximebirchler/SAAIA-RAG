@@ -374,10 +374,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private IReadOnlyList<object> BuildNativeToolTurnMessages(NativeResearchTurn? turn,
         IReadOnlyList<PromptEvidenceItem> visible, bool responses = false)
         => BuildNativeToolTurnMessagesCore(turn, visible, responses,
-            emitDiagnostics: visible is PromptEvidenceProjection);
+            emitDiagnostics: visible is PromptEvidenceProjection,
+            activeSourceCatalogue: visible is PromptEvidenceProjection { SourceCatalogueEnabled: true } projection
+                ? projection.SourceCatalogue : null);
 
     private IReadOnlyList<object> BuildNativeToolTurnMessagesCore(NativeResearchTurn? turn,
-        IReadOnlyList<PromptEvidenceItem> visible, bool responses, bool emitDiagnostics)
+        IReadOnlyList<PromptEvidenceItem> visible, bool responses, bool emitDiagnostics,
+        IReadOnlyList<PromptSourceHandle>? activeSourceCatalogue)
     {
         if (turn is null) return [];
         using var calls = JsonDocument.Parse(turn.CallsJson);
@@ -486,8 +489,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (ReadString(call.GetProperty("function"), "name") == AdvancedAnalysisSourceTitlePage.Operation)
             {
                 var sourceKey = turn.CallSourceScopes.TryGetValue(callId, out var locatorScope)
-                    && visible is PromptEvidenceProjection { SourceCatalogueEnabled: true } current
-                    ? current.SourceCatalogue.FirstOrDefault(item =>
+                    ? activeSourceCatalogue?.FirstOrDefault(item =>
                         item.SourceReference.DocId == locatorScope.DocId
                         && item.SourceReference.RevisionId == locatorScope.RevisionId
                         && item.SourceReference.SourceHash == locatorScope.SourceHash
