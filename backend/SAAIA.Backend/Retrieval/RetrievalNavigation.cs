@@ -355,8 +355,9 @@ internal static partial class RetrievalNavigation
         if (top.Score < minimumScore)
             return false;
 
-        if (QueryRequestsSafetyDataSheetDocumentType(query)
-            && !TitleSignalMatchesSafetyDataSheetDocumentType(GetDocumentTypeTitleSignalText(top)))
+        var requestedDocumentType = RetrievalDocumentTypes.ResolveRequestedType(query);
+        if (requestedDocumentType is not null
+            && RetrievalDocumentTypes.ComputeTitleSignal(requestedDocumentType, GetDocumentTypeTitleSignalText(top)) == 0)
         {
             return false;
         }

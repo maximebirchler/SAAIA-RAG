@@ -156,6 +156,12 @@ public sealed partial class RetrievalRuntimeSwitchTests
         Assert.Contains("cleanroom", cleanroomTerms);
         Assert.Contains("clean room", cleanroomTerms);
 
+        var dataSheetTerms = RetrievalLexicalExpansion.BuildDocumentProfileLexicalTerms(
+            "data sheet handling precautions");
+        Assert.DoesNotContain("msds", dataSheetTerms);
+        Assert.DoesNotContain("sds", dataSheetTerms);
+        Assert.DoesNotContain("material safety data sheet", dataSheetTerms);
+
         var safetyDataSheetTerms = RetrievalLexicalExpansion.BuildDocumentProfileLexicalTerms(
             "safety data sheet handling precautions");
         Assert.Contains("msds", safetyDataSheetTerms);

@@ -292,7 +292,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             evidence = writerRound.Evidence;
             promptEvidence = writerRound.PromptEvidence;
             completions.Add(writer);
-            var parsed = await ParseWriterWithRepairAsync(
+            var parsed = writerRound.BoundedResult ?? await ParseWriterWithRepairAsync(
                     request, writer, evidence, promptEvidence, completions,
                     runSemanticCritic, cancellationToken)
                 .ConfigureAwait(false);
@@ -369,7 +369,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     completions.Add(critic);
                     try
                     {
-                        parsed = ParseResult(critic.Content, evidence, request);
+                        parsed = criticRound.BoundedResult ?? ParseResult(critic.Content, evidence, request);
                     }
                     catch (AdvancedAnalysisProviderException) when (
                         completions.Count < Math.Clamp(
@@ -470,7 +470,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             EnsureVisibleClaimCitations(parsed, promptEvidence.Where(e => e.EvidenceId is not null
                     && GetVisibleEvidenceContents(e).Any(content => !string.IsNullOrWhiteSpace(content)))
                 .Select(e => e.EvidenceId!).ToArray());
-            EnsureNamedSelectionIdentityBindings(parsed, request, promptEvidence);
+            if (HasUnsupportedNamedSelectionIdentity(parsed, request, promptEvidence))
+            {
+                if (!UsesRepeatableGridIdentityCorrection(request.Handoff.Load))
+                    throw new AdvancedAnalysisProviderException("advanced_synthesis_candidate_identity_not_supported");
+                parsed = BuildUnverifiedSelectionIdentityResult(request);
+            }
             return WithMetrics(
                 parsed,
                 completions,

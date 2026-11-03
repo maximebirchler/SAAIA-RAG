@@ -67,25 +67,43 @@ public sealed partial class RetrievalRuntimeSwitchTests
         Assert.Equal("target", ordered[0].ChunkId);
     }
 
-    [Fact]
-    public void CalibrateFusedMatches_prefers_requested_safety_data_sheet_document_type()
+    [Theory]
+    [InlineData("safety data sheet handling precautions", "Docs/FIT-PTFE Technical Data Sheet.pdf", "Docs/MSDS-PTFE.pdf")]
+    [InlineData("FDS pour le PTFE", "Docs/FIT-PTFE Technical Data Sheet.pdf", "Docs/Safety Data Sheet PTFE.pdf")]
+    [InlineData("Find the annual report for this facility", "Docs/General operating handbook.pdf", "Docs/Annual Report.pdf")]
+    [InlineData("Type de document : procès-verbal de réception", "Docs/Procédure de réception.pdf", "Docs/Procès-verbal de réception.pdf")]
+    public void Requested_document_type_prefers_matching_title_for_calibration_and_selection(
+        string query, string wrongPath, string requestedPath)
     {
-        var genericDataSheet = TestMatch(
-            text: "PTFE technical data sheet. Handling precautions are summarized in the general instructions for use.",
-            docPath: "Docs/FIT-PTFE Technical Data Sheet.pdf",
-            chunkId: "data-sheet",
+        const string text = "The source explains handling precautions, site storage, disposal and general operating procedures in detail.";
+        var unrelatedType = TestMatch(
+            text: text,
+            docPath: wrongPath,
+            chunkId: "other-type",
             score: 0.98);
-        var safetyDataSheet = TestMatch(
-            text: "PTFE material safety data sheet. Handling precautions include storage, disposal and personal protection notes.",
-            docPath: "Docs/MSDS-PTFE Safety Data Sheet.pdf",
-            chunkId: "safety-data-sheet",
+        var requestedType = TestMatch(
+            text: text,
+            docPath: requestedPath,
+            chunkId: "requested-type",
             score: 0.76);
 
-        var calibrated = RetrievalSelection.CalibrateFusedMatches(
-            "safety data sheet handling precautions",
-            [genericDataSheet, safetyDataSheet]);
+        var calibrated = RetrievalSelection.CalibrateFusedMatches(query, [unrelatedType, requestedType]);
+        var selected = RetrievalSelection.OrderMatchesForSelection([unrelatedType, requestedType], false, query);
 
-        Assert.Equal("safety-data-sheet", calibrated[0].ChunkId);
+        Assert.Equal("requested-type", calibrated[0].ChunkId);
+        Assert.Equal("requested-type", selected[0].ChunkId);
+    }
+
+    [Theory]
+    [InlineData("Compare les FDS et les fiches techniques.")]
+    [InlineData("Compare the maintenance guide and the annual report.")]
+    [InlineData("Quels conseils de sécurité pour le rangement ?")]
+    [InlineData("Tu peux me faire une fiche claire pour Patatas Bravas : ingrédients et source ?")]
+    [InlineData("Draft an annual report about the facility.")]
+    public void No_single_documentary_type_is_inferred_from_multiple_types_or_a_topic(string query)
+    {
+        Assert.Null(RetrievalDocumentTypes.ResolveRequestedType(query));
+        Assert.DoesNotContain("safety data sheet", RetrievalSelection.ExpandGenericTechnicalRetrievalQuery(query, query));
     }
 
     [Fact]

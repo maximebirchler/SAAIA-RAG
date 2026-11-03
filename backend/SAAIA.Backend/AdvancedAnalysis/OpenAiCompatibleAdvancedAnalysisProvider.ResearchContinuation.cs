@@ -42,7 +42,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         CompletionResult Completion,
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence,
         IReadOnlyList<PromptEvidenceItem> PromptEvidence,
-        bool InsufficiencyReviewed = false);
+        bool InsufficiencyReviewed = false,
+        AdvancedAnalysisProviderResult? BoundedResult = null);
 
     private sealed record CandidateSupportCorrection(string ClaimId, string SelectedItem,
         IReadOnlyList<string> EvidenceIds, string Reason, string ReasonCode = "candidate_body_required");
@@ -450,6 +451,20 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     context.CandidateExplorerDossier is not null);
                 if (corrections.Count == 0)
                     return new SynthesisCompletion(completion, evidence, observations, insufficiencyReviewed);
+                if (completions.Count + 1 >= maximumCalls - reservedFinalCalls
+                    && UsesRepeatableGridIdentityCorrection(request.Handoff.Load)
+                    && corrections.All(correction => correction.ReasonCode == "candidate_identity_not_supported"))
+                {
+                    // No verified complete selection remains. Keep the actual
+                    // call for accounting; never publish its invalid claims.
+                    using var probe = BackendDiagnostics.Start("llm.identity_correction", _logger);
+                    probe.Set("job_id", request.JobId);
+                    probe.Set("role", nextPhase);
+                    probe.Set("unsupported_identity_count", corrections.Count);
+                    probe.Complete("insufficient_documentation", "identity_correction_call_budget_exhausted");
+                    return new SynthesisCompletion(completion, evidence, observations,
+                        InsufficiencyReviewed: true, BoundedResult: BuildUnverifiedSelectionIdentityResult(request));
+                }
                 completions.Add(completion);
                 if (completions.Count >= maximumCalls - reservedFinalCalls)
                     throw new AdvancedAnalysisProviderException(corrections.Any(c => c.ReasonCode == "candidate_evidence_not_visible")

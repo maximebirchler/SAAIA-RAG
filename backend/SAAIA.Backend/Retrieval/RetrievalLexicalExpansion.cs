@@ -156,9 +156,7 @@ internal static partial class RetrievalLexicalExpansion
                 " fiches donnees securite ",
                 " fiche de securite ",
                 " fiches de securite ")
-            || ContainsAny(normalized, " msds ", " sds ", " fds ")
-            || (ContainsAny(normalized, " safety ", " securite ")
-                && ContainsAny(normalized, " data sheet ", " data sheets ", " fiche ", " fiches ", " donnees ")))
+            || ContainsAny(normalized, " msds ", " sds ", " fds "))
         {
             terms.Add("msds");
             terms.Add("sds");
@@ -201,6 +199,14 @@ internal static partial class RetrievalLexicalExpansion
             terms.Add("derniere version");
             terms.Add("nouvelle version");
         }
+    }
+
+
+    internal static IReadOnlyCollection<string> BuildCrossLanguageTechnicalPhraseVariants(IReadOnlyList<string> tokens)
+    {
+        var terms = new HashSet<string>(StringComparer.Ordinal);
+        AddCrossLanguageTechnicalPhraseVariants(terms, tokens);
+        return terms;
     }
 
 
@@ -396,6 +402,13 @@ internal static partial class RetrievalLexicalExpansion
                 terms.Add(token);
         }
         var specificityTerms = new HashSet<string>(StringComparer.Ordinal);
+        // Match an explicitly requested documentary type before generic profile
+        // stopword removal, which can discard a component of its exact phrase.
+        if (RetrievalDocumentTypes.ResolveRequestedType(query) is { } requestedType)
+        {
+            terms.UnionWith(requestedType.Aliases);
+            specificityTerms.UnionWith(requestedType.Aliases);
+        }
         foreach (var token in BuildDocumentProfileSpecificityTokens(query))
         {
             foreach (var variant in BuildLexicalTokenVariants(token))
@@ -2590,12 +2603,6 @@ internal static partial class RetrievalLexicalExpansion
                 variants.Add("securite");
                 variants.Add("safety");
                 variants.Add("security");
-                variants.Add("msds");
-                variants.Add("sds");
-                variants.Add("fds");
-                variants.Add("safety data sheet");
-                variants.Add("material safety data sheet");
-                variants.Add("fiche de donnees de securite");
                 break;
 
             case "msds":
@@ -2660,9 +2667,6 @@ internal static partial class RetrievalLexicalExpansion
                 variants.Add("specifications");
                 variants.Add("spec sheet");
                 variants.Add("spec sheets");
-                variants.Add("safety data sheet");
-                variants.Add("material safety data sheet");
-                variants.Add("fiche de donnees de securite");
                 break;
 
             case "technique":

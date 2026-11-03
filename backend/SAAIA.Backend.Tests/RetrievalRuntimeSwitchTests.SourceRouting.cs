@@ -1787,19 +1787,21 @@ public sealed partial class RetrievalRuntimeSwitchTests
             [hit]));
     }
 
-    [Fact]
-    public void ShouldShortCircuitAfterTitleAnchorRoute_keeps_search_open_for_safety_data_sheet_type_mismatch()
+    [Theory]
+    [InlineData("safety data sheet handling precautions", "Docs/FIT-PTFE Technical Data Sheet.pdf")]
+    [InlineData("Je cherche le rapport annuel de maintenance", "Docs/Guide annuel de maintenance.pdf")]
+    public void ShouldShortCircuitAfterTitleAnchorRoute_keeps_search_open_for_document_type_mismatch(string query, string path)
     {
         var genericDataSheet = TestMatch(
             text: "PTFE technical data sheet. Product handling precautions, storage notes, processing recommendations and general instructions are described for ordinary data sheet use.",
             embedText: "Matched title_anchor_route: PTFE Technical Data Sheet\nPTFE technical data sheet handling precautions.",
-            docPath: "Docs/FIT-PTFE Technical Data Sheet.pdf",
+            docPath: path,
             chunkId: "generic-data-sheet-route",
             embeddingBasis: "title_anchor_route_v1",
             score: 0.96);
 
         Assert.False(RetrievalNavigation.ShouldShortCircuitAfterTitleAnchorRoute(
-            "safety data sheet handling precautions",
+            query,
             [genericDataSheet]));
     }
 

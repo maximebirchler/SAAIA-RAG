@@ -4253,7 +4253,8 @@ internal static partial class RetrievalQueryPolicy
             return false;
 
         if (ContainsTechnicalEvidenceLookupIntent(normalized)
-            || ContainsTechnicalDocumentTypeLookupIntent(normalized))
+            || ContainsTechnicalDocumentTypeLookupIntent(normalized)
+            || RetrievalDocumentTypes.ResolveRequestedType(query) is not null)
         {
             return true;
         }
@@ -4330,9 +4331,7 @@ internal static partial class RetrievalQueryPolicy
             " standard ",
             " standards ",
             " tuv ",
-            " fda ",
-            " sds ",
-            " msds ");
+            " fda ");
 
 
     private static bool ContainsTechnicalDocumentTypeLookupIntent(string normalized)

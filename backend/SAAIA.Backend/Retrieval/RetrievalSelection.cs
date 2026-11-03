@@ -713,19 +713,25 @@ internal static partial class RetrievalSelection
         var prioritizeReferenceVersionOperandTitleSignal =
             !string.IsNullOrWhiteSpace(query)
             && ShouldUseReferenceVersionOperandRoute(query);
-        if (quotedPhrases.Count > 0)
+        var requestedDocumentType = RetrievalDocumentTypes.ResolveRequestedType(query);
+        var requestedDocumentTitleSignal = CreateRequestedDocumentTypeTitleScorer(requestedDocumentType);
+        var hasRequestedDocumentTypeMatch = requestedDocumentType is not null
+            && orderedMatches.Any(match => requestedDocumentTitleSignal(match) > 0);
+        // An actual quoted title or filename remains the user's source scope.
+        // A title inferred from the subject is not a documentary type constraint.
+        if (quotedPhrases.Count > 0
+            && (!hasRequestedDocumentTypeMatch || ExtractQuotedLookupPhrases(query!).Count > 0 || HasExplicitDocumentNameHint(query!)))
         {
             return OrderQuotedLookupMatchesForSelection(orderedMatches, quotedPhrases, prioritizeDocumentProfiles);
         }
 
         var prioritizeRequestedDocumentSurface =
             !string.IsNullOrWhiteSpace(query)
-            && (QueryRequestsSafetyDataSheetDocumentType(query)
-                || QueryRequestsHistoricalDocumentVersion(query));
+            && (hasRequestedDocumentTypeMatch || QueryRequestsHistoricalDocumentVersion(query));
         if (prioritizeRequestedDocumentSurface)
         {
             return orderedMatches
-                .OrderByDescending(match => ComputeRequestedDocumentTypeTitleSignal(query!, GetDocumentTypeTitleSignalText(match)))
+                .OrderByDescending(requestedDocumentTitleSignal)
                 .ThenByDescending(match => ComputeRequestedDocumentVersionTitleSignal(query!, match))
                 .ThenByDescending(match => prioritizeDocumentProfiles && IsDocumentProfileMatch(match) ? 1 : 0)
                 .ThenByDescending(match => string.IsNullOrWhiteSpace(query)
@@ -2008,27 +2014,6 @@ LIMIT @top_k;
         string NormalizedMatchText);
 
 
-    internal static bool QueryRequestsSafetyDataSheetDocumentType(string? query)
-    {
-        var normalized = $" {NormalizeForLexicalSignal(query ?? string.Empty)} ";
-        return ContainsAny(
-            normalized,
-            " msds ",
-            " sds ",
-            " fds ",
-            " safety data sheet ",
-            " safety data sheets ",
-            " material safety data sheet ",
-            " material safety data sheets ",
-            " fiche de donnees de securite ",
-            " fiches de donnees de securite ",
-            " fiche donnees securite ",
-            " fiches donnees securite ",
-            " fiche de securite ",
-            " fiches de securite ");
-    }
-
-
     internal static string ExpandGenericTechnicalRetrievalQuery(string originalQuery, string retrievalQuery)
     {
         var baseQuery = CollapseWhitespace(string.IsNullOrWhiteSpace(retrievalQuery) ? originalQuery : retrievalQuery);
@@ -2053,15 +2038,16 @@ LIMIT @top_k;
             terms.Add(value);
         }
 
-        if (QueryRequestsSafetyDataSheetDocumentType(normalized))
+        // Preserve explicit lexical variants without giving any family a
+        // retrieval or ranking privilege of its own.
+        var requestedType = RetrievalDocumentTypes.ResolveRequestedType(
+            string.IsNullOrWhiteSpace(originalQuery) ? retrievalQuery : originalQuery);
+        if (requestedType is not null)
         {
-            Add("msds");
-            Add("sds");
-            Add("fds");
-            Add("safety data sheet");
-            Add("material safety data sheet");
-            Add("fiche de donnees de securite");
-            Add("fiche de securite");
+            var normalizedBase = $" {NormalizeForLexicalSignal(baseQuery)} ";
+            foreach (var alias in requestedType.Aliases)
+                if (!normalizedBase.Contains($" {alias} ", StringComparison.Ordinal))
+                    Add(alias);
         }
 
         if (ContainsAny(
@@ -2117,44 +2103,6 @@ LIMIT @top_k;
     }
 
 
-    internal static bool TitleSignalMatchesSafetyDataSheetDocumentType(string? titleSignalText)
-    {
-        var normalized = $" {NormalizeForLexicalSignal(titleSignalText ?? string.Empty)} ";
-        return ContainsAny(
-            normalized,
-            " msds ",
-            " sds ",
-            " fds ",
-            " safety data sheet ",
-            " safety data sheets ",
-            " material safety data sheet ",
-            " material safety data sheets ",
-            " fiche de donnees de securite ",
-            " fiches de donnees de securite ",
-            " fiche donnees securite ",
-            " fiches donnees securite ",
-            " fiche de securite ",
-            " fiches de securite ");
-    }
-
-
-    private static int ComputeRequestedDocumentTypeTitleSignal(string query, string? titleSignalText)
-    {
-        if (!QueryRequestsSafetyDataSheetDocumentType(query))
-            return 0;
-
-        if (!TitleSignalMatchesSafetyDataSheetDocumentType(titleSignalText))
-            return 0;
-
-        var normalized = $" {NormalizeForLexicalSignal(titleSignalText ?? string.Empty)} ";
-        if (ContainsAny(normalized, " msds ", " sds ", " fds "))
-            return 3;
-        if (ContainsAny(normalized, " material safety data sheet ", " safety data sheet "))
-            return 3;
-        return 2;
-    }
-
-
     private static bool QueryRequestsHistoricalDocumentVersion(string? query)
     {
         var normalized = $" {NormalizeForLexicalSignal(query ?? string.Empty)} ";
@@ -2186,7 +2134,7 @@ LIMIT @top_k;
         if (!QueryRequestsHistoricalDocumentVersion(query))
             return 0;
 
-        var normalized = $" {NormalizeForLexicalSignal(GetDocumentTypeTitleSignalText(match))} ";
+        var normalized = $" {NormalizeForLexicalSignal($"{match.DocName}\n{match.DocPath}")} ";
         if (ContainsAny(
                 normalized,
                 " old versions ",
@@ -2220,8 +2168,30 @@ LIMIT @top_k;
         => string.Join('\n', new[]
         {
             match.DocName,
-            match.DocPath
+            match.DocPath?.Split(['/', '\\']).LastOrDefault()
         }.Where(static value => !string.IsNullOrWhiteSpace(value)));
+
+
+    private static Func<RagMatch, int> CreateRequestedDocumentTypeTitleScorer(RetrievalDocumentTypes.Request? request)
+    {
+        if (request is null)
+            return static _ => 0;
+
+        // A document can contribute many passages. Normalize and compare its
+        // documentary title once in this selection/calibration pass.
+        var scores = new Dictionary<(string? Name, string? Path), int>();
+        return match =>
+        {
+            var key = (match.DocName, match.DocPath);
+            if (!scores.TryGetValue(key, out var score))
+            {
+                score = RetrievalDocumentTypes.ComputeTitleSignal(request, GetDocumentTypeTitleSignalText(match));
+                scores.Add(key, score);
+            }
+
+            return score;
+        };
+    }
 
 
     internal static List<RagMatch> CalibrateFusedMatches(string query, IReadOnlyList<RagMatch> candidates, string? originalQuery = null)
@@ -2267,7 +2237,8 @@ LIMIT @top_k;
         var prioritizeComparativeOperandTitleSignal = ShouldUseBareVsComparativeOperandRoute(rankingQuery);
         var prioritizeReferenceVersionOperandTitleSignal = ShouldUseReferenceVersionOperandRoute(rankingQuery);
         var preserveCatalogOverviewProfiles = ShouldUseCatalogDocumentOverviewFallback(rankingQuery);
-        var requestedSafetyDataSheetDocumentType = QueryRequestsSafetyDataSheetDocumentType(rankingQuery);
+        var requestedDocumentType = RetrievalDocumentTypes.ResolveRequestedType(rankingQuery);
+        var requestedDocumentTypeTitleScorer = CreateRequestedDocumentTypeTitleScorer(requestedDocumentType);
         var prioritizeContentEvidenceBeforeFocusedHead =
             ShouldConstrainPreciseTitleLookup(rankingQuery)
             || ShouldPreferComparativeDocumentDiversity(rankingQuery);
@@ -2300,6 +2271,8 @@ LIMIT @top_k;
                     NormalizeForLexicalSignal(match.Text));
             })
             .ToList();
+        var hasRequestedDocumentTypeMatch = requestedDocumentType is not null
+            && calibrationCandidates.Any(item => requestedDocumentTypeTitleScorer(item.Match) > 0);
         var hasExplicitFileDocumentHintMatch = hasExplicitFileDocumentHint
             && documentHintTokens.Count > 0
             && calibrationCandidates.Any(item => DocumentMatchesHint(documentHintTokens, item.Match));
@@ -2338,11 +2311,7 @@ LIMIT @top_k;
                 var referenceVersionOperandTitleSignal = prioritizeReferenceVersionOperandTitleSignal
                     ? ComputeReferenceVersionOperandTitleSignal(rankingQuery, item.TitleSignalText)
                     : 0;
-                var requestedDocumentTypeTitleSignal = requestedSafetyDataSheetDocumentType
-                    ? ComputeRequestedDocumentTypeTitleSignal(
-                        rankingQuery,
-                        GetDocumentTypeTitleSignalText(match))
-                    : 0;
+                var requestedDocumentTypeTitleSignal = requestedDocumentTypeTitleScorer(match);
                 var requestedDocumentVersionTitleSignal = ComputeRequestedDocumentVersionTitleSignal(rankingQuery, match);
                 var exactTitleScore = titleScoringEnabled
                     ? ComputeExactTitleCandidateScoreCore(
@@ -2555,7 +2524,7 @@ LIMIT @top_k;
                         _ => Math.Min(0.18, 0.050 * requestedDocumentTypeTitleSignal)
                     };
                 }
-                else if (requestedSafetyDataSheetDocumentType
+                else if (hasRequestedDocumentTypeMatch
                          && !string.Equals(retriever, "linked_context", StringComparison.Ordinal))
                 {
                     adjusted -= retriever switch
