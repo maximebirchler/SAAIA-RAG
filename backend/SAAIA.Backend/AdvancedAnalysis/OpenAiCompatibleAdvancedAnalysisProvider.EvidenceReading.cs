@@ -201,6 +201,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var active = context.Tools.Evidence.Select(item => item.Reference.EvidenceId)
             .Where(id => !string.IsNullOrWhiteSpace(id)).ToHashSet(StringComparer.Ordinal);
         var current = ids.Where(active.Contains).Distinct(StringComparer.Ordinal).ToArray();
+        var previousPrimary = context.LatestExplicitReadEvidenceIds.Take(context.LatestExplicitReadPrimaryCount)
+            .Where(active.Contains).ToHashSet(StringComparer.Ordinal);
         var currentIds = current.ToHashSet(StringComparer.Ordinal);
         var retained = context.LatestExplicitReadEvidenceIds.Where(active.Contains)
             .Where(id => !currentIds.Contains(id)).Distinct(StringComparer.Ordinal).ToArray();
@@ -215,6 +217,61 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (prefixCount + index < current.Length) ordered.Add(current[prefixCount + index]);
         }
         context.LatestExplicitReadEvidenceIds = ordered.ToArray();
+        context.LatestExplicitReadPrimaryCount = current.Length > 0 ? prefixCount
+            : ordered.TakeWhile(previousPrimary.Contains).Count();
+    }
+
+    private static IReadOnlyList<AdvancedAnalysisResolvedEvidence> PrioritizePreviousProjectionEvidence(
+        SynthesisResearchContext context,
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence> focused)
+    {
+        var explicitOrder = PrioritizeLatestExplicitRead(evidence, focused, context.LatestExplicitReadEvidenceIds);
+        if (context.PreviousProjectionEvidenceIds.Count == 0)
+            return explicitOrder;
+        var current = evidence.Where(item => item.Reference.EvidenceId is not null)
+            .GroupBy(item => item.Reference.EvidenceId!, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
+        context.PreviousProjectionEvidenceIds = context.PreviousProjectionEvidenceIds
+            .Where(current.ContainsKey).Distinct(StringComparer.Ordinal).ToArray();
+        if (context.LatestExplicitReadEvidenceIds.Count == 0 || context.PreviousProjectionEvidenceIds.Count == 0)
+            return explicitOrder;
+        var primaryIds = context.LatestExplicitReadEvidenceIds.Take(context.LatestExplicitReadPrimaryCount)
+            .Where(current.ContainsKey).ToHashSet(StringComparer.Ordinal);
+        var rejectedIds = context.Workspace.Where(item => item.Status == "rejected")
+            .SelectMany(item => item.EvidenceIds)
+            .Concat(context.CandidateInventory.Where(item => item.Status == "rejected")
+                .SelectMany(item => item.LocatorEvidenceIds.Concat(item.BodyEvidenceIds)))
+            .ToHashSet(StringComparer.Ordinal);
+        // Keep one current hit per explicit request first. Then let previously
+        // visible query/source groups take turns before further current hits.
+        // An earlier prompt is never a second store of documentary bodies.
+        string Group(AdvancedAnalysisResolvedEvidence item)
+        {
+            var queries = item.Reference.EvidenceId is { } id
+                && context.RetrievalQueriesByEvidenceId.TryGetValue(id, out var found)
+                ? found.Order(StringComparer.OrdinalIgnoreCase) : Enumerable.Empty<string>();
+            return BuildCanonicalSourceIdentity(item, item.Reference.EvidenceId!) + "\n"
+                + string.Join("\n", queries);
+        }
+        var groups = context.PreviousProjectionEvidenceIds.Where(current.ContainsKey)
+            .Where(id => !primaryIds.Contains(id) && !rejectedIds.Contains(id)).Distinct(StringComparer.Ordinal)
+            .Select(id => current[id]).GroupBy(Group, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new Queue<AdvancedAnalysisResolvedEvidence>(group)).ToArray();
+        var previous = new List<AdvancedAnalysisResolvedEvidence>();
+        while (groups.Any(group => group.Count > 0))
+            foreach (var group in groups)
+                if (group.Count > 0) previous.Add(group.Dequeue());
+        var previousIds = previous.Select(item => item.Reference.EvidenceId!).ToHashSet(StringComparer.Ordinal);
+        var result = explicitOrder.Where(item => primaryIds.Contains(item.Reference.EvidenceId!)).ToList();
+        var rest = explicitOrder.Where(item => !primaryIds.Contains(item.Reference.EvidenceId!)
+            && !previousIds.Contains(item.Reference.EvidenceId!)).ToArray();
+        for (var index = 0; index < Math.Max(previous.Count, rest.Length); index++)
+        {
+            if (index < previous.Count) result.Add(previous[index]);
+            if (index < rest.Length) result.Add(rest[index]);
+        }
+        return result;
     }
 
     private static IReadOnlyList<AdvancedAnalysisResolvedEvidence> PrioritizeLatestExplicitRead(

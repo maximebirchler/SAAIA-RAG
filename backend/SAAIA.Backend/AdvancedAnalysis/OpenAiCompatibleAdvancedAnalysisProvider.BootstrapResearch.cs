@@ -12,7 +12,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyList<AdvancedAnalysisSearchRequest> OmittedQueries, int RefusedPriorSearchIndex,
         int SuccessfulQueryCount);
 
-    private static async Task<BootstrapResearchInterruption?> ExecuteBootstrapSearchBatchAsync(
+    private async Task<BootstrapResearchInterruption?> ExecuteBootstrapSearchBatchAsync(
         IAdvancedAnalysisToolGateway tools, IReadOnlyList<AdvancedAnalysisSearchRequest> plannedQueries,
         HashSet<string> previouslyExecuted, List<AdvancedAnalysisSearchRequest> priorSearches,
         List<IReadOnlyList<AdvancedAnalysisResolvedEvidence>> evidenceGroups,
@@ -22,10 +22,30 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var unique = plannedQueries.GroupBy(BuildSearchIdentity, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First()).ToArray();
         var observations = new Dictionary<string, AdvancedAnalysisSearchObservation>(StringComparer.OrdinalIgnoreCase);
-        var limit = await ExecuteSearchBatchAsync(tools, unique, previouslyExecuted, priorSearches,
-            evidenceGroups, retrievalQueriesByEvidenceId, cancellationToken, observations,
-            allowResourceLimitFeedback: true, allowReadWindowResourceLimitFeedback: false,
-            stopBatchOnEvidenceCapacity: true, executionStatuses: executionStatuses).ConfigureAwait(false);
+        // Keep the original whole-batch call/time admission. Only the result
+        // bound of a canonical search may be reduced; no additional operation,
+        // early rotation or partial canonical admission is introduced.
+        EnsureResearchBatchFitsToolBudget(tools, unique, previouslyExecuted);
+        AdvancedAnalysisResearchResourceLimit? limit = null;
+        for (var index = 0; index < unique.Length; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (previouslyExecuted.Contains(BuildSearchIdentity(unique[index])))
+                continue;
+            var remaining = unique.Skip(index)
+                .Count(query => !previouslyExecuted.Contains(BuildSearchIdentity(query)));
+            unique[index] = BoundBootstrapSearch(tools.Budget, unique[index], remaining);
+            limit = await ExecuteSearchBatchAsync(tools, [unique[index]], previouslyExecuted, priorSearches,
+                evidenceGroups, retrievalQueriesByEvidenceId, cancellationToken, observations,
+                allowResourceLimitFeedback: true, allowReadWindowResourceLimitFeedback: false,
+                stopBatchOnEvidenceCapacity: true, executionStatuses: executionStatuses).ConfigureAwait(false);
+            if (limit is null) continue;
+            foreach (var omittedQuery in unique.Skip(index + 1))
+                if (!previouslyExecuted.Contains(BuildSearchIdentity(omittedQuery)))
+                    observations[BuildSearchIdentity(omittedQuery)] = new(omittedQuery.Query,
+                        [], [], 0, 0, ResourceLimit: limit, NotExecutedAfterResourceLimit: true);
+            break;
+        }
         if (limit is null) return null;
         var successful = observations.Values.Where(item => item.ResourceLimit is null
             && !item.NotExecutedAfterResourceLimit).ToArray();
@@ -44,6 +64,28 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var omitted = unique.Where(query => observations.TryGetValue(BuildSearchIdentity(query), out var item)
             && item.NotExecutedAfterResourceLimit && !previouslyExecuted.Contains(BuildSearchIdentity(query))).ToArray();
         return new(limit, refused, omitted, priorIndex, successful.Length);
+    }
+
+    private AdvancedAnalysisSearchRequest BoundBootstrapSearch(
+        AdvancedAnalysisToolBudget? budget, AdvancedAnalysisSearchRequest request, int remainingOperations)
+    {
+        if (request.Operation != "search_corpus" || remainingOperations < 1
+            || budget is null || budget.RemainingEvidenceItems is not { } available || available <= 0)
+            return request;
+        var effective = Math.Min(request.TopK, Math.Max(1, available / remainingOperations));
+        if (effective == request.TopK) return request;
+        using var probe = BackendDiagnostics.Start("advanced.bootstrap_search_bound", _logger);
+        probe.Set("requested_top_k", request.TopK);
+        probe.Set("effective_top_k", effective);
+        probe.Set("remaining_bootstrap_operations", remainingOperations);
+        probe.Set("remaining_evidence_items", available);
+        probe.Set("maximum_evidence_items", budget.MaximumEvidenceItems);
+        probe.Set("consumed_evidence_items", budget.ConsumedEvidenceItems);
+        probe.Set("working_set_rotation_enabled", budget.EvidenceRotationEnabled);
+        probe.Complete();
+        // TopK is part of the ordinary request/SQL-history identity. The model
+        // therefore sees the effective bound, never an unexecuted requested one.
+        return request with { TopK = effective };
     }
 
     private static object BootstrapQueryForPrompt(AdvancedAnalysisSearchRequest query)

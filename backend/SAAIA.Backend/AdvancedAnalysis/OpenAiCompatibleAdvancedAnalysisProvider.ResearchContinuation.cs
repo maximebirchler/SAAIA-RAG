@@ -22,6 +22,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         public HashSet<string> ObservedCandidateEvidenceIds { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, EvidenceReadWindow> EvidenceReadWindows { get; } = new(StringComparer.Ordinal);
         public IReadOnlyList<string> LatestExplicitReadEvidenceIds { get; set; } = [];
+        public int LatestExplicitReadPrimaryCount { get; set; }
+        public IReadOnlyList<string> PreviousProjectionEvidenceIds { get; set; } = [];
         public Dictionary<string, string> PromptSourceKeys { get; } = new(StringComparer.Ordinal);
         public bool CandidateInventoryCheckpointLoaded { get; set; }
         public CandidateExplorerDossier? CandidateExplorerDossier { get; set; }
@@ -215,7 +217,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (_options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
                 focusedEvidence = PrioritizeActiveProposalEvidence(evidence, context.ActiveProposalEvidenceIds, focusedEvidence);
             focusedEvidence = PrioritizeEvidenceReadWindows(evidence, focusedEvidence, context.EvidenceReadWindows);
-            focusedEvidence = PrioritizeLatestExplicitRead(evidence, focusedEvidence, context.LatestExplicitReadEvidenceIds);
+            focusedEvidence = PrioritizePreviousProjectionEvidence(context, evidence, focusedEvidence);
             var observations = BuildPromptEvidenceWithPersistentSourceKeys(
                 request, evidence, context.RetrievalQueriesByEvidenceId,
                 focusedEvidence, context.PromptSourceKeys, context.EvidenceReadWindows, context.NativeTurn);

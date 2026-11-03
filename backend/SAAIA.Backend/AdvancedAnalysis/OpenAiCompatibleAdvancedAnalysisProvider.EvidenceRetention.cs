@@ -6,6 +6,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         SynthesisResearchContext context, IReadOnlyList<PromptEvidenceItem> observations)
     {
         RememberActiveExplicitReadIds(context, []);
+        // Remember IDs from this synthesis-loop projection, also supplied again
+        // before a research batch. Replace this hint; never add an extra pin.
+        var active = context.Tools.Evidence.Select(item => item.Reference.EvidenceId).ToHashSet(StringComparer.Ordinal);
+        context.PreviousProjectionEvidenceIds = observations.Select(item => item.EvidenceId)
+            .Where(id => !string.IsNullOrWhiteSpace(id) && active.Contains(id))
+            .Select(id => id!).Distinct(StringComparer.Ordinal).ToArray();
         return observations.Select(item => item.EvidenceId)
             .Concat(context.ActiveProposalEvidenceIds)
             .Concat(context.Workspace.Where(item => item.Status != "rejected").SelectMany(item => item.EvidenceIds))
@@ -21,6 +27,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     {
         if (context.Tools.Budget?.EvidenceRotationEnabled is not true) return;
         var activeIds = context.Tools.Evidence.Select(item => item.Reference.EvidenceId).ToHashSet(StringComparer.Ordinal);
+        context.PreviousProjectionEvidenceIds = context.PreviousProjectionEvidenceIds.Where(activeIds.Contains).ToArray();
         for (var index = context.EvidenceGroups.Count - 1; index >= 0; index--)
         {
             var retained = context.EvidenceGroups[index]
