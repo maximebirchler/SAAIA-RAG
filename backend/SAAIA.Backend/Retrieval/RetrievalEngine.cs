@@ -26,8 +26,6 @@ internal static partial class RetrievalEngine
         await InteractiveInitialSelection.ExecuteAsync(flow).ConfigureAwait(false);
         await InteractiveStepDiagnostics.RunAsync(flow, "document_hint_backfill", () => InteractiveDocumentHintBackfill.ExecuteAsync(flow));
         InteractiveStepDiagnostics.Apply(flow, "initial_selection_cleanup", () => InteractiveInitialSelectionCleanup.Apply(flow));
-        await InteractiveStepDiagnostics.RunAsync(flow, "direct_technical_phrase", () => InteractiveDirectTechnicalPhrase.ExecuteAsync(flow));
-        await InteractiveStepDiagnostics.RunAsync(flow, "direct_technical_linked_evidence", () => InteractiveDirectTechnicalLinkedEvidence.ExecuteAsync(flow));
         await InteractiveStepDiagnostics.RunAsync(flow, "fuzzy_title_lead", () => InteractiveFuzzyTitleLead.ExecuteAsync(flow));
         await InteractiveStepDiagnostics.RunAsync(flow, "enumerative_lookup", () => InteractiveEnumerativeLookup.ExecuteAsync(flow));
         await InteractiveStepDiagnostics.RunAsync(flow, "scoped_profile_fallback", () => InteractiveScopedProfileFallback.ExecuteAsync(flow));

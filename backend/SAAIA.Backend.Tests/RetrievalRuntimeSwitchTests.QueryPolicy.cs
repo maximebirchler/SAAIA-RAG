@@ -284,7 +284,7 @@ public sealed partial class RetrievalRuntimeSwitchTests
 
         Assert.StartsWith("Alpha Beta proprietes thermiques", retrievalQuery, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("thermal", retrievalQuery, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("melt point", retrievalQuery, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("melt point", retrievalQuery, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(retrievalQuery, lexicalSurface);
         Assert.DoesNotContain("orienter", retrievalQuery, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("utilisateur", retrievalQuery, StringComparison.OrdinalIgnoreCase);
@@ -301,7 +301,7 @@ public sealed partial class RetrievalRuntimeSwitchTests
 
         Assert.StartsWith("proprietes electriques", retrievalQuery, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("electrical", retrievalQuery, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("dielectric", retrievalQuery, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("dielectric", retrievalQuery, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(retrievalQuery, lexicalSurface);
         Assert.DoesNotContain("Pr?pare", retrievalQuery, StringComparison.OrdinalIgnoreCase);
     }
@@ -316,12 +316,12 @@ public sealed partial class RetrievalRuntimeSwitchTests
         Assert.Contains("property", electrical);
         Assert.Contains("electrical properties", electrical);
         Assert.Contains("electrical", electrical);
-        Assert.Contains("dielectric properties", electrical);
-        Assert.Contains("dielectric", electrical);
+        Assert.DoesNotContain("dielectric properties", electrical);
+        Assert.DoesNotContain("dielectric", electrical);
         Assert.Contains("thermal properties", thermal);
         Assert.Contains("thermal", thermal);
-        Assert.Contains("temperature properties", thermal);
-        Assert.Contains("melt point", thermal);
+        Assert.DoesNotContain("temperature properties", thermal);
+        Assert.DoesNotContain("melt point", thermal);
         Assert.Equal(retrievalQuery, RetrievalLexicalExpansion.ResolveLexicalRetrievalSurface("proprietes electriques", retrievalQuery));
     }
 

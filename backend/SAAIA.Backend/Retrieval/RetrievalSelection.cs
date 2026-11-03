@@ -696,6 +696,7 @@ internal static partial class RetrievalSelection
         string? query = null)
     {
         var orderedMatches = matches as IReadOnlyList<RagMatch> ?? matches.ToList();
+        var structuredEvidence = RequestedStructuredEvidence.Resolve(query);
         var quotedPhrases = string.IsNullOrWhiteSpace(query)
             ? Array.Empty<string>()
             : ExtractTitleLookupPhrases(query);
@@ -734,9 +735,7 @@ internal static partial class RetrievalSelection
                 .OrderByDescending(requestedDocumentTitleSignal)
                 .ThenByDescending(match => ComputeRequestedDocumentVersionTitleSignal(query!, match))
                 .ThenByDescending(match => prioritizeDocumentProfiles && IsDocumentProfileMatch(match) ? 1 : 0)
-                .ThenByDescending(match => string.IsNullOrWhiteSpace(query)
-                    ? 0
-                    : ComputeShortTechnicalDirectEvidencePriority(query, match, string.Empty, string.Empty))
+                .ThenByDescending(match => RequestedStructuredEvidence.Score(structuredEvidence, match))
                 .ThenByDescending(static match => ComputeSelectionPriorityBucket(match))
                 .ThenByDescending(static match => ComputeContentEvidencePriority(match))
                 .ThenBy(static match => ComputeChunkExtractionQualityPenalty(match))
@@ -761,7 +760,7 @@ internal static partial class RetrievalSelection
                     DirectSpecificContentCoverage = ComputeDirectSpecificContentCoverage(
                         directSpecificContentTokens,
                         match),
-                    ShortTechnicalDirectEvidencePriority = ComputeShortTechnicalDirectEvidencePriority(query, match, string.Empty, string.Empty),
+                    RequestedStructuredEvidencePriority = RequestedStructuredEvidence.Score(structuredEvidence, match),
                     SelectionPriorityBucket = ComputeSelectionPriorityBucket(match),
                     ContentEvidencePriority = ComputeContentEvidencePriority(match)
                 })
@@ -774,7 +773,7 @@ internal static partial class RetrievalSelection
                     .ThenByDescending(item => ComputeDocumentProfileSelectionConstraintCoverage(profileConstraintTokens, item.Match))
                     .ThenByDescending(static item => item.SituationalSelectionConstraintCoverage)
                     .ThenBy(static item => item.WeakLowInformationExactMatch ? 1 : 0)
-                    .ThenByDescending(static item => item.ShortTechnicalDirectEvidencePriority)
+                    .ThenByDescending(static item => item.RequestedStructuredEvidencePriority)
                     .ThenByDescending(item => item.DirectSpecificContentCoverage >= requiredDirectSpecificContentCoverage
                         && item.ContentEvidencePriority >= 0.70
                             ? 1
@@ -793,7 +792,7 @@ internal static partial class RetrievalSelection
             return ranked
                 .Where(static item => !item.IsProfile && !item.WeakLowInformationExactMatch)
                 .OrderByDescending(static item => item.SituationalSelectionConstraintCoverage)
-                .ThenByDescending(static item => item.ShortTechnicalDirectEvidencePriority)
+                .ThenByDescending(static item => item.RequestedStructuredEvidencePriority)
                 .ThenByDescending(item => item.DirectSpecificContentCoverage >= requiredDirectSpecificContentCoverage
                     && item.ContentEvidencePriority >= 0.70
                         ? 1
@@ -829,9 +828,7 @@ internal static partial class RetrievalSelection
                 .ThenByDescending(match => prioritizeSituationalConstraintCoverage
                     ? ComputeSituationalSelectionConstraintCoverage(query!, match)
                     : 0.0)
-                .ThenByDescending(match => string.IsNullOrWhiteSpace(query)
-                    ? 0
-                    : ComputeShortTechnicalDirectEvidencePriority(query, match, string.Empty, string.Empty))
+                .ThenByDescending(match => RequestedStructuredEvidence.Score(structuredEvidence, match))
                 .ThenByDescending(match => ComputeDirectSpecificContentCoverage(directSpecificContentTokens, match) >= requiredDirectSpecificContentCoverage
                     && ComputeContentEvidencePriority(match) >= 0.70
                         ? 1
@@ -852,9 +849,7 @@ internal static partial class RetrievalSelection
                 .ThenByDescending(match => prioritizeReferenceVersionOperandTitleSignal
                     ? ComputeReferenceVersionOperandTitleSignal(query!, GetTitleSignalText(match))
                     : 0)
-                .ThenByDescending(match => string.IsNullOrWhiteSpace(query)
-                    ? 0
-                    : ComputeShortTechnicalDirectEvidencePriority(query, match, string.Empty, string.Empty))
+                .ThenByDescending(match => RequestedStructuredEvidence.Score(structuredEvidence, match))
                 .ThenByDescending(match => ComputeDirectSpecificContentCoverage(directSpecificContentTokens, match) >= requiredDirectSpecificContentCoverage
                     && ComputeContentEvidencePriority(match) >= 0.70
                         ? 1
@@ -2201,6 +2196,7 @@ LIMIT @top_k;
 
         query = RepairLikelyMojibakeText(query);
         var rankingQuery = RepairLikelyMojibakeText(originalQuery ?? query);
+        var structuredEvidence = RequestedStructuredEvidence.Resolve(rankingQuery);
         var normalizedWhole = ExactMatchEntryExtractor.NormalizeForLookup(query);
         var referenceTerms = ExactMatchEntryExtractor.ExtractLookupTerms(query)
             .Where(term => !string.Equals(term, normalizedWhole, StringComparison.Ordinal))
@@ -2773,18 +2769,14 @@ LIMIT @top_k;
                     && HasFocusedTitlePhraseEvidenceForPreference(rankingQuery, match)
                         ? ComputeFastDurationPreferencePriority(match)
                         : 0;
-                var shortTechnicalDirectEvidencePriority = ComputeShortTechnicalDirectEvidencePriority(
-                    rankingQuery,
-                    match,
-                    item.NormalizedTextForSignals,
-                    item.NormalizedTitleSignalText);
+                var requestedStructuredEvidencePriority = RequestedStructuredEvidence.Score(structuredEvidence, match);
 
                 if (structuredTitleAnswerPriority > 0)
                     adjusted += Math.Min(0.22, 0.045 * structuredTitleAnswerPriority);
                 if (fastDurationPriority > 0)
                     adjusted += Math.Min(0.18, 0.035 * fastDurationPriority);
-                if (shortTechnicalDirectEvidencePriority > 0)
-                    adjusted += Math.Min(0.30, 0.075 * shortTechnicalDirectEvidencePriority);
+                if (requestedStructuredEvidencePriority > 0)
+                    adjusted += Math.Min(0.30, 0.075 * requestedStructuredEvidencePriority);
 
                 if (weakExactStructuredTitleMention)
                 {
@@ -2835,7 +2827,7 @@ LIMIT @top_k;
                     WeakExactStructuredTitleMention = weakExactStructuredTitleMention,
                     WeakLowInformationExactMatch = weakLowInformationExactMatch,
                     FastDurationPriority = fastDurationPriority,
-                    ShortTechnicalDirectEvidencePriority = shortTechnicalDirectEvidencePriority,
+                    RequestedStructuredEvidencePriority = requestedStructuredEvidencePriority,
                     StructuredTitleAnswerPriority = structuredTitleAnswerPriority,
                     DocumentHintMatched = matchesDocumentHint,
                     StructuredAnswerPriority = GetStructuredAnswerPriority(match),
@@ -2851,7 +2843,7 @@ LIMIT @top_k;
             .ThenBy(static item => item.DiscountSyntheticRouteTitle ? 1 : 0)
             .ThenByDescending(static item => item.RequestedDocumentTypeTitleSignal)
             .ThenByDescending(static item => item.RequestedDocumentVersionTitleSignal)
-            .ThenByDescending(static item => item.ShortTechnicalDirectEvidencePriority)
+            .ThenByDescending(static item => item.RequestedStructuredEvidencePriority)
             .ThenByDescending(item => prioritizeLexicalCoverageBeforeRawScore ? item.LexicalCoverage : 0.0)
             .ThenByDescending(static item => item.DocumentHintMatched)
             .ThenByDescending(static item => item.FastDurationPriority)

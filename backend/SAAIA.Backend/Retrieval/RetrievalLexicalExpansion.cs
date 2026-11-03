@@ -2100,7 +2100,7 @@ internal static partial class RetrievalLexicalExpansion
     };
 
 
-    private static bool TryExtractDelimitedUserDemandTopic(string query, out string topic)
+    internal static bool TryExtractDelimitedUserDemandTopic(string query, out string topic)
     {
         topic = string.Empty;
         if (string.IsNullOrWhiteSpace(query))
@@ -2512,9 +2512,6 @@ internal static partial class RetrievalLexicalExpansion
                 variants.Add("electric");
                 variants.Add("electrical");
                 variants.Add("electricity");
-                variants.Add("power");
-                variants.Add("wiring");
-                variants.Add("dielectric");
                 break;
 
             case "thermique":
@@ -2523,10 +2520,6 @@ internal static partial class RetrievalLexicalExpansion
                 variants.Add("thermique");
                 variants.Add("thermiques");
                 variants.Add("thermal");
-                variants.Add("temperature");
-                variants.Add("temperatures");
-                variants.Add("melt point");
-                variants.Add("melting point");
                 break;
 
             case "machine":
@@ -3894,23 +3887,39 @@ internal static partial class RetrievalLexicalExpansion
             variants.Insert(0, "supporting evidence");
             variants.Insert(0, "provide evidence");
         }
-        if (expanded.Any(static token => token is "property" or "properties" or "propriete" or "proprietes" or "characteristic" or "characteristics")
-            && expanded.Any(static token => token is "electric" or "electrical" or "electricity" or "dielectric"))
-        {
-            variants.Insert(0, "dielectric properties");
-            variants.Insert(0, "electrical properties");
-        }
-        if (expanded.Any(static token => token is "property" or "properties" or "propriete" or "proprietes" or "characteristic" or "characteristics")
-            && expanded.Any(static token => token is "thermal" or "temperature" or "temperatures" or "melt point" or "melting point"))
-        {
-            variants.Insert(0, "temperature properties");
-            variants.Insert(0, "thermal properties");
-        }
+        foreach (var translation in TranslateExplicitPropertyPhrases(normalizedQuery))
+            variants.Insert(0, translation);
 
         return variants
             .Distinct(StringComparer.Ordinal)
             .Take(10)
             .ToArray();
+    }
+
+
+    // Lexical equivalents of an actual phrase, not presumed subtopics.
+    private static readonly (string French, string English)[] PropertyPhraseTranslations =
+    [
+        ("proprietes thermiques", "thermal properties"),
+        ("propriete thermique", "thermal property"),
+        ("caracteristiques thermiques", "thermal characteristics"),
+        ("caracteristique thermique", "thermal characteristic"),
+        ("proprietes electriques", "electrical properties"),
+        ("propriete electrique", "electrical property"),
+        ("caracteristiques electriques", "electrical characteristics"),
+        ("caracteristique electrique", "electrical characteristic")
+    ];
+
+    internal static IEnumerable<string> TranslateExplicitPropertyPhrases(string normalized)
+    {
+        var whole = $" {normalized} ";
+        foreach (var (french, english) in PropertyPhraseTranslations)
+        {
+            if (whole.Contains($" {french} ", StringComparison.Ordinal))
+                yield return english;
+            if (whole.Contains($" {english} ", StringComparison.Ordinal))
+                yield return french;
+        }
     }
 
 
@@ -3956,8 +3965,8 @@ internal static partial class RetrievalLexicalExpansion
             "powder coating" or "powder coatings" or "powder-coated" or "coating powder" => true,
             "surface treatment" or "finish" or "finishing" => true,
             "propriete" or "proprietes" or "property" or "properties" or "characteristic" or "characteristics" => true,
-            "electric" or "electrical" or "electricity" or "dielectric" => true,
-            "thermal" or "temperature" or "temperatures" or "melt point" or "melting point" => true,
+            "electric" or "electrical" or "electricity" => true,
+            "thermal" => true,
             _ => false
         };
 

@@ -402,8 +402,9 @@ public sealed partial class RetrievalRuntimeSwitchTests
             });
 
         var calibrated = RetrievalSelection.CalibrateFusedMatches(
-            "proprietes thermiques thermal properties temperature properties",
-            [processingNeighbor, directPropertyTable]);
+            "thermal properties",
+            [processingNeighbor, directPropertyTable],
+            originalQuery: "proprietes thermiques");
         var orderedForSelection = RetrievalSelection.OrderMatchesForSelection(
             [processingNeighbor, directPropertyTable],
             prioritizeDocumentProfiles: false,
@@ -411,6 +412,26 @@ public sealed partial class RetrievalRuntimeSwitchTests
 
         Assert.Equal("direct", calibrated[0].ChunkId);
         Assert.Equal("direct", orderedForSelection[0].ChunkId);
+    }
+
+    [Fact]
+    public void Requested_structured_evidence_prefers_cancellation_terms_in_body_over_heading_only()
+    {
+        const string query = "conditions d annulation";
+        var headingOnly = TestMatch(
+            text: "Le service de reservation est disponible tous les jours pour les nouveaux clients.",
+            chunkId: "heading-only",
+            score: 0.95) with { SectionTitle = "Conditions d'annulation" };
+        var direct = TestMatch(
+            text: "Conditions d'annulation : avant 7 jours, aucun frais. A partir de 7 jours, 30 pour cent.",
+            chunkId: "direct",
+            score: 0.76);
+        var request = RequestedStructuredEvidence.Resolve(query);
+
+        Assert.Equal(0, RequestedStructuredEvidence.Score(request, headingOnly));
+        Assert.True(RequestedStructuredEvidence.Score(request, direct) > 0);
+        Assert.Equal("direct", RetrievalSelection.OrderMatchesForSelection([headingOnly, direct], false, query)[0].ChunkId);
+        Assert.Equal("direct", RetrievalSelection.CalibrateFusedMatches(query, [headingOnly, direct])[0].ChunkId);
     }
 
     [Fact]

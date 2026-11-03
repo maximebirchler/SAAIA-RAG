@@ -60,7 +60,7 @@ internal static class InteractiveFinalStandardReferenceProfiles
         PruneUnrequestedStandardReferenceSelections(plan.Request.Query, flow.Selection.Matches);
         RebuildSelectedKeys(flow.Selection.Matches, flow.Selection.Keys);
 
-        PrioritizeShortTechnicalDirectEvidenceSelections(plan.Request.Query, flow.Selection.Matches);
+        PrioritizeRequestedStructuredEvidenceSelections(plan.Request.Query, flow.Selection.Matches);
         RebuildSelectedKeys(flow.Selection.Matches, flow.Selection.Keys);
     }
 }

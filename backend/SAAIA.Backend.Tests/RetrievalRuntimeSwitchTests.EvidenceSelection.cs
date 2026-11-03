@@ -1546,19 +1546,19 @@ public sealed partial class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
-    public void BuildShortTechnicalDirectPhraseTerms_targets_property_table_phrases()
+    public void Requested_structured_evidence_uses_requested_phrases_and_their_translations()
     {
-        var electrical = RetrievalCandidateSignals.BuildShortTechnicalDirectPhraseTerms("proprietes electriques");
-        var thermal = RetrievalCandidateSignals.BuildShortTechnicalDirectPhraseTerms("proprietes thermiques");
-        var broad = RetrievalCandidateSignals.BuildShortTechnicalDirectPhraseTerms("temperature de moulage");
+        var electrical = RequestedStructuredEvidence.Resolve("proprietes electriques");
+        var thermal = RequestedStructuredEvidence.Resolve("proprietes thermiques");
+        var other = RequestedStructuredEvidence.Resolve("conditions d annulation");
 
         Assert.Contains("electrical properties", electrical);
-        Assert.Contains("dielectric strength", electrical);
         Assert.Contains("proprietes electriques", electrical);
+        Assert.DoesNotContain("dielectric strength", electrical);
         Assert.Contains("thermal properties", thermal);
-        Assert.Contains("service temperature", thermal);
-        Assert.Contains("melt point", thermal);
-        Assert.Empty(broad);
+        Assert.DoesNotContain("service temperature", thermal);
+        Assert.DoesNotContain("melt point", thermal);
+        Assert.Contains("conditions d annulation", other);
     }
 
     [Fact]
