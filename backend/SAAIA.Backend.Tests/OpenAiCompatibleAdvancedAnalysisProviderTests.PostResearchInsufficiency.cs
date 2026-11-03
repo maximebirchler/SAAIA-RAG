@@ -10,6 +10,42 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     private const string PostResearchFind = """{"sourceKey":"internal-source-2","query":"OptionA","offset":0,"topK":4}""";
 
     [Theory]
+    [InlineData("responses")]
+    [InlineData("chat-completions")]
+    public async Task Distinct_grid_insufficiency_review_reports_only_supported_prior_draft_coverage(string protocol)
+    {
+        var bodies = EarlyBodies();
+        var partial = JsonSerializer.Serialize(new
+        {
+            outcome = "insufficient_documentation",
+            answerText = "Il manque des choix vérifiés.",
+            claims = new[]
+            {
+                new { claimId = "C1", selectedItem = "OptionA", text = "OptionA documentée.", evidenceIds = new[] { "E1" } },
+                new { claimId = "C2", selectedItem = "OptionA", text = "Même choix répété.", evidenceIds = new[] { "E1" } },
+                new { claimId = "C3", selectedItem = "Unsupported selection", text = "Choix non sourcé.", evidenceIds = new[] { "E3" } },
+                new { claimId = "C4", selectedItem = "OptionD", text = "OptionD documentée.", evidenceIds = new[] { "E4" } }
+            }
+        });
+        using var factory = new QueuedHttpClientFactory(Completion(RepeatablePlan),
+            EarlyReply(protocol, partial), EarlyReply(protocol, EarlyInsufficient));
+        var request = BuildRequest(20, "named_item", "distinct_structured_layout", "documented_option");
+
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, EarlyOptions(protocol, 8), null)
+            .ExecuteAsync(request, new RecordingToolGateway([.. bodies, EarlyLocator(bodies[0])]), CancellationToken.None);
+
+        var review = WorkspaceUser(factory.Requests[2].Body).GetProperty("insufficiencyReview");
+        var coverage = review.GetProperty("priorDraftCoverage").EnumerateArray().ToArray();
+        Assert.Equal(request.Handoff.Load.Columns, coverage.Select(item => item.GetProperty("columnLabel").GetString()));
+        Assert.All(coverage, item => Assert.Equal(5, item.GetProperty("requiredSlots").GetInt32()));
+        Assert.Equal(new[] { 1, 0, 0, 1 }, coverage.Select(item => item.GetProperty("priorDraftSupportedNames").GetInt32()));
+        Assert.DoesNotContain("Unsupported selection", review.GetRawText(), StringComparison.Ordinal);
+        Assert.Equal("insufficient_documentation", result.Outcome);
+        Assert.Empty(result.Claims);
+        Assert.Equal(3, result.ProviderCallCount);
+    }
+
+    [Theory]
     [InlineData("chat-completions", "contract")]
     [InlineData("responses", "contract")]
     [InlineData("responses", "agent")]

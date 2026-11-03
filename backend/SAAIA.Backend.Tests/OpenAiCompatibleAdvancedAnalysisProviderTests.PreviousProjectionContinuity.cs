@@ -252,9 +252,10 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     private static IReadOnlyList<AdvancedAnalysisResolvedEvidence> PreviousProjectionPriority(object context,
-        IReadOnlyList<AdvancedAnalysisResolvedEvidence> active, IReadOnlyList<AdvancedAnalysisResolvedEvidence> focused)
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence> active, IReadOnlyList<AdvancedAnalysisResolvedEvidence> focused,
+        AdvancedAnalysisLoadDescriptor? load = null)
         => (IReadOnlyList<AdvancedAnalysisResolvedEvidence>)InvokeSourceCatalogue(null,
-            "PrioritizePreviousProjectionEvidence", context, active, focused)!;
+            "PrioritizePreviousProjectionEvidence", context, load ?? BuildDirectRequest().Handoff.Load, active, focused)!;
 
     private static string PreviousProjectionOracleWire(string captured, IReadOnlyDictionary<string, JsonNode> records,
         IEnumerable<string> ids, JsonSerializerOptions inner)

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using SAAIA.Contracts;
 
 namespace SAAIA.Backend.AdvancedAnalysis;
 
@@ -239,6 +240,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
     private static IReadOnlyList<AdvancedAnalysisResolvedEvidence> PrioritizePreviousProjectionEvidence(
         SynthesisResearchContext context,
+        AdvancedAnalysisLoadDescriptor load,
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> focused)
     {
@@ -315,9 +317,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         // reads retain the existing ordering and allowance.
         const int maximumPriorDiscoveryBodies = 8;
         var previousLimit = interleavePriorBodies ? cited.Length + maximumPriorDiscoveryBodies : int.MaxValue;
-        while (previous.Count < previousLimit && groups.Any(group => group.Count > 0))
-            foreach (var group in groups)
-                if (previous.Count < previousLimit && group.Count > 0) previous.Add(group.Dequeue());
+        if (interleavePriorBodies && load.StructuredLayout && load.AnswerUnitCount > 1
+            && load.Columns.Count > 0 && string.Equals(load.AtomicEvidenceMode, "named_item", StringComparison.OrdinalIgnoreCase))
+            AppendBalancedNamedGridContinuity(load, context.RetrievalQueriesByEvidenceId, groups, previous, previousLimit);
+        else
+            while (previous.Count < previousLimit && groups.Any(group => group.Count > 0))
+                foreach (var group in groups)
+                    if (previous.Count < previousLimit && group.Count > 0) previous.Add(group.Dequeue());
         if (previous.Count == 0) return explicitOrder;
         var previousIds = previous.Select(item => item.Reference.EvidenceId!).ToHashSet(StringComparer.Ordinal);
         var primary = explicitOrder.Where(item => primaryIds.Contains(item.Reference.EvidenceId!)).ToArray();
@@ -343,6 +349,63 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (index < rest.Length) result.Add(rest[index]);
         }
         return result;
+    }
+
+    private static void AppendBalancedNamedGridContinuity(
+        AdvancedAnalysisLoadDescriptor load,
+        IReadOnlyDictionary<string, HashSet<string>> queriesByEvidence,
+        IReadOnlyList<Queue<AdvancedAnalysisResolvedEvidence>> groups,
+        List<AdvancedAnalysisResolvedEvidence> previous,
+        int limit)
+    {
+        var sourceCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var coveredTargets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var served = new HashSet<int>();
+        string Source(AdvancedAnalysisResolvedEvidence item) => BuildCanonicalSourceIdentity(item, item.Reference.EvidenceId!);
+        IReadOnlyList<string> Targets(AdvancedAnalysisResolvedEvidence item) =>
+            item.Reference.EvidenceId is { } id && queriesByEvidence.TryGetValue(id, out var queries)
+                ? ResolveTargetColumnsForPrompt(load, queries.ToArray()) : [];
+        void Count(AdvancedAnalysisResolvedEvidence item)
+        {
+            var source = Source(item);
+            sourceCounts[source] = sourceCounts.GetValueOrDefault(source) + 1;
+            coveredTargets.UnionWith(Targets(item));
+        }
+        foreach (var item in previous) Count(item);
+        var indices = Enumerable.Range(0, groups.Count).ToArray();
+        int Pick(Func<AdvancedAnalysisResolvedEvidence, bool> eligible) => indices
+            .Where(index => !served.Contains(index) && groups[index].TryPeek(out var item) && eligible(item))
+            .OrderBy(index => sourceCounts.GetValueOrDefault(Source(groups[index].Peek())))
+            .FirstOrDefault(-1);
+        void Add(int index)
+        {
+            served.Add(index);
+            var item = groups[index].Dequeue();
+            previous.Add(item);
+            Count(item);
+        }
+
+        // The query's explicit target is an ordering hint only. Give each
+        // requested column a chance before broad queries consume the bounded
+        // continuity allowance, and break ties in favor of less-used sources.
+        foreach (var column in load.Columns)
+        {
+            if (previous.Count >= limit) return;
+            if (coveredTargets.Contains(column)) continue;
+            var index = Pick(item => Targets(item).Contains(column, StringComparer.OrdinalIgnoreCase));
+            if (index >= 0) Add(index);
+        }
+        while (previous.Count < limit)
+        {
+            var index = Pick(_ => true);
+            if (index < 0)
+            {
+                if (served.Count == 0) return;
+                served.Clear();
+                continue;
+            }
+            Add(index);
+        }
     }
 
     private static IReadOnlyList<AdvancedAnalysisResolvedEvidence> PrioritizeLatestExplicitRead(
