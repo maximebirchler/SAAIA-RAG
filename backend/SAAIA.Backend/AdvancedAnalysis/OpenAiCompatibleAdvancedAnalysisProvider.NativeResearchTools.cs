@@ -105,7 +105,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var readProperties = new Dictionary<string, object>
             {
                 ["sourceKey"] = Choice(sources), ["pageStart"] = Count(1, int.MaxValue),
-                ["pageEnd"] = Count(1, int.MaxValue), ["topK"] = Count(1, 60),
+                ["pageEnd"] = Count(1, int.MaxValue), ["topK"] = new
+                {
+                    type = "integer", minimum = 1, maximum = 60,
+                    description = "For primary reads, maximum chunks in the whole physical window, not a ranked sample. For a single page of unknown density, start at 12; a smaller cap can refuse the entire read. Follow readRetry when supplied."
+                },
                 ["tableOrdinal"] = OptionalCount(0,int.MaxValue),
                 ["tableRowOffset"] = OptionalCount(0,AdvancedAnalysisTableFragment.MaximumRows-1),
                 ["tableRowLimit"] = OptionalCount(1,AdvancedAnalysisStructuredTableAssembler.MaximumRowLimit)
@@ -469,6 +473,27 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 instruction = "Operational metadata only, not documentary facts or item counts. Cite current user.evidence/structuredTables only. For omitted bodies request a smaller batch or read_source at an observed page with a current sourceKey; for shortened visible bodies use read_evidence at nextContentOffset. Navigation is a locator, not a body; gaps do not prove absence."
             };
             var outputNode = JsonSerializer.SerializeToNode(result, JsonOptions)!.AsObject();
+            if (request?.Operation == "read_source"
+                && observation?.ResourceLimit is { ReasonCode: "canonical_read_window_result_limit_exceeded", StopsResearch: false } readLimit
+                && request.PageStart is int pageStart && request.PageEnd is int pageEnd)
+            {
+                // The gateway probes only TopK + 1 chunks; the observed count is a lower bound.
+                const int maximumReadTopK = 60;
+                var suggestedTopK = pageStart == pageEnd && request.TopK < maximumReadTopK
+                    ? Math.Min(maximumReadTopK, Math.Max(request.TopK * 2, readLimit.ObservedAtLeastChunkCount ?? 0))
+                    : (int?)null;
+                outputNode["readRetry"] = JsonSerializer.SerializeToNode(new
+                {
+                    pageStart,
+                    pageEnd,
+                    suggestedTopK,
+                    instruction = pageStart != pageEnd
+                        ? "No text was returned. If this evidence is still useful, retry a smaller page window with the same sourceKey. The observed chunk count is a lower bound, not the page's size."
+                        : suggestedTopK is not null
+                            ? "No text was returned. If this page is still useful, retry the same sourceKey and page with suggestedTopK. The observed chunk count is a lower bound, not the page's size."
+                            : "No text was returned and this page already used the maximum topK. Use find_source_text with an observed phrase or investigate another source; this does not establish absence."
+                }, JsonOptions);
+            }
             // Native/secondary windows already carry exact line/cursor and
             // omission diagnostics below. Do not duplicate that bounded wire.
             var primaryResult = request?.NativeObservationView is null && request?.TableObservationView is null

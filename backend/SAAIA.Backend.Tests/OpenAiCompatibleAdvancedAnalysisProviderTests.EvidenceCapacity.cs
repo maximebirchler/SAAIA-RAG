@@ -136,10 +136,49 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.False(refusal.GetProperty("stopsResearch").GetBoolean());
         Assert.Equal(JsonValueKind.Null, refusal.GetProperty("observedAtLeastChunkCount").ValueKind);
         Assert.Empty(refused.RootElement.GetProperty("visibleEvidenceIds").EnumerateArray());
+        var retry = refused.RootElement.GetProperty("readRetry");
+        Assert.Equal(5, retry.GetProperty("pageStart").GetInt32());
+        Assert.Equal(8, retry.GetProperty("pageEnd").GetInt32());
+        Assert.Contains("retry a smaller page window", retry.GetProperty("instruction").GetString());
         using var prompt = JsonDocument.Parse(input.Single(i => i.TryGetProperty("role", out var role)
             && role.GetString() == "user").GetProperty("content").GetString()!);
         Assert.True(prompt.RootElement.GetProperty("researchTools").GetProperty("researchAllowed").GetBoolean());
         Assert.False(prompt.RootElement.TryGetProperty("researchResourceLimit", out _));
+    }
+
+    [Theory]
+    [InlineData("responses")]
+    [InlineData("chat-completions")]
+    public async Task Dense_single_page_refusal_suggests_a_larger_bound_without_claiming_absence(string protocol)
+    {
+        const string small = """{"sourceKey":"internal-source-1","pageStart":5,"pageEnd":5,"topK":5}""";
+        const string retry = """{"sourceKey":"internal-source-1","pageStart":5,"pageEnd":5,"topK":10}""";
+        HttpResponseMessage Read(string args) => protocol == "responses"
+            ? NativeResponseFunction("read_source", args) : NativeCompletion(("read_source", args));
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"overview","topK":12}]}"""),
+            Read(small), Read(retry),
+            protocol == "responses" ? NativeResponseAnswer(NativeAnswered) : Completion(NativeAnswered));
+        var gateway = new CapacityRefusingGateway(BuildEvidence("E1", "Le seuil est 17 bar."),
+            failureAt: 2, failureCode: "canonical_read_window_result_limit_exceeded", observedChunkLowerBound: 6);
+        var options = WorkspaceOptions(protocol);
+        options.SemanticCriticEnabled = false;
+        var answer = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null)
+            .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
+        Assert.Equal("answered", answer.Outcome);
+        Assert.Equal(new[] { 5, 10 }, gateway.Searches.Skip(1).Select(x => x.TopK));
+        using var body = JsonDocument.Parse(factory.Requests[2].Body);
+        var output = body.RootElement.GetProperty(protocol == "responses" ? "input" : "messages").EnumerateArray()
+            .Single(i => protocol == "responses"
+                ? i.TryGetProperty("type", out var type) && type.GetString() == "function_call_output"
+                : i.GetProperty("role").GetString() == "tool");
+        using var value = JsonDocument.Parse(output.GetProperty(protocol == "responses" ? "output" : "content").GetString()!);
+        Assert.Empty(value.RootElement.GetProperty("visibleEvidenceIds").EnumerateArray());
+        var suggestion = value.RootElement.GetProperty("readRetry");
+        Assert.Equal(10, suggestion.GetProperty("suggestedTopK").GetInt32());
+        Assert.Equal(5, suggestion.GetProperty("pageStart").GetInt32());
+        Assert.Equal(5, suggestion.GetProperty("pageEnd").GetInt32());
+        Assert.Contains("lower bound", suggestion.GetProperty("instruction").GetString());
     }
 
     [Theory]
@@ -187,7 +226,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     private sealed class CapacityRefusingGateway(AdvancedAnalysisResolvedEvidence item,
-        int failureAt = 3, string failureCode = "accumulated_evidence_limit_exceeded") : IAdvancedAnalysisToolGateway
+        int failureAt = 3, string failureCode = "accumulated_evidence_limit_exceeded", int? observedChunkLowerBound = null) : IAdvancedAnalysisToolGateway
     {
         public List<AdvancedAnalysisSearchRequest> Searches { get; } = [];
         public IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence => Searches.Count == 0 ? [] : [item];
@@ -197,7 +236,11 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             Searches.Add(request);
-            if (Searches.Count == failureAt) throw new AdvancedAnalysisToolException(failureCode);
+            if (Searches.Count == failureAt)
+                throw observedChunkLowerBound is null
+                    ? new AdvancedAnalysisToolException(failureCode)
+                    : new AdvancedAnalysisToolException(failureCode,
+                        new(failureCode, null, null, null, request.TopK, observedChunkLowerBound, StopsResearch: false));
             return Task.FromResult(new AdvancedAnalysisSearchObservation(request.Query, [item], [], 1, Searches.Count));
         }
     }
