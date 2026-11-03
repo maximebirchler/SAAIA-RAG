@@ -12,25 +12,11 @@ namespace SAAIA.Client.WinUI.Services.ToolAgent;
 
 public sealed partial class ToolAgentOrchestrator
 {
-    private static bool IsGenericDocumentVersionOrTypeRetrievalTerm(string term)
+    private static bool IsGenericDocumentVersionRetrievalTerm(string term)
         => Regex.IsMatch(
             NormalizeLexicalLookup(term),
-            @"^(?:and|the|for|backed|compare|comparing|comparaison|comparison|version|versions|edition|editions|document|documents|file|fichier|pdf|old|older|previous|prior|archived|archive|legacy|obsolete|ancienne|ancien|precedente|precedent|anterieure|anterieur|current|latest|newest|recent|actuelle|actuel|courante|courant|derniere|nouvelle|nouveau|safety|securite|data|sheet|fiche|fiches|donnees|msds|sds|fds)$",
+            @"^(?:and|the|for|backed|compare|comparing|comparaison|comparison|version|versions|edition|editions|document|documents|file|fichier|pdf|old|older|previous|prior|archived|archive|legacy|obsolete|ancienne|ancien|precedente|precedent|anterieure|anterieur|current|latest|newest|recent|actuelle|actuel|courante|courant|derniere|nouvelle|nouveau)$",
             RegexOptions.CultureInvariant);
-
-    private static bool LooksLikeSafetyDataSheetDocumentTypeRequest(string? query)
-    {
-        var normalized = NormalizeLexicalLookup(query);
-        if (string.IsNullOrWhiteSpace(normalized))
-            return false;
-
-        return Regex.IsMatch(
-                   normalized,
-                   @"\b(?:msds|sds|fds|material\s+safety\s+data\s+sheets?|safety\s+data\s+sheets?|fiches?\s+de\s+donnees\s+de\s+securite|fiches?\s+donnees\s+securite|fiches?\s+de\s+securite)\b",
-                   RegexOptions.CultureInvariant)
-               || (Regex.IsMatch(normalized, @"\b(?:safety|securite)\b", RegexOptions.CultureInvariant)
-                   && Regex.IsMatch(normalized, @"\b(?:data\s+sheets?|fiches?|donnees)\b", RegexOptions.CultureInvariant));
-    }
 
     private static bool ContainsHistoricalDocumentVersionSurface(string? normalizedQuery)
     {
@@ -65,32 +51,19 @@ public sealed partial class ToolAgentOrchestrator
             RegexOptions.CultureInvariant);
     }
 
-    private static int ComputeRequestedDocumentTypeAnchorScore(string? query, RagHitSummary hit)
+    // Title overlap is a retrieval signal, never a filter or proof of document type.
+    private static int ComputeDocumentTitleQueryOverlap(string query, RagHitSummary hit)
     {
-        if (!LooksLikeSafetyDataSheetDocumentTypeRequest(query))
-            return 0;
+        var title = !string.IsNullOrWhiteSpace(hit.DocName)
+            ? hit.DocName
+            : Path.GetFileName(hit.DocPath);
+        static IEnumerable<string> TitleTerms(string? text)
+            => Regex.Matches(NormalizeLexicalLookup(text), @"[\p{L}\p{N}]{3,}")
+                .Select(static match => match.Value)
+                .Where(static term => !QuerySignalStopWords.Contains(term));
 
-        var titleSignal = NormalizeLexicalLookup(string.Join(' ', new[]
-        {
-            hit.DocName,
-            hit.DocPath,
-            hit.SectionTitle,
-            hit.HeadingPath,
-            string.Join(' ', hit.MatchedContentCards?.Select(static card => card.Title) ?? Array.Empty<string>())
-        }.Where(static value => !string.IsNullOrWhiteSpace(value))));
-        if (string.IsNullOrWhiteSpace(titleSignal))
-            return 0;
-
-        if (Regex.IsMatch(titleSignal, @"\b(?:msds|sds|fds)\b", RegexOptions.CultureInvariant))
-            return 160;
-        if (Regex.IsMatch(
-                titleSignal,
-                @"\b(?:material\s+safety\s+data\s+sheets?|safety\s+data\s+sheets?|fiches?\s+de\s+donnees\s+de\s+securite|fiches?\s+donnees\s+securite|fiches?\s+de\s+securite)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return 140;
-        }
-
-        return 0;
+        var titleTerms = TitleTerms(Path.GetFileNameWithoutExtension(title))
+            .ToHashSet(StringComparer.Ordinal);
+        return TitleTerms(query).Distinct(StringComparer.Ordinal).Count(titleTerms.Contains);
     }
 }

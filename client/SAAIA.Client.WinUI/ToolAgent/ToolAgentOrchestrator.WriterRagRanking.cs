@@ -424,23 +424,17 @@ public sealed partial class ToolAgentOrchestrator
                 item.Hit,
                 item.Index,
                 item.Summary,
-                DocumentTypeScore = ComputeRequestedDocumentTypeAnchorScore(userMessage, item.Summary),
+                TitleOverlap = ComputeDocumentTitleQueryOverlap(userMessage, item.Summary),
                 AnchorMatchCount = broadAnchorTerms.Length == 0
                     ? 0
                     : broadAnchorTerms.Count(term => NormalizeLexicalLookup(GetRagHitLookupText(item.Summary)).Contains(term, StringComparison.Ordinal))
             })
             .ToList();
-        var documentTypeCandidates = evidenceCandidates
-            .Where(static item => item.DocumentTypeScore > 0)
-            .ToList();
-        if (documentTypeCandidates.Count > 0)
-            evidenceCandidates = documentTypeCandidates;
-
         var rankedByEvidence = evidenceCandidates
             .OrderBy(item => LooksLikeNavigationOnlyHit(item.Summary) ? 1 : 0)
             .ThenByDescending(item => !string.IsNullOrWhiteSpace(requestedTitle) ? ComputeExactItemAnchorStrengthScore(requestedTitle!, item.Summary) : 0)
             .ThenByDescending(item => !string.IsNullOrWhiteSpace(requestedTitle) && RagHitContainsRequestedTitle(item.Summary, requestedTitle!) ? 1 : 0)
-            .ThenByDescending(item => item.DocumentTypeScore)
+            .ThenByDescending(item => item.TitleOverlap)
             .ThenByDescending(item => isShortTechnicalEvidenceTopic ? ComputeDirectTechnicalEvidenceScore(evidenceQuery, item.Summary) : 0)
             .ThenByDescending(item => ComputeBackendSelectionPriority(item.Summary))
             .ThenByDescending(item => item.AnchorMatchCount)

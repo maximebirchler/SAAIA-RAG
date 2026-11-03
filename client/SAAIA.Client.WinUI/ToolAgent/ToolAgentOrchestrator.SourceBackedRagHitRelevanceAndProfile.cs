@@ -176,32 +176,14 @@ public sealed partial class ToolAgentOrchestrator
 
     private static int ComputeShortTechnicalPhraseEvidenceScore(string normalizedTopic, string normalizedEvidence)
     {
-        var terms = BuildShortTechnicalEvidenceSelectionTerms(normalizedTopic).ToHashSet(StringComparer.Ordinal);
-        var hasProperty = terms.Overlaps(new[] { "propriete", "proprietes", "property", "properties", "caracteristique", "caracteristiques", "characteristic", "characteristics" });
-        var hasElectrical = terms.Overlaps(new[] { "electrique", "electriques", "electric", "electrical", "dielectric" });
-        var hasThermal = terms.Overlaps(new[] { "thermique", "thermiques", "thermal", "temperature", "temperatures" });
+        var terms = ExtractQuerySignalTerms(normalizedTopic).ToArray();
+        if (terms.Length < 2)
+            return 0;
 
-        if (hasProperty && hasElectrical)
-        {
-            return Regex.IsMatch(
-                normalizedEvidence,
-                @"\b(?:electrical\s+properties|electric\s+properties|dielectric\s+properties|dielectric\s+strength|volume\s+resistivity|surface\s+resistance|electrical\s+insulat(?:ing|ion)|proprietes?\s+electriques?|caracteristiques?\s+electriques?)\b",
-                RegexOptions.CultureInvariant)
-                ? 80
-                : -12;
-        }
-
-        if (hasProperty && hasThermal)
-        {
-            return Regex.IsMatch(
-                normalizedEvidence,
-                @"\b(?:thermal\s+properties|temperature\s+properties|melt(?:ing)?\s+point|thermal\s+conductivity|proprietes?\s+thermiques?|caracteristiques?\s+thermiques?)\b",
-                RegexOptions.CultureInvariant)
-                ? 80
-                : -12;
-        }
-
-        return 0;
+        var phrase = string.Join(@"\W+", terms.Select(Regex.Escape));
+        return Regex.IsMatch(normalizedEvidence, @"\b" + phrase + @"\b", RegexOptions.CultureInvariant)
+            ? 24
+            : 0;
     }
 
     private static string[] BuildShortTechnicalEvidenceSelectionTerms(string normalizedTopic)
@@ -212,10 +194,6 @@ public sealed partial class ToolAgentOrchestrator
             terms.Add(term);
             if (Regex.IsMatch(term, @"^(?:propriete|proprietes|property|properties|caracteristique|caracteristiques|characteristic|characteristics)$", RegexOptions.CultureInvariant))
                 terms.AddRange(new[] { "property", "properties", "propriete", "proprietes", "characteristic", "characteristics", "caracteristique", "caracteristiques" });
-            if (Regex.IsMatch(term, @"^(?:electrique|electriques|electric|electrical|dielectric)$", RegexOptions.CultureInvariant))
-                terms.AddRange(new[] { "electric", "electrical", "electrique", "electriques", "dielectric" });
-            if (Regex.IsMatch(term, @"^(?:thermique|thermiques|thermal|temperature|temperatures)$", RegexOptions.CultureInvariant))
-                terms.AddRange(new[] { "thermal", "thermique", "thermiques", "temperature", "temperatures" });
             if (Regex.IsMatch(term, @"^(?:valeur|valeurs|value|values)$", RegexOptions.CultureInvariant))
                 terms.AddRange(new[] { "value", "values", "valeur", "valeurs" });
             if (Regex.IsMatch(term, @"^(?:specification|specifications|spec|specs|technique|technical)$", RegexOptions.CultureInvariant))
@@ -240,10 +218,6 @@ public sealed partial class ToolAgentOrchestrator
         {
             "propriete" or "proprietes" or "property" or "properties" =>
                 Regex.IsMatch(normalizedEvidence, @"\b(?:property|properties|proprietes?|characteristics?|caracteristiques?)\b", RegexOptions.CultureInvariant),
-            "electrique" or "electriques" or "electric" or "electrical" or "dielectric" =>
-                Regex.IsMatch(normalizedEvidence, @"\b(?:electric|electrical|electriques?|dielectric)\b", RegexOptions.CultureInvariant),
-            "thermique" or "thermiques" or "thermal" or "temperature" or "temperatures" =>
-                Regex.IsMatch(normalizedEvidence, @"\b(?:thermal|thermiques?|temperatures?)\b", RegexOptions.CultureInvariant),
             _ => false
         };
     }

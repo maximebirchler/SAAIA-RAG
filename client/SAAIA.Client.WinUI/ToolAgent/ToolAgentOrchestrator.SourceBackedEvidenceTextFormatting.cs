@@ -520,16 +520,22 @@ public sealed partial class ToolAgentOrchestrator
 
     private static int FindShortTechnicalPhraseEvidenceIndex(string normalizedTopic, string readableEvidence)
     {
-        var terms = BuildShortTechnicalEvidenceSelectionTerms(normalizedTopic).ToHashSet(StringComparer.Ordinal);
-        var hasProperty = terms.Overlaps(new[] { "propriete", "proprietes", "property", "properties", "caracteristique", "caracteristiques", "characteristic", "characteristics" });
-        var hasElectrical = terms.Overlaps(new[] { "electrique", "electriques", "electric", "electrical", "dielectric" });
-        var hasThermal = terms.Overlaps(new[] { "thermique", "thermiques", "thermal", "temperature", "temperatures" });
+        var terms = ExtractQuerySignalTerms(normalizedTopic).ToArray();
+        if (terms.Length < 2)
+            return -1;
 
-        if (hasProperty && hasElectrical)
-            return MatchIndex(readableEvidence, @"\b(?:electrical\s+properties|electric\s+properties|dielectric\s+properties|properties\s+(?:electrical|electric|dielectric)|electrical\s+characteristics|dielectric\s+strength|propri[eÃƒÂ©]t[eÃƒÂ©]s?\s+[eÃƒÂ©]lectriques?|caract[eÃƒÂ©]ristiques?\s+[eÃƒÂ©]lectriques?)\b");
-
-        if (hasProperty && hasThermal)
-            return MatchIndex(readableEvidence, @"\b(?:thermal\s+properties|temperature\s+properties|properties\s+thermal|thermal\s+characteristics|melt\s+point|service\s+temperature|propri[eÃƒÂ©]t[eÃƒÂ©]s?\s+thermiques?|caract[eÃƒÂ©]ristiques?\s+thermiques?)\b");
+        // Match normalized tokens but return the original source offset.
+        var tokens = Regex.Matches(readableEvidence, @"[\p{L}\p{N}]+")
+            .Select(static match => (Value: NormalizeLexicalLookup(match.Value), match.Index))
+            .ToArray();
+        for (var start = 0; start <= tokens.Length - terms.Length; start++)
+        {
+            var length = 0;
+            while (length < terms.Length && string.Equals(tokens[start + length].Value, terms[length], StringComparison.Ordinal))
+                length++;
+            if (length == terms.Length)
+                return tokens[start].Index;
+        }
 
         return -1;
     }
@@ -546,13 +552,7 @@ public sealed partial class ToolAgentOrchestrator
 
         foreach (var term in terms)
         {
-            var pattern = term switch
-            {
-                "electrique" or "electriques" => @"\b[eÃƒÂ©]lectriques?\b",
-                "thermique" or "thermiques" => @"\bthermiques?\b",
-                _ => @"\b" + Regex.Escape(term) + @"\b"
-            };
-            var index = MatchIndex(readableEvidence, pattern);
+            var index = MatchIndex(readableEvidence, @"\b" + Regex.Escape(term) + @"\b");
             if (index >= 0)
                 return index;
         }

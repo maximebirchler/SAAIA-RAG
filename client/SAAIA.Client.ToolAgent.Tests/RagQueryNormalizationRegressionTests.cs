@@ -50,12 +50,34 @@ public sealed class RagQueryNormalizationRegressionTests
         var joined = string.Join(" | ", queries);
 
         Assert.Equal("Alpha Beta proprietes thermiques", queries[0]);
-        Assert.Contains(queries, query => query.Contains("thermal", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(queries, query => query.Contains("melt point", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain("melt point", joined, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("melting point", joined, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(queries, query => string.Equals(query, "orienter", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, query => string.Equals(query, "utilisateur", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, query => string.Equals(query, "demande", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain("orienter utilisateur demande", joined, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("FDS", "certificat de réception")]
+    [InlineData("certificat de réception", "FDS")]
+    public void Explicit_document_type_is_preserved_and_receives_the_same_title_matching_signal(
+        string requestedType,
+        string otherType)
+    {
+        var query = $"Trouve le document de type {requestedType} pour Oridia.";
+        var queries = ToolAgentOrchestrator.BuildSourceBackedActionRetrievalQueriesForTests(query);
+        Assert.Contains(requestedType, queries[0], StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(queries, candidate =>
+            candidate.Contains(otherType, StringComparison.OrdinalIgnoreCase));
+
+        var requestedName = $"{requestedType} Oridia.pdf";
+        var otherName = $"{otherType} Oridia.pdf";
+        var requested = JsonSerializer.SerializeToElement(new { docName = requestedName });
+        var other = JsonSerializer.SerializeToElement(new { docName = otherName });
+        Assert.True(
+            ToolAgentOrchestrator.ComputeDocumentTitleQueryOverlapForTests(query, requested)
+                > ToolAgentOrchestrator.ComputeDocumentTitleQueryOverlapForTests(query, other));
     }
 
     [Fact]

@@ -46,6 +46,7 @@ Rules:
 - Choose tools, queries and their number yourself. Keep source queries short.
 - Preserve every explicit slot, role, criterion and quality. Do not replace a
   qualitative criterion with an unstated threshold or a different criterion.
+- Keep a requested document type in the search terms; do not treat it as a filename.
 - CATEGORY_HINTS are exact ""scope = meaning"" pairs. Use the exact scope only
   when its meaning fits; otherwise omit category. Never invent one.
 - Navigation is not evidence. Context needs an existing document/page/chunk.

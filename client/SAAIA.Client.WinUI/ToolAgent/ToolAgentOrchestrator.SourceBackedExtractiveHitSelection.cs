@@ -76,15 +76,15 @@ public sealed partial class ToolAgentOrchestrator
             .Select(hit => new
             {
                 Hit = hit,
-                DocumentTypeScore = ComputeRequestedDocumentTypeAnchorScore(evidenceQuery, hit),
+                TitleOverlap = ComputeDocumentTitleQueryOverlap(evidenceQuery, hit),
                 DirectTechnicalEvidence = isShortTechnicalEvidenceTopic
                     ? ComputeDirectTechnicalEvidenceScore(evidenceQuery, hit)
                     : 0,
                 PrimaryRelevance = ComputeRagHitLexicalRelevance(evidenceQuery, GetRagHitPrimaryEvidenceText(hit)),
                 Relevance = ComputeRagHitLexicalRelevance(evidenceQuery, GetRagHitLookupText(hit))
             })
-            .OrderByDescending(item => item.DocumentTypeScore)
-            .ThenByDescending(item => item.DirectTechnicalEvidence)
+            .OrderByDescending(item => item.DirectTechnicalEvidence)
+            .ThenByDescending(item => item.TitleOverlap)
             .ThenByDescending(item => item.PrimaryRelevance)
             .ThenByDescending(item => item.Relevance)
             .ThenByDescending(item => item.Hit.Score)
@@ -97,12 +97,6 @@ public sealed partial class ToolAgentOrchestrator
             if (documentScopedHits.Count > 0)
                 allHits = documentScopedHits;
         }
-
-        var requestedDocumentTypeHits = allHits
-            .Where(static item => item.DocumentTypeScore > 0)
-            .ToList();
-        if (requestedDocumentTypeHits.Count > 0)
-            allHits = requestedDocumentTypeHits;
 
         if (isShortTechnicalEvidenceTopic)
         {

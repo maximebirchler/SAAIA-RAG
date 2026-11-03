@@ -227,6 +227,9 @@ public sealed partial class ToolAgentOrchestrator
     internal static string[] DeriveSourceBackedExtractiveSourceLabelsForTests(ToolResults toolResults, string query)
         => DeriveSourcesFromExtractiveHits(toolResults, query).Select(source => source.Label).ToArray();
 
+    internal static int ComputeDocumentTitleQueryOverlapForTests(string query, JsonElement hit)
+        => ComputeDocumentTitleQueryOverlap(query, BuildRagHitSummary(hit));
+
     internal static string BuildSourceBackedExtractiveSourcesPayloadForTests(ToolResults toolResults, string query)
         => JsonSerializer.Serialize(BuildSourcesPayload(DeriveSourcesFromExtractiveHits(toolResults, query)));
 

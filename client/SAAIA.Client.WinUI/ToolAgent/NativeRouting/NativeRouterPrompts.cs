@@ -106,7 +106,7 @@ internal static class NativeRouterPrompts
                 """,
             SubmitSourceBackedRouteToolName => """
                 Optional preferences do not block a request permitting documented candidates.
-                Preserve subjective wording; no proxies. answerUnitType is the answer-bearing source
+                Preserve subjective wording and requested document types. answerUnitType is the answer-bearing source
                 unit, never query, target document, deliverable or guessed answer.
                 answerUnitMode describes it. For internal information about a named
                 object, including a request that first asks to find that object, use
@@ -207,7 +207,7 @@ internal static class NativeRouterPrompts
             through open_set. For a broad whole-document overview without explicit
             facets or count, use overview with open_set and count 2 or 3; do not invent
             facets. query is short source terms; count is answer units; pool is a
-            candidate budget. Preserve subjective wording without proxies.
+            candidate budget. Keep subjective wording and requested document types.
 
             Use submit_document_overview_route for 2+ facets of one named
             document; keep their order.

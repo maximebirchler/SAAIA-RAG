@@ -303,7 +303,6 @@ public sealed partial class ToolAgentOrchestrator
             score -= 40;
         score += ComputeExactItemHeadTermEvidenceScore(requestedTitle, hit);
         score += ComputeExactItemAnchorStrengthScore(requestedTitle, hit);
-        score += ComputeRequestedDocumentTypeAnchorScore(requestedTitle, hit);
         score += ComputeExactVisibleTitleMatchScore(requestedTitle, hit);
         score += ExtractItemizedQuantityFacts(itemizedEvidence).Length * 4;
         score += ExtractProcedureSteps(evidence).Length * 3;

@@ -15,28 +15,9 @@ public sealed partial class ToolAgentOrchestrator
     private static IEnumerable<string> BuildGenericRetrievalSemanticQueries(string query)
     {
         var normalizedQuery = NormalizeLexicalLookup(query);
-        var terms = ExtractQuerySignalTerms(normalizedQuery)
-            .SelectMany(BuildRetrievalTermVariants)
-            .ToHashSet(StringComparer.Ordinal);
-        if (terms.Count == 0)
+        if (string.IsNullOrWhiteSpace(normalizedQuery))
             yield break;
 
-        var hasProperty = terms.Contains("propriete")
-            || terms.Contains("proprietes")
-            || terms.Contains("property")
-            || terms.Contains("properties");
-        var hasElectrical = terms.Contains("electrique")
-            || terms.Contains("electriques")
-            || terms.Contains("electric")
-            || terms.Contains("electrical")
-            || terms.Contains("dielectric");
-        var hasThermal = terms.Contains("thermique")
-            || terms.Contains("thermiques")
-            || terms.Contains("thermal")
-            || terms.Contains("temperature")
-            || terms.Contains("melt point")
-            || terms.Contains("melting point");
-        var hasSafetyDataSheet = LooksLikeSafetyDataSheetDocumentTypeRequest(query);
         var hasHistoricalVersion = ContainsHistoricalDocumentVersionSurface(normalizedQuery);
         var hasCurrentVersion = ContainsCurrentDocumentVersionSurface(normalizedQuery);
         var hasVersionSurface = Regex.IsMatch(
@@ -46,32 +27,11 @@ public sealed partial class ToolAgentOrchestrator
         var subjectTerms = Regex.Matches(normalizedQuery, @"[\p{L}\p{N}]{3,}", RegexOptions.CultureInvariant)
             .Select(static match => match.Value)
             .Where(static term => !IsSourceBackedActionRetrievalNoiseTerm(term))
-            .Where(static term => !IsGenericDocumentVersionOrTypeRetrievalTerm(term))
+            .Where(static term => !IsGenericDocumentVersionRetrievalTerm(term))
             .Distinct(StringComparer.Ordinal)
             .Take(4)
             .ToArray();
         var subjectPrefix = subjectTerms.Length == 0 ? string.Empty : string.Join(' ', subjectTerms) + " ";
-
-        if (hasElectrical)
-        {
-            yield return hasProperty ? "electrical properties" : "electrical";
-            yield return "dielectric properties";
-        }
-
-        if (hasThermal)
-        {
-            yield return hasProperty ? "thermal properties" : "thermal";
-            yield return "melt point temperature";
-        }
-
-        if (hasSafetyDataSheet)
-        {
-            yield return $"{subjectPrefix}safety data sheet";
-            yield return $"{subjectPrefix}material safety data sheet";
-            yield return $"{subjectPrefix}msds";
-            yield return $"{subjectPrefix}sds";
-            yield return $"{subjectPrefix}fiche de donnees de securite";
-        }
 
         if (hasHistoricalVersion && (hasVersionSurface || hasCurrentVersion))
         {
@@ -102,34 +62,6 @@ public sealed partial class ToolAgentOrchestrator
                 yield return "properties";
                 yield return "characteristic";
                 yield return "characteristics";
-                break;
-
-            case "electrique":
-            case "electriques":
-            case "electric":
-            case "electrical":
-                yield return "electric";
-                yield return "electrical";
-                yield return "dielectric";
-                break;
-
-            case "thermique":
-            case "thermiques":
-            case "thermal":
-                yield return "thermal";
-                yield return "temperature";
-                yield return "melt point";
-                yield return "melting point";
-                break;
-
-            case "msds":
-            case "sds":
-            case "fds":
-                yield return "msds";
-                yield return "sds";
-                yield return "safety data sheet";
-                yield return "material safety data sheet";
-                yield return "fiche de donnees de securite";
                 break;
 
             case "ancienne":
