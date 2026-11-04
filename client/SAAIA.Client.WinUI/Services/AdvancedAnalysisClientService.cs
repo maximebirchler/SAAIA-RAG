@@ -476,22 +476,14 @@ internal sealed class AdvancedAnalysisClientService
 
         var sources = validation.Result.Evidence
             .Select(evidence => MapAdvancedAnalysisSource(evidence, language))
-            .GroupBy(
-                static source => string.Join(
-                    '|',
-                    source.DocId,
-                    source.RevisionId,
-                    source.PageStart,
-                    source.PageEnd,
-                    source.SourceHash,
-                    source.ContentRole == "secondary_observation" ? source.AnchorId : string.Empty),
-                StringComparer.OrdinalIgnoreCase)
-            .Select(static group => group.First())
             .ToList();
-        _onCompleted?.Invoke(sources, validation.Result.AnswerText);
+        // Keep all proof identities in durable transport; the visible cards may
+        // still share a physical page, without losing a claim's cited chunk ID.
+        var visibleSources = VisibleAdvancedAnalysisSources(sources);
+        _onCompleted?.Invoke(visibleSources, validation.Result.AnswerText);
         ClientDiagnostics.Journal.Emit("advanced.result.validation", "success", measurements:
             new Dictionary<string, long?> { ["evidence"] = validation.Result.Evidence.Count,
-                ["claims"] = validation.Result.Claims.Count, ["visibleSources"] = sources.Count });
+                ["claims"] = validation.Result.Claims.Count, ["visibleSources"] = visibleSources.Count });
         return new AdvancedAnalysisClientExecutionResult(
             Handled: true,
             Outcome: "succeeded",
@@ -736,6 +728,12 @@ internal sealed class AdvancedAnalysisClientService
         };
     }
 
+    private static List<ToolMemory.SourceRef> VisibleAdvancedAnalysisSources(IEnumerable<ToolMemory.SourceRef> sources)
+        => sources.GroupBy(source => string.Join('|', source.DocId, source.RevisionId,
+                source.PageStart, source.PageEnd, source.SourceHash,
+                source.ContentRole == "secondary_observation" ? source.AnchorId : string.Empty),
+            StringComparer.OrdinalIgnoreCase).Select(group => group.First()).ToList();
+
     private static object BuildAdvancedAnalysisSourcesPayload(
         AdvancedAnalysisJobDto job,
         List<ToolMemory.SourceRef> sources,
@@ -744,7 +742,7 @@ internal sealed class AdvancedAnalysisClientService
         => new
         {
             intent = "advanced_analysis.answer",
-            sources = sources.Select(source => BuildAdvancedAnalysisSourcePayload(source,
+            sources = VisibleAdvancedAnalysisSources(sources).Select(source => BuildAdvancedAnalysisSourcePayload(source,
                 result?.Evidence.SingleOrDefault(evidence => evidence.EvidenceId == source.EvidenceId)?.SourceObservation)).ToArray(),
             advancedAnalysis = new
             {
@@ -766,6 +764,13 @@ internal sealed class AdvancedAnalysisClientService
                 providerModel = result?.ProviderModel ?? job.ProviderModel,
                 providerCallCount = result?.ProviderCallCount,
                 claimCount = result?.Claims.Count,
+                claims = result?.Claims.Select(claim => new
+                {
+                    claimId = claim.ClaimId, selectedItem = claim.SelectedItem,
+                    text = claim.Text, evidenceIds = claim.EvidenceIds
+                }).ToArray(),
+                citationSources = result is null ? null : sources.Select(source => BuildAdvancedAnalysisSourcePayload(source,
+                    result.Evidence.SingleOrDefault(evidence => evidence.EvidenceId == source.EvidenceId)?.SourceObservation)).ToArray(),
                 evidenceCount = result?.Evidence.Count,
                 inputTokens = result?.InputTokens,
                 outputTokens = result?.OutputTokens,

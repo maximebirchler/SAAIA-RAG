@@ -173,10 +173,46 @@ public sealed class AdvancedAnalysisClientTransportTests
             ClientJson.CamelCase);
         Assert.Single(SourceCardParser.Parse(payload));
         using var json = JsonDocument.Parse(payload);
+        Assert.Equal(new[] { "E1", "E2" }, json.RootElement.GetProperty("advancedAnalysis").GetProperty("citationSources")
+            .EnumerateArray().Select(source => source.GetProperty("evidenceId").GetString()));
+        var citations = SAAIA.Client.Core.AdvancedAnalysis.AdvancedAnalysisCitationMap.Parse(payload);
+        Assert.Equal("chunk-2", Assert.Single(citations["C2"]).Locator.ChunkId);
         Assert.Equal(
             2,
             json.RootElement.GetProperty("advancedAnalysis")
                 .GetProperty("evidenceCount").GetInt32());
+    }
+
+    [Fact]
+    public async Task Twenty_claim_bindings_survive_the_durable_client_payload_from_one_terminal_api_response()
+    {
+        var value = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(ValidResult(twoSources: true)))!;
+        value["claims"] = new System.Text.Json.Nodes.JsonArray(Enumerable.Range(1, 20).Select(index =>
+            JsonSerializer.SerializeToNode(new { claimId = "C" + index, selectedItem = "Option " + index,
+                text = "Supported statement " + index, evidenceIds = new[] { index % 2 == 1 ? "E1" : "E2" } },
+                ClientJson.CamelCase)).ToArray());
+        var requests = 0;
+        var handler = new SequenceHandler((_, _, _) =>
+        {
+            Interlocked.Increment(ref requests);
+            return Task.FromResult(Json(HttpStatusCode.OK, Job("succeeded", 1, value)));
+        });
+        var result = await ExecuteAsync(handler);
+        Assert.Equal("succeeded", result.Outcome);
+        // The native message/persistence path serializes the anonymous payload
+        // without a naming policy before it reaches the API serializer.
+        var persisted = JsonSerializer.Serialize(result.SourcesPayload, new JsonSerializerOptions { WriteIndented = true });
+        using var document = JsonDocument.Parse(persisted);
+        var claims = document.RootElement.GetProperty("advancedAnalysis").GetProperty("claims").EnumerateArray().ToArray();
+        Assert.Equal(20, claims.Length);
+        Assert.Equal("Option 20", claims[19].GetProperty("selectedItem").GetString());
+        var rehydrated = SAAIA.Client.Core.AdvancedAnalysis.AdvancedAnalysisCitationMap.Parse(persisted);
+        Assert.Equal(20, rehydrated.Count);
+        var last = Assert.Single(rehydrated["C20"]);
+        Assert.Equal("Quality/procedure-b.pdf", last.Locator.DocumentPath);
+        Assert.Equal(5, last.Locator.Page);
+        Assert.Equal(6, last.Locator.PageEnd);
+        Assert.Equal(1, requests);
     }
 
     [Theory]

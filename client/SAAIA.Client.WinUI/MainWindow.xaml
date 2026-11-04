@@ -141,7 +141,7 @@
                                            TextWrapping="WrapWholeWords"/>
                             </StackPanel>
 
-                            <controls:LinkifiedTextBlock Text="{x:Bind Content, Mode=OneWay}" TextForeground="{ThemeResource AppTextPrimaryBrush}" TextFontSize="14"/>
+                            <controls:LinkifiedTextBlock Text="{x:Bind Content, Mode=OneWay}" SourcesJson="{x:Bind SourcesJson, Mode=OneWay}" TextForeground="{ThemeResource AppTextPrimaryBrush}" TextFontSize="14"/>
 
                             <controls:SourcesCardsControl Items="{x:Bind ParsedSources, Mode=OneWay}"
                                                          MaxWidth="860"

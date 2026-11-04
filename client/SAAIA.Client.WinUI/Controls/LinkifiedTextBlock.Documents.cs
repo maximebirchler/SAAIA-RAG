@@ -10,6 +10,23 @@ namespace SAAIA.Client.WinUI.Controls;
 
 public sealed partial class LinkifiedTextBlock
 {
+    private async Task OpenCitationAsync(SAAIA.Client.Core.Sources.SourceLocator locator)
+    {
+        try
+        {
+            var result = await DocumentLauncher.TryOpenAsync(locator);
+            if (!result.Success)
+                await ShowOpenErrorAsync(result.ErrorTitle ?? LocalText("Impossible d'ouvrir le fichier", "Could not open the file", "No se pudo abrir el archivo", "Não foi possível abrir o ficheiro", "Datei konnte nicht geöffnet werden", "Impossibile aprire il file"),
+                    result.ErrorMessage ?? BuildOpenLinkFailureUserMessage());
+        }
+        catch (System.Exception exception)
+        {
+            ClientLog.Exception("LinkifiedTextBlock.OpenCitation", exception);
+            await ShowOpenErrorAsync(LocalText("Impossible d'ouvrir le fichier", "Could not open the file", "No se pudo abrir el archivo", "Não foi possível abrir o ficheiro", "Datei konnte nicht geöffnet werden", "Impossibile aprire il file"),
+                BuildOpenLinkFailureUserMessage());
+        }
+    }
+
     private async Task OpenAsync(string docPath, int page)
     {
         try

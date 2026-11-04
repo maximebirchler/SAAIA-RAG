@@ -1,5 +1,8 @@
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Collections.Generic;
+using SAAIA.Client.Core.AdvancedAnalysis;
+using SAAIA.Client.Core.Presentation;
 
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
@@ -28,6 +31,12 @@ public sealed partial class LinkifiedTextBlock : UserControl
         @"\*\*(?<text>[^\r\n]+?)\*\*",
         RegexOptions.Compiled);
 
+    private static readonly Regex InlineTokenRegex = new(
+        "\\[\\[open\\|(?<path>[^|]+)\\|(?<page>[^|]+)\\|(?<label>[^\\]]+)\\]\\]|\\[(?<claim>C[1-9][0-9]{0,2})\\]",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    private IReadOnlyDictionary<string, IReadOnlyList<AdvancedAnalysisCitationLink>> _citationLinks =
+        new Dictionary<string, IReadOnlyList<AdvancedAnalysisCitationLink>>();
+
     // ---------------- Visual tuning ----------------
     // Edit these values if you want tighter/looser tree spacing.
     private static readonly string[] TreeBullets = new[] { "•", "◦", "▪", "–" };
@@ -54,6 +63,16 @@ public sealed partial class LinkifiedTextBlock : UserControl
     {
         get => (string)GetValue(TextProperty);
         set => SetValue(TextProperty, value);
+    }
+
+    public static readonly DependencyProperty SourcesJsonProperty = DependencyProperty.Register(
+        nameof(SourcesJson), typeof(string), typeof(LinkifiedTextBlock),
+        new PropertyMetadata(null, (d, _) => ((LinkifiedTextBlock)d).Render()));
+
+    public string? SourcesJson
+    {
+        get => (string?)GetValue(SourcesJsonProperty);
+        set => SetValue(SourcesJsonProperty, value);
     }
 
     public static readonly DependencyProperty TextForegroundProperty = DependencyProperty.Register(
@@ -87,10 +106,12 @@ public sealed partial class LinkifiedTextBlock : UserControl
         var text = Text ?? string.Empty;
         var fg = TextForeground ?? new SolidColorBrush(Microsoft.UI.Colors.White);
         var fs = TextFontSize > 0 ? TextFontSize : 14;
+        _citationLinks = AdvancedAnalysisCitationMap.Parse(SourcesJson);
 
         var normalized = text.Replace("\r\n", "\n").Replace("\r", "\n");
         var lines = normalized.Split('\n');
-        var useLineRenderer = lines.Any(IsListOrTreeLine);
+        var tables = MarkdownTableParser.ReadTables(lines);
+        var useLineRenderer = lines.Any(IsListOrTreeLine) || tables.Count > 0;
         var singleSourceBlock = IsSingleNumberedSourceBlock(lines);
 
         if (useLineRenderer)
@@ -101,8 +122,7 @@ public sealed partial class LinkifiedTextBlock : UserControl
             Rtb.Blocks.Clear();
             LinesPanel.Children.Clear();
 
-            foreach (var line in lines)
-                RenderLine(line, fg, fs, singleSourceBlock);
+            RenderDocumentLines(lines, fg, fs, singleSourceBlock, tables);
 
             return;
         }

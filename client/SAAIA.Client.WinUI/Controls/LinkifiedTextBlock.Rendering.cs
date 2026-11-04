@@ -67,7 +67,7 @@ public sealed partial class LinkifiedTextBlock
         if (TryParseSingleOpenToken(rest, out var path, out var page, out var label))
             return MakeDocLinkButton(path, page, label, fg, fs);
 
-        if (TokenRegex.IsMatch(rest) || MarkdownBoldRegex.IsMatch(rest))
+        if (InlineTokenRegex.IsMatch(rest) || MarkdownBoldRegex.IsMatch(rest))
             return BuildRichTextElement(rest, fg, fs, InlineLinkAlphaMultiplier);
 
         return new TextBlock
@@ -175,10 +175,32 @@ public sealed partial class LinkifiedTextBlock
         var source = text ?? string.Empty;
         var last = 0;
 
-        foreach (Match m in TokenRegex.Matches(source))
+        foreach (Match m in InlineTokenRegex.Matches(source))
         {
             if (m.Index > last)
                 AppendTextRuns(p, source.Substring(last, m.Index - last), fg, fs);
+
+            if (m.Groups["claim"].Success)
+            {
+                var claimId = m.Groups["claim"].Value;
+                if (_citationLinks.TryGetValue(claimId, out var citations))
+                {
+                    for (var index = 0; index < citations.Count; index++)
+                    {
+                        var citation = citations[index];
+                        var citationCaption = citations.Count == 1 ? $"[{claimId}]" : $"[{claimId} · {index + 1}]";
+                        var citationLink = new Hyperlink { UnderlineStyle = UnderlineStyle.Single, Foreground = linkFg };
+                        citationLink.Inlines.Add(MakeRun(citationCaption, linkFg, fs));
+                        ToolTipService.SetToolTip(citationLink, citation.Label);
+                        citationLink.Click += async (_, _) => await OpenCitationAsync(citation.Locator);
+                        p.Inlines.Add(citationLink);
+                        if (index + 1 < citations.Count) p.Inlines.Add(MakeRun(" ", fg, fs));
+                    }
+                }
+                else AppendTextRuns(p, m.Value, fg, fs);
+                last = m.Index + m.Length;
+                continue;
+            }
 
             var path = (m.Groups["path"].Value ?? string.Empty).Trim();
             var pageRaw = (m.Groups["page"].Value ?? "0").Trim();
