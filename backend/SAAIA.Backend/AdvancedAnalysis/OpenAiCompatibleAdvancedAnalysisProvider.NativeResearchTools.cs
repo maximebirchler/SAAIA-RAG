@@ -479,10 +479,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 using var arguments = JsonDocument.Parse(ReadString(call.GetProperty("function"), "arguments"));
                 var id = ReadString(arguments.RootElement, "evidenceId");
                 var excerpt = visible.FirstOrDefault(item => item.EvidenceId == id);
+                var requestedWindowVisible = turn.Rejection is null
+                    && IsRequestedEvidenceWindowVisible(excerpt, arguments.RootElement);
                 var output = JsonSerializer.Serialize(new
                 {
                     status = turn.Rejection is not null ? "batch_rejected_before_execution"
-                        : turn.EvidenceReadsStored ? "projected" : "not_changed",
+                        : !requestedWindowVisible ? "not_projected" : turn.EvidenceReadsStored ? "projected" : "not_changed",
                     operation = "read_evidence", evidenceId = id,
                     requestedWindow = arguments.RootElement.Clone(),
                     currentContentOffset = excerpt?.ContentOffset,
@@ -490,7 +492,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     supportingWindowOffsets = excerpt?.SupportingContentWindows
                         .Select(window => window.ContentOffset).ToArray() ?? [],
                     argumentFeedback = turn.Rejection,
-                    instruction = "Exact canonical text is in current user.evidence under this unchanged evidence ID. Only current content and explicitly offset supportingContentWindows are proof; separate windows do not establish the text in their gaps."
+                    instruction = turn.Rejection is not null
+                        ? "This request was rejected before execution and adds no documentary proof. Only currently visible canonical windows are proof."
+                        : requestedWindowVisible
+                            ? "Exact canonical text is in current user.evidence under this unchanged evidence ID. Only current content and explicitly offset supportingContentWindows are proof; separate windows do not establish the text in their gaps."
+                            : "The requested canonical window is not fully visible in current user.evidence and is not proof. Use the currently visible windows, or request a smaller read_evidence window when researchTools.evidenceReadingAllowed permits it. This local read requires no corpus query."
                 }, JsonOptions);
                 messages.Add(responses ? new { type = "function_call_output", call_id = ReadString(call, "id"), output }
                     : (object)new { role = "tool", tool_call_id = ReadString(call, "id"), content = output });

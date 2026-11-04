@@ -139,12 +139,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             changed++;
             changedIds.Add(id);
         }
+        if (updates.Count > 0)
+        {
+            // The whole admitted batch is the current request, including an
+            // unchanged window that was displaced after an earlier read.
+            // Refresh ordering separately from documentary progress.
+            RememberActiveExplicitReadIds(context, updates.Keys, updates.Count);
+            context.LatestExplicitReadIsFindOnly = false;
+        }
         if (changedIds.Count > 0)
         {
-            // A newer window leads the projection without forgetting other
-            // explicit reads that still belong to the active working set.
-            RememberActiveExplicitReadIds(context, updates.Keys.Where(changedIds.Contains));
-            context.LatestExplicitReadIsFindOnly = false;
             context.CandidateInventory = context.CandidateInventory.Select(candidate =>
                 candidate.Status == "needs_body" && candidate.BodyEvidenceIds.Any(changedIds.Contains)
                     ? candidate with { Status = "awaiting_review", TargetRoles = [], SelectedRoles = [] }
@@ -166,6 +170,31 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         if (canonical is null) return false;
         var remaining = Math.Max(0, canonical.Content.Length - first.Offset);
         return Math.Min(first.Length, remaining) == Math.Min(second.Length, remaining);
+    }
+
+    private static bool IsRequestedEvidenceWindowVisible(PromptEvidenceItem? excerpt, JsonElement arguments)
+    {
+        if (excerpt is null || excerpt.SourceObservation is not null || excerpt.NativeObservation is not null
+            || !arguments.TryGetProperty("offset", out var offsetValue) || offsetValue.ValueKind != JsonValueKind.Number
+            || !offsetValue.TryGetInt32(out var offset)
+            || !arguments.TryGetProperty("length", out var lengthValue) || lengthValue.ValueKind != JsonValueKind.Number
+            || !lengthValue.TryGetInt32(out var length)
+            || offset < 0 || offset >= excerpt.OriginalContentLength || length <= 0)
+            return false;
+        var requiredEnd = offset + (long)Math.Min(length, excerpt.OriginalContentLength - offset);
+        var windows = new[] { (Offset: excerpt.ContentOffset, Length: excerpt.Content.Length) }
+            .Concat(excerpt.SupportingContentWindows.Select(window => (Offset: window.ContentOffset, Length: window.Content.Length)))
+            .Where(window => window.Offset >= 0 && window.Length > 0
+                && (long)window.Offset + window.Length <= excerpt.OriginalContentLength)
+            .OrderBy(window => window.Offset);
+        long coveredEnd = offset;
+        foreach (var window in windows)
+        {
+            if (window.Offset > coveredEnd) break;
+            coveredEnd = Math.Max(coveredEnd, (long)window.Offset + window.Length);
+            if (coveredEnd >= requiredEnd) return true;
+        }
+        return false;
     }
 
     private static IReadOnlyList<AdvancedAnalysisResolvedEvidence> PrioritizeEvidenceReadWindows(
@@ -494,6 +523,36 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyDictionary<string, EvidenceReadWindow>? evidenceReadWindows)
     {
         if (turn is null || turn.Rejection is not null) return ordered;
+        var currentCacheIds = new HashSet<string>(StringComparer.Ordinal);
+        if (evidenceReadWindows is { Count: > 0 })
+        {
+            var canonical = CurrentCanonicalEvidenceById(active);
+            var currentCache = new List<AdvancedAnalysisResolvedEvidence>();
+            using var calls = JsonDocument.Parse(turn.CallsJson);
+            foreach (var call in calls.RootElement.EnumerateArray())
+            {
+                if (turn.DeferredCallIds.Contains(ReadString(call, "id"))
+                    || ReadString(call.GetProperty("function"), "name") != "read_evidence")
+                    continue;
+                using var arguments = JsonDocument.Parse(ReadString(call.GetProperty("function"), "arguments"));
+                var id = ReadString(arguments.RootElement, "evidenceId");
+                if (!canonical.TryGetValue(id, out var body) || !evidenceReadWindows.TryGetValue(id, out var stored)
+                    || !arguments.RootElement.TryGetProperty("offset", out var offsetValue)
+                    || offsetValue.ValueKind != JsonValueKind.Number || !offsetValue.TryGetInt32(out var offset)
+                    || !arguments.RootElement.TryGetProperty("length", out var lengthValue)
+                    || lengthValue.ValueKind != JsonValueKind.Number || !lengthValue.TryGetInt32(out var length)
+                    || offset < 0 || offset >= body.Content.Length || length <= 0 || stored.Offset != offset
+                    || Math.Min(stored.Length, body.Content.Length - offset) != Math.Min(length, body.Content.Length - offset)
+                    || !IsEvidenceTextBoundary(body.Content, offset) || !currentCacheIds.Add(id))
+                    continue;
+                currentCache.Add(body);
+            }
+            // A repeated window may reach the no-progress path before any
+            // metadata update. This pure fitting hint still serves its valid
+            // current intent without applying windows or granting capabilities.
+            ordered = currentCache.Concat(ordered.Where(item => item.Reference.EvidenceId is not { } id
+                || !currentCacheIds.Contains(id))).ToArray();
+        }
         var current = active.Where(item => item.Reference.EvidenceId is not null)
             .GroupBy(item => item.Reference.EvidenceId!, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
@@ -547,6 +606,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         int Priority(AdvancedAnalysisResolvedEvidence item)
         {
             var id = item.Reference.EvidenceId;
+            if (id is not null && currentCacheIds.Contains(id)) return -1;
             if (id is not null && evidenceReadWindows?.ContainsKey(id) == true) return 0;
             if (id is not null && firstReadOrder.ContainsKey(id)) return 1;
             if (id is not null && continuityIds.Contains(id)) return 2;
