@@ -280,7 +280,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                 using var user = JsonDocument.Parse(row.GetProperty("content").GetString()!);
                 var controlUser = user.RootElement.EnumerateObject().Where(property => property.Name is not
                     ("evidence" or "observations" or "structuredTables" or "alternativeTableReadings" or "visualSources"
-                     or "visualSourceCapabilities" or "alternativeNativeReadings" or "nativeObservationCapabilities" or "sourceCatalogue"))
+                     or "visualSourceCapabilities" or "alternativeNativeReadings" or "nativeObservationCapabilities" or "sourceCatalogue"
+                     or "omittedEvidenceReadHandles"))
                     .ToDictionary(property => property.Name, property => property.Value.Clone());
                 values["content"] = JsonSerializer.Serialize(controlUser, CrossBatchInnerJson);
             }

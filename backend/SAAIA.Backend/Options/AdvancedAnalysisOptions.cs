@@ -46,6 +46,8 @@ sealed class AdvancedAnalysisOptions
     public bool NativeObservationReadEnabled { get; set; }
     public string NativeResearchApiProtocol { get; set; } = "chat-completions";
     public string NativeResearchTopology { get; set; } = "reviewed";
+    // Deployment limit in characters, separate from the provider context window;
+    // larger server contexts require an explicit configuration change.
     public int NativeResearchMaximumHistoryCharacters { get; set; } = 16_384;
     public bool NativeResearchWorkspaceEnabled { get; set; }
     public bool NativeCandidateExplorerEnabled { get; set; }

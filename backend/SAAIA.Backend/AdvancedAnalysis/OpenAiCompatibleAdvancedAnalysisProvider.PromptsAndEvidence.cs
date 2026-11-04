@@ -1219,25 +1219,23 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         const int maximumCharactersPerPromptEvidence = 2400;
         // A structured deliverable can require more research, but cannot raise
         // the configured documentary cap. Every role shares that hard bound.
-        var remaining = configuredMaximum;
-        // Every mode measures shared inventories, views and current tool messages
-        // in FitsDocumentaryProjection below. Preserve the legacy branch's fixed
-        // reservation; native-enabled calls use the exact shared measurement
-        // without reserving half the cap merely for an unread catalogue.
+        int? legacyCollectionMaximum = null;
+        // Preserve the legacy reservation, but charge its actual compact
+        // collection. Native-enabled paths use only the exact shared wire cap.
         if (!_options.NativeObservationReadEnabled && evidence.Any(item => item.TableFragment is not null || item.SourceObservation is not null || item.NativeObservation is not null
             || item.SourceOverview?.TableRegionObservations is not null || item.SourceOverview?.NativeObservations is not null))
-            remaining = Math.Min(remaining, configuredMaximum / 2);
-        else if (_options.NativeObservationReadEnabled)
-            remaining = Math.Min(remaining, configuredMaximum);
-        // Reserve the enclosing field and brackets at the same escaping layer.
-        // observations is the longer documentary collection name used by review.
-        remaining -= MeasureDocumentaryProjectionWireOverhead();
+            legacyCollectionMaximum = Math.Max(0, configuredMaximum / 2 - MeasureDocumentaryProjectionWireOverhead());
         var promptEvidence = new List<PromptEvidenceItem>();
+        var metadataCache = new Dictionary<object, string>(ReferenceEqualityComparer.Instance);
         IReadOnlyList<PromptSourceHandle>? sourceCatalogue = null;
-        bool FitsDocumentaryProjection(PromptEvidenceItem candidate, int size)
-            => size <= remaining
-                && MeasureDocumentaryProjectionWithSourcesWireCharacters(promptEvidence.Append(candidate).ToArray(), nativeToolTurn, sourceCatalogue)
+        bool FitsDocumentaryProjection(PromptEvidenceItem candidate)
+        {
+            var trial = promptEvidence.Append(candidate).ToArray();
+            return (legacyCollectionMaximum is null
+                    || MeasureCompactEvidenceCollectionWireCharacters(trial, sourceCatalogue, metadataCache) <= legacyCollectionMaximum)
+                && MeasureDocumentaryProjectionWithSourcesWireCharactersCached(trial, nativeToolTurn, sourceCatalogue, metadataCache, evidence)
                     <= configuredMaximum;
+        }
         var sourceKeys = persistentSourceKeys
             ?? new Dictionary<string, string>(StringComparer.Ordinal);
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> prioritizedEvidence =
@@ -1290,8 +1288,6 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 .ThenByDescending(IsCurrentNativeSource).ToArray();
         foreach (var item in prioritizedEvidence)
         {
-            if (remaining <= 0)
-                break;
             var canonicalContent = item.Content ?? string.Empty;
             var content = canonicalContent;
             var originalContentLength = content.Length;
@@ -1381,12 +1377,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 NextContentOffset = contentOffset + content.Length < originalContentLength
                     ? contentOffset + content.Length : null
             };
-            var separatorCharacters = promptEvidence.Count == 0 ? 0 : 1;
-            var serializedCharacters = MeasurePromptEvidenceCharacters(observation)
-                + separatorCharacters;
+
             var currentNativeCarrier = IsCurrentNativeSource(item)
                 && observation.SourceOverview?.NativeObservations is not null;
-            if (currentNativeCarrier && !FitsDocumentaryProjection(observation, serializedCharacters)
+            if (currentNativeCarrier && !FitsDocumentaryProjection(observation)
                 && observation.SourceOverview?.TableRegionObservations?.Observations is { Count: > 0 })
             {
                 // Keep the current complete native locator window and its source
@@ -1394,9 +1388,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 // Stored metadata is unchanged; pages/counts and an explicit
                 // inventory re-read remain visible in this same request.
                 observation = observation with { SecondaryCatalogueDescriptorsOmitted = true };
-                serializedCharacters = MeasurePromptEvidenceCharacters(observation) + separatorCharacters;
+
             }
-            if (observation.SourceOverview?.NativeObservations is not null && serializedCharacters > remaining
+            if (observation.SourceOverview?.NativeObservations is not null && !FitsDocumentaryProjection(observation)
                 && item.NativeObservation is null)
             {
                 // A later locator must not evict a complete, more recent read.
@@ -1405,14 +1399,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     break;
                 throw new AdvancedAnalysisProviderException("advanced_native_documentary_metadata_budget_exceeded");
             }
-            if ((item.SourceObservation is not null || item.NativeObservation is not null) && !FitsDocumentaryProjection(observation, serializedCharacters))
+            if ((item.SourceObservation is not null || item.NativeObservation is not null) && !FitsDocumentaryProjection(observation))
             {
                 // No part of an OCR line is admissible as a surrogate for the
                 // original line. Retain an explicit refusal and its offset.
                 observation = observation with { Content = string.Empty, ContentTruncated = true,
                     NextContentOffset = null, SupportingContentWindows = [] };
-                serializedCharacters = MeasurePromptEvidenceCharacters(observation) + separatorCharacters;
-                if (!FitsDocumentaryProjection(observation, serializedCharacters))
+
+                if (!FitsDocumentaryProjection(observation))
                 {
                     if (currentNativeCarrier)
                         throw new AdvancedAnalysisProviderException("advanced_native_documentary_metadata_budget_exceeded");
@@ -1420,13 +1414,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         break;
                     throw new AdvancedAnalysisProviderException("advanced_secondary_documentary_metadata_budget_exceeded");
                 }
-                remaining -= serializedCharacters;
                 promptEvidence.Add(observation);
                 continue;
             }
             // Supporting history is useful context, but must never evict the
             // requested current body. Remove the oldest history windows first.
-            while (!FitsDocumentaryProjection(observation, serializedCharacters)
+            while (!FitsDocumentaryProjection(observation)
                    && observation.SupportingContentWindows.Any(item => !item.IsCanonicalPrefix))
             {
                 var oldest = observation.SupportingContentWindows.First(item => !item.IsCanonicalPrefix);
@@ -1436,9 +1429,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         !ReferenceEquals(item, oldest)).ToArray(),
                     SupportingContentWindowsOmittedCount = observation.SupportingContentWindowsOmittedCount + 1
                 };
-                serializedCharacters = MeasurePromptEvidenceCharacters(observation) + separatorCharacters;
+
             }
-            if (!FitsDocumentaryProjection(observation, serializedCharacters)
+            if (!FitsDocumentaryProjection(observation)
                 && observation.SupportingContentWindows.FirstOrDefault(item => item.IsCanonicalPrefix) is { } prefix)
             {
                 var withoutPrefix = observation with
@@ -1456,7 +1449,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     {
                         SupportingContentWindows = [prefix with { Content = prefix.Content[..completePrefixLength], ContentTruncated = true }]
                     };
-                    if (FitsDocumentaryProjection(bounded, MeasurePromptEvidenceCharacters(bounded) + separatorCharacters))
+                    if (FitsDocumentaryProjection(bounded))
                         lowerPrefix = middle;
                     else
                         upperPrefix = middle - 1;
@@ -1466,9 +1459,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 {
                     SupportingContentWindows = [prefix with { Content = prefix.Content[..lowerPrefix], ContentTruncated = true }]
                 };
-                serializedCharacters = MeasurePromptEvidenceCharacters(observation) + separatorCharacters;
+
             }
-            if (!FitsDocumentaryProjection(observation, serializedCharacters))
+            if (!FitsDocumentaryProjection(observation))
             {
                 var lower = 0;
                 var upper = content.Length;
@@ -1483,7 +1476,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         NextContentOffset = contentOffset + completeContentLength < originalContentLength
                             ? contentOffset + completeContentLength : null
                     };
-                    if (FitsDocumentaryProjection(bounded, MeasurePromptEvidenceCharacters(bounded) + separatorCharacters))
+                    if (FitsDocumentaryProjection(bounded))
                         lower = middle;
                     else
                         upper = middle - 1;
@@ -1502,10 +1495,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         ContentRole = "source_locator_only", NextContentOffset = contentOffset < originalContentLength ? contentOffset : null,
                         SupportingContentWindows = []
                     };
-                    var locatorCharacters = MeasurePromptEvidenceCharacters(locator) + separatorCharacters;
-                    if (!FitsDocumentaryProjection(locator, locatorCharacters))
+
+                    if (!FitsDocumentaryProjection(locator))
                         throw new AdvancedAnalysisProviderException("advanced_native_documentary_metadata_budget_exceeded");
-                    remaining -= locatorCharacters;
                     promptEvidence.Add(locator);
                     continue;
                 }
@@ -1516,10 +1508,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     NextContentOffset = contentOffset + lower < originalContentLength
                         ? contentOffset + lower : null
                 };
-                serializedCharacters = MeasurePromptEvidenceCharacters(observation)
-                    + separatorCharacters;
+
             }
-            remaining -= serializedCharacters;
             promptEvidence.Add(observation);
         }
         return new PromptEvidenceProjection(promptEvidence, prioritizedEvidence.Count)

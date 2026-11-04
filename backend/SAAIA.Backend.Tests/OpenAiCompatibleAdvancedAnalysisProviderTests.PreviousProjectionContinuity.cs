@@ -175,6 +175,15 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal(groups.Select(group => group[0].Reference.EvidenceId), visible.Take(4).Select(item => item.GetProperty("evidenceId").GetString()));
         Assert.Equal("content_card", Assert.Single(visible, item => item.GetProperty("evidenceId").GetString() == "INITIAL-CARD")
             .GetProperty("evidenceKind").GetString());
+        // Navigation handles are documentary overhead too, even though their
+        // omitted bodies remain non-citable until a subsequent explicit read.
+        var handles = WorkspaceUser(sent).GetProperty("omittedEvidenceReadHandles");
+        Assert.True(handles.GetProperty("navigationOnly").GetBoolean());
+        Assert.False(handles.GetProperty("citable").GetBoolean());
+        Assert.NotEmpty(handles.GetProperty("items").EnumerateArray());
+        Assert.All(handles.GetProperty("items").EnumerateArray(), handle =>
+            Assert.DoesNotContain(visible, item => item.GetProperty("evidenceId").GetString()
+                == handle.GetProperty("evidenceId").GetString()));
         var actualWire = CrossBatchDocumentaryDifference(sent, compact: true);
         Assert.InRange(actualWire, 1, cap);
         Assert.Equal(actualWire, OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(sent));

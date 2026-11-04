@@ -34,6 +34,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var requestedId = evidenceId;
         var visible = prompt.GetProperty("evidence").EnumerateArray()
             .FirstOrDefault(item => ReadString(item, "evidenceId") == requestedId);
+        if (visible.ValueKind != JsonValueKind.Object)
+            visible = FindOmittedEvidenceReadHandle(prompt, requestedId);
         if (visible.ValueKind != JsonValueKind.Object
             || visible.TryGetProperty("sourceObservation", out var secondary) && secondary.ValueKind != JsonValueKind.Null
             || visible.TryGetProperty("nativeObservation", out var native) && native.ValueKind != JsonValueKind.Null
@@ -55,8 +57,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             return new Dictionary<string, EvidenceReadWindow>(StringComparer.Ordinal);
         if (reads.ValueKind != JsonValueKind.Array || reads.GetArrayLength() is < 1 or > 8)
             throw new AdvancedAnalysisProviderException("advanced_native_evidence_read_invalid");
-        using var prompt = JsonDocument.Parse(JsonSerializer.Serialize(new { evidence = observations }, JsonOptions));
-        var canonical = context.Tools.Evidence.ToDictionary(item => item.Reference.EvidenceId!, StringComparer.Ordinal);
+        // Revalidate the current disclosed capabilities against the same active
+        // source catalogue, not merely an ID remembered from an older prompt.
+        var handles = ReferenceEquals(context.OmittedEvidenceReadTurn, context.NativeTurn)
+            ? BuildOmittedEvidenceReadHandles(context.NativeTurn, observations, context.Tools.Evidence)
+                .Where(handle => context.OmittedEvidenceReadHandles.Any(disclosed =>
+                    disclosed.EvidenceId == handle.EvidenceId && disclosed.SourceKey == handle.SourceKey
+                    && SameCanonicalReadReference(disclosed.SourceReference, handle.SourceReference)
+                    && disclosed.OriginalContentLength == handle.OriginalContentLength)).ToArray()
+            : [];
+        using var prompt = JsonDocument.Parse(JsonSerializer.Serialize(new
+        {
+            evidence = observations,
+            omittedEvidenceReadHandles = OmittedEvidenceReadHandlesForPrompt(handles)
+        }, JsonOptions));
+        var canonical = CurrentCanonicalEvidenceById(context.Tools.Evidence);
         var updates = new Dictionary<string, EvidenceReadWindow>(StringComparer.Ordinal);
         foreach (var read in reads.EnumerateArray())
         {

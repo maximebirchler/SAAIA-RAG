@@ -56,11 +56,43 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
     private int MeasureDocumentaryProjectionWithSourcesWireCharacters(IReadOnlyList<PromptEvidenceItem> evidence,
         NativeResearchTurn? turn, IReadOnlyList<PromptSourceHandle>? sourceCatalogue)
+        => MeasureDocumentaryProjectionWithSourcesWireCharactersCached(evidence, turn, sourceCatalogue, null);
+
+    private int MeasureDocumentaryProjectionWithSourcesWireCharactersCached(IReadOnlyList<PromptEvidenceItem> evidence,
+        NativeResearchTurn? turn, IReadOnlyList<PromptSourceHandle>? sourceCatalogue,
+        Dictionary<object, string>? metadataCache,
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence>? activeCanonicalEvidence = null)
     {
         // Measure the same shared inventories, views and escaped native result
         // that will be sent. A fixed half-budget reservation is not a bound on
         // these source-dependent metadata. "observations" is the longer of the
         // two collection names; the final call still checks its exact payload.
+        var prompt = BuildDocumentaryProjectionBudgetPrompt(evidence, sourceCatalogue, metadataCache,
+            turn, activeCanonicalEvidence);
+        var messages = new List<object> { new { role = "system", content = string.Empty } };
+        if (turn is not null)
+        {
+            try
+            {
+                messages.AddRange(BuildNativeToolTurnMessagesCore(turn, evidence, UsesNativeResponses,
+                    emitDiagnostics: false, activeSourceCatalogue: sourceCatalogue));
+            }
+            catch (AdvancedAnalysisProviderException error) when (error.ErrorCode == "advanced_native_tool_history_limit_exceeded")
+            {
+                return int.MaxValue;
+            }
+        }
+        messages.Add(new { role = "user", content = prompt });
+        return MeasureFittingDocumentaryWireCharacters(JsonSerializer.Serialize(new Dictionary<string, object?>
+        {
+            [_options.NativeResearchToolsEnabled && UsesNativeResponses ? "input" : "messages"] = messages
+        }, JsonOptions));
+    }
+
+    private string BuildDocumentaryProjectionBudgetPrompt(IReadOnlyList<PromptEvidenceItem> evidence,
+        IReadOnlyList<PromptSourceHandle>? sourceCatalogue, Dictionary<object, string>? metadataCache,
+        NativeResearchTurn? turn = null, IReadOnlyList<AdvancedAnalysisResolvedEvidence>? activeCanonicalEvidence = null)
+    {
         var prompt = JsonSerializer.Serialize(new
         {
             observations = evidence,
@@ -73,30 +105,26 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             node["sourceCatalogue"] = JsonSerializer.SerializeToNode(SourceCatalogueForPrompt(sourceCatalogue), JsonOptions);
             prompt = node.ToJsonString(JsonOptions);
         }
-        prompt = AddNativeObservationsToPrompt(AddVisualSourcesToPrompt(AddSecondaryTableReadingsToPrompt(prompt)));
-        var messages = new List<object> { new { role = "system", content = string.Empty } };
-        if (turn is not null)
+        if (_options.NativeResearchToolsEnabled && turn is not null && activeCanonicalEvidence is not null)
         {
-            // Trial excerpts are plain arrays. Supply their active source
-            // catalogue explicitly so title pages render and count exactly as
-            // they do in the final native tool output.
-            try
+            var handles = BuildOmittedEvidenceReadHandlesCore(turn, evidence, activeCanonicalEvidence, sourceCatalogue);
+            if (handles.Count > 0)
             {
-                messages.AddRange(BuildNativeToolTurnMessagesCore(turn, evidence, UsesNativeResponses,
-                    emitDiagnostics: false, activeSourceCatalogue: sourceCatalogue));
-            }
-            catch (AdvancedAnalysisProviderException error) when (error.ErrorCode == "advanced_native_tool_history_limit_exceeded")
-            {
-                // A candidate can change exact current-user references into a
-                // full captured tool result. Do not admit an oversized variant.
-                return int.MaxValue;
+                var node = JsonNode.Parse(prompt)!.AsObject();
+                node["omittedEvidenceReadHandles"] = JsonSerializer.SerializeToNode(
+                    OmittedEvidenceReadHandlesForPrompt(handles), JsonOptions);
+                prompt = node.ToJsonString(JsonOptions);
             }
         }
-        messages.Add(new { role = "user", content = prompt });
-        return MeasureFittingDocumentaryWireCharacters(JsonSerializer.Serialize(new Dictionary<string, object?>
-        {
-            [_options.NativeResearchToolsEnabled && UsesNativeResponses ? "input" : "messages"] = messages
-        }, JsonOptions));
+        prompt = AddNativeObservationsToPrompt(AddVisualSourcesToPrompt(AddSecondaryTableReadingsToPrompt(prompt)));
+        return SharePrimaryMetadataForPrompt(prompt, evidence, out _, metadataCache);
+    }
+
+    private int MeasureCompactEvidenceCollectionWireCharacters(IReadOnlyList<PromptEvidenceItem> evidence,
+        IReadOnlyList<PromptSourceHandle>? sourceCatalogue, Dictionary<object, string> metadataCache)
+    {
+        using var prompt = JsonDocument.Parse(BuildDocumentaryProjectionBudgetPrompt(evidence, sourceCatalogue, metadataCache));
+        return MeasureEscapedProviderWireTextCharacters(prompt.RootElement.GetProperty("observations").GetRawText());
     }
 
     private JsonNode? TableReadingsForNativeToolResult(object alternative,

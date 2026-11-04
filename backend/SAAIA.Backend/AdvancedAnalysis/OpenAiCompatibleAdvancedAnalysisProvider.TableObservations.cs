@@ -179,6 +179,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             user.Remove("alternativeNativeReadings");
             user.Remove("nativeObservationCapabilities");
             user.Remove("sourceCatalogue");
+            user.Remove("omittedEvidenceReadHandles");
             item["content"] = user.ToJsonString(JsonOptions);
         }
         // Normalize both sides with the same outer encoder. Mixing compact

@@ -640,7 +640,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             throw new AdvancedAnalysisProviderException("advanced_native_api_protocol_invalid");
         if (_options.NativeResearchToolsEnabled && _options.NativeResearchTopology is not ("reviewed" or "agent"))
             throw new AdvancedAnalysisProviderException("advanced_native_research_topology_invalid");
-        if (_options.NativeResearchToolsEnabled && _options.NativeResearchMaximumHistoryCharacters is < 16_384 or > 65_536)
+        if (_options.NativeResearchToolsEnabled && _options.NativeResearchMaximumHistoryCharacters is < 16_384 or > 262_144)
             throw new AdvancedAnalysisProviderException("advanced_native_tool_history_budget_invalid");
         if (_options.CandidateExplorerReservePerRole is < 0 or > 8)
             throw new AdvancedAnalysisProviderException(
@@ -731,6 +731,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         userPrompt = AddNativeObservationsToPrompt(userPrompt);
         userPrompt = AddEvidenceProjectionToPrompt(userPrompt, canonicalProjection);
         userPrompt = AddSourceCatalogueToPrompt(userPrompt, canonicalProjection);
+        userPrompt = SharePrimaryMetadataForPrompt(userPrompt, canonicalProjection, out var sharedMetadata);
+        callProbe.Set("primary_metadata_quality_reference_count", sharedMetadata.QualityReferences);
+        callProbe.Set("primary_metadata_overview_reference_count", sharedMetadata.OverviewReferences);
+        callProbe.Set("primary_metadata_saved_wire_characters", sharedMetadata.SavedWireCharacters);
+        if (sharedMetadata.QualityReferences + sharedMetadata.OverviewReferences > 0)
+            systemPrompt += "\n" + PrimaryMetadataReferenceContract;
         using var sourcePrompt = JsonDocument.Parse(userPrompt);
         var evidenceProjection = sourcePrompt.RootElement.GetProperty("evidenceProjection");
         callProbe.Set("evidence_projection_status", ReadString(evidenceProjection, "status"));

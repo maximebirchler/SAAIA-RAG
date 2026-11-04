@@ -15,6 +15,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     [Theory]
     [InlineData(20_000, 32_768)]
     [InlineData(40_000, 65_536)]
+    [InlineData(70_000, 98_304)]
+    [InlineData(200_000, 262_144)]
     public async Task Expanded_native_history_budget_preserves_all_outputs_and_opaque_state(
         int opaqueCharacters, int historyCharacters)
         => await AssertHistoryBatchCompletes(opaqueCharacters, historyCharacters);
@@ -64,6 +66,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     [Theory]
     [InlineData(20_000, 16_384)]
     [InlineData(40_000, 32_768)]
+    [InlineData(100_000, 98_304)]
     public async Task Oversized_native_state_is_rejected_without_truncation_or_another_model_call(
         int opaqueCharacters, int historyCharacters)
     {
@@ -88,7 +91,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
 
     [Theory]
     [InlineData(16_383)]
-    [InlineData(65_537)]
+    [InlineData(262_145)]
+    [InlineData(int.MaxValue)]
     public async Task Invalid_native_history_budget_is_rejected_before_model_or_corpus_io(int characters)
     {
         using var factory = new QueuedHttpClientFactory();

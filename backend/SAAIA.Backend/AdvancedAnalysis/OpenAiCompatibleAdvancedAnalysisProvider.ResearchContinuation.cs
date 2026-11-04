@@ -16,6 +16,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     {
         public List<AdvancedAnalysisSearchRequest> FocusSearches { get; } = [];
         public NativeResearchTurn? NativeTurn { get; set; }
+        public NativeResearchTurn? OmittedEvidenceReadTurn { get; set; }
+        public IReadOnlyList<OmittedEvidenceReadHandle> OmittedEvidenceReadHandles { get; set; } = [];
         public IReadOnlyList<ResearchWorkspaceItem> Workspace { get; set; } = [];
         public IReadOnlyList<CandidateInventoryItem> CandidateInventory { get; set; } = [];
         public int CandidateInventoryAdmissionBlockedCount { get; set; }
@@ -363,6 +365,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 AddBootstrapResearchFeedback(payload, context, request.JobId);
                 userPrompt = payload.ToJsonString(JsonOptions);
             }
+            if (_options.NativeResearchToolsEnabled)
+                userPrompt = AddOmittedEvidenceReadHandlesToPrompt(userPrompt, observations, context);
             var completion = await CompleteJsonAsync(request.JobId,
                 nextPhase,
                 systemPrompt, userPrompt, maximumTokens, cancellationToken,

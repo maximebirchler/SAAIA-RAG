@@ -95,15 +95,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 ["documentHint"] = Text("Known filename fragment or document identifier only. Never invent a filename. Empty when sourceKey is used."),
                 ["topK"] = Count(1, 60)
             }));
-        var readableIds = root.GetProperty("evidence").EnumerateArray()
-            .Where(item => !item.TryGetProperty("sourceObservation", out var secondary) || secondary.ValueKind == JsonValueKind.Null)
-            .Where(item => !item.TryGetProperty("nativeObservation", out var native) || native.ValueKind == JsonValueKind.Null)
-            .Where(item => item.TryGetProperty("originalContentLength", out var size)
-                           && size.TryGetInt32(out var length) && length > 0)
-            .Select(item => ReadString(item, "evidenceId"))
-            .Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToArray();
+        var readableIds = ReadableEvidenceIdsForNativeTools(root);
         if (readableIds.Length > 0)
-            functions.Add(Function("read_evidence", "Read an exact character window of an already revalidated canonical excerpt. Use nextContentOffset to inspect text omitted from its current projection. At most one requested window per evidenceId in a batch. Evidence identity, source revision and original text remain unchanged. Earlier windows are proof only when explicitly present in the current supportingContentWindows; never infer the gaps between windows. This consumes a model turn but no additional corpus retrieval.", new()
+            functions.Add(Function("read_evidence", "Read an exact character window of an already revalidated canonical excerpt. Use nextContentOffset for shortened text, or an active omittedEvidenceReadHandles ID at offset 0 for a body omitted from this projection. The handle is not proof before its body is projected. At most one requested window per evidenceId in a batch. Evidence identity, source revision and original text remain unchanged. Earlier windows are proof only when explicitly present in the current supportingContentWindows; never infer the gaps between windows. This consumes a model turn but no additional corpus retrieval.", new()
             {
                 ["evidenceId"] = Choice(readableIds), ["offset"] = Count(0, int.MaxValue),
                 ["length"] = Count(256, 8_000)
