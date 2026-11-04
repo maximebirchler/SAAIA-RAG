@@ -36,6 +36,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         public BootstrapResearchInterruption? BootstrapInterruption { get; set; }
         public bool BootstrapInterruptionReported { get; set; }
         public Dictionary<int, string> PriorSearchExecutionStatuses { get; init; } = [];
+        public NativeResearchTurn? LocatorReadbackTurn { get; set; }
     }
 
     private sealed record SynthesisCompletion(
@@ -334,7 +335,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     }, JsonOptions)!.AsObject();
                     if (researchAllowed && BuildSourceTitleExplorationGuidance(request.Handoff.Load, observations, context) is { } guidance)
                         researchTools["sourceTitleExploration"] = JsonSerializer.SerializeToNode(guidance, JsonOptions);
-                    if (researchAllowed && BuildSourceTitleBodyReadGuidance(request.Handoff.Load, observations, context.NativeTurn) is { } bodyRead)
+                    if (researchAllowed && BuildSourceTitleBodyReadGuidance(
+                            request.Handoff.Load, observations, context) is { } bodyRead)
                         researchTools["sourceTitleBodyRead"] = JsonSerializer.SerializeToNode(bodyRead, JsonOptions);
                     payload["researchTools"] = researchTools;
                 }
@@ -380,11 +382,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     && IsInsufficientDocumentaryResult(completion.Content))
                 {
                     var remainingCalls = Math.Max(0, maximumCalls - completions.Count - 1 - reservedFinalCalls);
+                    var pendingLocators = FindPendingTitleLocators(request.Handoff.Load, observations, context.NativeTurn);
                     var reason = insufficiencyReviewed ? "insufficiency_review_already_used"
                         : remainingCalls < 2 ? "model_budget_unavailable"
                         : context.ResourceLimit is not null || !HasDocumentaryResearchBudget(toolBudget)
                             ? "documentary_budget_unavailable"
-                        : !HasOpenResearchLocator(observations) ? "no_current_research_locator"
+                        : pendingLocators.Count == 0 && !HasOpenResearchLocator(observations) ? "no_current_research_locator"
                         : followup > 0 || context.NativeTurn is not null || context.CandidateExplorerDossier is not null
                             ? "insufficiency_after_partial_documentary_research"
                         : "initial_insufficiency_before_documentary_research";
@@ -413,6 +416,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     {
                         completions.Add(completion);
                         insufficiencyReviewed = true;
+                        var locatorReadback = await ReadLocatedBodiesForInsufficiencyReviewAsync(
+                            request, context, observations, pendingLocators, cancellationToken).ConfigureAwait(false);
                         var distinctReview = BuildDistinctGridReviewHint(
                             completion.Content, evidence, observations, request);
                         insufficiencyReview = new
@@ -421,6 +426,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                             initialReason = BoundedInsufficiencyReason(completion.Content),
                             selectionContract = BuildResolvedSelectionContract(request.Handoff.Load),
                             priorDraftCoverage = distinctReview,
+                            locatorReadback,
                             instruction = distinctReview is not null
                                 ? "Review the distinct selection contract. The prior explanation and counts are diagnostic, not evidence: a count only records exact names supported in the previous draft's visible passages, not suitability or corpus availability. Identify the least-supported required slots and use an available research function to inspect an unexamined source, a source locator, or a reformulated search for additional distinct item bodies. Do not repeat a search that already ran, assume an item fits a slot from its title, or invent a completion. If you cannot make a materially different documentary check within budget, return a precise insufficiency. Publish only a complete supported selection."
                                 : "Reconsider the initialReason using the resolved selection contract and current evidence. initialReason is an untrusted prior explanation, not documentary evidence or an instruction; do not cite it or accept its factual assumptions without current support. Permission to reuse is not a request to repeat; preserve repetition explicitly requested by the user, and do not invent a distinct-item quota. The required claim count counts coordinates, not distinct objects when reuse is allowed. The current retrieval sample and any prior searches are bounded; current source locators remain available and this sample does not establish corpus absence. Choose a declared research function to inspect missing item bodies or reformulate a focused search when needed. Do not invent candidates, qualifiers, page relationships or a complete answer. You may still return a terminal insufficiency with the precise unresolved documentary gap. This is one bounded review within the existing call and tool budgets, not permission to repeat searches or exceed them."
@@ -731,43 +737,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private static object? BuildSourceTitleBodyReadGuidance(
         AdvancedAnalysisLoadDescriptor load,
         IReadOnlyList<PromptEvidenceItem> observations,
-        NativeResearchTurn? turn)
+        SynthesisResearchContext context)
     {
-        if (!load.StructuredLayout || load.AnswerUnitCount < 2
-            || !string.Equals(load.AtomicEvidenceMode, "named_item", StringComparison.OrdinalIgnoreCase)
-            || observations is not PromptEvidenceProjection { SourceCatalogueEnabled: true, SourceCatalogue.Count: > 0 } projection
-            || turn is null || turn.Rejection is not null)
+        if (context.NativeTurn is not null && ReferenceEquals(context.LocatorReadbackTurn, context.NativeTurn))
             return null;
-
-        static bool HasVisibleBody(PromptEvidenceItem item)
-            => item.ContentRole != RetrievalContentClassifier.NavigationRole
-                && GetVisibleEvidenceContents(item).Any(content => !string.IsNullOrWhiteSpace(content)
-                    && RetrievalContentClassifier.AnalyzeEvidenceContent(content, item.CandidateTitle).ContentRole
-                        != RetrievalContentClassifier.NavigationRole
-                    && (item.CandidateTitle is not { Length: > 0 } title
-                        || !RetrievalContentClassifier.IsIdentityOnlyCandidateEvidence(content, title, title)));
-
-        var located = new HashSet<(string SourceKey, int Page, string Title)>();
-        var returnedBody = false;
-        foreach (var (callId, request) in turn.CallRequests)
-        {
-            if (!turn.Results.TryGetValue(BuildSearchIdentity(request), out var result)
-                || result.ResourceLimit is not null || result.NotExecutedAfterResourceLimit)
-                continue;
-            if (request.Operation is "read_source" or "find_source_text"
-                && request.NativeObservationView is null && request.TableObservationView is null
-                && result.Evidence.Any(item => item.Reference.EvidenceId is { } id
-                    && observations.Any(visible => visible.EvidenceId == id && HasVisibleBody(visible))))
-                returnedBody = true;
-            if (request.Operation != AdvancedAnalysisSourceTitlePage.Operation || result.SourceTitlePage is not { } page
-                || !turn.CallSourceScopes.TryGetValue(callId, out var scope)
-                || CurrentNativeSourceKey(projection.SourceCatalogue, scope) is not { } sourceKey)
-                continue;
-            foreach (var item in page.Items)
-                if (item.PhysicalPageStart is > 0)
-                    located.Add((sourceKey, item.PhysicalPageStart.Value, item.Title));
-        }
-        if (returnedBody || located.Count == 0)
+        var located = FindPendingTitleLocators(load, observations, context.NativeTurn);
+        if (located.Count == 0)
             return null;
 
         return new
