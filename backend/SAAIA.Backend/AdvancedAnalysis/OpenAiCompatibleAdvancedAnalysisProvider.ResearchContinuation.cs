@@ -630,7 +630,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     {
                         CallRequests = nativeCallBindings.Requests, CallSourceScopes = nativeCallBindings.Sources,
                         DeferredCallIds = nativeBatch?.DeferredCallIds ?? new HashSet<string>(StringComparer.Ordinal),
-                        BatchCallLimit = nativeBatch?.Limit
+                        BatchCallLimit = nativeBatch?.Limit,
+                        BatchLimitingOperation = nativeBatch?.LimitingOperation,
+                        BatchOperationCallLimit = nativeBatch?.OperationCallLimit
                     };
                 nextPhase = $"{phase}-research-recovery-{noProgressRecovery}";
                 continue;
@@ -673,7 +675,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     EvidenceReadsStored: evidenceReadUpdates?.Count > 0) {
                         CallRequests = nativeCallBindings.Requests, CallSourceScopes = nativeCallBindings.Sources,
                         DeferredCallIds = nativeBatch?.DeferredCallIds ?? new HashSet<string>(StringComparer.Ordinal),
-                        BatchCallLimit = nativeBatch?.Limit
+                        BatchCallLimit = nativeBatch?.Limit,
+                        BatchLimitingOperation = nativeBatch?.LimitingOperation,
+                        BatchOperationCallLimit = nativeBatch?.OperationCallLimit
                     };
             RememberSourceTitleCursors(request, context);
             RememberRetainedTitleLocators(request, context);

@@ -23,6 +23,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             = new Dictionary<string, AdvancedAnalysisResultEvidence>(StringComparer.Ordinal);
         public IReadOnlySet<string> DeferredCallIds { get; init; } = new HashSet<string>(StringComparer.Ordinal);
         public int? BatchCallLimit { get; init; }
+        public string? BatchLimitingOperation { get; init; }
+        public int? BatchOperationCallLimit { get; init; }
         // Ordering hints from the existing previous-projection policy, never
         // extra pins or cached documentary objects.
         public IReadOnlyList<string> ContinuityEvidenceIds { get; init; } = [];
@@ -97,7 +99,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }));
         var readableIds = ReadableEvidenceIdsForNativeTools(root);
         if (readableIds.Length > 0)
-            functions.Add(Function("read_evidence", "Read an exact character window of an already revalidated canonical excerpt. Use nextContentOffset for shortened text, or an active omittedEvidenceReadHandles ID at offset 0 for a body omitted from this projection. The handle is not proof before its body is projected. At most one requested window per evidenceId in a batch. Evidence identity, source revision and original text remain unchanged. Earlier windows are proof only when explicitly present in the current supportingContentWindows; never infer the gaps between windows. This consumes a model turn but no additional corpus retrieval.", new()
+            functions.Add(Function("read_evidence", "Read an exact character window of an already revalidated canonical excerpt. Use nextContentOffset for shortened text, or an active omittedEvidenceReadHandles ID at offset 0 for a body omitted from this projection. The handle is not proof before its body is projected. At most one requested window per evidenceId in a batch. At most eight cached windows execute per batch, within the shared researchTools.maximumQueries operation cap. A larger fully valid batch executes its admitted prefix and reports the remaining calls as non_executed_batch_limit. Reissue deferred cached reads only while researchTools.evidenceReadingAllowed is true; they do not require remaining documentary calls. Evidence identity, source revision and original text remain unchanged. Earlier windows are proof only when explicitly present in the current supportingContentWindows; never infer the gaps between windows. This consumes a model turn but no additional corpus retrieval.", new()
             {
                 ["evidenceId"] = Choice(readableIds), ["offset"] = Count(0, int.MaxValue),
                 ["length"] = Count(256, 8_000)
@@ -106,7 +108,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         {
             if (_options.NativeSourceTitleNavigationEnabled)
                 functions.Add(Function(AdvancedAnalysisSourceTitlePage.Operation,
-                    "Browse canonical contents and title anchors of an observed source. For additional named bodies, prefer cardBackedOnly=true: it prioritizes locating bodies by limiting results to titles corroborated by an indexed card at the same physical pages. Use false for broader contents coverage. Neither mode establishes suitability. Start at offset 0 and use nextOffset to continue the same filters. At most four title pages per batch; the character cap can return fewer than limit. Titles and physical locations are navigation only. Read a located body with read_source or find_source_text before using it.", new()
+                    "Browse canonical contents and title anchors of an observed source. For additional named bodies, prefer cardBackedOnly=true: it prioritizes locating bodies by limiting results to titles corroborated by an indexed card at the same physical pages. Use false for broader contents coverage. Neither mode establishes suitability. Start at offset 0 and use nextOffset to continue the same filters. At most four title pages execute per batch, within the shared operation cap; a larger fully valid batch stops its executed prefix at that limit and defers the remaining calls without effect. The character cap can return fewer than limit. Titles and physical locations are navigation only. Read a located body with read_source or find_source_text before using it.", new()
                     {
                         ["sourceKey"] = Choice(sources),
                         ["offset"] = Count(0, AdvancedAnalysisSourceTitlePage.MaximumOffset),
@@ -251,7 +253,6 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         JsonNode? state = null;
         JsonNode? candidateInventoryUpdates = null;
         var evidenceReads = new JsonArray();
-        var titlePages = 0;
         foreach (var call in calls.EnumerateArray())
         {
             var id = ReadString(call, "id");
@@ -264,14 +265,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid");
             if (!offered.Contains(name))
                 throw new AdvancedAnalysisProviderException("advanced_native_tool_not_available");
-            if (name == AdvancedAnalysisSourceTitlePage.Operation && ++titlePages > AdvancedAnalysisSourceTitlePage.MaximumPagesPerBatch)
-                throw new AdvancedAnalysisProviderException("advanced_native_title_navigation_batch_limit");
             if (name == "read_evidence")
             {
                 using var value = JsonDocument.Parse(ReadString(function, "arguments"));
                 _ = ParseEvidenceReadArguments(value.RootElement, prompt.RootElement, out _);
-                if (evidenceReads.Count >= 8)
-                    throw new AdvancedAnalysisProviderException("advanced_native_evidence_read_invalid");
                 evidenceReads.Add(JsonNode.Parse(value.RootElement.GetRawText()));
                 continue;
             }
@@ -456,15 +453,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }
             if (turn.DeferredCallIds.Contains(ReadString(call, "id")))
             {
+                var cachedRead = ReadString(call.GetProperty("function"), "name") == "read_evidence";
                 var deferred = JsonSerializer.Serialize(new
                 {
                     status = "non_executed_batch_limit",
                     operation = ReadString(call.GetProperty("function"), "name"),
                     batchCallLimit = turn.BatchCallLimit,
+                    limitingOperation = turn.BatchLimitingOperation,
+                    operationCallLimit = turn.BatchOperationCallLimit,
                     visibleEvidenceIds = Array.Empty<string>(),
                     stateChanged = false,
-                    resumptionRequiresResearchAllowed = true,
-                    instruction = "This validated call was deferred beyond this batch's operation limit. It did not execute or change state. Reissue it only if still useful, current researchTools.researchAllowed is true, and remaining model and documentary budgets permit it. Use current source handles."
+                    resumptionRequiresResearchAllowed = !cachedRead,
+                    resumptionRequiresEvidenceReadingAllowed = cachedRead,
+                    instruction = cachedRead
+                        ? "This validated cached-window call was deferred beyond this batch's global or per-operation limit. It did not execute or change any evidence window. Reissue it only if still useful, current researchTools.evidenceReadingAllowed is true, and the remaining model budget permits it. Revalidate the currently offered evidenceId. No additional documentary call is required."
+                        : "This validated call was deferred beyond this batch's global or per-operation limit. It did not execute or change state. Reissue it only if still useful, current researchTools.researchAllowed is true, and remaining model and documentary budgets permit it. Use current source handles."
                 }, JsonOptions);
                 messages.Add(responses
                     ? new { type = "function_call_output", call_id = ReadString(call, "id"), output = deferred }

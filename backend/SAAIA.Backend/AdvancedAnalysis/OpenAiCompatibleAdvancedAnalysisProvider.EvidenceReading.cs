@@ -52,10 +52,24 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         JsonElement root,
         IReadOnlyList<PromptEvidenceItem> observations,
         SynthesisResearchContext context)
+        => ParseEvidenceReadRequestsWithinLimit(root, observations, context, 8);
+
+    private static IReadOnlyDictionary<string, EvidenceReadWindow> ValidateNativeEvidenceReadRequests(
+        JsonElement root,
+        IReadOnlyList<PromptEvidenceItem> observations,
+        SynthesisResearchContext context)
+        => ParseEvidenceReadRequestsWithinLimit(root, observations, context, 64);
+
+    private static IReadOnlyDictionary<string, EvidenceReadWindow> ParseEvidenceReadRequestsWithinLimit(
+        JsonElement root,
+        IReadOnlyList<PromptEvidenceItem> observations,
+        SynthesisResearchContext context,
+        int maximumReads)
     {
         if (!root.TryGetProperty("evidenceReads", out var reads))
             return new Dictionary<string, EvidenceReadWindow>(StringComparer.Ordinal);
-        if (reads.ValueKind != JsonValueKind.Array || reads.GetArrayLength() is < 1 or > 8)
+        if (reads.ValueKind != JsonValueKind.Array || reads.GetArrayLength() < 1
+            || reads.GetArrayLength() > maximumReads)
             throw new AdvancedAnalysisProviderException("advanced_native_evidence_read_invalid");
         // Revalidate the current disclosed capabilities against the same active
         // source catalogue, not merely an ID remembered from an older prompt.

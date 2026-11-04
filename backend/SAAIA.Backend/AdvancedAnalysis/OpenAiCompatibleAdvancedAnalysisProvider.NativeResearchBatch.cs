@@ -9,7 +9,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         string Content,
         string AdmittedCallsJson,
         IReadOnlySet<string> DeferredCallIds,
-        int Limit);
+        int Limit)
+    {
+        public string? LimitingOperation { get; init; }
+        public int? OperationCallLimit { get; init; }
+    }
 
     private PreparedNativeResearchBatch PrepareNativeResearchBatch(
         string callsJson,
@@ -27,7 +31,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         // representation, including optional capabilities added during projection.
         using var normalized = JsonDocument.Parse(UnwrapJson(normalizedContent));
         using var prompt = JsonDocument.Parse(userPrompt);
-        _ = ParseEvidenceReadRequests(normalized.RootElement, evidenceReadObservations ?? observations, context);
+        _ = ValidateNativeEvidenceReadRequests(normalized.RootElement, evidenceReadObservations ?? observations, context);
         if (normalized.RootElement.TryGetProperty("candidateInventoryUpdates", out var candidateUpdates))
         {
             var updates = ParseCandidateInventoryUpdates(candidateUpdates, prompt.RootElement);
@@ -59,8 +63,32 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             prompt.RootElement.GetProperty("researchTools").GetProperty("maximumQueries").GetInt32());
         if (limit < 1)
             throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid");
-        var admitted = calls.RootElement.EnumerateArray().Take(limit).ToArray();
-        var deferred = calls.RootElement.EnumerateArray().Skip(limit)
+        var prefixCalls = new List<JsonElement>();
+        var operationCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        string? limitingOperation = null;
+        int? operationCallLimit = null;
+        foreach (var call in calls.RootElement.EnumerateArray())
+        {
+            if (prefixCalls.Count >= limit) break;
+            var operation = ReadString(call.GetProperty("function"), "name");
+            var operationLimit = operation switch
+            {
+                "read_evidence" => 8,
+                AdvancedAnalysisSourceTitlePage.Operation => AdvancedAnalysisSourceTitlePage.MaximumPagesPerBatch,
+                _ => int.MaxValue
+            };
+            var count = operationCounts.GetValueOrDefault(operation);
+            if (count >= operationLimit)
+            {
+                limitingOperation = operation;
+                operationCallLimit = operationLimit;
+                break;
+            }
+            operationCounts[operation] = count + 1;
+            prefixCalls.Add(call);
+        }
+        var admitted = prefixCalls.ToArray();
+        var deferred = calls.RootElement.EnumerateArray().Skip(admitted.Length)
             .Select(call => ReadString(call, "id")).ToHashSet(StringComparer.Ordinal);
         var admittedJson = JsonSerializer.Serialize(admitted, JsonOptions);
         var admittedNames = admitted.Select(call => ReadString(call.GetProperty("function"), "name")).ToArray();
@@ -90,8 +118,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             probe.Set("requested_call_count", calls.RootElement.GetArrayLength());
             probe.Set("admitted_call_count", admitted.Length);
             probe.Set("deferred_call_count", deferred.Count);
+            probe.Set("limiting_operation", limitingOperation);
+            probe.Set("operation_call_limit", operationCallLimit);
             probe.Complete("continued", "validated_tail_deferred");
         }
-        return new(content, admittedJson, deferred, limit);
+        return new(content, admittedJson, deferred, limit)
+        {
+            LimitingOperation = limitingOperation, OperationCallLimit = operationCallLimit
+        };
     }
 }

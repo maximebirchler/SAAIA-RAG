@@ -365,7 +365,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         ResponseOutputItemsJson: navigator.NativeResponseOutputJson) {
                         CallRequests = nativeCallBindings.Requests, CallSourceScopes = nativeCallBindings.Sources,
                         DeferredCallIds = nativeBatch?.DeferredCallIds ?? new HashSet<string>(StringComparer.Ordinal),
-                        BatchCallLimit = nativeBatch?.Limit
+                        BatchCallLimit = nativeBatch?.Limit,
+                        BatchLimitingOperation = nativeBatch?.LimitingOperation,
+                        BatchOperationCallLimit = nativeBatch?.OperationCallLimit
                     });
                 continue;
             }
@@ -403,7 +405,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     EvidenceReadsStored: evidenceReadCount > 0) {
                         CallRequests = nativeCallBindings.Requests, CallSourceScopes = nativeCallBindings.Sources,
                         DeferredCallIds = nativeBatch?.DeferredCallIds ?? new HashSet<string>(StringComparer.Ordinal),
-                        BatchCallLimit = nativeBatch?.Limit
+                        BatchCallLimit = nativeBatch?.Limit,
+                        BatchLimitingOperation = nativeBatch?.LimitingOperation,
+                        BatchOperationCallLimit = nativeBatch?.OperationCallLimit
                     });
             if (evidenceReadCount > 0)
             {
