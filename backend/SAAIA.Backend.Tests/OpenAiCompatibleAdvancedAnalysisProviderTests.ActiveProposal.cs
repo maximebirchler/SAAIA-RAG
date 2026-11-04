@@ -50,7 +50,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     [InlineData("responses", false)]
     [InlineData("chat-completions", true)]
     [InlineData("chat-completions", false)]
-    public async Task Active_proposal_keeps_model_chosen_canonical_body_when_critic_research_would_evict_it(
+    public async Task Current_draft_citation_priority_survives_critic_research_with_or_without_active_proposal(
         string protocol, bool enabled)
     {
         var original=BuildEvidence("E1","Le seuil est 17 bar. Canonical original body.");
@@ -66,22 +66,25 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var result=await new OpenAiCompatibleAdvancedAnalysisProvider(factory,options,null)
             .ExecuteAsync(BuildDirectRequest(),gateway,CancellationToken.None);
         Assert.Equal("answered",result.Outcome);Assert.Equal(4,result.ProviderCallCount);Assert.Equal(2,gateway.Searches.Count);
+        Assert.Equal(enabled?new[]{"E1","E2"}:new[]{"E2"},Assert.Single(result.Claims).EvidenceIds);
+        // This gateway retains E1 canonically. The contract here is projection
+        // order across research, not an additional working-set eviction pin.
+        Assert.Same(original,Assert.Single(gateway.Evidence,e=>e.Reference.EvidenceId=="E1"));
         var frame=WorkspaceUser(factory.Requests[3].Body);var projected=frame.GetProperty("evidence");
         Assert.True(projected.GetRawText().Length<=8000);
-        Assert.Equal(enabled?"E1":"E2",projected[0].GetProperty("evidenceId").GetString());
+        Assert.InRange(OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(factory.Requests[3].Body),1,8000);
+        Assert.Equal("E1",projected[0].GetProperty("evidenceId").GetString());
+        Assert.Equal(original.Content,projected[0].GetProperty("content").GetString());
         Assert.Contains(projected.EnumerateArray(),e=>e.GetProperty("evidenceId").GetString()=="E2");
         if(enabled)
         {
-            Assert.Equal(original.Content,projected[0].GetProperty("content").GetString());
             Assert.Equal("E1",frame.GetProperty("activeProposal").GetProperty("currentlyVisibleEvidenceIds")[0].GetString());
             Assert.Empty(frame.GetProperty("activeProposal").GetProperty("currentlyAbsentEvidenceIds").EnumerateArray());
         }
         else
         {
-            // Search continuity can keep a prior body as a soft second choice.
-            // Only an enabled model proposal gives it first priority.
-            Assert.Equal("E1",projected[1].GetProperty("evidenceId").GetString());
-            Assert.Equal(original.Content,projected[1].GetProperty("content").GetString());
+            // Visible draft citations receive a soft ordering preference even
+            // without the optional active-proposal retention state.
             Assert.False(frame.TryGetProperty("activeProposal",out _));
         }
     }

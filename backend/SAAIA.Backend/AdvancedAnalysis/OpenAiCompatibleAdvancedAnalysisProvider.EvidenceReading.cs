@@ -307,7 +307,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var explicitOrder = PrioritizeLatestExplicitRead(evidence, focused, context.LatestExplicitReadEvidenceIds);
         if ((context.DiscoveryBaselineEvidenceIds ?? context.PreviousProjectionEvidenceIds).Count == 0
             && context.PreviousProjectionEvidenceIds.Count == 0
-            && (!context.LatestExplicitReadIsFindOnly || context.PreviousCitedEvidenceIds.Count == 0))
+            && context.PreviousCitedEvidenceIds.Count == 0)
             return explicitOrder;
         var current = evidence.Where(item => item.Reference.EvidenceId is not null)
             .GroupBy(item => item.Reference.EvidenceId!, StringComparer.Ordinal)
@@ -318,6 +318,38 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             .Where(current.ContainsKey).Distinct(StringComparer.Ordinal).ToArray();
         var primaryIds = context.LatestExplicitReadEvidenceIds.Take(context.LatestExplicitReadPrimaryCount)
             .Where(current.ContainsKey).ToHashSet(StringComparer.Ordinal);
+        var rejectedIds = context.Workspace.Where(item => item.Status == "rejected")
+            .SelectMany(item => item.EvidenceIds)
+            .Concat(context.CandidateInventory.Where(item => item.Status == "rejected")
+                .SelectMany(item => item.LocatorEvidenceIds.Concat(item.BodyEvidenceIds)))
+            .ToHashSet(StringComparer.Ordinal);
+        if (!context.LatestExplicitReadIsFindOnly && context.PreviousCitedEvidenceIds.Count > 0)
+        {
+            // The current draft's visible citations remain a soft ordering hint
+            // through Critic and binding corrections, independently of the last
+            // reading mode. Current explicit primaries still lead; no new pin or
+            // historical text is admitted and the documentary cap is unchanged.
+            var unambiguous = evidence.Where(item => item.Reference.EvidenceId is not null)
+                .GroupBy(item => item.Reference.EvidenceId!, StringComparer.Ordinal)
+                .Where(group => group.All(item => SameCanonicalReadReference(group.First().Reference, item.Reference)
+                    && string.Equals(group.First().Content, item.Content, StringComparison.Ordinal)))
+                .Select(group => group.Key).ToHashSet(StringComparer.Ordinal);
+            var draftCitations = context.PreviousCitedEvidenceIds.Where(id => current.ContainsKey(id)
+                    && unambiguous.Contains(id) && !primaryIds.Contains(id) && !rejectedIds.Contains(id))
+                .Distinct(StringComparer.Ordinal).Select(id => current[id])
+                .Where(item => !string.IsNullOrWhiteSpace(item.Content)
+                    && RetrievalContentClassifier.AnalyzeEvidenceContent(item.Content, item.ExactTitle).ContentRole
+                        != RetrievalContentClassifier.NavigationRole).ToArray();
+            if (draftCitations.Length > 0)
+            {
+                var draftCitationIds = draftCitations.Select(item => item.Reference.EvidenceId!).ToHashSet(StringComparer.Ordinal);
+                if (context.NativeTurn is { } turn)
+                    context.NativeTurn = turn with { ContinuityEvidenceIds = draftCitationIds.ToArray() };
+                return explicitOrder.Where(item => primaryIds.Contains(item.Reference.EvidenceId!)).Concat(draftCitations)
+                    .Concat(explicitOrder.Where(item => !primaryIds.Contains(item.Reference.EvidenceId!)
+                        && !draftCitationIds.Contains(item.Reference.EvidenceId!))).ToArray();
+            }
+        }
         var interleavePriorBodies = primaryIds.Count == 0 || context.LatestExplicitReadIsFindOnly;
         // Keep the pre-batch cohort stable through Writer and Critic. A second
         // role inspecting the same discovery batch must not relabel its first
@@ -338,11 +370,6 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     item.Reference.EvidenceId!, StringComparer.Ordinal)))
                 return explicitOrder;
         }
-        var rejectedIds = context.Workspace.Where(item => item.Status == "rejected")
-            .SelectMany(item => item.EvidenceIds)
-            .Concat(context.CandidateInventory.Where(item => item.Status == "rejected")
-                .SelectMany(item => item.LocatorEvidenceIds.Concat(item.BodyEvidenceIds)))
-            .ToHashSet(StringComparer.Ordinal);
         var cited = context.LatestExplicitReadIsFindOnly
             ? context.PreviousCitedEvidenceIds.Where(current.ContainsKey)
                 .Where(id => !primaryIds.Contains(id) && !rejectedIds.Contains(id))

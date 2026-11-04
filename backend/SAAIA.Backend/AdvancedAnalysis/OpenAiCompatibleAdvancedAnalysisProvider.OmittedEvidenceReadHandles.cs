@@ -11,7 +11,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 {
     private const int MaximumOmittedEvidenceReadHandles = 64;
 
-    // A locator disclosed by the current native read result, never an excerpt
+    // A locator disclosed by the current native canonical result, never an excerpt
     // or a new citation. Keep no historical text and do not retain retired IDs.
     private sealed record OmittedEvidenceReadHandle(string EvidenceId, string SourceKey,
         int PhysicalPageStart, int PhysicalPageEnd, int OriginalContentLength,
@@ -107,17 +107,26 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         foreach (var call in calls.RootElement.EnumerateArray())
         {
             var callId = ReadString(call, "id");
+            var operation = ReadString(call.GetProperty("function"), "name");
             if (turn.DeferredCallIds.Contains(callId)
-                || ReadString(call.GetProperty("function"), "name") != "read_source"
-                || !turn.CallRequests.TryGetValue(callId, out var read) || read.Operation != "read_source"
+                || ReadString(call, "type") != "function"
+                || operation is not ("read_source" or "search_corpus")
+                || !turn.CallRequests.TryGetValue(callId, out var read) || read.Operation != operation
                 || read.NativeObservationView is not null || read.TableObservationView is not null
-                || !turn.CallSourceScopes.TryGetValue(callId, out var scope)
                 || !turn.Results.TryGetValue(BuildSearchIdentity(read), out var result)
                 || result.ResourceLimit is not null || result.NotExecutedAfterResourceLimit
                 || result.AlternativeNativeReadings?.View is not null
-                || result.AlternativeTableReadings?.View is not null
-                || result.Evidence.Any(item => !MatchesBoundReadSource(item.Reference, scope)))
+                || result.AlternativeTableReadings?.View is not null)
                 continue;
+            // Page reads keep their bound source contract. A global search may
+            // return several sources: each disclosed ID is instead matched to
+            // its exact current canonical reference and catalogue below.
+            if (operation == "read_source" || turn.CallSourceScopes.ContainsKey(callId)
+                || !string.IsNullOrWhiteSpace(read.DocId) || !string.IsNullOrWhiteSpace(read.RevisionId)
+                || !string.IsNullOrWhiteSpace(read.DocPath))
+                if (!turn.CallSourceScopes.TryGetValue(callId, out var scope)
+                    || result.Evidence.Any(item => !MatchesBoundReadSource(item.Reference, scope)))
+                    continue;
 
             // Preserve IDs already shown with this executed read, including bodies
             // that fit now but can leave a later projection. The other admitted IDs
@@ -147,7 +156,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 if (omitted.Contains(id)) promisedOmissions.Add(id);
             }
         }
-        // Current read outputs already promise these omissions. Keep them ahead
+        // Current canonical outputs already promise these omissions. Keep them ahead
         // of newly remembered visible bodies when the private registry is full.
         return handles.Where(handle => !promisedOmissions.Contains(handle.EvidenceId))
             .Concat(handles.Where(handle => promisedOmissions.Contains(handle.EvidenceId)))
@@ -174,7 +183,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         => new
         {
             navigationOnly = true, citable = false, items = handles,
-            instruction = "Earlier primary-read results disclosed these currently revalidated canonical IDs, but their bodies do not fit the current evidence projection. These handles are locators, never proof. If useful, read_evidence at offset 0 (or another valid character offset) opens an exact window without repeating read_source or a corpus retrieval. Cite an ID only when its canonical body is present in current user.evidence. Opening one handle does not expire the others. At most 64 handles remain within this job; retired or changed bodies/sources and the oldest excess handles expire."
+            instruction = "Earlier primary canonical results disclosed these currently revalidated IDs, but their bodies do not fit the current evidence projection. These handles are locators, never proof. If useful, read_evidence at offset 0 (or another valid character offset) opens an exact window without repeating read_source or a corpus retrieval. Cite an ID only when its canonical body is present in current user.evidence. Opening one handle does not expire the others. At most 64 handles remain within this job; retired or changed bodies/sources and the oldest excess handles expire."
         };
 
     private static JsonElement FindOmittedEvidenceReadHandle(JsonElement prompt, string id)
