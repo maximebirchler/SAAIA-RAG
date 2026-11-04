@@ -16,6 +16,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     {
         public List<AdvancedAnalysisSearchRequest> FocusSearches { get; } = [];
         public NativeResearchTurn? NativeTurn { get; set; }
+        public IReadOnlyList<SourceTitleCursor> SourceTitleCursors { get; set; } = [];
         public IReadOnlyList<OmittedEvidenceReadHandle> RetainedOmittedEvidenceReadHandles { get; set; } = [];
         public IReadOnlyList<OmittedEvidenceReadHandle> OmittedEvidenceReadHandles { get; set; } = [];
         public IReadOnlyList<ResearchWorkspaceItem> Workspace { get; set; } = [];
@@ -225,10 +226,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 focusedEvidence = PrioritizeActiveProposalEvidence(evidence, context.ActiveProposalEvidenceIds, focusedEvidence);
             focusedEvidence = PrioritizeEvidenceReadWindows(evidence, focusedEvidence, context.EvidenceReadWindows);
             focusedEvidence = PrioritizePreviousProjectionEvidence(context, request.Handoff.Load, evidence, focusedEvidence);
-            var observations = BuildPromptEvidenceWithOmittedReadRegistry(
+            PruneSourceTitleCursors(request, context, evidence);
+            var observations = BuildPromptEvidenceWithNavigationRegistry(
                 request, evidence, context.RetrievalQueriesByEvidenceId,
                 focusedEvidence, context.PromptSourceKeys, context.EvidenceReadWindows, context.NativeTurn,
-                context.RetainedOmittedEvidenceReadHandles);
+                context.RetainedOmittedEvidenceReadHandles, context.SourceTitleCursors);
             if (_options.NativeResearchToolsEnabled && _options.NativeResearchWorkspaceEnabled
                 && CandidateInventoryEnabled(request))
             {
@@ -659,6 +661,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         DeferredCallIds = nativeBatch?.DeferredCallIds ?? new HashSet<string>(StringComparer.Ordinal),
                         BatchCallLimit = nativeBatch?.Limit
                     };
+            RememberSourceTitleCursors(request, context);
             followup++;
             nextPhase = $"{phase}-research-followup-{followup}";
         }

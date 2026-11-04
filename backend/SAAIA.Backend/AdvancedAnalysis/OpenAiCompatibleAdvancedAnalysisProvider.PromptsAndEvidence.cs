@@ -1223,6 +1223,19 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyDictionary<string, EvidenceReadWindow>? evidenceReadWindows,
         NativeResearchTurn? nativeToolTurn,
         IReadOnlyList<OmittedEvidenceReadHandle> retainedOmittedReadHandles)
+        => BuildPromptEvidenceWithNavigationRegistry(request, evidence, retrievalQueriesByEvidenceId,
+            focusedEvidence, persistentSourceKeys, evidenceReadWindows, nativeToolTurn, retainedOmittedReadHandles, []);
+
+    private IReadOnlyList<PromptEvidenceItem> BuildPromptEvidenceWithNavigationRegistry(
+        AdvancedAnalysisProviderRequest request,
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
+        IReadOnlyDictionary<string, HashSet<string>> retrievalQueriesByEvidenceId,
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence>? focusedEvidence,
+        IDictionary<string, string>? persistentSourceKeys,
+        IReadOnlyDictionary<string, EvidenceReadWindow>? evidenceReadWindows,
+        NativeResearchTurn? nativeToolTurn,
+        IReadOnlyList<OmittedEvidenceReadHandle> retainedOmittedReadHandles,
+        IReadOnlyList<SourceTitleCursor> retainedTitleCursors)
     {
         var configuredMaximum = Math.Clamp(
             _options.MaximumEvidencePromptCharacters,
@@ -1268,6 +1281,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             ? BuildPromptSourceCatalogue(evidence, sourceKeys) : null;
         if (sourceCatalogue is not null)
             sourceCatalogue = BuildAdmittedCardSourceCatalogue(request.Handoff.Load, evidence, sourceCatalogue, configuredMaximum);
+        if (_options.NativeSourceTitleNavigationEnabled && sourceCatalogue is not null)
+            sourceCatalogue = BuildSourceTitleNavigationCatalogue(sourceCatalogue, retainedTitleCursors, configuredMaximum);
         if (sourceCatalogue is not null
             && MeasureDocumentaryProjectionWithSourcesWireCharacters([], null, sourceCatalogue) > configuredMaximum)
             throw new AdvancedAnalysisProviderException("advanced_source_catalogue_budget_exceeded");

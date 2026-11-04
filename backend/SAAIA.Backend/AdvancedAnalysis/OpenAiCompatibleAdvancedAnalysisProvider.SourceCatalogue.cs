@@ -64,6 +64,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
     private static object SourceCatalogueForPrompt(IReadOnlyList<PromptSourceHandle> sources)
     {
+        if (sources is SourceTitleNavigationCatalogue continued)
+        {
+            var payload = JsonSerializer.SerializeToNode(SourceCatalogueForPrompt(continued.Original), JsonOptions)!.AsObject();
+            payload["titleNavigation"] = JsonSerializer.SerializeToNode(continued.Navigation, JsonOptions);
+            return payload;
+        }
         const string instruction = "Active revalidated source locators, independent of which excerpts fit this call. carrierEvidenceId identifies the admitted carrier; its absent body is not citable proof. displayName is a filename, not document contents. Indexed physical bounds summarize indexed chunks, not PDF completeness or an authorization extension. Use sourceKey with declared tools to inspect other bodies. A full working set may still admit whole results by replacing unprotected items; remainingEvidenceItems=0 does not itself forbid research. Tool, model, elapsed-time and documentary limits still apply.";
         if (sources is AdmittedCardSourceCatalogue navigation)
             return new { sources, instruction, admittedCardLocators = navigation.Navigation };
