@@ -17,6 +17,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         public List<AdvancedAnalysisSearchRequest> FocusSearches { get; } = [];
         public NativeResearchTurn? NativeTurn { get; set; }
         public IReadOnlyList<SourceTitleCursor> SourceTitleCursors { get; set; } = [];
+        public IReadOnlyList<PendingTitleLocator> RetainedTitleLocators { get; set; } = [];
         public IReadOnlyList<OmittedEvidenceReadHandle> RetainedOmittedEvidenceReadHandles { get; set; } = [];
         public IReadOnlyList<OmittedEvidenceReadHandle> OmittedEvidenceReadHandles { get; set; } = [];
         public IReadOnlyList<ResearchWorkspaceItem> Workspace { get; set; } = [];
@@ -227,6 +228,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             focusedEvidence = PrioritizeEvidenceReadWindows(evidence, focusedEvidence, context.EvidenceReadWindows);
             focusedEvidence = PrioritizePreviousProjectionEvidence(context, request.Handoff.Load, evidence, focusedEvidence);
             PruneSourceTitleCursors(request, context, evidence);
+            PruneRetainedTitleLocators(request, context, evidence);
             var observations = BuildPromptEvidenceWithNavigationRegistry(
                 request, evidence, context.RetrievalQueriesByEvidenceId,
                 focusedEvidence, context.PromptSourceKeys, context.EvidenceReadWindows, context.NativeTurn,
@@ -389,7 +391,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     && IsInsufficientDocumentaryResult(completion.Content))
                 {
                     var remainingCalls = Math.Max(0, maximumCalls - completions.Count - 1 - reservedFinalCalls);
-                    var pendingLocators = FindPendingTitleLocators(request.Handoff.Load, observations, context.NativeTurn);
+                    var pendingLocators = FindPendingTitleLocatorsForReview(request.Handoff.Load, observations, context);
                     var reason = insufficiencyReviewed ? "insufficiency_review_already_used"
                         : remainingCalls < 2 ? "model_budget_unavailable"
                         : context.ResourceLimit is not null || !HasDocumentaryResearchBudget(toolBudget)
@@ -662,6 +664,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         BatchCallLimit = nativeBatch?.Limit
                     };
             RememberSourceTitleCursors(request, context);
+            RememberRetainedTitleLocators(request, context);
             followup++;
             nextPhase = $"{phase}-research-followup-{followup}";
         }

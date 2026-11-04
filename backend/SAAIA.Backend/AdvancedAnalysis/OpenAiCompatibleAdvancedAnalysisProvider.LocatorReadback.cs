@@ -79,9 +79,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 && prior.search.TableRowLimit is null && prior.search.TableObservationId is null
                 && prior.search.TableObservationView is null && prior.search.NativeObservationView is null)
             .ToArray();
-        // Prefer one page per source before spending a second call on the same
-        // source. This order conveys no claim about the value of any title.
-        var reads = locators
+        // Inspect sources without a successful primary page read first, then
+        // rotate pages between sources within that tier. This expresses no
+        // judgment about the relevance or suitability of any title.
+        var pending = locators
             .DistinctBy(locator => (locator.SourceKey, locator.Page))
             .Where(locator => !priorReads.Any(prior =>
                 prior.search.DocId == locator.Scope.DocId && prior.search.RevisionId == locator.Scope.RevisionId
@@ -92,9 +93,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     // window; repeating the same failed window cannot.
                     || prior.status == "failed" && prior.search.PageStart == locator.Page
                     && prior.search.PageEnd == locator.Page && prior.search.TopK >= topK)))
+            .ToArray();
+        var reads = pending
             .GroupBy(locator => locator.SourceKey, StringComparer.Ordinal)
-            .SelectMany(source => source.Select((locator, rank) => (locator, rank)))
-            .OrderBy(entry => entry.rank)
+            .SelectMany(source => source.Select((locator, rank) => (locator, rank,
+                alreadyReadSource: priorReads.Any(prior => prior.status == "succeeded"
+                    && prior.search.DocId == locator.Scope.DocId && prior.search.RevisionId == locator.Scope.RevisionId
+                    && prior.search.DocPath == locator.Scope.DocPath))))
+            .OrderBy(entry => entry.alreadyReadSource)
+            .ThenBy(entry => entry.rank)
             .Take(Math.Min(MaximumLocatorReadbackPages, budget?.RemainingCalls ?? MaximumLocatorReadbackPages))
             .Select(entry =>
             {
@@ -105,12 +112,22 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     PageStart: locator.Page, PageEnd: locator.Page,
                     Operation: "read_source", RevisionId: locator.Scope.RevisionId));
             }).ToArray();
-        if (reads.Length == 0)
-            return null;
-
         using var probe = BackendDiagnostics.Start("llm.locator_readback", _logger);
         probe.Set("job_id", request.JobId);
+        probe.Set("observed_locator_count", locators.Count);
+        probe.Set("unread_candidate_count", pending.Length);
+        probe.Set("candidate_source_count", pending.Select(locator => locator.SourceKey).Distinct(StringComparer.Ordinal).Count());
+        probe.Set("uninspected_source_count", pending.Where(locator => !priorReads.Any(prior => prior.status == "succeeded"
+                && prior.search.DocId == locator.Scope.DocId && prior.search.RevisionId == locator.Scope.RevisionId
+                && prior.search.DocPath == locator.Scope.DocPath))
+            .Select(locator => locator.SourceKey).Distinct(StringComparer.Ordinal).Count());
         probe.Set("planned_read_count", reads.Length);
+        if (reads.Length == 0)
+        {
+            probe.Set("executed_read_count", 0);
+            probe.Complete("skipped", "no_unread_candidate");
+            return null;
+        }
         var retainedForBatch = RetainedResearchEvidenceIds(context, observations);
         context.Tools.BeginEvidenceBatch(retainedForBatch);
         if (context.Tools.Budget?.EvidenceRotationEnabled is true)

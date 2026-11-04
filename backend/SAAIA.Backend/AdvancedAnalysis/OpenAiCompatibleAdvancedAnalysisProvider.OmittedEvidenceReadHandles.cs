@@ -85,7 +85,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     {
         var current = CurrentCanonicalEvidenceById(active);
         var valid = RevalidateOmittedEvidenceReadHandles(retained, current, sourceCatalogue);
-        var disclosed = FindCurrentPrimaryReadOmissions(turn, observations, current, sourceCatalogue);
+        var disclosed = FindCurrentPrimaryReadCapabilities(turn, observations, current, sourceCatalogue);
         var newIds = disclosed.Select(handle => handle.EvidenceId).ToHashSet(StringComparer.Ordinal);
         var merged = valid.Where(handle => !newIds.Contains(handle.EvidenceId)).Concat(disclosed)
             .TakeLast(MaximumOmittedEvidenceReadHandles).ToArray();
@@ -93,7 +93,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         return new(merged, merged.Where(handle => !visible.Contains(handle.EvidenceId)).ToArray());
     }
 
-    private static IReadOnlyList<OmittedEvidenceReadHandle> FindCurrentPrimaryReadOmissions(
+    private static IReadOnlyList<OmittedEvidenceReadHandle> FindCurrentPrimaryReadCapabilities(
         NativeResearchTurn? turn, IReadOnlyList<PromptEvidenceItem> observations,
         IReadOnlyDictionary<string, AdvancedAnalysisResolvedEvidence> current,
         IReadOnlyList<PromptSourceHandle>? sourceCatalogue)
@@ -102,6 +102,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             return [];
         var visible = observations.Select(item => item.EvidenceId).ToHashSet(StringComparer.Ordinal);
         var handles = new List<OmittedEvidenceReadHandle>();
+        var promisedOmissions = new HashSet<string>(StringComparer.Ordinal);
         using var calls = JsonDocument.Parse(turn.CallsJson);
         foreach (var call in calls.RootElement.EnumerateArray())
         {
@@ -118,11 +119,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 || result.Evidence.Any(item => !MatchesBoundReadSource(item.Reference, scope)))
                 continue;
 
-            // Match the renderer's already disclosed omittedEvidenceIds.Take(8),
-            // before filtering. Never silently disclose a later, unlisted ID.
-            var disclosed = result.Evidence.Where(item => !string.IsNullOrWhiteSpace(item.Reference.EvidenceId)
+            // Preserve IDs already shown with this executed read, including bodies
+            // that fit now but can leave a later projection. The other admitted IDs
+            // are exactly the renderer's omittedEvidenceIds.Take(8), never an
+            // unlisted result or an unrelated search hit.
+            var omitted = result.Evidence.Where(item => !string.IsNullOrWhiteSpace(item.Reference.EvidenceId)
                     && !visible.Contains(item.Reference.EvidenceId))
-                .DistinctBy(item => item.Reference.EvidenceId, StringComparer.Ordinal).Take(8);
+                .DistinctBy(item => item.Reference.EvidenceId, StringComparer.Ordinal).Take(8)
+                .Select(item => item.Reference.EvidenceId!).ToHashSet(StringComparer.Ordinal);
+            var disclosed = result.Evidence.Where(item => !string.IsNullOrWhiteSpace(item.Reference.EvidenceId)
+                    && (visible.Contains(item.Reference.EvidenceId) || omitted.Contains(item.Reference.EvidenceId)))
+                .DistinctBy(item => item.Reference.EvidenceId, StringComparer.Ordinal);
             foreach (var item in disclosed)
             {
                 var id = item.Reference.EvidenceId!;
@@ -137,10 +144,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     continue;
                 handles.Add(new(id, key, canonical.Reference.PageStart, canonical.Reference.PageEnd,
                     canonical.Content.Length, SnapshotCanonicalReference(canonical.Reference), CanonicalBodyHash(canonical.Content)));
-                if (handles.Count == MaximumOmittedEvidenceReadHandles) return handles;
+                if (omitted.Contains(id)) promisedOmissions.Add(id);
             }
         }
-        return handles;
+        // Current read outputs already promise these omissions. Keep them ahead
+        // of newly remembered visible bodies when the private registry is full.
+        return handles.Where(handle => !promisedOmissions.Contains(handle.EvidenceId))
+            .Concat(handles.Where(handle => promisedOmissions.Contains(handle.EvidenceId)))
+            .TakeLast(MaximumOmittedEvidenceReadHandles).ToArray();
     }
 
     private static string AddOmittedEvidenceReadHandlesToPrompt(string userPrompt,
