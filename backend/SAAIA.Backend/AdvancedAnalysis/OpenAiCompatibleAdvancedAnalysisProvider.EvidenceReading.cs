@@ -59,19 +59,19 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             throw new AdvancedAnalysisProviderException("advanced_native_evidence_read_invalid");
         // Revalidate the current disclosed capabilities against the same active
         // source catalogue, not merely an ID remembered from an older prompt.
-        var handles = ReferenceEquals(context.OmittedEvidenceReadTurn, context.NativeTurn)
-            ? BuildOmittedEvidenceReadHandles(context.NativeTurn, observations, context.Tools.Evidence)
+        var canonical = CurrentCanonicalEvidenceById(context.Tools.Evidence);
+        var handles = RevalidateOmittedEvidenceReadHandles(context.RetainedOmittedEvidenceReadHandles, canonical,
+                observations is PromptEvidenceProjection { SourceCatalogueEnabled: true } projection ? projection.SourceCatalogue : null)
                 .Where(handle => context.OmittedEvidenceReadHandles.Any(disclosed =>
                     disclosed.EvidenceId == handle.EvidenceId && disclosed.SourceKey == handle.SourceKey
                     && SameCanonicalReadReference(disclosed.SourceReference, handle.SourceReference)
-                    && disclosed.OriginalContentLength == handle.OriginalContentLength)).ToArray()
-            : [];
+                    && disclosed.OriginalContentLength == handle.OriginalContentLength
+                    && disclosed.CanonicalContentSha256 == handle.CanonicalContentSha256)).ToArray();
         using var prompt = JsonDocument.Parse(JsonSerializer.Serialize(new
         {
             evidence = observations,
             omittedEvidenceReadHandles = OmittedEvidenceReadHandlesForPrompt(handles)
         }, JsonOptions));
-        var canonical = CurrentCanonicalEvidenceById(context.Tools.Evidence);
         var updates = new Dictionary<string, EvidenceReadWindow>(StringComparer.Ordinal);
         foreach (var read in reads.EnumerateArray())
         {

@@ -1211,6 +1211,18 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IDictionary<string, string>? persistentSourceKeys,
         IReadOnlyDictionary<string, EvidenceReadWindow>? evidenceReadWindows = null,
         NativeResearchTurn? nativeToolTurn = null)
+        => BuildPromptEvidenceWithOmittedReadRegistry(request, evidence, retrievalQueriesByEvidenceId,
+            focusedEvidence, persistentSourceKeys, evidenceReadWindows, nativeToolTurn, []);
+
+    private IReadOnlyList<PromptEvidenceItem> BuildPromptEvidenceWithOmittedReadRegistry(
+        AdvancedAnalysisProviderRequest request,
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
+        IReadOnlyDictionary<string, HashSet<string>> retrievalQueriesByEvidenceId,
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence>? focusedEvidence,
+        IDictionary<string, string>? persistentSourceKeys,
+        IReadOnlyDictionary<string, EvidenceReadWindow>? evidenceReadWindows,
+        NativeResearchTurn? nativeToolTurn,
+        IReadOnlyList<OmittedEvidenceReadHandle> retainedOmittedReadHandles)
     {
         var configuredMaximum = Math.Clamp(
             _options.MaximumEvidencePromptCharacters,
@@ -1233,7 +1245,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var trial = promptEvidence.Append(candidate).ToArray();
             return (legacyCollectionMaximum is null
                     || MeasureCompactEvidenceCollectionWireCharacters(trial, sourceCatalogue, metadataCache) <= legacyCollectionMaximum)
-                && MeasureDocumentaryProjectionWithSourcesWireCharactersCached(trial, nativeToolTurn, sourceCatalogue, metadataCache, evidence)
+                && MeasureDocumentaryProjectionWithSourcesWireCharactersCached(trial, nativeToolTurn, sourceCatalogue, metadataCache, evidence,
+                    retainedOmittedReadHandles)
                     <= configuredMaximum;
         }
         var sourceKeys = persistentSourceKeys

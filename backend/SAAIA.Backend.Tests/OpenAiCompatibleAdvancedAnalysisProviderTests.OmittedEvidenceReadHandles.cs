@@ -49,7 +49,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                 case 3:
                     var reopened = Assert.Single(user.GetProperty("evidence").EnumerateArray(), item => item.GetProperty("evidenceId").GetString() == chosenId);
                     Assert.Equal(Assert.Single(bodies, item => item.Reference.EvidenceId == chosenId).Content[..512], reopened.GetProperty("content").GetString());
-                    Assert.False(user.TryGetProperty("omittedEvidenceReadHandles", out _));
+                    Assert.DoesNotContain(user.GetProperty("omittedEvidenceReadHandles").GetProperty("items").EnumerateArray(),
+                        item => item.GetProperty("evidenceId").GetString() == chosenId);
                     Assert.Equal("projected", Assert.Single(NativeCorrelationOutputs(body, protocol)).Body.GetProperty("status").GetString());
                     response = Completion(JsonSerializer.Serialize(new
                     {
@@ -206,7 +207,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     [InlineData("hash")]
     [InlineData("path")]
     [InlineData("source")]
-    [InlineData("stale_turn")]
+    [InlineData("not_in_current_prompt")]
+    [InlineData("body_same_length")]
+    [InlineData("pages")]
     [InlineData("undisclosed")]
     public void Omitted_primary_read_handle_requires_current_disclosure_and_exact_active_canonical_scope(string defect)
     {
@@ -229,17 +232,22 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             var visible = prompt.RootElement.GetProperty("evidence").EnumerateArray().Select(item => item.GetProperty("evidenceId").GetString()).ToHashSet();
             id = bodies.Last(item => !declared.Contains(item.Reference.EvidenceId) && !visible.Contains(item.Reference.EvidenceId)).Reference.EvidenceId;
         }
-        else if (defect == "stale_turn") context.GetType().GetProperty("NativeTurn")!.SetValue(context, OmittedHandleTurn(bodies));
+        else if (defect == "not_in_current_prompt")
+        {
+            var type = typeof(OpenAiCompatibleAdvancedAnalysisProvider).GetNestedType("OmittedEvidenceReadHandle", BindingFlags.NonPublic)!;
+            context.GetType().GetProperty("OmittedEvidenceReadHandles")!.SetValue(context, Array.CreateInstance(type, 0));
+        }
         else if (defect == "retired") gateway.Active = bodies.Where(item => item.Reference.EvidenceId != id).ToArray();
         else gateway.Active = bodies.Select(item => item.Reference.EvidenceId != id ? item : item with
         {
+            Content = defect == "body_same_length" ? new string('z', item.Content.Length) : item.Content,
             Reference = new()
             {
                 EvidenceId = id, DocId = defect == "source" ? "other-source" : item.Reference.DocId,
                 RevisionId = defect == "revision" ? "other-revision" : item.Reference.RevisionId,
                 SourceHash = defect == "hash" ? "other-hash" : item.Reference.SourceHash,
                 DocPath = defect == "path" ? "other/path.pdf" : item.Reference.DocPath,
-                ChunkId = item.Reference.ChunkId, PageStart = 14, PageEnd = 14
+                ChunkId = item.Reference.ChunkId, PageStart = defect == "pages" ? 15 : 14, PageEnd = defect == "pages" ? 15 : 14
             }
         }).ToArray();
         using var read = JsonDocument.Parse(JsonSerializer.Serialize(new { evidenceReads = new[] { new { evidenceId = id, offset = 0, length = 512 } } }));
@@ -253,6 +261,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     [InlineData("hash")]
     [InlineData("source")]
     [InlineData("content")]
+    [InlineData("empty")]
+    [InlineData("null")]
     public void Omitted_primary_read_handle_rejects_ambiguous_active_copies_of_the_same_id(string difference)
     {
         var bodies = OmittedHandleBodies();
@@ -269,7 +279,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var original = Assert.Single(bodies, item => item.Reference.EvidenceId == id);
         gateway.Active = bodies.Append(original with
         {
-            Content = difference == "content" ? original.Content + "Changed canonical bytes." : original.Content,
+            Content = difference == "content" ? original.Content + "Changed canonical bytes."
+                : difference == "empty" ? string.Empty : difference == "null" ? null! : original.Content,
             Reference = new()
             {
                 EvidenceId = id, DocId = difference == "source" ? "other-source" : original.Reference.DocId,
@@ -329,9 +340,10 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
 
     private static object OmittedHandleProjection(OpenAiCompatibleAdvancedAnalysisProvider provider,
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> bodies, object turn, object context)
-        => InvokeSourceCatalogue(provider, "BuildPromptEvidenceWithPersistentSourceKeys", BuildDirectRequest(), bodies,
+        => InvokeSourceCatalogue(provider, "BuildPromptEvidenceWithOmittedReadRegistry", BuildDirectRequest(), bodies,
             new Dictionary<string, HashSet<string>>(), bodies, new Dictionary<string, string>(),
-            context.GetType().GetProperty("EvidenceReadWindows")!.GetValue(context), turn)!;
+            context.GetType().GetProperty("EvidenceReadWindows")!.GetValue(context), turn,
+            context.GetType().GetProperty("RetainedOmittedEvidenceReadHandles")!.GetValue(context))!;
 
     private static string OmittedHandlePrompt(OpenAiCompatibleAdvancedAnalysisProvider provider, object projection, object context)
         => (string)InvokeSourceCatalogue(null, "AddOmittedEvidenceReadHandlesToPrompt",
@@ -357,11 +369,14 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             })
         };
 
-    private sealed class OmittedHandleGateway(IReadOnlyList<AdvancedAnalysisResolvedEvidence> bodies) : IAdvancedAnalysisToolGateway
+    private sealed class OmittedHandleGateway(IReadOnlyList<AdvancedAnalysisResolvedEvidence> bodies,
+        bool exhaustAfterPage = false) : IAdvancedAnalysisToolGateway
     {
         private readonly List<AdvancedAnalysisResolvedEvidence> _active = [];
         public IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence => _active;
         public List<AdvancedAnalysisSearchRequest> Requests { get; } = [];
+        public AdvancedAnalysisToolBudget? Budget => exhaustAfterPage
+            ? new(2, Requests.Count, 10_000, Requests.Count, 128, _active.Count) : null;
         public Task<AdvancedAnalysisSearchObservation> SearchAsync(AdvancedAnalysisSearchRequest request, CancellationToken cancellationToken)
         {
             Requests.Add(request);

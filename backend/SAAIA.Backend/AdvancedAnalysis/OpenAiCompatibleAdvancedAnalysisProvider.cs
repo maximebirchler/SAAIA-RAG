@@ -738,6 +738,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         if (sharedMetadata.QualityReferences + sharedMetadata.OverviewReferences > 0)
             systemPrompt += "\n" + PrimaryMetadataReferenceContract;
         using var sourcePrompt = JsonDocument.Parse(userPrompt);
+        var omittedReadHintCount = sourcePrompt.RootElement.TryGetProperty("omittedEvidenceReadHandles", out var omittedReadHints)
+            && omittedReadHints.ValueKind == JsonValueKind.Object
+            && omittedReadHints.TryGetProperty("items", out var omittedReadHintItems)
+            && omittedReadHintItems.ValueKind == JsonValueKind.Array
+                ? omittedReadHintItems.GetArrayLength() : 0;
+        callProbe.Set("omitted_evidence_read_handle_hint_count", omittedReadHintCount);
         var evidenceProjection = sourcePrompt.RootElement.GetProperty("evidenceProjection");
         callProbe.Set("evidence_projection_status", ReadString(evidenceProjection, "status"));
         callProbe.Set("source_catalogue_count", sourcePrompt.RootElement.TryGetProperty("sourceCatalogue", out var sourceCatalogue)

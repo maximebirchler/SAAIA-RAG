@@ -16,7 +16,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     {
         public List<AdvancedAnalysisSearchRequest> FocusSearches { get; } = [];
         public NativeResearchTurn? NativeTurn { get; set; }
-        public NativeResearchTurn? OmittedEvidenceReadTurn { get; set; }
+        public IReadOnlyList<OmittedEvidenceReadHandle> RetainedOmittedEvidenceReadHandles { get; set; } = [];
         public IReadOnlyList<OmittedEvidenceReadHandle> OmittedEvidenceReadHandles { get; set; } = [];
         public IReadOnlyList<ResearchWorkspaceItem> Workspace { get; set; } = [];
         public IReadOnlyList<CandidateInventoryItem> CandidateInventory { get; set; } = [];
@@ -225,9 +225,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 focusedEvidence = PrioritizeActiveProposalEvidence(evidence, context.ActiveProposalEvidenceIds, focusedEvidence);
             focusedEvidence = PrioritizeEvidenceReadWindows(evidence, focusedEvidence, context.EvidenceReadWindows);
             focusedEvidence = PrioritizePreviousProjectionEvidence(context, request.Handoff.Load, evidence, focusedEvidence);
-            var observations = BuildPromptEvidenceWithPersistentSourceKeys(
+            var observations = BuildPromptEvidenceWithOmittedReadRegistry(
                 request, evidence, context.RetrievalQueriesByEvidenceId,
-                focusedEvidence, context.PromptSourceKeys, context.EvidenceReadWindows, context.NativeTurn);
+                focusedEvidence, context.PromptSourceKeys, context.EvidenceReadWindows, context.NativeTurn,
+                context.RetainedOmittedEvidenceReadHandles);
             if (_options.NativeResearchToolsEnabled && _options.NativeResearchWorkspaceEnabled
                 && CandidateInventoryEnabled(request))
             {

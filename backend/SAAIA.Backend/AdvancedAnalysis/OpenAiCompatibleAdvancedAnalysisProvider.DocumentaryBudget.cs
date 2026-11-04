@@ -61,14 +61,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private int MeasureDocumentaryProjectionWithSourcesWireCharactersCached(IReadOnlyList<PromptEvidenceItem> evidence,
         NativeResearchTurn? turn, IReadOnlyList<PromptSourceHandle>? sourceCatalogue,
         Dictionary<object, string>? metadataCache,
-        IReadOnlyList<AdvancedAnalysisResolvedEvidence>? activeCanonicalEvidence = null)
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence>? activeCanonicalEvidence = null,
+        IReadOnlyList<OmittedEvidenceReadHandle>? retainedOmittedReadHandles = null)
     {
         // Measure the same shared inventories, views and escaped native result
         // that will be sent. A fixed half-budget reservation is not a bound on
         // these source-dependent metadata. "observations" is the longer of the
         // two collection names; the final call still checks its exact payload.
         var prompt = BuildDocumentaryProjectionBudgetPrompt(evidence, sourceCatalogue, metadataCache,
-            turn, activeCanonicalEvidence);
+            turn, activeCanonicalEvidence, retainedOmittedReadHandles);
         var messages = new List<object> { new { role = "system", content = string.Empty } };
         if (turn is not null)
         {
@@ -91,7 +92,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
     private string BuildDocumentaryProjectionBudgetPrompt(IReadOnlyList<PromptEvidenceItem> evidence,
         IReadOnlyList<PromptSourceHandle>? sourceCatalogue, Dictionary<object, string>? metadataCache,
-        NativeResearchTurn? turn = null, IReadOnlyList<AdvancedAnalysisResolvedEvidence>? activeCanonicalEvidence = null)
+        NativeResearchTurn? turn = null, IReadOnlyList<AdvancedAnalysisResolvedEvidence>? activeCanonicalEvidence = null,
+        IReadOnlyList<OmittedEvidenceReadHandle>? retainedOmittedReadHandles = null)
     {
         var prompt = JsonSerializer.Serialize(new
         {
@@ -105,9 +107,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             node["sourceCatalogue"] = JsonSerializer.SerializeToNode(SourceCatalogueForPrompt(sourceCatalogue), JsonOptions);
             prompt = node.ToJsonString(JsonOptions);
         }
-        if (_options.NativeResearchToolsEnabled && turn is not null && activeCanonicalEvidence is not null)
+        if (_options.NativeResearchToolsEnabled && activeCanonicalEvidence is not null)
         {
-            var handles = BuildOmittedEvidenceReadHandlesCore(turn, evidence, activeCanonicalEvidence, sourceCatalogue);
+            var handles = ResolveOmittedEvidenceReadSnapshot(turn, evidence, activeCanonicalEvidence, sourceCatalogue,
+                retainedOmittedReadHandles ?? []).Offered;
             if (handles.Count > 0)
             {
                 var node = JsonNode.Parse(prompt)!.AsObject();
