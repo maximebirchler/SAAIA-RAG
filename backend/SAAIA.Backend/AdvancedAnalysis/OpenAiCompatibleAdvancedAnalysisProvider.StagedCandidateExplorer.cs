@@ -260,12 +260,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
             IReadOnlyList<AdvancedAnalysisSearchRequest> queries;
             var evidenceReadCount = 0;
+            PreparedNativeResearchBatch? nativeBatch = null;
             try
             {
                 if (navigator.NativeArgumentFeedback is { } nativeFeedback)
                     throw new AdvancedAnalysisProviderException("advanced_native_tool_arguments_invalid",
                         researchArgumentFeedback: nativeFeedback);
-                using var document = JsonDocument.Parse(UnwrapJson(navigator.Content));
+                if (navigator.NativeToolCallsJson is { } allCalls)
+                    nativeBatch = PrepareNativeResearchBatch(allCalls, navigator.Content, navigatorPrompt, request,
+                        context.AvailableCategories, observations, context, navigatorEvidence);
+                var admittedContent = nativeBatch?.Content ?? navigator.Content;
+                using var document = JsonDocument.Parse(UnwrapJson(admittedContent));
                 if (!document.RootElement.TryGetProperty("queries", out var values)
                     || values.ValueKind != JsonValueKind.Array)
                 {
@@ -295,7 +300,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     && navigator.NativeToolCallsJson is null)
                     throw new JsonException();
                 evidenceReadCount = ApplyEvidenceReadRequests(
-                    navigator.Content, navigatorEvidence, context);
+                    admittedContent, navigatorEvidence, context);
                 if (queries.Count == 0 && !document.RootElement.TryGetProperty("evidenceReads", out _))
                     throw new JsonException();
             }
@@ -325,7 +330,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }
 
             var nativeCallBindings = navigator.NativeToolCallsJson is { } nativeCalls
-                ? BuildNativeCallRequestBindings(nativeCalls, request, context.AvailableCategories, observations, queries)
+                ? BuildNativeCallRequestBindings(nativeBatch?.AdmittedCallsJson ?? nativeCalls, request, context.AvailableCategories, observations, queries)
                 : new NativeCallBindings(new Dictionary<string, AdvancedAnalysisSearchRequest>(StringComparer.Ordinal),
                     new Dictionary<string, AdvancedAnalysisResultEvidence>(StringComparer.Ordinal));
             var hasNewOperation = evidenceReadCount > 0 || queries.Any(query =>
@@ -357,7 +362,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 if (navigator.NativeToolCallsJson is { } duplicateCalls)
                     navigatorTurns.Add(new(duplicateCalls, queries,
                         new Dictionary<string, AdvancedAnalysisSearchObservation>(),
-                        ResponseOutputItemsJson: navigator.NativeResponseOutputJson) { CallRequests = nativeCallBindings.Requests, CallSourceScopes = nativeCallBindings.Sources });
+                        ResponseOutputItemsJson: navigator.NativeResponseOutputJson) {
+                        CallRequests = nativeCallBindings.Requests, CallSourceScopes = nativeCallBindings.Sources,
+                        DeferredCallIds = nativeBatch?.DeferredCallIds ?? new HashSet<string>(StringComparer.Ordinal),
+                        BatchCallLimit = nativeBatch?.Limit
+                    });
                 continue;
             }
 
@@ -391,7 +400,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (navigator.NativeToolCallsJson is { } executedCalls)
                 navigatorTurns.Add(new(executedCalls, queries, navigatorResults,
                     ResponseOutputItemsJson: navigator.NativeResponseOutputJson,
-                    EvidenceReadsStored: evidenceReadCount > 0) { CallRequests = nativeCallBindings.Requests, CallSourceScopes = nativeCallBindings.Sources });
+                    EvidenceReadsStored: evidenceReadCount > 0) {
+                        CallRequests = nativeCallBindings.Requests, CallSourceScopes = nativeCallBindings.Sources,
+                        DeferredCallIds = nativeBatch?.DeferredCallIds ?? new HashSet<string>(StringComparer.Ordinal),
+                        BatchCallLimit = nativeBatch?.Limit
+                    });
             if (evidenceReadCount > 0)
             {
                 evidenceWindowReviewPending = true;

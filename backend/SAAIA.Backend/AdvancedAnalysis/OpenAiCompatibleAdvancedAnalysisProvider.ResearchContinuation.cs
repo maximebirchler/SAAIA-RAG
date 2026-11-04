@@ -515,12 +515,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             IReadOnlyList<CandidateInventoryItem>? mergedCandidateInventory = null;
             IReadOnlyDictionary<string, EvidenceReadWindow>? evidenceReadUpdates = null;
             var blockedCandidateAdmissions = 0;
+            PreparedNativeResearchBatch? nativeBatch = null;
             try
             {
                 if (completion.NativeArgumentFeedback is { } nativeFeedback)
                     throw new AdvancedAnalysisProviderException("advanced_native_tool_arguments_invalid",
                         researchArgumentFeedback: nativeFeedback);
-                using var document = JsonDocument.Parse(UnwrapJson(completion.Content));
+                if (completion.NativeToolCallsJson is { } allCalls)
+                    nativeBatch = PrepareNativeResearchBatch(allCalls, completion.Content, userPrompt, request,
+                        context.AvailableCategories, observations, context);
+                using var document = JsonDocument.Parse(UnwrapJson(nativeBatch?.Content ?? completion.Content));
                 evidenceReadUpdates = ParseEvidenceReadRequests(document.RootElement, observations, context);
                 if (evidenceReadUpdates.Count > 0 && completion.NativeToolCallsJson is null)
                     throw new JsonException();
@@ -578,7 +582,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }
             argumentFeedback = null;
             var nativeCallBindings = completion.NativeToolCallsJson is { } nativeCalls
-                ? BuildNativeCallRequestBindings(nativeCalls, request, context.AvailableCategories, observations, queries)
+                ? BuildNativeCallRequestBindings(nativeBatch?.AdmittedCallsJson ?? nativeCalls, request, context.AvailableCategories, observations, queries)
                 : new NativeCallBindings(new Dictionary<string, AdvancedAnalysisSearchRequest>(StringComparer.Ordinal),
                     new Dictionary<string, AdvancedAnalysisResultEvidence>(StringComparer.Ordinal));
             blockedCandidateAdmissionsForFeedback = blockedCandidateAdmissions;
@@ -602,7 +606,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 if (completion.NativeToolCallsJson is { } duplicateCalls)
                     context.NativeTurn = new(duplicateCalls, queries,
                         new Dictionary<string, AdvancedAnalysisSearchObservation>(), ResponseOutputItemsJson: completion.NativeResponseOutputJson)
-                    { CallRequests = nativeCallBindings.Requests, CallSourceScopes = nativeCallBindings.Sources };
+                    {
+                        CallRequests = nativeCallBindings.Requests, CallSourceScopes = nativeCallBindings.Sources,
+                        DeferredCallIds = nativeBatch?.DeferredCallIds ?? new HashSet<string>(StringComparer.Ordinal),
+                        BatchCallLimit = nativeBatch?.Limit
+                    };
                 nextPhase = $"{phase}-research-recovery-{noProgressRecovery}";
                 continue;
             }
@@ -641,7 +649,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 context.NativeTurn = new(executedCalls, queries, nativeResults!, ResponseOutputItemsJson: completion.NativeResponseOutputJson,
                     WorkspaceStored: workspaceChanged,
                     CandidateInventoryStored: candidateInventoryChanged,
-                    EvidenceReadsStored: evidenceReadUpdates?.Count > 0) { CallRequests = nativeCallBindings.Requests, CallSourceScopes = nativeCallBindings.Sources };
+                    EvidenceReadsStored: evidenceReadUpdates?.Count > 0) {
+                        CallRequests = nativeCallBindings.Requests, CallSourceScopes = nativeCallBindings.Sources,
+                        DeferredCallIds = nativeBatch?.DeferredCallIds ?? new HashSet<string>(StringComparer.Ordinal),
+                        BatchCallLimit = nativeBatch?.Limit
+                    };
             followup++;
             nextPhase = $"{phase}-research-followup-{followup}";
         }

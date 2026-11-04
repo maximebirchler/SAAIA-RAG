@@ -21,6 +21,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             = new Dictionary<string, AdvancedAnalysisSearchRequest>(StringComparer.Ordinal);
         public IReadOnlyDictionary<string, AdvancedAnalysisResultEvidence> CallSourceScopes { get; init; }
             = new Dictionary<string, AdvancedAnalysisResultEvidence>(StringComparer.Ordinal);
+        public IReadOnlySet<string> DeferredCallIds { get; init; } = new HashSet<string>(StringComparer.Ordinal);
+        public int? BatchCallLimit { get; init; }
     }
 
     private sealed record NativeCallBindings(
@@ -241,9 +243,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private string NormalizeNativeResearchCalls(JsonElement calls, string userPrompt)
     {
         using var prompt = JsonDocument.Parse(userPrompt);
-        var maximum = prompt.RootElement.GetProperty("researchTools").GetProperty("maximumQueries").GetInt32();
-        if (calls.ValueKind != JsonValueKind.Array || calls.GetArrayLength() < 1
-            || calls.GetArrayLength() > maximum
+        if (calls.ValueKind != JsonValueKind.Array || calls.GetArrayLength() is < 1 or > 64
             || calls.GetRawText().Length > _options.NativeResearchMaximumHistoryCharacters)
             throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid");
         var ids = new HashSet<string>(StringComparer.Ordinal);
@@ -452,6 +452,23 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 }, JsonOptions);
                 messages.Add(responses ? new { type = "function_call_output", call_id = ReadString(call, "id"), output = rejected }
                     : (object)new { role = "tool", tool_call_id = ReadString(call, "id"), content = rejected });
+                continue;
+            }
+            if (turn.DeferredCallIds.Contains(ReadString(call, "id")))
+            {
+                var deferred = JsonSerializer.Serialize(new
+                {
+                    status = "non_executed_batch_limit",
+                    operation = ReadString(call.GetProperty("function"), "name"),
+                    batchCallLimit = turn.BatchCallLimit,
+                    visibleEvidenceIds = Array.Empty<string>(),
+                    stateChanged = false,
+                    resumptionRequiresResearchAllowed = true,
+                    instruction = "This validated call was deferred beyond this batch's operation limit. It did not execute or change state. Reissue it only if still useful, current researchTools.researchAllowed is true, and remaining model and documentary budgets permit it. Use current source handles."
+                }, JsonOptions);
+                messages.Add(responses
+                    ? new { type = "function_call_output", call_id = ReadString(call, "id"), output = deferred }
+                    : (object)new { role = "tool", tool_call_id = ReadString(call, "id"), content = deferred });
                 continue;
             }
             if (ReadString(call.GetProperty("function"), "name") == "read_evidence")
