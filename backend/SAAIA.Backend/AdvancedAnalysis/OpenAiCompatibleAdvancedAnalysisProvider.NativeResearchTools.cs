@@ -710,6 +710,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         // canonical projection emits one content-free correlation observation.
         if (emitDiagnostics)
         {
+            var primaryVisible = visible.Where(item => item.EvidenceId is { } id && primaryReadBodies.ContainsKey(id)).ToArray();
+            var mainCharacters = primaryVisible.Sum(item => item.Content?.Length ?? 0);
+            var supportingCharacters = primaryVisible.Sum(item => item.SupportingContentWindows.Sum(window => window.Content?.Length ?? 0));
             using var probe = BackendDiagnostics.Start("advanced.native_tool_results", _logger);
             probe.Set("native_call_count", calls.RootElement.GetArrayLength());
             probe.Set("batch_rejected_before_execution", turn.Rejection is not null);
@@ -721,7 +724,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             probe.Set("primary_read_visible_evidence_unique_count", primaryReadBodies.Keys.Count(visibleIds.Contains));
             probe.Set("primary_read_omitted_evidence_unique_count", primaryReadBodies.Keys.Count(id => !visibleIds.Contains(id)));
             probe.Set("primary_read_returned_content_characters", primaryReadBodies.Values.Sum(item => item.Content?.Length ?? 0));
-            probe.Set("primary_read_visible_content_characters", visible.Where(item => item.EvidenceId is { } id && primaryReadBodies.ContainsKey(id)).Sum(item => item.Content.Length));
+            // Count text in every serialized window. Overlapping canonical
+            // ranges count in each window; this is not unique source coverage.
+            probe.Set("primary_read_visible_content_characters", mainCharacters + supportingCharacters);
+            probe.Set("primary_read_main_content_characters", mainCharacters);
+            probe.Set("primary_read_supporting_content_characters", supportingCharacters);
             probe.Set("primary_read_visible_physical_context_count", visible.Count(item => item.EvidenceId is { } id && primaryReadBodies.TryGetValue(id, out var body)
                 && body.SourceStructure?.HasUnassignedPhysicalContext == true));
             // Report the real outer HTTP encoding, while retaining the
