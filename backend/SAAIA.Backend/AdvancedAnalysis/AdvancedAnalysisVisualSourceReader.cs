@@ -8,9 +8,15 @@ namespace SAAIA.Backend.AdvancedAnalysis;
 
 internal static class AdvancedAnalysisVisualSourceReader
 {
+    internal const int DefaultLimit = 4;
+
+    internal static bool HasRequest(AdvancedAnalysisSearchRequest request)
+        => request.IncludeVisualSources || request.VisualSourceOffset is not null
+            || request.VisualSourceLimit is not null and not DefaultLimit;
+
     internal static void ValidateRequest(AdvancedAnalysisSearchRequest request, bool enabled)
     {
-        if (!request.IncludeVisualSources && request.VisualSourceOffset is null && request.VisualSourceLimit is null)
+        if (!HasRequest(request))
             return;
 
         if (!enabled)
@@ -36,7 +42,7 @@ internal static class AdvancedAnalysisVisualSourceReader
         var first = request.PageStart!.Value;
         var last = request.PageEnd!.Value;
         var offset = request.VisualSourceOffset ?? 0;
-        var limit = request.VisualSourceLimit ?? 4;
+        var limit = request.VisualSourceLimit ?? DefaultLimit;
 
         await using var connection = await source.OpenConnectionAsync(ct);
         var inventory = await CanonicalVisualAssetRepo.ListCitationsAsync(

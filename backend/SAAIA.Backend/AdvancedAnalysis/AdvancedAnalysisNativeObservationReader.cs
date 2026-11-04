@@ -41,6 +41,7 @@ internal sealed record AdvancedAnalysisNativeObservationLineSource(
 /// <summary>Reads only immutable captured canonical data. It never extracts, indexes or replaces primary text.</summary>
 internal static partial class AdvancedAnalysisNativeObservationReader
 {
+    internal const int DefaultLimit = 16;
     internal sealed partial class Cache
     {
         internal readonly Dictionary<(Guid Tenant, Guid Document, Guid Revision, string Source), StoredDocument> Documents = [];
@@ -95,7 +96,7 @@ internal static partial class AdvancedAnalysisNativeObservationReader
     internal static bool HasRequest(AdvancedAnalysisSearchRequest request)
         => request.NativeObservationView is not null || request.NativeObservationBlockId is not null
             || request.NativeObservationRawSha256 is not null || request.NativeObservationOffset is not null
-            || request.NativeObservationLimit is not null;
+            || request.NativeObservationLimit is not null and not DefaultLimit;
 
     internal static void ValidateRequest(AdvancedAnalysisSearchRequest request)
     {
@@ -158,11 +159,11 @@ internal static partial class AdvancedAnalysisNativeObservationReader
             {
                 if (request.NativeObservationView == "inventory")
                     inventory = AdvancedAnalysisNativeObservationWindows.Inventory(stored.Context,
-                        request.NativeObservationOffset ?? 0, request.NativeObservationLimit ?? 16, maximumCharacters, ct);
+                        request.NativeObservationOffset ?? 0, request.NativeObservationLimit ?? DefaultLimit, maximumCharacters, ct);
                 else
                     view = AdvancedAnalysisNativeObservationWindows.Raw(stored.Context,
                         request.NativeObservationBlockId!, request.NativeObservationRawSha256!, request.NativeObservationOffset ?? 0,
-                        request.NativeObservationLimit ?? 16, maximumCharacters, ct);
+                        request.NativeObservationLimit ?? DefaultLimit, maximumCharacters, ct);
                 phase?.Complete();
             }
             using var boundPhase = detail?.Phase("window_bound_serialize");

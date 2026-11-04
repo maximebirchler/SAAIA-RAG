@@ -81,7 +81,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             pageStart = "physical page",
             pageEnd = "inclusive, at most four pages",
             visualSourceOffset = "0 initially, then nextAssetOffset",
-            visualSourceLimit = "integer 1 to 64; default 4",
+            visualSourceLimit = $"integer 1 to 64; default {AdvancedAnalysisVisualSourceReader.DefaultLimit}",
             instruction = VisualSourceCitationContract
         }, JsonOptions));
         return node.ToJsonString(JsonOptions);

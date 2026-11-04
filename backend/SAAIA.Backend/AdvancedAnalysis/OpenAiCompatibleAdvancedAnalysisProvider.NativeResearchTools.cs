@@ -159,7 +159,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 readProperties["includeVisualSources"] = new
                 {
                     type = "boolean",
-                    description = "Immutable image metadata only; supplies no pixels to the model. The default visualSourceLimit is 4."
+                    description = $"Immutable image metadata only; supplies no pixels to the model. The default visualSourceLimit is {AdvancedAnalysisVisualSourceReader.DefaultLimit}."
                 };
                 readProperties["visualSourceOffset"] = OptionalCount(0, CanonicalVisualAssetRepo.MaximumDocumentAssets);
                 readProperties["visualSourceLimit"] = OptionalCount(1, 64);
@@ -176,13 +176,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 readProperties["nativeObservationOffset"] = new
                 {
                     type = new[] { "integer", "null" }, minimum = 0, maximum = int.MaxValue,
-                    description = "Line or inventory ordinal, starting at 0. Continue at nextOffset. A refusal retains its exact offset. The default nativeObservationLimit is 16."
+                    description = $"Line or inventory ordinal, starting at 0. Continue at nextOffset. A refusal retains its exact offset. The default nativeObservationLimit is {AdvancedAnalysisNativeObservationReader.DefaultLimit}."
                 };
                 readProperties["nativeObservationLimit"] = OptionalCount(1, 64);
             }
-            functions.Add(Function("read_source", HasSecondaryTableReadings(root)
+            var readDescription = HasSecondaryTableReadings(root)
                 ? "Read an observed physical source window starting at pageStart for pageCount consecutive pages. Secondary observation reads require pageCount=1 and the explicit observation view; do not mix primary row parameters. A secondary line is indivisible and may be refused when it does not fit. Raw remains readable when physical bands are unavailable."
-                : "Read canonical bodies from an observed revision starting at pageStart for pageCount consecutive physical pages. topK bounds all chunks intersecting the window. If the result reports canonical_read_window_result_limit_exceeded, follow readRetry. Use the physical page from the title locator.", readProperties));
+                : "Read canonical bodies from an observed revision starting at pageStart for pageCount consecutive physical pages. topK bounds all chunks intersecting the window. If the result reports canonical_read_window_result_limit_exceeded, follow readRetry. Use the physical page from the title locator.";
+            functions.Add(Function("read_source", readDescription
+                + " Populate every declared property. Use null for nullable options inactive in the selected reading mode, and false for inactive boolean flags. A documented default limit alone does not select an auxiliary reading.", readProperties));
             functions.Add(Function("find_source_text", "Locate literal words or an observed title inside one observed revision. Case and whitespace normalized; punctuation remains literal. Results follow physical page order, so contents or index matches may precede substantive bodies. topK counts chunks, not distinct items. Inspect contentRole and use pagination or an observed physical-page read when a body is still needed. Returns canonical excerpts and pagination diagnostics; no semantic search fallback.", new()
             {
                 ["sourceKey"] = Choice(sources), ["query"] = Text("Literal words, between 2 and 512 characters."),

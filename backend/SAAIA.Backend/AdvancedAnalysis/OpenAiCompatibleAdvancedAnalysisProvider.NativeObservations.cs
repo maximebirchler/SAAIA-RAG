@@ -82,7 +82,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             nativeObservationView = "inventory|raw", nativeObservationBlockId = "observed blockId for raw only",
             nativeObservationRawSha256 = "observed rawTextSha256 for raw only",
             nativeObservationOffset = "raw line ordinal, or inventory ordinal; start 0 then nextOffset",
-            nativeObservationLimit = "integer 1 to 64; default 16",
+            nativeObservationLimit = $"integer 1 to 64; default {AdvancedAnalysisNativeObservationReader.DefaultLimit}",
             instruction = "Do not mix table row or table observation parameters. Whole lines only; a refusal retains its exact offset."
         }, JsonOptions));
         return node.ToJsonString(JsonOptions);

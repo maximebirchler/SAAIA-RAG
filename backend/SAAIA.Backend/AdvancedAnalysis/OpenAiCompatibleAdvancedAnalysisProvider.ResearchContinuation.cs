@@ -574,8 +574,20 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }
             catch (Exception error) when (error is JsonException or AdvancedAnalysisProviderException)
             {
-                if (error is AdvancedAnalysisProviderException { ResearchArgumentFeedback: { } feedback }
-                    && argumentRecovery == 0 && completions.Count < maximumCalls - reservedFinalCalls - 1)
+                var feedback = (error as AdvancedAnalysisProviderException)?.ResearchArgumentFeedback;
+                var canRecover = feedback is not null && argumentRecovery == 0
+                    && completions.Count < maximumCalls - reservedFinalCalls - 1;
+                using (var probe = BackendDiagnostics.Start("llm.research_argument_rejection", _logger))
+                {
+                    probe.Set("job_id", request.JobId);
+                    probe.Set("role", nextPhase);
+                    probe.Set("argument_feedback_present", feedback is not null);
+                    probe.Set("argument_recovery_used", argumentRecovery);
+                    probe.Set("argument_recovery_available", canRecover);
+                    probe.Complete(canRecover ? "recovery" : "terminal", feedback?.ReasonCode
+                        ?? (error as AdvancedAnalysisProviderException)?.ErrorCode ?? "json_protocol_invalid");
+                }
+                if (canRecover)
                 {
                     argumentFeedback = feedback;
                     if (completion.NativeToolCallsJson is { } rejectedCalls)

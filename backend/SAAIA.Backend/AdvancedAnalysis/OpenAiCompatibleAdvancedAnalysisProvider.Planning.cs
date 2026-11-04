@@ -205,10 +205,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     NativeObservationLimit: nativeLimit);
                 try { AdvancedAnalysisTableObservationReader.ValidateRequest(search); }
                 catch (AdvancedAnalysisToolException) { throw new JsonException(); }
+                AdvancedAnalysisProviderException AuxiliaryArgumentsInvalid(string reason)
+                    => new("advanced_research_arguments_invalid", researchArgumentFeedback:
+                        new(reason, operation, sourceKey, pageStart, pageEnd, MaximumNativeSourceReadPages));
                 if (AdvancedAnalysisNativeObservationReader.HasRequest(search) && !_options.NativeObservationReadEnabled)
-                    throw new JsonException();
+                    throw AuxiliaryArgumentsInvalid("native_observation_read_disabled");
                 try { AdvancedAnalysisNativeObservationReader.ValidateRequest(search); }
-                catch (AdvancedAnalysisToolException) { throw new JsonException(); }
+                catch (AdvancedAnalysisToolException error) { throw AuxiliaryArgumentsInvalid(error.ErrorCode); }
                 if (nativeView == "raw")
                 {
                     var current = JsonSerializer.SerializeToElement(new
@@ -225,7 +228,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     }
                 }
                 try { AdvancedAnalysisVisualSourceReader.ValidateRequest(search, _options.VisualSourceCitationsEnabled); }
-                catch (AdvancedAnalysisToolException) { throw new JsonException(); }
+                catch (AdvancedAnalysisToolException error) { throw AuxiliaryArgumentsInvalid(error.ErrorCode); }
                 if (observationView is not null && !HasObservedSecondaryTableSource(observations, sourceKey))
                     throw new JsonException();
                 if (dedupe.Add(BuildSearchIdentity(search)))
@@ -882,7 +885,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             search.TableObservationId, search.TableObservationView, search.TableObservationBandOrdinal,
             search.TableObservationLineOffset, search.TableObservationLineLimit,
             search.MaxPerDocument, search.MaxPerPage
-        }) + (search.IncludeVisualSources || search.VisualSourceOffset is not null || search.VisualSourceLimit is not null
+        }) + (AdvancedAnalysisVisualSourceReader.HasRequest(search)
             ? "|visual|" + JsonSerializer.Serialize(new
             {
                 search.IncludeVisualSources, search.VisualSourceOffset, search.VisualSourceLimit
