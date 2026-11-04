@@ -1260,6 +1260,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         if (sourceCatalogue is not null
             && MeasureDocumentaryProjectionWithSourcesWireCharacters([], null, sourceCatalogue) > configuredMaximum)
             throw new AdvancedAnalysisProviderException("advanced_source_catalogue_budget_exceeded");
+        prioritizedEvidence = PrioritizeCurrentPrimaryReadEvidence(
+            prioritizedEvidence, evidence, nativeToolTurn, evidenceReadWindows);
         var currentNativeRequests = _options.NativeObservationReadEnabled && nativeToolTurn?.Rejection is null
             ? nativeToolTurn?.Requests?.Where(read => read.Operation == "read_source"
                 && read.NativeObservationView is not null && !string.IsNullOrWhiteSpace(read.DocId)

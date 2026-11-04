@@ -23,6 +23,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             = new Dictionary<string, AdvancedAnalysisResultEvidence>(StringComparer.Ordinal);
         public IReadOnlySet<string> DeferredCallIds { get; init; } = new HashSet<string>(StringComparer.Ordinal);
         public int? BatchCallLimit { get; init; }
+        // Ordering hints from the existing previous-projection policy, never
+        // extra pins or cached documentary objects.
+        public IReadOnlyList<string> ContinuityEvidenceIds { get; init; } = [];
     }
 
     private sealed record NativeCallBindings(
@@ -433,6 +436,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var returnedIds = new HashSet<string>(StringComparer.Ordinal);
         var projectedIds = new HashSet<string>(StringComparer.Ordinal);
         var partialIds = new HashSet<string>(StringComparer.Ordinal);
+        var primaryReadBodies = new Dictionary<string, AdvancedAnalysisResolvedEvidence>(StringComparer.Ordinal);
         var documentaryInstructionWritten = false;
         var currentTableReadings = new Lazy<JsonNode?>(() =>
             JsonSerializer.SerializeToNode(BuildAlternativeTableReadingsForPrompt(visible), JsonOptions));
@@ -528,11 +532,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             AdvancedAnalysisSearchObservation? observation = null;
             if (request is not null) turn.Results.TryGetValue(BuildSearchIdentity(request), out observation);
             if (observation is not null && turn.CallSourceScopes.TryGetValue(callId, out var source)
-                && observation.Evidence.Any(item => !string.Equals(item.Reference.DocId, source.DocId, StringComparison.OrdinalIgnoreCase)
-                    || !string.Equals(item.Reference.RevisionId, source.RevisionId, StringComparison.OrdinalIgnoreCase)
-                    || !string.Equals(item.Reference.SourceHash, source.SourceHash, StringComparison.OrdinalIgnoreCase)
-                    || !string.Equals(AdvancedAnalysisToolGateway.NormalizePath(item.Reference.DocPath),
-                        AdvancedAnalysisToolGateway.NormalizePath(source.DocPath), StringComparison.Ordinal)))
+                && observation.Evidence.Any(item => !MatchesBoundReadSource(item.Reference, source)))
             {
                 request = null; observation = null;
             }
@@ -587,6 +587,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 returnedEvidenceCount = observation?.Evidence.Count,
                 resultReusedWithinBatch = reusedResult && observation is not null ? true : (bool?)null,
                 visibleEvidenceIds = ids.Take(8).ToArray(), visibleEvidenceIdsOmitted = Math.Max(0, ids.Length - 8),
+                visibleEvidenceIdCount = ids.Length, unprojectedEvidenceIdCount = omittedIds.Length,
                 readDiagnostic = observation?.ReadDiagnostic, findDiagnostic = observation?.FindDiagnostic,
                  retrievalDiagnostic = BuildRetrievalDiagnosticForPrompt(observation?.RetrievalDiagnostic, observation?.DegradedRetrievers),
                  documentResolution = BuildDocumentResolutionForPrompt(observation?.DocumentResolution),
@@ -620,10 +621,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }
             // Native/secondary windows already carry exact line/cursor and
             // omission diagnostics below. Do not duplicate that bounded wire.
-            var primaryResult = request?.NativeObservationView is null && request?.TableObservationView is null
-                && observation?.AlternativeNativeReadings is null && observation?.AlternativeTableReadings is null;
+            var primaryResult = request?.Operation is "read_source" or "find_source_text" or "search_corpus"
+                && request.NativeObservationView is null && request.TableObservationView is null
+                && observation?.AlternativeNativeReadings?.View is null
+                && observation?.AlternativeTableReadings?.View is null;
             if (primaryResult && observation is not null)
             {
+                if (request!.Operation == "read_source")
+                    foreach (var item in observation.Evidence)
+                        if (item.Reference.EvidenceId is { } id && item.SourceObservation is null && item.NativeObservation is null)
+                            primaryReadBodies.TryAdd(id, item);
                 JsonObject? feedback = null;
                 if (omittedIds.Length > 0)
                 {
@@ -636,18 +643,26 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         ["omittedPhysicalLocators"] = JsonSerializer.SerializeToNode(observation.Evidence
                             .Where(item => omittedIds.Contains(item.Reference.EvidenceId, StringComparer.Ordinal))
                             .DistinctBy(item => item.Reference.EvidenceId).Take(8).Select(item => new
-                            { item.Reference.EvidenceId, item.Reference.PageStart, item.Reference.PageEnd }), JsonOptions)
+                            { item.Reference.EvidenceId, sourceKey = CurrentNativeSourceKey(activeSourceCatalogue, item.Reference),
+                                item.Reference.PageStart, item.Reference.PageEnd }), JsonOptions)
                     };
                     if (omittedIds.Length > 8) feedback["omittedEvidenceIdsOmittedCount"] = omittedIds.Length - 8;
                 }
                 else if (allIds.Length == 0 && request?.Operation == "find_source_text")
                     feedback = new JsonObject { ["status"] = "no_evidence_returned" };
-                var primaryPartialCount = partial.Count(item => item.SourceObservation is null && item.NativeObservation is null);
-                // Existing evidence.contentTruncated/nextContentOffset already
-                // describe visible windows. Add this count only beside a real
-                // omission alert, not to every otherwise complete tool result.
-                if (feedback is not null && primaryPartialCount > 0)
-                    feedback["partiallyVisibleEvidenceCount"] = primaryPartialCount;
+                var primaryPartial = partial.Where(item => item.SourceObservation is null && item.NativeObservation is null
+                    && HasUnprojectedCanonicalContent(item)).ToArray();
+                if (primaryPartial.Length > 0)
+                {
+                    feedback ??= new JsonObject { ["status"] = "some_returned_evidence_shortened" };
+                    feedback["partiallyVisibleEvidenceCount"] = primaryPartial.Length;
+                    feedback["visibleBodyContinuations"] = JsonSerializer.SerializeToNode(primaryPartial.Take(4).Select(item => new
+                    {
+                        item.EvidenceId, item.ContentOffset, visibleContentLength = item.Content.Length,
+                        item.OriginalContentLength, nextContentOffset = FirstUnprojectedCanonicalContentOffset(item)
+                    }), JsonOptions);
+                    if (primaryPartial.Length > 4) feedback["visibleBodyContinuationsOmittedCount"] = primaryPartial.Length - 4;
+                }
                 if (feedback is not null) outputNode["projectionFeedback"] = feedback;
             }
             if (_options.NativeObservationReadEnabled && request?.NativeObservationView is not null)
@@ -702,6 +717,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             probe.Set("unique_normalized_request_count", requestIdentities.Count); probe.Set("replayed_result_call_count", replayedCalls);
             probe.Set("returned_evidence_unique_count", returnedIds.Count); probe.Set("visible_evidence_unique_count", projectedIds.Count);
             probe.Set("omitted_evidence_unique_count", returnedIds.Count - projectedIds.Count); probe.Set("partially_visible_evidence_unique_count", partialIds.Count);
+            probe.Set("primary_read_returned_evidence_unique_count", primaryReadBodies.Count);
+            probe.Set("primary_read_visible_evidence_unique_count", primaryReadBodies.Keys.Count(visibleIds.Contains));
+            probe.Set("primary_read_omitted_evidence_unique_count", primaryReadBodies.Keys.Count(id => !visibleIds.Contains(id)));
+            probe.Set("primary_read_returned_content_characters", primaryReadBodies.Values.Sum(item => item.Content?.Length ?? 0));
+            probe.Set("primary_read_visible_content_characters", visible.Where(item => item.EvidenceId is { } id && primaryReadBodies.ContainsKey(id)).Sum(item => item.Content.Length));
+            probe.Set("primary_read_visible_physical_context_count", visible.Count(item => item.EvidenceId is { } id && primaryReadBodies.TryGetValue(id, out var body)
+                && body.SourceStructure?.HasUnassignedPhysicalContext == true));
             // Report the real outer HTTP encoding, while retaining the
             // existing conservative count for fitting, rejection and outcome.
             probe.Set("history_characters", JsonSerializer.Serialize(messages, WireJsonOptions.Value).Length);

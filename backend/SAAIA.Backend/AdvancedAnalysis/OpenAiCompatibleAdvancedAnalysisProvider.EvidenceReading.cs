@@ -244,6 +244,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> focused)
     {
+        if (context.NativeTurn is { } nativeTurn)
+            context.NativeTurn = nativeTurn with { ContinuityEvidenceIds = [] };
         var explicitOrder = PrioritizeLatestExplicitRead(evidence, focused, context.LatestExplicitReadEvidenceIds);
         if ((context.DiscoveryBaselineEvidenceIds ?? context.PreviousProjectionEvidenceIds).Count == 0
             && context.PreviousProjectionEvidenceIds.Count == 0
@@ -325,6 +327,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 foreach (var group in groups)
                     if (previous.Count < previousLimit && group.Count > 0) previous.Add(group.Dequeue());
         if (previous.Count == 0) return explicitOrder;
+        if (context.NativeTurn is { } currentTurn)
+            context.NativeTurn = currentTurn with
+            {
+                ContinuityEvidenceIds = previous.Select(item => item.Reference.EvidenceId!).ToArray()
+            };
         var previousIds = previous.Select(item => item.Reference.EvidenceId!).ToHashSet(StringComparer.Ordinal);
         var primary = explicitOrder.Where(item => primaryIds.Contains(item.Reference.EvidenceId!)).ToArray();
         var rest = explicitOrder.Where(item => !primaryIds.Contains(item.Reference.EvidenceId!)
@@ -427,5 +434,98 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             .Where(item => item is not null).Cast<AdvancedAnalysisResolvedEvidence>();
         return latest.Concat(activeFocused.Where(item =>
             item.Reference.EvidenceId is not { } id || ids.Add(id))).ToArray();
+    }
+
+    private static bool SameCanonicalReadReference(AdvancedAnalysisResultEvidence first,
+        AdvancedAnalysisResultEvidence second)
+        => string.Equals(first.EvidenceId, second.EvidenceId, StringComparison.Ordinal)
+            && string.Equals(first.DocId, second.DocId, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(first.RevisionId, second.RevisionId, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(first.SourceHash, second.SourceHash, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(AdvancedAnalysisToolGateway.NormalizePath(first.DocPath),
+                AdvancedAnalysisToolGateway.NormalizePath(second.DocPath), StringComparison.Ordinal)
+            && string.Equals(first.ChunkId, second.ChunkId, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(first.AnchorId, second.AnchorId, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(first.ContentCardId, second.ContentCardId, StringComparison.OrdinalIgnoreCase)
+            && first.PageStart == second.PageStart && first.PageEnd == second.PageEnd
+            && first.SourceObservation is null && second.SourceObservation is null
+            && first.NativeObservation is null && second.NativeObservation is null;
+
+    private static bool MatchesBoundReadSource(AdvancedAnalysisResultEvidence reference, AdvancedAnalysisResultEvidence scope)
+        => string.Equals(reference.DocId, scope.DocId, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(reference.RevisionId, scope.RevisionId, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(reference.SourceHash, scope.SourceHash, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(AdvancedAnalysisToolGateway.NormalizePath(reference.DocPath),
+                AdvancedAnalysisToolGateway.NormalizePath(scope.DocPath), StringComparison.Ordinal);
+
+    private static IReadOnlyList<AdvancedAnalysisResolvedEvidence> PrioritizeCurrentPrimaryReadEvidence(
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence> ordered,
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence> active,
+        NativeResearchTurn? turn,
+        IReadOnlyDictionary<string, EvidenceReadWindow>? evidenceReadWindows)
+    {
+        if (turn is null || turn.Rejection is not null) return ordered;
+        var current = active.Where(item => item.Reference.EvidenceId is not null)
+            .GroupBy(item => item.Reference.EvidenceId!, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
+        var readOrder = new Dictionary<string, int>(StringComparer.Ordinal);
+        var firstReadOrder = new Dictionary<string, int>(StringComparer.Ordinal);
+        var readSources = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (callId, read) in turn.CallRequests)
+        {
+            if (turn.DeferredCallIds.Contains(callId) || read.Operation != "read_source"
+                || read.NativeObservationView is not null || read.TableObservationView is not null
+                || !turn.CallSourceScopes.TryGetValue(callId, out var scope)
+                || !turn.Results.TryGetValue(BuildSearchIdentity(read), out var observed)
+                || observed.ResourceLimit is not null || observed.NotExecutedAfterResourceLimit
+                || observed.AlternativeNativeReadings?.View is not null
+                || observed.AlternativeTableReadings?.View is not null
+                || observed.Evidence.Any(item => !MatchesBoundReadSource(item.Reference, scope)))
+                continue;
+            var admitted = new List<AdvancedAnalysisResolvedEvidence>();
+            foreach (var item in observed.Evidence)
+            {
+                var reference = item.Reference;
+                if (reference.EvidenceId is not { } id || !current.TryGetValue(id, out var canonical)
+                    || item.SourceObservation is not null || item.NativeObservation is not null
+                    || !SameCanonicalReadReference(reference, canonical.Reference))
+                    continue;
+                readOrder.TryAdd(id, readOrder.Count);
+                admitted.Add(canonical);
+            }
+            foreach (var item in admitted)
+                readSources.Add(BuildCanonicalSourceIdentity(item, item.Reference.EvidenceId!));
+            var first = admitted.OrderBy(item => item.SourceStructure?.HasUnassignedPhysicalContext == true)
+                .FirstOrDefault(item => !firstReadOrder.ContainsKey(item.Reference.EvidenceId!));
+            if (first is not null) firstReadOrder.TryAdd(first.Reference.EvidenceId!, firstReadOrder.Count);
+        }
+        if (readOrder.Count == 0) return ordered;
+        var allowedContinuity = turn.ContinuityEvidenceIds.ToHashSet(StringComparer.Ordinal);
+        var continuityIds = ordered.Where(item => item.Reference.EvidenceId is { } id
+                && allowedContinuity.Contains(id) && current.TryGetValue(id, out var canonical)
+                && SameCanonicalReadReference(item.Reference, canonical.Reference)
+                && !readSources.Contains(BuildCanonicalSourceIdentity(item, id))
+                && item.SourceObservation is null && item.NativeObservation is null
+                && !string.IsNullOrWhiteSpace(item.Content)
+                && item.SourceStructure?.HasUnassignedPhysicalContext != true
+                && RetrievalContentClassifier.AnalyzeEvidenceContent(item.Content, item.ExactTitle).ContentRole
+                    != RetrievalContentClassifier.NavigationRole)
+            .DistinctBy(item => BuildCanonicalSourceIdentity(item, item.Reference.EvidenceId!), StringComparer.Ordinal)
+            .Take(8).Select(item => item.Reference.EvidenceId!).ToHashSet(StringComparer.Ordinal);
+        // A successful page read is an explicit request for every returned body,
+        // including headings and paragraphs without a prior lexical query hit.
+        // Reorder active canonical objects only; inventories are not body proof.
+        int Priority(AdvancedAnalysisResolvedEvidence item)
+        {
+            var id = item.Reference.EvidenceId;
+            if (id is not null && evidenceReadWindows?.ContainsKey(id) == true) return 0;
+            if (id is not null && firstReadOrder.ContainsKey(id)) return 1;
+            if (id is not null && continuityIds.Contains(id)) return 2;
+            if (id is null || !readOrder.ContainsKey(id)) return 5;
+            return item.SourceStructure?.HasUnassignedPhysicalContext == true ? 4 : 3;
+        }
+        return ordered.OrderBy(Priority)
+            .ThenBy(item => Priority(item) == 1 ? firstReadOrder[item.Reference.EvidenceId!]
+                : Priority(item) is 3 or 4 ? readOrder[item.Reference.EvidenceId!] : 0).ToArray();
     }
 }

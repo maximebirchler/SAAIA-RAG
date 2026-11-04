@@ -81,8 +81,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     }
 
     private static bool HasUnprojectedCanonicalContent(PromptEvidenceItem evidence)
+        => FirstUnprojectedCanonicalContentOffset(evidence) is not null;
+
+    private static int? FirstUnprojectedCanonicalContentOffset(PromptEvidenceItem evidence)
     {
-        if (evidence.OriginalContentLength <= 0) return false;
+        if (evidence.OriginalContentLength <= 0) return null;
         var ranges = evidence.SupportingContentWindows.Select(window =>
                 (Start: window.ContentOffset, Length: window.Content.Length))
             .Append((Start: evidence.ContentOffset, Length: evidence.Content.Length))
@@ -90,10 +93,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         long covered = 0;
         foreach (var range in ranges)
         {
-            if (range.Start > covered) return true;
+            if (range.Start > covered) return (int)covered;
             covered = Math.Max(covered, (long)range.Start + range.Length);
-            if (covered >= evidence.OriginalContentLength) return false;
+            if (covered >= evidence.OriginalContentLength) return null;
         }
-        return covered < evidence.OriginalContentLength;
+        return covered < evidence.OriginalContentLength ? (int)covered : null;
     }
 }
