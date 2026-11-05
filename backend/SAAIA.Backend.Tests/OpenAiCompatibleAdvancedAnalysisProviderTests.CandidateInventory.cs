@@ -258,6 +258,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             Completion(CandidatePlanner),
             NativeCompletion(("search_corpus", WorkspaceSearch)),
             Completion(CandidateTerminal),
+            Completion(CandidateTerminal),
             Completion(CandidateTerminal));
         var options = WorkspaceOptions();
         var docId = Guid.NewGuid().ToString("D");
@@ -295,12 +296,13 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             .EnumerateArray().Any(id => id.GetString() == "E-NAV"));
         Assert.Equal("E-BODY", item.GetProperty("bodyEvidenceIds")[0].GetString());
         Assert.Equal("insufficient_documentation", result.Outcome);
-        Assert.Equal(4, result.ProviderCallCount);
-        Assert.Equal(4, factory.Requests.Count);
+        Assert.Equal(5, result.ProviderCallCount);
+        Assert.Equal(5, factory.Requests.Count);
         var review = WorkspaceUser(factory.Requests[3].Body);
         Assert.Equal("insufficiency_after_partial_documentary_research",
             review.GetProperty("insufficiencyReview").GetProperty("reasonCode").GetString());
         Assert.Single(factory.Requests, call => WorkspaceUser(call.Body).TryGetProperty("insufficiencyReview", out _));
+        Assert.Single(factory.Requests, call => WorkspaceUser(call.Body).TryGetProperty("discoveryChallenge", out _));
         Assert.Equal(WorkspaceUser(factory.Requests[2].Body).GetProperty("candidateInventory").GetRawText(),
             review.GetProperty("candidateInventory").GetRawText());
         Assert.DoesNotContain(factory.Requests, call => PayloadAuditSystem(call.Body).Contains("final SAAIA synthesis completer", StringComparison.Ordinal));

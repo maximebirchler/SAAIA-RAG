@@ -26,7 +26,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         };
         using var factory = new QueuedHttpClientFactory(Completion(RepeatablePlan),
             protocol == "responses" ? BudgetNativeResponseFunctions(calls) : NativeCompletion(calls),
-            EarlyReply(protocol, GuidanceInsufficiency), EarlyReply(protocol, GuidanceInsufficiency));
+            EarlyReply(protocol, GuidanceInsufficiency), EarlyReply(protocol, GuidanceInsufficiency),
+            EarlyReply(protocol, GuidanceInsufficiency));
         var options = EarlyOptions(protocol, 6);
         options.NativeSourceTitleNavigationEnabled = true;
         options.NativeResearchActiveProposalEnabled = false;
@@ -56,6 +57,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             .GetProperty("executedReads").GetInt32());
         Assert.Equal(2, NativeCorrelationOutputs(factory.Requests[3].Body, protocol).Length);
         Assert.Empty(result.Claims);
+        Assert.Equal(5, factory.Requests.Count);
+        Assert.Single(factory.Requests, call => WorkspaceUser(call.Body).TryGetProperty("discoveryChallenge", out _));
     }
 
     [Theory]
@@ -72,7 +75,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             { sourceKey = "internal-source-1", pageStart = 80, pageEnd, topK })));
         using var factory = new QueuedHttpClientFactory(Completion(RepeatablePlan), explicitRead,
             NativeCompletion(("list_source_titles", ReadbackListing("internal-source-1"))),
-            Completion(GuidanceInsufficiency), Completion(GuidanceInsufficiency));
+            Completion(GuidanceInsufficiency), Completion(GuidanceInsufficiency), Completion(GuidanceInsufficiency));
         var options = EarlyOptions("chat-completions", 7);
         options.NativeSourceTitleNavigationEnabled = true;
         options.NativeResearchActiveProposalEnabled = false;
@@ -98,7 +101,10 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             Assert.Equal(firstRead != "failed_again", review.GetProperty("evidence").GetRawText()
                 .Contains(body.Content, StringComparison.Ordinal));
         }
-        Assert.Equal(5, factory.Requests.Count);
+        // The indexed overview still exposes unread physical pages. One
+        // discovery opportunity can be declined without another automatic read.
+        Assert.Equal(6, factory.Requests.Count);
+        Assert.Single(factory.Requests, call => WorkspaceUser(call.Body).TryGetProperty("discoveryChallenge", out _));
         Assert.Empty(result.Claims);
     }
 

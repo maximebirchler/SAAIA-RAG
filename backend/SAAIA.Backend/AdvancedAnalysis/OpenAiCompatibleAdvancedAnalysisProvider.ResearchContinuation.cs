@@ -181,6 +181,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var argumentRecovery = 0;
         var insufficiencyReviewed = false;
         object? insufficiencyReview = null;
+        var discoveryChallenge = new DiscoveryChallengeState();
         AdvancedAnalysisResearchArgumentFeedback? argumentFeedback = null;
         IReadOnlyList<AdvancedAnalysisSearchRequest>? repeatedSearches = null;
         var nextPhase = phase;
@@ -358,6 +359,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     payload["candidateSupportCorrections"] = JsonSerializer.SerializeToNode(candidateSupportFeedback, JsonOptions);
                 if (insufficiencyReview is not null)
                     payload["insufficiencyReview"] = JsonSerializer.SerializeToNode(insufficiencyReview, JsonOptions);
+                if (discoveryChallenge.Prompt is not null)
+                    payload["discoveryChallenge"] = JsonSerializer.SerializeToNode(discoveryChallenge.Prompt, JsonOptions);
                 if (argumentFeedback is not null)
                     payload["researchArgumentFeedback"] = JsonSerializer.SerializeToNode(BuildResearchArgumentFeedbackForPrompt(argumentFeedback), JsonOptions);
                 if (repeatedSearches is not null)
@@ -392,6 +395,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 {
                     var remainingCalls = Math.Max(0, maximumCalls - completions.Count - 1 - reservedFinalCalls);
                     var pendingLocators = FindPendingTitleLocatorsForReview(request.Handoff.Load, observations, context);
+                    if (TryScheduleDiscoveryChallenge(discoveryChallenge, insufficiencyReviewed,
+                            completion.Content, request, context, evidence, observations,
+                            remainingCalls, reservedFinalCalls, pendingLocators))
+                    {
+                        completions.Add(completion);
+                        insufficiencyReview = null;
+                        nextPhase = $"{phase}-discovery-challenge";
+                        continue;
+                    }
                     var reason = insufficiencyReviewed ? "insufficiency_review_already_used"
                         : remainingCalls < 2 ? "model_budget_unavailable"
                         : context.ResourceLimit is not null || !HasDocumentaryResearchBudget(toolBudget)
@@ -425,6 +437,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     {
                         completions.Add(completion);
                         insufficiencyReviewed = true;
+                        discoveryChallenge.EmptyReviewStarted = IsEmptyDiscoveryInsufficiency(completion.Content, evidence, request);
                         var locatorReadback = await ReadLocatedBodiesForInsufficiencyReviewAsync(
                             request, context, observations, pendingLocators, cancellationToken).ConfigureAwait(false);
                         var distinctReview = BuildDistinctGridReviewHint(
@@ -513,6 +526,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
             completions.Add(completion);
             insufficiencyReview = null;
+            discoveryChallenge.Prompt = null;
             if (!_options.AdaptiveResearchEnabled)
                 throw new AdvancedAnalysisProviderException("advanced_synthesis_research_disabled");
             if (completions.Count >= maximumCalls - reservedFinalCalls)
@@ -661,6 +675,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 context.PriorSearches, context.EvidenceGroups, context.RetrievalQueriesByEvidenceId,
                 cancellationToken, nativeResults, allowResourceLimitFeedback: true,
                 executionStatuses: context.PriorSearchExecutionStatuses).ConfigureAwait(false);
+            ObserveDiscoveryChallengeOperations(discoveryChallenge, request, completion.NativeToolCallsJson is not null,
+                queries, nativeResults);
             if (completion.NativeToolCallsJson is not null
                 && nativeResults.Values.Any(observation => observation.Evidence.Count > 0))
                 context.DiscoveryBaselineEvidenceIds = queries.Any(query => query.Operation == "read_source")

@@ -30,6 +30,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             Completion(GuidancePlan(8)), Call("list_source_titles", Listing(0)), Call("list_source_titles", Listing(2)),
             EarlyReply(protocol, GuidanceInsufficiency), EarlyReply(protocol, GuidanceInsufficiency)
         };
+        var expectDiscoveryChallenge = !located && remainingReads > 0 && !timeLimit && !critic;
+        if (expectDiscoveryChallenge) replies.Add(EarlyReply(protocol, GuidanceInsufficiency));
         if (critic) replies.Add(EarlyReply(protocol, GuidanceInsufficiency));
         using var factory = new QueuedHttpClientFactory(replies.ToArray());
         var options = EarlyOptions(protocol, 10);
@@ -105,7 +107,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             var criticUser = WorkspaceUser(factory.Requests[5].Body);
             Assert.False(criticUser.GetProperty("researchTools").TryGetProperty("sourceTitleBodyRead", out _));
         }
-        Assert.Equal(remainingReads == 0 ? 4 : critic ? 6 : 5, factory.Requests.Count);
+        Assert.Equal((remainingReads == 0 ? 4 : critic ? 6 : 5) + (expectDiscoveryChallenge ? 1 : 0), factory.Requests.Count);
+        Assert.Equal(expectDiscoveryChallenge ? 1 : 0,
+            factory.Requests.Count(call => WorkspaceUser(call.Body).TryGetProperty("discoveryChallenge", out _)));
         Assert.Equal("insufficient_documentation", result.Outcome);
         Assert.Empty(result.Claims);
     }
