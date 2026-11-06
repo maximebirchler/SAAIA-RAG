@@ -92,9 +92,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            claimCoordinates and the required claim count apply to an answered
            deliverable. For insufficient_documentation or clarification_required,
            do not create placeholder claims for unsupported coordinates and do not
-           cite unrelated examples as proof of absence. claims may be empty. Include
-           only positive documentary statements that have non-empty current
-           evidenceIds; explain the bounded gap directly in answerText.
+           cite unrelated examples as proof of absence. Return useful supported
+           findings as a clearly labeled partial answer, with current evidenceIds,
+           and explain the remaining gaps. claims may be empty only when no useful
+           supported finding can be reported. Preserve the supported portion when
+           reviewing an incomplete candidate.
            Respect the requested distinctions and layout; for claimCoordinates,
            use their exact claimIds in an answered result and do not invent an
            entry to fill a cell.

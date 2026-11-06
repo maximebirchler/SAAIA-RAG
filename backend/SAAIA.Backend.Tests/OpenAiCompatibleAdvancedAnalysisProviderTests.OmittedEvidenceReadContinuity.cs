@@ -205,8 +205,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var after = next.RootElement.GetProperty("omittedEvidenceReadHandles").GetProperty("items").EnumerateArray()
             .Select(item => item.GetProperty("evidenceId").GetString()!).ToArray();
         Assert.Equal(64, after.Length);
-        Assert.Equal(before.Skip(8).Concat(groups[8].Take(8).Select(item => item.Reference.EvidenceId)), after);
-        Assert.All(before.Take(8), id => Assert.Contains(active, item => item.Reference.EvidenceId == id));
+        Assert.Equal(before.Skip(10).Concat(groups[8].Select(item => item.Reference.EvidenceId)), after);
+        Assert.All(before.Take(10), id => Assert.Contains(active, item => item.Reference.EvidenceId == id));
         Assert.Equal(64, ((IEnumerable)context.GetType().GetProperty("RetainedOmittedEvidenceReadHandles")!.GetValue(context)!).Cast<object>().Count());
     }
 

@@ -130,11 +130,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
             // Preserve IDs already shown with this executed read, including bodies
             // that fit now but can leave a later projection. The other admitted IDs
-            // are exactly the renderer's omittedEvidenceIds.Take(8), never an
-            // unlisted result or an unrelated search hit.
+            // match the renderer's bounded omission list. A primary read can
+            // return sixty fragments, so an eight-ID prefix can hide its tail.
             var omitted = result.Evidence.Where(item => !string.IsNullOrWhiteSpace(item.Reference.EvidenceId)
                     && !visible.Contains(item.Reference.EvidenceId))
-                .DistinctBy(item => item.Reference.EvidenceId, StringComparer.Ordinal).Take(8)
+                .DistinctBy(item => item.Reference.EvidenceId, StringComparer.Ordinal)
+                .Take(MaximumOmittedEvidenceReadHandles)
                 .Select(item => item.Reference.EvidenceId!).ToHashSet(StringComparer.Ordinal);
             var disclosed = result.Evidence.Where(item => !string.IsNullOrWhiteSpace(item.Reference.EvidenceId)
                     && (visible.Contains(item.Reference.EvidenceId) || omitted.Contains(item.Reference.EvidenceId)))

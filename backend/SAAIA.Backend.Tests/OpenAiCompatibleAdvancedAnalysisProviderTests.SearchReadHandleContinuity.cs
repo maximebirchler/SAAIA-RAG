@@ -178,7 +178,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var empty = SearchHandleEmptyProjection(full, found.Length);
         var handles = InvokeSourceCatalogue(null, "BuildOmittedEvidenceReadHandles", turn, empty, found)!;
         using var encoded = JsonDocument.Parse(JsonSerializer.Serialize(handles, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
-        Assert.Equal(found.Take(8).Select(item => item.Reference.EvidenceId),
+        Assert.Equal(found.Select(item => item.Reference.EvidenceId),
             encoded.RootElement.EnumerateArray().Select(item => item.GetProperty("evidenceId").GetString()));
         Assert.Empty(factory.Requests);
     }
@@ -204,8 +204,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         using var prompt = JsonDocument.Parse(OmittedHandlePrompt(provider, empty, context));
         var handles = prompt.RootElement.GetProperty("omittedEvidenceReadHandles").GetProperty("items").EnumerateArray().ToArray();
         Assert.Equal(64, handles.Length);
-        Assert.All(found.Take(8), item => Assert.Contains(handles, h => h.GetProperty("evidenceId").GetString() == item.Reference.EvidenceId));
-        Assert.All(found.Skip(8), item => Assert.DoesNotContain(handles, h => h.GetProperty("evidenceId").GetString() == item.Reference.EvidenceId));
+        Assert.All(found, item => Assert.Contains(handles, h => h.GetProperty("evidenceId").GetString() == item.Reference.EvidenceId));
+        Assert.Equal(old.Skip(11).Concat(found).Select(item => item.Reference.EvidenceId),
+            handles.Select(item => item.GetProperty("evidenceId").GetString()));
         Assert.Empty(factory.Requests);
     }
 

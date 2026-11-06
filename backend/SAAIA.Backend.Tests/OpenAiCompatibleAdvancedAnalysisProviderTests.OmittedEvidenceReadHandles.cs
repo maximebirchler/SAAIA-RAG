@@ -227,10 +227,11 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         if (defect == "forged") id = "NEVER-OBSERVED";
         else if (defect == "undisclosed")
         {
-            var declared = prompt.RootElement.GetProperty("omittedEvidenceReadHandles").GetProperty("items")
-                .EnumerateArray().Select(item => item.GetProperty("evidenceId").GetString()).ToHashSet();
-            var visible = prompt.RootElement.GetProperty("evidence").EnumerateArray().Select(item => item.GetProperty("evidenceId").GetString()).ToHashSet();
-            id = bodies.Last(item => !declared.Contains(item.Reference.EvidenceId) && !visible.Contains(item.Reference.EvidenceId)).Reference.EvidenceId;
+            // A valid active fragment outside the executed read has never been
+            // offered. Knowing its ID cannot grant a read capability.
+            var unlisted = PreviousProjectionBody("UNLISTED-ACTIVE", page: 80);
+            gateway.Active = bodies.Append(unlisted).ToArray();
+            id = unlisted.Reference.EvidenceId;
         }
         else if (defect == "not_in_current_prompt")
         {

@@ -644,14 +644,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         ["status"] = "some_returned_evidence_omitted",
                         ["visibleEvidenceIdCount"] = ids.Length,
                         ["omittedEvidenceIdCount"] = omittedIds.Length,
-                        ["omittedEvidenceIds"] = JsonSerializer.SerializeToNode(omittedIds.Take(8), JsonOptions),
+                        ["omittedEvidenceIds"] = JsonSerializer.SerializeToNode(
+                            omittedIds.Take(MaximumOmittedEvidenceReadHandles), JsonOptions),
                         ["omittedPhysicalLocators"] = JsonSerializer.SerializeToNode(observation.Evidence
                             .Where(item => omittedIds.Contains(item.Reference.EvidenceId, StringComparer.Ordinal))
                             .DistinctBy(item => item.Reference.EvidenceId).Take(8).Select(item => new
                             { item.Reference.EvidenceId, sourceKey = CurrentNativeSourceKey(activeSourceCatalogue, item.Reference),
                                 item.Reference.PageStart, item.Reference.PageEnd }), JsonOptions)
                     };
-                    if (omittedIds.Length > 8) feedback["omittedEvidenceIdsOmittedCount"] = omittedIds.Length - 8;
+                    if (omittedIds.Length > MaximumOmittedEvidenceReadHandles)
+                        feedback["omittedEvidenceIdsOmittedCount"] = omittedIds.Length - MaximumOmittedEvidenceReadHandles;
+                    // The canonical read-handle registry carries the full bounded
+                    // locator set. Repeating every locator in each tool result can
+                    // exhaust history before even one body enters the projection.
+                    if (omittedIds.Length > 8)
+                        feedback["omittedPhysicalLocatorsOmittedCount"] = omittedIds.Length - 8;
                 }
                 else if (allIds.Length == 0 && request?.Operation == "find_source_text")
                     feedback = new JsonObject { ["status"] = "no_evidence_returned" };

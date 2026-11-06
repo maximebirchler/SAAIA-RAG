@@ -20,6 +20,31 @@ public sealed class AdvancedAnalysisClientTransportTests
         Guid.Parse("55555555-5555-5555-5555-555555555555");
 
     [Fact]
+    public async Task Workflow_preserves_partial_answer_and_citations_when_resuming_completed_job()
+    {
+        var partial = System.Text.Json.Nodes.JsonNode.Parse(
+            JsonSerializer.Serialize(ValidResult(twoSources: true), ClientJson.CamelCase))!.AsObject();
+        partial["outcome"] = "insufficient_documentation";
+        const string answer = "Réponse partielle. Premier résultat [C1]. Deuxième résultat [C2]. Les autres points restent à établir.";
+        partial["answerText"] = answer;
+        var handler = new SequenceHandler((_, _, _) => Task.FromResult(
+            Json(HttpStatusCode.OK, Job("succeeded", 3, partial))));
+        var service = new AdvancedAnalysisClientService(CreateApiClient(handler));
+
+        var result = await service.ResumeAdvancedAnalysisJobForTestsAsync(
+            SessionId, HandoffId, JobId, 2, "fr", new AdvancedAnalysisClientPollingOptions(),
+            static (_, _) => Task.CompletedTask, CancellationToken.None);
+
+        Assert.Equal("succeeded", result.Outcome);
+        Assert.Equal(answer, result.FinalAnswer);
+        var payload = JsonSerializer.Serialize(result.SourcesPayload, ClientJson.CamelCase);
+        Assert.Equal(2, SourceCardParser.Parse(payload).Count);
+        using var json = JsonDocument.Parse(payload);
+        Assert.Equal("insufficient_documentation", json.RootElement.GetProperty("advancedAnalysis")
+            .GetProperty("resultOutcome").GetString());
+    }
+
+    [Fact]
     public async Task Api_transport_uses_configured_identity_and_typed_routes()
     {
         var seen = new List<RequestSnapshot>();

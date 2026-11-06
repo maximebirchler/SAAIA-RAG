@@ -80,9 +80,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         claimCoordinates and the required claim count apply to an answered
         deliverable. For insufficient_documentation or clarification_required,
         do not create placeholder claims for unsupported coordinates and do not
-        cite unrelated examples as proof of absence. claims may be empty. Include
-        only positive documentary statements that have non-empty current
-        evidenceIds; explain the bounded gap directly in answerText.
+        cite unrelated examples as proof of absence. Preserve useful supported
+        findings as a clearly labeled partial answer with their own claims and
+        current evidenceIds. Explain what is established, what remains unresolved
+        and why. claims may be empty only when no useful supported finding can
+        be reported. A partial answer uses insufficient_documentation, or
+        clarification_required when user input is needed; answered means the
+        complete requested deliverable is supported. Continue useful research
+        within the available budget before finalizing. An incomplete deliverable
+        is not a reason to discard findings already supported. Require the
+        evidence needed for the requested assertion: a documented proposal does
+        not require reproducing every procedural step unless the user asks for it.
         """ + "\n" + SynthesisQualityPolicy + "\n" + DocumentaryDataBoundary;
 
     private const string CanonicalSourceReadContract = """
@@ -484,7 +492,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            its target row or column. Infer ordinary compatibility from the exact
            item title and supplied content; retrievedFor describes the retrieval
            route and cannot establish suitability. Do not demand
-           that the source prescribe the slot. When claimCoordinates is non-empty,
+           that the source prescribe the slot. For an answered outcome, when claimCoordinates is non-empty,
            use exactly those claimIds and coordinates in the supplied row-major
            order. Put each [claimId] in that exact answer-table cell. Cite only
            evidence whose exact title/content makes the placement ordinarily
@@ -530,9 +538,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            exact source-backed identity; only in that distinct mode, never repeat
            the same selectedItem or add an accompaniment to disguise a duplicate.
            Never use a generic category as an item or repeat generic guidance to fill a grid. If the
-           evidence cannot support all mandatory units and
-           partial answers are not allowed, choose insufficient_documentation and
-           identify the exact rows, columns or item types that remain unsupported.
+           evidence cannot support all mandatory units, choose
+           insufficient_documentation, provide the useful supported portion with
+           citations, and identify the rows, columns or item types still unresolved.
            Describe the limits of the supplied evidence, not an exhaustive absence
            from the document corpus. Never claim that the documents contain only a
            listed set, or that no other candidate exists, unless supplied evidence
@@ -620,7 +628,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            judgment; retrievedFor is navigation metadata, not suitability proof.
            Prefer individual candidateTitle evidence over
            a broad index and do not assign index entries to incompatible slots.
-           When claimCoordinates is non-empty, use exactly its row-major claimIds,
+           For an answered outcome, when claimCoordinates is non-empty, use exactly its row-major claimIds,
            put each [claimId] in that exact answer-table cell. targetColumns is a
            retrieval-relevance hint rather than a source-prescribed classification;
             an item may move to another column only when its exact title/content
@@ -710,7 +718,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            requests them.
            For a distinct structured selection, require one non-empty unique
            selectedItem per claim; an accompaniment does not make a repeated
-           selectedItem distinct. When claimCoordinates is non-empty, use exactly
+           selectedItem distinct. For an answered outcome, when claimCoordinates is non-empty, use exactly
            its row-major claimIds and place every [claimId] in that exact table
             cell. Copy each chosen complete documentary identity exactly into
             selectedItem. A candidateTitle is provisional;
@@ -987,7 +995,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             request = request.Handoff.RequestText,
             conversationContext = BuildConversationPromptContext(request.Handoff.ConversationContext),
             language = request.Handoff.Language,
-            allowsPartialAnswer = false,
+            allowsPartialAnswer = true,
             load = BuildPromptLoad(request.Handoff.Load),
             selectionContract = BuildResolvedSelectionContract(request.Handoff.Load),
             claimCoordinates = BuildStructuredClaimCoordinates(
@@ -1006,7 +1014,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             request = request.Handoff.RequestText,
             conversationContext = BuildConversationPromptContext(request.Handoff.ConversationContext),
             language = request.Handoff.Language,
-            allowsPartialAnswer = false,
+            allowsPartialAnswer = true,
             load = BuildPromptLoad(request.Handoff.Load),
             selectionContract = BuildResolvedSelectionContract(request.Handoff.Load),
             claimCoordinates = BuildStructuredClaimCoordinates(
@@ -1055,7 +1063,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             request = request.Handoff.RequestText,
             conversationContext = BuildConversationPromptContext(request.Handoff.ConversationContext),
             language = request.Handoff.Language,
-            allowsPartialAnswer = false,
+            allowsPartialAnswer = true,
             load = BuildPromptLoad(request.Handoff.Load),
             selectionContract = BuildResolvedSelectionContract(request.Handoff.Load),
             claimCoordinates = BuildStructuredClaimCoordinates(
@@ -1086,7 +1094,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             request = request.Handoff.RequestText,
             conversationContext = BuildConversationPromptContext(request.Handoff.ConversationContext),
             language = request.Handoff.Language,
-            allowsPartialAnswer = false,
+            allowsPartialAnswer = true,
             load = BuildPromptLoad(request.Handoff.Load),
             selectionContract = BuildResolvedSelectionContract(request.Handoff.Load),
             claimCoordinates = BuildStructuredClaimCoordinates(

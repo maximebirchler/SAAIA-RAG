@@ -238,8 +238,10 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.InRange(visible, 1, 11);
         Assert.Equal(visible, feedback.GetProperty("visibleEvidenceIdCount").GetInt32());
         Assert.Equal(12 - visible, feedback.GetProperty("omittedEvidenceIdCount").GetInt32());
-        Assert.InRange(feedback.GetProperty("omittedEvidenceIds").GetArrayLength(), 1, 8);
-        Assert.Equal(feedback.GetProperty("omittedEvidenceIds").GetArrayLength(), feedback.GetProperty("omittedPhysicalLocators").GetArrayLength());
+        Assert.Equal(12 - visible, feedback.GetProperty("omittedEvidenceIds").GetArrayLength());
+        Assert.Equal(Math.Min(8, 12 - visible), feedback.GetProperty("omittedPhysicalLocators").GetArrayLength());
+        if (12 - visible > 8)
+            Assert.Equal(12 - visible - 8, feedback.GetProperty("omittedPhysicalLocatorsOmittedCount").GetInt32());
         Assert.Contains("not documentary facts", output.GetProperty("instruction").GetString());
         var probe = Assert.Single(logger.Entries, entry => entry.Contains("operation=advanced.native_tool_results ", StringComparison.Ordinal));
         Assert.Contains("\"unmatched_retrieval_call_count\":0", probe);
