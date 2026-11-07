@@ -35,6 +35,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             .ExecuteAsync(request, new RecordingToolGateway([.. bodies, EarlyLocator(bodies[0])]), CancellationToken.None);
 
         var review = WorkspaceUser(factory.Requests[2].Body).GetProperty("insufficiencyReview");
+        Assert.DoesNotContain("Publish only a complete supported selection", review.GetProperty("instruction").GetString());
+        Assert.Contains("Preserve useful supported claims", review.GetProperty("instruction").GetString());
         var coverage = review.GetProperty("priorDraftCoverage").EnumerateArray().ToArray();
         Assert.Equal(request.Handoff.Load.Columns, coverage.Select(item => item.GetProperty("columnLabel").GetString()));
         Assert.All(coverage, item => Assert.Equal(5, item.GetProperty("requiredSlots").GetInt32()));

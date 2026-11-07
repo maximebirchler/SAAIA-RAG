@@ -51,9 +51,32 @@ internal static class LlmPayloadDiagnostics
                 probe.Set("evidence_ids_sampled", items.Length > 32);
                 probe.Set("evidence_identity_scope", "opaque_handles_join_job_tool_history");
                 AnnotateDocumentaryComposition(probe, evidence, items);
+                AnnotateInventoryVisibility(probe, root, items);
             }
         }
         catch (JsonException) { probe.Set("user_payload_shape", "non_json"); }
+    }
+
+    private static void AnnotateInventoryVisibility(BackendDiagnostics.Operation probe, JsonElement root, JsonElement[] evidence)
+    {
+        if (!root.TryGetProperty("candidateInventory", out var inventory) || inventory.ValueKind != JsonValueKind.Object
+            || !inventory.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array) return;
+        var references = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var item in items.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object || !item.TryGetProperty("status", out var status)
+                || status.ValueKind != JsonValueKind.String || status.GetString() is not ("selected" or "body_verified")
+                || !item.TryGetProperty("bodyEvidenceIds", out var ids) || ids.ValueKind != JsonValueKind.Array) continue;
+            foreach (var id in ids.EnumerateArray())
+                if (id.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(id.GetString())) references.Add(id.GetString()!);
+        }
+        var visible = evidence.Where(item => item.TryGetProperty("evidenceId", out var id) && id.ValueKind == JsonValueKind.String)
+            .Select(item => item.GetProperty("evidenceId").GetString()!).ToHashSet(StringComparer.Ordinal);
+        var count = references.Count(visible.Contains);
+        // Visibility only: neither a full-body guarantee nor semantic approval.
+        probe.Set("inventory_verified_body_reference_count", references.Count);
+        probe.Set("inventory_verified_body_visible_count", count);
+        probe.Set("inventory_verified_body_absent_count", references.Count - count);
     }
 
     private static void AnnotateDocumentaryComposition(BackendDiagnostics.Operation probe,

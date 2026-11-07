@@ -635,6 +635,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     {
         var ids = inventory
             .Where(item => item.Status != "rejected")
+            .OrderBy(item => item.Status == "selected" ? 0 : item.Status == "body_verified" ? 1 : 2)
             .SelectMany(item => item.BodyEvidenceIds.Concat(item.LocatorEvidenceIds))
             .Distinct(StringComparer.Ordinal)
             .ToArray();

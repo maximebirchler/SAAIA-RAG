@@ -7,6 +7,32 @@ namespace SAAIA.Backend.Tests;
 public sealed class LlmPayloadDiagnosticsTests
 {
     [Fact]
+    public void Inventory_visibility_counts_unique_verified_references_without_claiming_complete_or_approved_bodies()
+    {
+        const string prompt = """
+            {"evidence":[{"evidenceId":"E1","content":"private body","contentTruncated":true}],
+             "candidateInventory":{"items":[
+               {"status":"selected","exactTitle":"private title","bodyEvidenceIds":["E1","E2"]},
+               {"status":"body_verified","bodyEvidenceIds":["E2"]},
+               {"status":"rejected","bodyEvidenceIds":["E3"]},
+               {"status":"awaiting_review","bodyEvidenceIds":["E4"]}]}}
+            """;
+        var logger = new DiagnosticRecordingLogger<LlmPayloadDiagnosticsTests>();
+        using (var probe = BackendDiagnostics.Start("test.payload", logger))
+        {
+            LlmPayloadDiagnostics.AnnotateRequest(probe, prompt, "{}");
+            probe.Complete();
+        }
+        var entry = Assert.Single(logger.Events);
+        using var fields = JsonDocument.Parse((string)entry.Values["Measurements"]!);
+        Assert.Equal(2, fields.RootElement.GetProperty("inventory_verified_body_reference_count").GetInt32());
+        Assert.Equal(1, fields.RootElement.GetProperty("inventory_verified_body_visible_count").GetInt32());
+        Assert.Equal(1, fields.RootElement.GetProperty("inventory_verified_body_absent_count").GetInt32());
+        Assert.DoesNotContain("private body", entry.Text);
+        Assert.DoesNotContain("private title", entry.Text);
+    }
+
+    [Fact]
     public void Wire_sections_tools_and_visible_evidence_are_counted_without_copying_content()
     {
         const string prompt = """{"request":"private question","evidence":[{"evidenceId":"E1","sourceKey":"internal-source-1","content":"alpha","contentTruncated":true,"supportingContentWindows":[{"content":"xyz"}]}]}""";

@@ -28,6 +28,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         // Ordering hints from the existing previous-projection policy, never
         // extra pins or cached documentary objects.
         public IReadOnlyList<string> ContinuityEvidenceIds { get; init; } = [];
+        // Explicit inventory choices take precedence over implicit discovery
+        // continuity. IDs are resolved against current canonical bodies only.
+        public IReadOnlyList<string> SelectedCandidateEvidenceIds { get; init; } = [];
     }
 
     private sealed record NativeCallBindings(

@@ -616,6 +616,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         }
         if (readOrder.Count == 0) return ordered;
         var allowedContinuity = turn.ContinuityEvidenceIds.ToHashSet(StringComparer.Ordinal);
+        var selectedIds = turn.SelectedCandidateEvidenceIds.Where(id => current.TryGetValue(id, out var body)
+                && !string.IsNullOrWhiteSpace(body.Content)
+                && body.SourceObservation is null && body.NativeObservation is null
+                && RetrievalContentClassifier.AnalyzeEvidenceContent(body.Content, body.ExactTitle).ContentRole
+                    != RetrievalContentClassifier.NavigationRole)
+            .ToHashSet(StringComparer.Ordinal);
         var continuityIds = ordered.Where(item => item.Reference.EvidenceId is { } id
                 && allowedContinuity.Contains(id) && current.TryGetValue(id, out var canonical)
                 && SameCanonicalReadReference(item.Reference, canonical.Reference)
@@ -636,12 +642,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (id is not null && currentCacheIds.Contains(id)) return -1;
             if (id is not null && evidenceReadWindows?.ContainsKey(id) == true) return 0;
             if (id is not null && firstReadOrder.ContainsKey(id)) return 1;
-            if (id is not null && continuityIds.Contains(id)) return 2;
-            if (id is null || !readOrder.ContainsKey(id)) return 5;
-            return item.SourceStructure?.HasUnassignedPhysicalContext == true ? 4 : 3;
+            if (id is not null && selectedIds.Contains(id)) return 2;
+            if (id is not null && continuityIds.Contains(id)) return 3;
+            if (id is null || !readOrder.ContainsKey(id)) return 6;
+            return item.SourceStructure?.HasUnassignedPhysicalContext == true ? 5 : 4;
         }
         return ordered.OrderBy(Priority)
             .ThenBy(item => Priority(item) == 1 ? firstReadOrder[item.Reference.EvidenceId!]
-                : Priority(item) is 3 or 4 ? readOrder[item.Reference.EvidenceId!] : 0).ToArray();
+                : Priority(item) is 4 or 5 ? readOrder[item.Reference.EvidenceId!] : 0).ToArray();
     }
 }
