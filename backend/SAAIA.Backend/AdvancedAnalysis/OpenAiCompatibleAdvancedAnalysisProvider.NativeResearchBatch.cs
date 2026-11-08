@@ -31,7 +31,18 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         // representation, including optional capabilities added during projection.
         using var normalized = JsonDocument.Parse(UnwrapJson(normalizedContent));
         using var prompt = JsonDocument.Parse(userPrompt);
-        _ = ValidateNativeEvidenceReadRequests(normalized.RootElement, evidenceReadObservations ?? observations, context);
+        var validatedReads = ValidateNativeEvidenceReadRequests(normalized.RootElement, evidenceReadObservations ?? observations, context);
+        var requestedReadCount = normalized.RootElement.TryGetProperty("evidenceReads", out var requestedReads)
+            ? requestedReads.GetArrayLength() : 0;
+        if (requestedReadCount > validatedReads.Count)
+        {
+            using var probe = BackendDiagnostics.Start("llm.evidence_read_batch", _logger);
+            probe.Set("job_id", request.JobId);
+            probe.Set("validated_read_call_count", requestedReadCount);
+            probe.Set("distinct_window_count", validatedReads.Count);
+            probe.Set("identical_duplicate_count", requestedReadCount - validatedReads.Count);
+            probe.Complete("validated", "identical_windows_coalesced");
+        }
         if (normalized.RootElement.TryGetProperty("candidateInventoryUpdates", out var candidateUpdates))
         {
             var updates = ParseCandidateInventoryUpdates(candidateUpdates, prompt.RootElement);

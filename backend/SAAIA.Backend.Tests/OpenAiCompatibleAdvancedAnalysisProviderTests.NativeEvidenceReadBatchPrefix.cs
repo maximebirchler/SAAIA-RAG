@@ -82,21 +82,24 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     [Theory]
     [InlineData("chat-completions")]
     [InlineData("responses")]
-    public async Task Native_evidence_read_duplicate_in_deferred_tail_rejects_before_any_window_changes(string protocol)
+    public async Task Native_evidence_read_conflicting_window_in_deferred_tail_recovers_before_any_window_changes(string protocol)
     {
         var gateway = new EvidencePrefixGateway(12, false);
         var calls = EvidencePrefixCalls(gateway.Bodies);
-        calls[^1] = calls[0];
-        using var factory = new QueuedHttpClientFactory(Completion(GuidancePlan(1)), EvidencePrefixReply(protocol, calls));
+        calls[^1] = ("read_evidence", calls[0].Arguments.Replace("3000", "2800", StringComparison.Ordinal));
+        using var factory = new QueuedHttpClientFactory(Completion(GuidancePlan(1)), EvidencePrefixReply(protocol, calls),
+            EarlyReply(protocol, GuidanceInsufficiency), EarlyReply(protocol, GuidanceInsufficiency));
         var options = PrefixOptions(protocol, 4);
         options.MaximumEvidencePromptCharacters = 98_304;
-        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
-            new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null)
+        await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null)
                 .ExecuteAsync(BuildRequest(20, "named_item", "distinct_structured_layout", "documented_option"),
-                    gateway, CancellationToken.None));
-        Assert.Equal("advanced_synthesis_research_protocol_invalid", error.ErrorCode);
+                    gateway, CancellationToken.None);
         Assert.Single(gateway.Requests);
-        Assert.Equal(2, factory.Requests.Count);
+        Assert.All(NativeCorrelationOutputs(factory.Requests[2].Body, protocol), output =>
+        {
+            Assert.Equal("batch_rejected_before_execution", output.Body.GetProperty("status").GetString());
+            Assert.Equal("read_evidence_conflicting_windows", output.Body.GetProperty("argumentFeedback").GetProperty("reasonCode").GetString());
+        });
         Assert.All(gateway.Checkpoints, checkpoint => Assert.True(checkpoint.EvidenceReadWindows is null or { Count: 0 }));
     }
 

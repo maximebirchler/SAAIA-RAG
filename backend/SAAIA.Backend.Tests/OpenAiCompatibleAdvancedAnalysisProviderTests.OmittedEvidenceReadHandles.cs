@@ -14,9 +14,11 @@ namespace SAAIA.Backend.Tests;
 public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
     [Theory]
-    [InlineData("chat-completions")]
-    [InlineData("responses")]
-    public async Task Omitted_primary_body_reopens_through_the_complete_agent_loop_before_becoming_citable(string protocol)
+    [InlineData("chat-completions", false)]
+    [InlineData("responses", false)]
+    [InlineData("chat-completions", true)]
+    [InlineData("responses", true)]
+    public async Task Omitted_primary_body_reopens_through_the_complete_agent_loop_before_becoming_citable(string protocol, bool duplicate)
     {
         var bodies = OmittedHandleBodies();
         var gateway = new OmittedHandleGateway(bodies);
@@ -43,15 +45,20 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                     chosenId = handle.GetProperty("evidenceId").GetString()!;
                     Assert.DoesNotContain(user.GetProperty("evidence").EnumerateArray(), item => item.GetProperty("evidenceId").GetString() == chosenId);
                     Assert.Equal("executed", Assert.Single(NativeCorrelationOutputs(body, protocol)).Body.GetProperty("status").GetString());
-                    response = OmittedHandleFunction(protocol, "omitted-window", "read_evidence",
-                        JsonSerializer.Serialize(new { evidenceId = chosenId, offset = 0, length = 512 }));
+                    var readArguments = JsonSerializer.Serialize(new { evidenceId = chosenId, offset = 0, length = 512 });
+                    response = duplicate
+                        ? EvidencePrefixReply(protocol, [("read_evidence", readArguments), ("read_evidence", readArguments)])
+                        : OmittedHandleFunction(protocol, "omitted-window", "read_evidence", readArguments);
                     break;
                 case 3:
                     var reopened = Assert.Single(user.GetProperty("evidence").EnumerateArray(), item => item.GetProperty("evidenceId").GetString() == chosenId);
                     Assert.Equal(Assert.Single(bodies, item => item.Reference.EvidenceId == chosenId).Content[..512], reopened.GetProperty("content").GetString());
                     Assert.DoesNotContain(user.GetProperty("omittedEvidenceReadHandles").GetProperty("items").EnumerateArray(),
                         item => item.GetProperty("evidenceId").GetString() == chosenId);
-                    Assert.Equal("projected", Assert.Single(NativeCorrelationOutputs(body, protocol)).Body.GetProperty("status").GetString());
+                    var readOutputs = NativeCorrelationOutputs(body, protocol);
+                    Assert.Equal(duplicate ? 2 : 1, readOutputs.Length);
+                    Assert.Equal(readOutputs.Length, readOutputs.Select(output => output.CallId).Distinct().Count());
+                    Assert.All(readOutputs, output => Assert.Equal("projected", output.Body.GetProperty("status").GetString()));
                     response = Completion(JsonSerializer.Serialize(new
                     {
                         outcome = "answered", answerText = "The documented procedure is available [C1].",

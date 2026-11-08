@@ -91,13 +91,20 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         {
             var window = ParseEvidenceReadArguments(read, prompt.RootElement, out var id);
             if (!canonical.TryGetValue(id, out var evidence)
-                || window.Offset >= evidence.Content.Length || !updates.TryAdd(id, window))
+                || window.Offset >= evidence.Content.Length)
             {
                 throw new AdvancedAnalysisProviderException("advanced_native_evidence_read_invalid");
             }
             if (!IsEvidenceTextBoundary(evidence.Content, window.Offset))
                 throw new AdvancedAnalysisProviderException("advanced_native_evidence_read_invalid",
                     researchArgumentFeedback: new("read_evidence_offset_splits_unicode_character",
+                        "read_evidence", string.Empty, null, null, 4));
+            // Multiple native call IDs may request exactly the same read-only
+            // window. Validate every call, but store that window only once;
+            // native correlation still returns an output for every call ID.
+            if (!updates.TryAdd(id, window) && updates[id] != window)
+                throw new AdvancedAnalysisProviderException("advanced_native_evidence_read_invalid",
+                    researchArgumentFeedback: new("read_evidence_conflicting_windows",
                         "read_evidence", string.Empty, null, null, 4));
         }
         return updates;
