@@ -764,6 +764,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         callProbe.Set("source_title_cursor_retained_count", hasTitleNavigation ? titleNavigation.GetProperty("retainedCursorCount").GetInt32() : 0);
         callProbe.Set("source_title_cursor_listed_count", hasTitleNavigation ? titleNavigation.GetProperty("listedCursorCount").GetInt32() : 0);
         callProbe.Set("source_title_cursor_omitted_count", hasTitleNavigation ? titleNavigation.GetProperty("omittedCursorCount").GetInt32() : 0);
+        if (sourceCatalogue.ValueKind == JsonValueKind.Object
+            && sourceCatalogue.TryGetProperty("observedTitles", out var observedTitles))
+        {
+            callProbe.Set("source_title_locator_retained_count", observedTitles.GetProperty("retainedLocatorCount").GetInt32());
+            callProbe.Set("source_title_locator_listed_count", observedTitles.GetProperty("listedLocatorCount").GetInt32());
+            callProbe.Set("source_title_locator_omitted_count", observedTitles.GetProperty("omittedLocatorCount").GetInt32());
+        }
         if (evidenceProjection.TryGetProperty("canonicalProjection", out var canonicalCounts))
         {
             callProbe.Set("evidence_projection_input_count", canonicalCounts.GetProperty("inputCount").GetInt32());

@@ -64,6 +64,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
     private static object SourceCatalogueForPrompt(IReadOnlyList<PromptSourceHandle> sources)
     {
+        if (sources is ObservedTitleCatalogue observed)
+        {
+            var payload = JsonSerializer.SerializeToNode(SourceCatalogueForPrompt(observed.Original), JsonOptions)!.AsObject();
+            payload["observedTitles"] = JsonSerializer.SerializeToNode(observed.Navigation, JsonOptions);
+            return payload;
+        }
         if (sources is SourceTitleNavigationCatalogue continued)
         {
             var payload = JsonSerializer.SerializeToNode(SourceCatalogueForPrompt(continued.Original), JsonOptions)!.AsObject();

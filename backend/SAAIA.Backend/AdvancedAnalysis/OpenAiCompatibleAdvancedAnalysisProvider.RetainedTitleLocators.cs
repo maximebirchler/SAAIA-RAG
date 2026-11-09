@@ -58,16 +58,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             foreach (var item in page.Items)
             {
                 if (item.PhysicalPageStart is not > 0) continue;
-                var locator = new PendingTitleLocator(sourceKey, SnapshotCanonicalReference(scope), item.PhysicalPageStart.Value);
+                var locator = new PendingTitleLocator(sourceKey, SnapshotCanonicalReference(scope), item.PhysicalPageStart.Value)
+                { ObservedTitle = item };
                 retained.RemoveAll(previous => previous.SourceKey == locator.SourceKey && previous.Page == locator.Page
-                    && MatchesBoundReadSource(previous.Scope, locator.Scope));
+                    && previous.ObservedTitle == locator.ObservedTitle && MatchesBoundReadSource(previous.Scope, locator.Scope));
                 retained.Add(locator);
                 observed++;
             }
         }
         if (observed == 0) return;
-        // Only bounded source identity and observed physical page metadata.
-        // No title text, body, evidence grant or historical provider item.
+        // Bounded literal navigation metadata, including the observed title.
+        // No body, evidence grant or historical provider item is retained.
         context.RetainedTitleLocators = retained.TakeLast(MaximumRetainedTitleLocators).ToArray();
         using var probe = BackendDiagnostics.Start("llm.retained_title_locators", _logger);
         probe.Set("job_id", request.JobId);

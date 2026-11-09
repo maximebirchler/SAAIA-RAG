@@ -75,7 +75,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal(Enumerable.Range(17, 64), retained.Select(row => (int)row.GetType().GetProperty("Page")!.GetValue(row)!));
         var serialized = JsonSerializer.Serialize(retained);
         Assert.DoesNotContain(body.Content, serialized, StringComparison.Ordinal);
-        Assert.DoesNotContain("Documented checkpoint", serialized, StringComparison.Ordinal);
+        Assert.Contains("Documented checkpoint", serialized, StringComparison.Ordinal);
         Assert.Empty(RetainedLocators(AccumulatedReadContext(gateway)));
         options.NativeSourceTitleNavigationEnabled = false;
         InvokeSourceCatalogue(provider, "PruneRetainedTitleLocators", BuildDirectRequest(), context, new[] { body });

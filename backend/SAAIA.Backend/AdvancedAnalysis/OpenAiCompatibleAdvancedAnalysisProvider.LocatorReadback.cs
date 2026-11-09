@@ -8,7 +8,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private const int MaximumLocatorReadbackPages = 4;
     private const int LocatorReadbackTopK = 12;
 
-    private sealed record PendingTitleLocator(string SourceKey, AdvancedAnalysisResultEvidence Scope, int Page);
+    private sealed record PendingTitleLocator(string SourceKey, AdvancedAnalysisResultEvidence Scope, int Page)
+    {
+        public AdvancedAnalysisSourceTitle? ObservedTitle { get; init; }
+    }
 
     private static IReadOnlyList<PendingTitleLocator> FindPendingTitleLocators(
         AdvancedAnalysisLoadDescriptor load,

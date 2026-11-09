@@ -1246,6 +1246,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         NativeResearchTurn? nativeToolTurn,
         IReadOnlyList<OmittedEvidenceReadHandle> retainedOmittedReadHandles,
         IReadOnlyList<SourceTitleCursor> retainedTitleCursors)
+        => BuildPromptEvidenceWithTitleRegistry(request, evidence, retrievalQueriesByEvidenceId,
+            focusedEvidence, persistentSourceKeys, evidenceReadWindows, nativeToolTurn,
+            retainedOmittedReadHandles, retainedTitleCursors, []);
+
+    private IReadOnlyList<PromptEvidenceItem> BuildPromptEvidenceWithTitleRegistry(
+        AdvancedAnalysisProviderRequest request,
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
+        IReadOnlyDictionary<string, HashSet<string>> retrievalQueriesByEvidenceId,
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence>? focusedEvidence,
+        IDictionary<string, string>? persistentSourceKeys,
+        IReadOnlyDictionary<string, EvidenceReadWindow>? evidenceReadWindows,
+        NativeResearchTurn? nativeToolTurn,
+        IReadOnlyList<OmittedEvidenceReadHandle> retainedOmittedReadHandles,
+        IReadOnlyList<SourceTitleCursor> retainedTitleCursors,
+        IReadOnlyList<PendingTitleLocator> retainedTitleLocators)
     {
         var configuredMaximum = Math.Clamp(
             _options.MaximumEvidencePromptCharacters,
@@ -1293,6 +1308,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             sourceCatalogue = BuildAdmittedCardSourceCatalogue(request.Handoff.Load, evidence, sourceCatalogue, configuredMaximum);
         if (_options.NativeSourceTitleNavigationEnabled && sourceCatalogue is not null)
             sourceCatalogue = BuildSourceTitleNavigationCatalogue(sourceCatalogue, retainedTitleCursors, configuredMaximum);
+        if (_options.NativeSourceTitleNavigationEnabled && sourceCatalogue is not null)
+            sourceCatalogue = BuildObservedTitleCatalogue(sourceCatalogue, retainedTitleLocators, configuredMaximum);
         if (sourceCatalogue is not null
             && MeasureDocumentaryProjectionWithSourcesWireCharacters([], null, sourceCatalogue) > configuredMaximum)
             throw new AdvancedAnalysisProviderException("advanced_source_catalogue_budget_exceeded");

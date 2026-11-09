@@ -57,6 +57,15 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             Assert.False(cursors[2].GetProperty("cardBackedOnly").GetBoolean());
             Assert.DoesNotContain("evidenceId", navigation.GetRawText(), StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("content", navigation.GetRawText(), StringComparison.OrdinalIgnoreCase);
+            Assert.True(user.GetProperty("sourceCatalogue").TryGetProperty("observedTitles", out var titles),
+                "Previously observed literal titles must survive subsequent unrelated reads, not only pagination offsets.");
+            Assert.True(titles.GetProperty("navigationOnly").GetBoolean());
+            Assert.False(titles.GetProperty("citable").GetBoolean());
+            var retainedTitles = titles.GetProperty("items").EnumerateArray().ToArray();
+            Assert.Contains(retainedTitles, row => row.GetProperty("sourceKey").GetString() == "internal-source-1"
+                && row.GetProperty("title").GetString() == "Operation 8"
+                && row.GetProperty("physicalPageStart").GetInt32() == 18);
+            Assert.DoesNotContain("evidenceId", titles.GetRawText(), StringComparison.OrdinalIgnoreCase);
             Assert.InRange(OpenAiCompatibleAdvancedAnalysisProvider.MeasureSecondaryDocumentaryWireCharacters(factory.Requests[index].Body),
                 1, options.MaximumEvidencePromptCharacters);
         }
@@ -73,6 +82,12 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             Assert.Equal(hasNavigation ? navigation.GetProperty("retainedCursorCount").GetInt32() : 0, probe.GetProperty("source_title_cursor_retained_count").GetInt32());
             Assert.Equal(hasNavigation ? navigation.GetProperty("listedCursorCount").GetInt32() : 0, probe.GetProperty("source_title_cursor_listed_count").GetInt32());
             Assert.Equal(hasNavigation ? navigation.GetProperty("omittedCursorCount").GetInt32() : 0, probe.GetProperty("source_title_cursor_omitted_count").GetInt32());
+            if (catalogue.ValueKind == JsonValueKind.Object && catalogue.TryGetProperty("observedTitles", out var titles))
+            {
+                Assert.Equal(titles.GetProperty("retainedLocatorCount").GetInt32(), probe.GetProperty("source_title_locator_retained_count").GetInt32());
+                Assert.Equal(titles.GetProperty("listedLocatorCount").GetInt32(), probe.GetProperty("source_title_locator_listed_count").GetInt32());
+                Assert.Equal(titles.GetProperty("omittedLocatorCount").GetInt32(), probe.GetProperty("source_title_locator_omitted_count").GetInt32());
+            }
             Assert.Equal(0, probe.GetProperty("diagnostic_dropped_measurements").GetInt32());
         }
     }

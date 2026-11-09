@@ -239,10 +239,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 };
             PruneSourceTitleCursors(request, context, evidence);
             PruneRetainedTitleLocators(request, context, evidence);
-            var observations = BuildPromptEvidenceWithNavigationRegistry(
+            var observations = BuildPromptEvidenceWithTitleRegistry(
                 request, evidence, context.RetrievalQueriesByEvidenceId,
                 focusedEvidence, context.PromptSourceKeys, context.EvidenceReadWindows, context.NativeTurn,
-                context.RetainedOmittedEvidenceReadHandles, context.SourceTitleCursors);
+                context.RetainedOmittedEvidenceReadHandles, context.SourceTitleCursors, context.RetainedTitleLocators);
             if (_options.NativeResearchToolsEnabled && _options.NativeResearchWorkspaceEnabled
                 && CandidateInventoryEnabled(request))
             {

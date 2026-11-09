@@ -42,6 +42,12 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             .GetProperty("executedReads").GetInt32() >= 1);
         Assert.Contains("Canonical operating guidance for source 2, page 80.",
             review.GetProperty("evidence").GetRawText(), StringComparison.Ordinal);
+        var titles = review.GetProperty("sourceCatalogue").GetProperty("observedTitles");
+        Assert.Contains(titles.GetProperty("items").EnumerateArray(), item =>
+            item.GetProperty("sourceKey").GetString() == "internal-source-2"
+            && item.GetProperty("title").GetString() == "Documented checkpoint"
+            && item.GetProperty("physicalPageStart").GetInt32() == 80);
+        Assert.False(titles.GetProperty("citable").GetBoolean());
         Assert.Equal(5, factory.Requests.Count);
         Assert.Empty(result.Claims);
     }
