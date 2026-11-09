@@ -26,7 +26,10 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         try:
             if self.path.startswith("/slow"):
-                time.sleep(3)
+                # Make headers and a non-content event observable before the
+                # stall. Cancellation must interrupt body reading, not startup.
+                self.event({"model": "fixture", "choices": [{"delta": {"role": "assistant"}}]})
+                time.sleep(10)
             else:
                 time.sleep(0.04)
             self.event({"model": "fixture", "choices": [{"delta": {"role": "assistant"}}]})

@@ -3,6 +3,7 @@ param ([string]$OutputPath = '')
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'RuntimeProbes.psm1') -Force
 $checks = [Collections.Generic.List[object]]::new()
+$observations = [ordered]@{}
 function Assert-Probe([string]$Name, [bool]$Condition) {
     $checks.Add(@{
             name = $Name
@@ -194,7 +195,12 @@ try {
     $incomplete = Invoke-RuntimeCompletionProbe -BaseUrl "$url/incomplete" -TimeoutSeconds 2
     Assert-Probe 'truncated stream is not successful' (-not $incomplete.ok -and $incomplete.error -eq 'incomplete_stream')
     $slow = Invoke-RuntimeCompletionProbe -BaseUrl "$url/slow" -TimeoutSeconds 1
-    Assert-Probe 'timeout includes reading streamed body' (-not $slow.ok -and $slow.elapsedMs -lt 2200)
+    $observations.slowBody = $slow
+    # The fixture withholds content for ten seconds. Assert actual cancellation
+    # after headers, with scheduling headroom on shared CI hosts. A broken body
+    # cancellation still waits for the fixture and fails this bounded assertion.
+    Assert-Probe 'timeout includes reading streamed body' (-not $slow.ok -and $slow.statusCode -eq 200 -and
+        $slow.timedOut -and $slow.error -eq 'timeout' -and $slow.ttftState -eq 'unavailable' -and $slow.elapsedMs -lt 8000)
 } catch {
     $failure = $_
 } finally {
@@ -236,6 +242,7 @@ try {
         @{
             schemaVersion = 'saaia-probe-tests-v1'
             checks = $checks
+            observations = $observations
             executedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
             providerCalls = 0
             passed = $null -eq $failure -and $fixtureStartup.ready -and $fixtureCleanup.processStopped -and

@@ -83,6 +83,7 @@ function Invoke-RuntimeCompletionProbe {
         model = $null
         streaming = $streaming
         error = $null
+        timedOut = $false
     }
 
     $response = $null
@@ -163,7 +164,8 @@ function Invoke-RuntimeCompletionProbe {
 
         return $result
     } catch {
-        $result.error = $_.Exception.GetType().Name
+        $result.timedOut = $cancellation.IsCancellationRequested
+        $result.error = if ($result.timedOut) { 'timeout' } else { $_.Exception.GetBaseException().GetType().Name }
         return $result
     } finally {
         $result.elapsedMs = $timer.Elapsed.TotalMilliseconds
