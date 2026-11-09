@@ -771,22 +771,24 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private static IEnumerable<object> BuildPriorSearchesForPrompt(
         IReadOnlyList<AdvancedAnalysisSearchRequest> searches,
         IReadOnlyList<PromptEvidenceItem> observations)
-        => searches.Select(search => (object)new
+        => searches.Select(search =>
         {
-            search.Query, search.Category, search.DocumentHint,
-            search.Operation,
-            search.ReadDiagnostic,
-            search.FindDiagnostic, search.Offset,
-             retrievalDiagnostic = BuildRetrievalDiagnosticForPrompt(search.RetrievalDiagnostic, search.DegradedRetrievers),
-             documentResolution = BuildDocumentResolutionForPrompt(search.DocumentResolution),
-             degradedRetrievers = BuildDegradedRetrieversForPrompt(search.DegradedRetrievers),
-            sourceKey = observations.FirstOrDefault(observation =>
-                (!string.IsNullOrWhiteSpace(search.DocId)
-                 && string.Equals(search.DocId, observation.SourceReference.DocId, StringComparison.OrdinalIgnoreCase))
-                || (!string.IsNullOrWhiteSpace(search.DocPath)
-                    && string.Equals(search.DocPath, observation.SourceReference.DocPath, StringComparison.Ordinal)))?.SourceKey,
-            search.PageStart, search.PageEnd,
-            search.TopK, search.MaxPerDocument, search.MaxPerPage
+            var sourceKey = CurrentSearchSourceKey(search, observations);
+            return (object)new
+            {
+                search.Query, search.Category, search.DocumentHint,
+                search.Operation,
+                search.ReadDiagnostic,
+                search.FindDiagnostic, search.Offset,
+                retrievalDiagnostic = BuildRetrievalDiagnosticForPrompt(search.RetrievalDiagnostic, search.DegradedRetrievers),
+                documentResolution = BuildDocumentResolutionForPrompt(search.DocumentResolution),
+                degradedRetrievers = BuildDegradedRetrieversForPrompt(search.DegradedRetrievers),
+                sourceKey,
+                search.ResourceLimit,
+                readRetry = BuildReadRetryHint(search, search.ResourceLimit, sourceKey),
+                search.PageStart, search.PageEnd,
+                search.TopK, search.MaxPerDocument, search.MaxPerPage
+            };
         });
 
     private static string BuildCriticRepairSystemPrompt()

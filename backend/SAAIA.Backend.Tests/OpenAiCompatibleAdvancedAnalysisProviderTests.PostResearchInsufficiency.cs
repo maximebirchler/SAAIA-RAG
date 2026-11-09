@@ -12,7 +12,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     [Theory]
     [InlineData("responses")]
     [InlineData("chat-completions")]
-    public async Task Distinct_grid_insufficiency_review_reports_only_supported_prior_draft_coverage(string protocol)
+    public async Task Distinct_grid_partial_review_does_not_infer_slot_coverage_from_citation_numbers(string protocol)
     {
         var bodies = EarlyBodies();
         var partial = JsonSerializer.Serialize(new
@@ -37,10 +37,12 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var review = WorkspaceUser(factory.Requests[2].Body).GetProperty("insufficiencyReview");
         Assert.DoesNotContain("Publish only a complete supported selection", review.GetProperty("instruction").GetString());
         Assert.Contains("Preserve useful supported claims", review.GetProperty("instruction").GetString());
-        var coverage = review.GetProperty("priorDraftCoverage").EnumerateArray().ToArray();
-        Assert.Equal(request.Handoff.Load.Columns, coverage.Select(item => item.GetProperty("columnLabel").GetString()));
-        Assert.All(coverage, item => Assert.Equal(5, item.GetProperty("requiredSlots").GetInt32()));
-        Assert.Equal(new[] { 1, 0, 0, 1 }, coverage.Select(item => item.GetProperty("priorDraftSupportedNames").GetInt32()));
+        var coverage = review.GetProperty("priorDraftSelection");
+        Assert.Equal(20, coverage.GetProperty("requiredSlots").GetInt32());
+        Assert.Equal(2, coverage.GetProperty("priorDraftSupportedDistinctNames").GetInt32());
+        Assert.False(coverage.GetProperty("coordinateCoverageKnown").GetBoolean());
+        Assert.False(review.TryGetProperty("priorDraftCoverage", out _));
+        Assert.Contains("Citation numbers do not establish occupied slots", coverage.GetProperty("instruction").GetString());
         Assert.DoesNotContain("Unsupported selection", review.GetRawText(), StringComparison.Ordinal);
         Assert.Equal("insufficient_documentation", result.Outcome);
         Assert.Empty(result.Claims);

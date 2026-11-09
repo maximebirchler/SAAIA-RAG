@@ -4,10 +4,11 @@ namespace SAAIA.Backend.AdvancedAnalysis;
 
 internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 {
-    private sealed record DistinctGridReviewColumn(
-        string ColumnLabel, int RequiredSlots, int PriorDraftSupportedNames);
+    private sealed record DistinctSelectionReview(
+        int RequiredSlots, int PriorDraftSupportedDistinctNames,
+        bool CoordinateCoverageKnown, string Instruction);
 
-    private static IReadOnlyList<DistinctGridReviewColumn>? BuildDistinctGridReviewHint(
+    private static DistinctSelectionReview? BuildDistinctSelectionReviewHint(
         string raw,
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
         IReadOnlyList<PromptEvidenceItem> observations,
@@ -17,11 +18,6 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         if (!RequiresDistinctStructuredSelection(load))
             return null;
 
-        var coordinates = BuildStructuredClaimCoordinates(load);
-        if (coordinates.Count != load.AnswerUnitCount || coordinates.Count == 0)
-            return null;
-
-        var supportedByColumn = new Dictionary<string, int>(StringComparer.Ordinal);
         try
         {
             var draft = ParseResult(raw, evidence, request);
@@ -31,22 +27,22 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var visible = observations.Where(item => item.EvidenceId is not null)
                 .ToLookup(item => item.EvidenceId!, StringComparer.Ordinal);
             var counted = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var coordinate in coordinates)
+            foreach (var claim in claims.Values)
             {
-                if (!claims.TryGetValue(coordinate.ClaimId, out var claim)
-                    || string.IsNullOrWhiteSpace(claim.SelectedItem)
+                if (string.IsNullOrWhiteSpace(claim.SelectedItem)
                     || !claim.EvidenceIds.Any(id => visible[id].Any(item =>
                         EvidenceSupportsSelectedIdentity(claim.SelectedItem, item)
                         && GetVisibleEvidenceContents(item).Any(content =>
                             !string.IsNullOrWhiteSpace(content)
                             && !RetrievalContentClassifier.IsIdentityOnlyCandidateEvidence(
-                                content, item.CandidateTitle, claim.SelectedItem))))
-                    || !counted.Add(NormalizeClaimText(claim.SelectedItem)))
+                                content, item.CandidateTitle, claim.SelectedItem)))))
                     continue;
-
-                supportedByColumn[coordinate.ColumnLabel] =
-                    supportedByColumn.GetValueOrDefault(coordinate.ColumnLabel) + 1;
+                counted.Add(NormalizeClaimText(claim.SelectedItem));
             }
+            return new(load.AnswerUnitCount, counted.Count, false,
+                "Citation numbers do not establish occupied slots in a partial answer. "
+                + "This count records distinct named items with visible supporting bodies only; "
+                + "it does not establish suitability, placement or completeness. Inspect the actual draft and evidence to identify gaps.");
         }
         catch (AdvancedAnalysisProviderException)
         {
@@ -54,9 +50,6 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             // draft supplies no coverage hint and cannot create a citation.
         }
 
-        return coordinates.GroupBy(coordinate => coordinate.ColumnLabel, StringComparer.Ordinal)
-            .Select(group => new DistinctGridReviewColumn(
-                group.Key, group.Count(), supportedByColumn.GetValueOrDefault(group.Key)))
-            .ToArray();
+        return null;
     }
 }

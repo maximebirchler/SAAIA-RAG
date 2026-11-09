@@ -110,7 +110,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     $"Canonical source physical pages {locator.Page}-{locator.Page}",
                     TopK: topK, DocId: locator.Scope.DocId, DocPath: locator.Scope.DocPath,
                     PageStart: locator.Page, PageEnd: locator.Page,
-                    Operation: "read_source", RevisionId: locator.Scope.RevisionId));
+                    Operation: "read_source", RevisionId: locator.Scope.RevisionId)
+                    { ObservedSourceHash = locator.Scope.SourceHash });
             }).ToArray();
         using var probe = BackendDiagnostics.Start("llm.locator_readback", _logger);
         probe.Set("job_id", request.JobId);

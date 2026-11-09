@@ -37,6 +37,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal(7, resolved.Offset);
         Assert.Equal(13, resolved.TopK);
         Assert.Null(resolved.PageStart);
+        var scope = (AdvancedAnalysisResultEvidence)InvokeSourceCatalogue(null, "ResolveObservedSource", projection, sourceKey)!;
+        Assert.Equal(scope.SourceHash, resolved.ObservedSourceHash);
+        Assert.Equal(sourceKey, InvokeSourceCatalogue(null, "CurrentSearchSourceKey", resolved, projection));
         var filtered = Assert.Single(Parse(sourceKey, 0, 20, "seal", 3, 18, true));
         Assert.Equal("seal", filtered.TitleContains);
         Assert.Equal(3, filtered.PageStart);

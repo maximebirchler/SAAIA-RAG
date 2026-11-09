@@ -598,7 +598,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 FindDiagnostic = observation.FindDiagnostic,
                 RetrievalDiagnostic = observation.RetrievalDiagnostic,
                 DocumentResolution = observation.DocumentResolution,
-                DegradedRetrievers = observation.DegradedRetrievers
+                DegradedRetrievers = observation.DegradedRetrievers,
+                ResourceLimit = observation.ResourceLimit
             };
             if (observation.Evidence.Count == 0)
                 continue;

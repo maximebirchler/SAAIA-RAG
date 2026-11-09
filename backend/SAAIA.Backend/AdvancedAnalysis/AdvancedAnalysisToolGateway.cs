@@ -50,7 +50,14 @@ internal sealed record AdvancedAnalysisSearchRequest(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? NativeObservationLimit = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] AdvancedAnalysisEvidenceWorkingSet? EvidenceWorkingSet = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? TitleContains = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool CardBackedTitlesOnly = false);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool CardBackedTitlesOnly = false)
+{
+    // Result metadata retained for later model turns; never an admission of evidence.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public AdvancedAnalysisResearchResourceLimit? ResourceLimit { get; init; }
+    [JsonIgnore]
+    public string? ObservedSourceHash { get; init; }
+}
 
 internal sealed record AdvancedAnalysisEvidenceWorkingSet(
     string SchemaVersion, int MaximumEvidenceItems, IReadOnlyList<AdvancedAnalysisResultEvidence> Evidence)

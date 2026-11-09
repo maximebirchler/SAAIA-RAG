@@ -607,28 +607,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 instruction = "Operational metadata only, not documentary facts or item counts. Cite current user.evidence/structuredTables only. For omitted bodies request a smaller batch or read_source at an observed page with a current sourceKey; for shortened visible bodies use read_evidence at nextContentOffset. Navigation is a locator, not a body; gaps do not prove absence."
             };
             var outputNode = JsonSerializer.SerializeToNode(result, JsonOptions)!.AsObject();
-            if (request?.Operation == "read_source"
-                && observation?.ResourceLimit is { ReasonCode: "canonical_read_window_result_limit_exceeded", StopsResearch: false } readLimit
-                && request.PageStart is int pageStart && request.PageEnd is int pageEnd)
-            {
-                // The gateway probes only TopK + 1 chunks; the observed count is a lower bound.
-                const int maximumReadTopK = 60;
-                var suggestedTopK = pageStart == pageEnd && request.TopK < maximumReadTopK
-                    ? Math.Min(maximumReadTopK, Math.Max(request.TopK * 2, readLimit.ObservedAtLeastChunkCount ?? 0))
-                    : (int?)null;
-                outputNode["readRetry"] = JsonSerializer.SerializeToNode(new
-                {
-                    pageStart,
-                    pageEnd,
-                    pageCount = pageEnd - pageStart + 1,
-                    suggestedTopK,
-                    instruction = pageStart != pageEnd
-                        ? "No text was returned. If this evidence is still useful, retry a smaller page window with the same sourceKey. The observed chunk count is a lower bound, not the page's size."
-                        : suggestedTopK is not null
-                            ? "No text was returned. If this page is still useful, retry the same sourceKey and page with suggestedTopK. The observed chunk count is a lower bound, not the page's size."
-                            : "No text was returned and this page already used the maximum topK. Use find_source_text with an observed phrase or investigate another source; this does not establish absence."
-                }, JsonOptions);
-            }
+            var retrySourceKey = turn.CallSourceScopes.TryGetValue(callId, out var readScope)
+                ? activeSourceCatalogue is not null ? CurrentNativeSourceKey(activeSourceCatalogue, readScope)
+                    : visible.FirstOrDefault(item => MatchesBoundReadSource(item.SourceReference, readScope))?.SourceKey
+                : null;
+            if (BuildReadRetryHint(request, observation?.ResourceLimit, retrySourceKey) is { } readRetry)
+                outputNode["readRetry"] = JsonSerializer.SerializeToNode(readRetry, JsonOptions);
             // Native/secondary windows already carry exact line/cursor and
             // omission diagnostics below. Do not duplicate that bounded wire.
             var primaryResult = request?.Operation is "read_source" or "find_source_text" or "search_corpus"

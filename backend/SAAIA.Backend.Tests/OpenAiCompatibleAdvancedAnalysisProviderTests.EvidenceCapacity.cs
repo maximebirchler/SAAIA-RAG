@@ -140,6 +140,19 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal(5, retry.GetProperty("pageStart").GetInt32());
         Assert.Equal(8, retry.GetProperty("pageEnd").GetInt32());
         Assert.Contains("retry a smaller page window", retry.GetProperty("instruction").GetString());
+        var suggested = retry.GetProperty("suggestedRequest");
+        Assert.Equal("internal-source-1", suggested.GetProperty("sourceKey").GetString());
+        Assert.Equal(5, suggested.GetProperty("pageStart").GetInt32());
+        Assert.Equal(1, suggested.GetProperty("pageCount").GetInt32());
+        Assert.Equal(12, suggested.GetProperty("topK").GetInt32());
+        // The following successful native turn replaces the failed batch in
+        // tool history. Its failure and actionable retry must remain available.
+        var afterAnotherTurn = WorkspaceUser(factory.Requests[3].Body);
+        var failedSearch = afterAnotherTurn.GetProperty("researchTools").GetProperty("priorSearches")
+            .EnumerateArray().Single(item => item.GetProperty("executionStatus").GetString() == "failed");
+        Assert.Equal("canonical_read_window_result_limit_exceeded",
+            failedSearch.GetProperty("resourceLimit").GetProperty("reasonCode").GetString());
+        Assert.Equal(suggested.GetRawText(), failedSearch.GetProperty("readRetry").GetProperty("suggestedRequest").GetRawText());
         using var prompt = JsonDocument.Parse(input.Single(i => i.TryGetProperty("role", out var role)
             && role.GetString() == "user").GetProperty("content").GetString()!);
         Assert.True(prompt.RootElement.GetProperty("researchTools").GetProperty("researchAllowed").GetBoolean());

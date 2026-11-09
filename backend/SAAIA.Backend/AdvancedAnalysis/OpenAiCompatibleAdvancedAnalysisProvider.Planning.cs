@@ -79,7 +79,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         TopK: locatorCount, DocId: locatorSource.DocId, DocPath: locatorSource.DocPath,
                         Operation: operation, RevisionId: locatorSource.RevisionId, Offset: firstLocator,
                         PageStart: firstPage, PageEnd: lastPage, TitleContains: titleFilter,
-                        CardBackedTitlesOnly: cardFilter.GetBoolean());
+                        CardBackedTitlesOnly: cardFilter.GetBoolean()) { ObservedSourceHash = locatorSource.SourceHash };
                     if (dedupe.Add(BuildSearchIdentity(locatorRequest))) result.Add(locatorRequest);
                     continue;
                 }
@@ -202,7 +202,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     VisualSourceOffset: visualOffset, VisualSourceLimit: visualLimit,
                     NativeObservationView: nativeView, NativeObservationBlockId: nativeBlock,
                     NativeObservationRawSha256: nativeRawSha, NativeObservationOffset: nativeOffset,
-                    NativeObservationLimit: nativeLimit);
+                    NativeObservationLimit: nativeLimit) { ObservedSourceHash = observedSource?.SourceHash };
                 try { AdvancedAnalysisTableObservationReader.ValidateRequest(search); }
                 catch (AdvancedAnalysisToolException) { throw new JsonException(); }
                 AdvancedAnalysisProviderException AuxiliaryArgumentsInvalid(string reason)
