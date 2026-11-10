@@ -186,18 +186,20 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         using var factory = new QueuedHttpClientFactory(Completion(RepeatablePlan),
             PostResearchFunction(protocol, "search_corpus", PostResearchSearch), EarlyReply(protocol, EarlyInsufficient),
             PostResearchFunction(protocol, "search_corpus", PostResearchSearch),
-            PostResearchFunction(protocol, "search_corpus", PostResearchSearch));
+            PostResearchFunction(protocol, "search_corpus", PostResearchSearch),
+            EarlyReply(protocol, EarlyInsufficient));
         var bodies = EarlyBodies();
         var gateway = new PostResearchToolGateway((query, number) => new(query.Query,
             number == 1 ? [EarlyLocator(bodies[0])] : bodies, [], 1, number));
 
-        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
-            new OpenAiCompatibleAdvancedAnalysisProvider(factory, EarlyOptions(protocol, 9), null)
-                .ExecuteAsync(BuildRequest(20, "named_item", "structured_layout", "documented_option"), gateway, CancellationToken.None));
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, EarlyOptions(protocol, 9), null)
+            .ExecuteAsync(BuildRequest(20, "named_item", "structured_layout", "documented_option"), gateway, CancellationToken.None);
 
-        Assert.Equal("advanced_synthesis_research_no_progress", error.ErrorCode);
+        Assert.Equal("insufficient_documentation", result.Outcome);
         Assert.Equal(2, gateway.Searches.Count);
-        Assert.Equal(5, factory.Requests.Count);
+        Assert.Equal(6, factory.Requests.Count);
+        using var final = JsonDocument.Parse(factory.Requests[5].Body);
+        Assert.False(final.RootElement.TryGetProperty("tools", out _));
         Assert.Equal("search_already_executed", WorkspaceUser(factory.Requests[4].Body)
             .GetProperty("researchFeedback").GetProperty("reasonCode").GetString());
     }

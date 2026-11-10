@@ -32,7 +32,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal(512, retained.Length);
         Assert.Null(retained.PreviousWindows);
         var finalPayload = WorkspaceUser(factory.Requests[^1].Body);
-        Assert.Equal("search_already_executed", finalPayload.GetProperty("researchFeedback")
+        Assert.Equal("evidence_window_already_available", finalPayload.GetProperty("researchFeedback")
             .GetProperty("reasonCode").GetString());
         var visible = Assert.Single(finalPayload.GetProperty("evidence").EnumerateArray());
         Assert.Equal("The threshold is 17 bar.", visible.GetProperty("content").GetString());

@@ -162,7 +162,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             AssertCurrentCacheProjectionWindow(user, repeated!);
             Assert.Equal(repeated!.Reference.EvidenceId,
                 user.GetProperty("evidence")[0].GetProperty("evidenceId").GetString());
-            Assert.Equal("search_already_executed", user.GetProperty("researchFeedback").GetProperty("reasonCode").GetString());
+            Assert.Equal("evidence_window_already_available", user.GetProperty("researchFeedback").GetProperty("reasonCode").GetString());
             Assert.Equal("not_changed", Assert.Single(NativeCorrelationOutputs(wire, protocol)).Body.GetProperty("status").GetString());
             Assert.Equal(2, gateway.Requests.Count);
             return await AdaptProtocolAgnosticFixtureAsync(request, EarlyReply(protocol, GuidanceInsufficiency), CancellationToken.None);

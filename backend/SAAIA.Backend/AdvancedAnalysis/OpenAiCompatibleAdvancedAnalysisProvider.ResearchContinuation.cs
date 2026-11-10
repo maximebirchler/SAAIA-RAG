@@ -184,6 +184,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var discoveryChallenge = new DiscoveryChallengeState();
         AdvancedAnalysisResearchArgumentFeedback? argumentFeedback = null;
         IReadOnlyList<AdvancedAnalysisSearchRequest>? repeatedSearches = null;
+        IReadOnlyDictionary<string, EvidenceReadWindow>? repeatedEvidenceReads = null;
+        var finalizeAfterNoProgress = false;
         var nextPhase = phase;
         object? candidateSupportFeedback = null;
         var blockedCandidateAdmissionsForFeedback = 0;
@@ -336,7 +338,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         JsonOptions);
                 if (_options.AdaptiveResearchEnabled)
                 {
-                    var researchAllowed = maximumCalls - completions.Count - 1 - reservedFinalCalls > 0
+                    var researchAllowed = !finalizeAfterNoProgress && maximumCalls - completions.Count - 1 - reservedFinalCalls > 0
                         && context.ResourceLimit is null
                         && HasDocumentaryResearchBudget(toolBudget);
                     var researchTools = JsonSerializer.SerializeToNode(new
@@ -344,7 +346,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         tools = BuildResearchToolsForPrompt(includeEvidenceReading: _options.NativeResearchToolsEnabled),
                         researchAllowed,
                         remainingModelCalls = Math.Max(0, maximumCalls - completions.Count - 1 - reservedFinalCalls),
-                        evidenceReadingAllowed = maximumCalls - completions.Count - 1 - reservedFinalCalls > 0,
+                        evidenceReadingAllowed = !finalizeAfterNoProgress && maximumCalls - completions.Count - 1 - reservedFinalCalls > 0,
                         documentaryBudget = toolBudget,
                         maximumQueries = ResolveMaximumPlanQueries(request),
                         availableCategories = context.AvailableCategories,
@@ -373,12 +375,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 if (argumentFeedback is not null)
                     payload["researchArgumentFeedback"] = JsonSerializer.SerializeToNode(BuildResearchArgumentFeedbackForPrompt(argumentFeedback), JsonOptions);
                 if (repeatedSearches is not null)
-                    payload["researchFeedback"] = JsonSerializer.SerializeToNode(new
-                    {
-                        reasonCode = "search_already_executed",
-                        searches = BuildPriorSearchesForPrompt(repeatedSearches, observations),
-                        instruction = "These searches already ran. Their existing evidence is prioritized in this context; they were not executed again. Use the available substantive content, or reformulate the query/scope if a different fact is needed. Do not repeat the same search. Lack of a visible passage does not prove corpus absence."
-                    }, JsonOptions);
+                    payload["researchFeedback"] = JsonSerializer.SerializeToNode(BuildResearchStallFeedback(
+                        repeatedSearches, repeatedEvidenceReads, observations, finalizeAfterNoProgress), JsonOptions);
                 AddBootstrapResearchFeedback(payload, context, request.JobId);
                 userPrompt = payload.ToJsonString(JsonOptions);
             }
@@ -397,7 +395,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     return new SynthesisCompletion(completion, evidence, observations);
                 if (_options.NativeResearchToolsEnabled)
                     RememberPreviousCitedEvidence(completion.Content, evidence, observations, request, context);
-                if (_options.AdaptiveResearchEnabled && _options.NativeResearchToolsEnabled
+                if (!finalizeAfterNoProgress && _options.AdaptiveResearchEnabled && _options.NativeResearchToolsEnabled
                     && phase == "writer" && request.Handoff.Load.StructuredLayout
                     && string.Equals(request.Handoff.Load.AtomicEvidenceMode, "named_item", StringComparison.OrdinalIgnoreCase)
                     && IsInsufficientDocumentaryResult(completion.Content))
@@ -501,6 +499,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     context.CandidateExplorerDossier is not null);
                 if (corrections.Count == 0)
                     return new SynthesisCompletion(completion, evidence, observations, insufficiencyReviewed);
+                if (finalizeAfterNoProgress)
+                    throw new AdvancedAnalysisProviderException(corrections.Any(c => c.ReasonCode == "candidate_evidence_not_visible")
+                        ? "advanced_synthesis_candidate_evidence_not_visible"
+                        : corrections.Any(c => c.ReasonCode != "candidate_body_required")
+                            ? "advanced_synthesis_candidate_identity_not_supported"
+                            : "advanced_synthesis_candidate_body_not_supported");
                 if (completions.Count + 1 >= maximumCalls - reservedFinalCalls
                     && UsesRepeatableGridIdentityCorrection(request.Handoff.Load)
                     && corrections.All(correction => correction.ReasonCode == "candidate_identity_not_supported"))
@@ -534,6 +538,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }
 
             completions.Add(completion);
+            if (finalizeAfterNoProgress)
+                throw new AdvancedAnalysisProviderException("advanced_synthesis_research_no_progress");
             insufficiencyReview = null;
             discoveryChallenge.Prompt = null;
             if (!_options.AdaptiveResearchEnabled)
@@ -644,9 +650,31 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (!workspaceChanged && !candidateInventoryChanged && !evidenceReadsChanged
                 && !queries.Any(query => !context.PreviouslyExecuted.Contains(BuildSearchIdentity(query))))
             {
-                if (++noProgressRecovery > 1)
-                    throw new AdvancedAnalysisProviderException("advanced_synthesis_research_no_progress");
                 repeatedSearches = queries;
+                repeatedEvidenceReads = evidenceReadUpdates;
+                var repeated = ++noProgressRecovery > 1;
+                using (var probe = BackendDiagnostics.Start("llm.research_stall", _logger))
+                {
+                    probe.Set("job_id", request.JobId);
+                    probe.Set("role", nextPhase);
+                    probe.Set("repeated_search_count", queries.Count);
+                    probe.Set("repeated_evidence_read_count", evidenceReadUpdates?.Count ?? 0);
+                    probe.Set("recovery_count", noProgressRecovery);
+                    probe.Set("remaining_model_calls", maximumCalls - completions.Count - reservedFinalCalls);
+                    probe.Complete(repeated ? candidateExplorer ? "terminal" : "final_synthesis" : "recovery", "no_documentary_progress");
+                }
+                if (repeated)
+                {
+                    if (candidateExplorer)
+                        throw new AdvancedAnalysisProviderException("advanced_synthesis_research_no_progress");
+                    // One bounded terminal turn, with current evidence and all
+                    // ordinary binding/critic checks. Never replay an old draft.
+                    finalizeAfterNoProgress = true;
+                    insufficiencyReviewed = true;
+                    insufficiencyReview = null;
+                    discoveryChallenge.Prompt = null;
+                    candidateSupportFeedback = null;
+                }
                 if (completion.NativeToolCallsJson is { } duplicateCalls)
                     context.NativeTurn = new(duplicateCalls, queries,
                         new Dictionary<string, AdvancedAnalysisSearchObservation>(), ResponseOutputItemsJson: completion.NativeResponseOutputJson)
@@ -657,10 +685,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         BatchLimitingOperation = nativeBatch?.LimitingOperation,
                         BatchOperationCallLimit = nativeBatch?.OperationCallLimit
                     };
-                nextPhase = $"{phase}-research-recovery-{noProgressRecovery}";
+                nextPhase = finalizeAfterNoProgress ? $"{phase}-research-stall-finalization"
+                    : $"{phase}-research-recovery-{noProgressRecovery}";
                 continue;
             }
             repeatedSearches = null;
+            repeatedEvidenceReads = null;
             if (mergedCandidateInventory is not null)
             {
                 context.CandidateInventory = mergedCandidateInventory;

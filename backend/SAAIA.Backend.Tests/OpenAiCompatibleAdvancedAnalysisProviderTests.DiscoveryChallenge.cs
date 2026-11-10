@@ -87,14 +87,16 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             Completion("""{"selectionMode":"distinct_named_items","queries":[{"query":"initial documented options","topK":4}]}"""),
             PostResearchFunction(protocol, "read_source", read), EarlyReply(protocol, EarlyInsufficient),
             PostResearchFunction(protocol, "read_source", read), EarlyReply(protocol, EarlyInsufficient),
-            PostResearchFunction(protocol, "read_source", read));
+            PostResearchFunction(protocol, "read_source", read),
+            EarlyReply(protocol, EarlyInsufficient), EarlyReply(protocol, EarlyInsufficient));
         var options = EarlyOptions(protocol, 16); options.SemanticCriticEnabled = true;
         options.NativeResearchActiveProposalEnabled = false;
-        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
-            new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null).ExecuteAsync(
-                BuildRequest(20, "named_item", "distinct_structured_layout", "documented_option"), gateway, CancellationToken.None));
-        Assert.Equal("advanced_synthesis_research_no_progress", error.ErrorCode);
-        Assert.Equal(6, factory.Requests.Count);
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null).ExecuteAsync(
+            BuildRequest(20, "named_item", "distinct_structured_layout", "documented_option"), gateway, CancellationToken.None);
+        Assert.Equal("insufficient_documentation", result.Outcome);
+        Assert.Equal(8, factory.Requests.Count);
+        using var final = JsonDocument.Parse(factory.Requests[6].Body);
+        Assert.False(final.RootElement.TryGetProperty("tools", out _));
         Assert.True(WorkspaceUser(factory.Requests[4].Body).TryGetProperty("researchFeedback", out _));
         Assert.True(WorkspaceUser(factory.Requests[5].Body).TryGetProperty("discoveryChallenge", out _));
         Assert.Single(gateway.Requests, query => query.Operation == "read_source" && query.PageStart == 2);

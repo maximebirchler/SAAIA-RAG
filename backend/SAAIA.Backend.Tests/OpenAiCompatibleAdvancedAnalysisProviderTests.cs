@@ -627,12 +627,27 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             Completion("""{"queries":[{"query":"reference overview","topK":12}]}"""),
             Completion("""{"decision":"ready","queries":[]}"""),
             Completion(signal) };
-        if (!unknownScope && !exhaustedBudget) responses.Add(Completion(signal));
+        if (!unknownScope && !exhaustedBudget)
+        {
+            responses.Add(Completion(signal));
+            responses.Add(Completion(EarlyInsufficient));
+        }
         using var factory = new QueuedHttpClientFactory(responses.ToArray());
         var options = CreateOptions();
         options.AdaptiveResearchEnabled = true;
         options.ExternalMaximumCallsPerJob = exhaustedBudget ? 3 : 6;
         var gateway = new RecordingToolGateway(BuildEvidence("E1", "Index only."));
+        if (!unknownScope && !exhaustedBudget)
+        {
+            var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+                .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
+            Assert.Equal("insufficient_documentation", result.Outcome);
+            Assert.Single(gateway.Searches);
+            Assert.Equal(5, factory.Requests.Count);
+            Assert.True(WorkspaceUser(factory.Requests[^1].Body).GetProperty("researchFeedback")
+                .GetProperty("finalSynthesisRequired").GetBoolean());
+            return;
+        }
         var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
             new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
                 .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None));
