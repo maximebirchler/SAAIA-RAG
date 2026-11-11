@@ -181,6 +181,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var noProgressRecovery = 0;
         var argumentRecovery = 0;
         var insufficiencyReviewed = false;
+        var partialReviewCount = 0;
+        var lastReviewedSupportedCount = 0;
+        var lastReviewedSuccessfulOperations = 0;
         object? insufficiencyReview = null;
         var discoveryChallenge = new DiscoveryChallengeState();
         AdvancedAnalysisResearchArgumentFeedback? argumentFeedback = null;
@@ -429,22 +432,38 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         nextPhase = $"{phase}-discovery-challenge";
                         continue;
                     }
-                    var reason = insufficiencyReviewed ? "insufficiency_review_already_used"
-                        : remainingCalls < 2 ? "model_budget_unavailable"
+                    var distinctReview = BuildDistinctSelectionReviewHint(
+                        completion.Content, evidence, observations, request);
+                    var successfulOperations = context.PriorSearchExecutionStatuses.Count(p => p.Value == "succeeded");
+                    // A growing supported selection is useful progress, not proof
+                    // that all requested choices exist. Permit at most two further
+                    // reviews after the initial one, within the unchanged budgets.
+                    var progressedAfterReview = insufficiencyReviewed && partialReviewCount < 3
+                        && distinctReview is not null
+                        && distinctReview.PriorDraftSupportedDistinctNames > lastReviewedSupportedCount
+                        && successfulOperations > lastReviewedSuccessfulOperations;
+                    var reason = remainingCalls < 2 ? "model_budget_unavailable"
                         : context.ResourceLimit is not null || !HasDocumentaryResearchBudget(toolBudget)
                             ? "documentary_budget_unavailable"
                         : pendingLocators.Count == 0 && !HasOpenResearchLocator(observations) ? "no_current_research_locator"
+                        : insufficiencyReviewed ? progressedAfterReview
+                            ? "supported_partial_selection_grew_after_research" : "insufficiency_review_already_used"
                         : followup > 0 || context.NativeTurn is not null || context.CandidateExplorerDossier is not null
                             ? "insufficiency_after_partial_documentary_research"
                         : "initial_insufficiency_before_documentary_research";
                     var review = reason is "initial_insufficiency_before_documentary_research"
-                        or "insufficiency_after_partial_documentary_research";
+                        or "insufficiency_after_partial_documentary_research"
+                        or "supported_partial_selection_grew_after_research";
                     using (var probe = BackendDiagnostics.Start("llm.insufficiency_review", _logger))
                     {
                         probe.Set("job_id", request.JobId);
                         probe.Set("role", nextPhase);
                         probe.Set("selection_mode", ResolveSelectionMode(request.Handoff.Load));
                         probe.Set("review_scheduled", review);
+                        probe.Set("review_sequence", partialReviewCount + (review ? 1 : 0));
+                        probe.Set("supported_name_count", distinctReview?.PriorDraftSupportedDistinctNames);
+                        probe.Set("last_reviewed_supported_name_count", lastReviewedSupportedCount);
+                        probe.Set("successful_operations_since_review", Math.Max(0, successfulOperations - lastReviewedSuccessfulOperations));
                         probe.Set("remaining_model_calls", remainingCalls);
                         probe.Set("remaining_tool_calls", toolBudget?.RemainingCalls);
                         probe.Set("remaining_tool_ms", toolBudget?.RemainingElapsedMilliseconds);
@@ -462,11 +481,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     {
                         completions.Add(completion);
                         insufficiencyReviewed = true;
+                        partialReviewCount++;
+                        lastReviewedSupportedCount = distinctReview?.PriorDraftSupportedDistinctNames ?? 0;
                         discoveryChallenge.EmptyReviewStarted = IsEmptyDiscoveryInsufficiency(completion.Content, evidence, request);
                         var locatorReadback = await ReadLocatedBodiesForInsufficiencyReviewAsync(
                             request, context, observations, pendingLocators, cancellationToken).ConfigureAwait(false);
-                        var distinctReview = BuildDistinctSelectionReviewHint(
-                            completion.Content, evidence, observations, request);
+                        // Automatic locator readbacks cannot alone justify another
+                        // progress review; a later successful operation is required.
+                        lastReviewedSuccessfulOperations = context.PriorSearchExecutionStatuses.Count(p => p.Value == "succeeded");
                         insufficiencyReview = new
                         {
                             reasonCode = reason,
