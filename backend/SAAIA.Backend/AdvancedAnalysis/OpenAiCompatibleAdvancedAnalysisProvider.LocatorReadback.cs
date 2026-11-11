@@ -82,9 +82,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 && prior.search.TableRowLimit is null && prior.search.TableObservationId is null
                 && prior.search.TableObservationView is null && prior.search.NativeObservationView is null)
             .ToArray();
-        // Inspect sources without a successful primary page read first, then
-        // rotate pages between sources within that tier. This expresses no
-        // judgment about the relevance or suitability of any title.
+        // Rotate pages across sources before taking a second page from one.
+        // Within each round, prefer a source with no successful primary read.
+        // Source novelty must not consume the whole sample or imply relevance.
         var pending = locators
             .DistinctBy(locator => (locator.SourceKey, locator.Page))
             .Where(locator => !priorReads.Any(prior =>
@@ -103,8 +103,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 alreadyReadSource: priorReads.Any(prior => prior.status == "succeeded"
                     && prior.search.DocId == locator.Scope.DocId && prior.search.RevisionId == locator.Scope.RevisionId
                     && prior.search.DocPath == locator.Scope.DocPath))))
-            .OrderBy(entry => entry.alreadyReadSource)
-            .ThenBy(entry => entry.rank)
+            .OrderBy(entry => entry.rank)
+            .ThenBy(entry => entry.alreadyReadSource)
             .Take(Math.Min(MaximumLocatorReadbackPages, budget?.RemainingCalls ?? MaximumLocatorReadbackPages))
             .Select(entry =>
             {
@@ -126,6 +126,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 && prior.search.DocPath == locator.Scope.DocPath))
             .Select(locator => locator.SourceKey).Distinct(StringComparer.Ordinal).Count());
         probe.Set("planned_read_count", reads.Length);
+        probe.Set("planned_source_count", reads.Select(read => read.Scope.DocId).Distinct(StringComparer.Ordinal).Count());
+        probe.Set("maximum_reads_per_source", reads.GroupBy(read => read.Scope.DocId, StringComparer.Ordinal)
+            .Select(group => group.Count()).DefaultIfEmpty(0).Max());
         if (reads.Length == 0)
         {
             probe.Set("executed_read_count", 0);

@@ -108,6 +108,71 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Empty(result.Claims);
     }
 
+    [Theory]
+    [InlineData("responses")]
+    [InlineData("chat-completions")]
+    public async Task Locator_readback_rotates_sources_before_reading_more_pages_from_one_uninspected_source(string protocol)
+    {
+        var calls = new[]
+        {
+            ("read_source", JsonSerializer.Serialize(new
+                { sourceKey = "internal-source-1", pageStart = 77, pageEnd = 77, topK = 12 })),
+            ("list_source_titles", ReadbackListing("internal-source-1")),
+            ("list_source_titles", ReadbackListing("internal-source-2"))
+        };
+        using var factory = new QueuedHttpClientFactory(Completion(RepeatablePlan),
+            protocol == "responses" ? BudgetNativeResponseFunctions(calls) : NativeCompletion(calls),
+            EarlyReply(protocol, GuidanceInsufficiency), EarlyReply(protocol, GuidanceInsufficiency),
+            EarlyReply(protocol, GuidanceInsufficiency));
+        var options = EarlyOptions(protocol, 6);
+        options.NativeSourceTitleNavigationEnabled = true;
+        options.NativeResearchActiveProposalEnabled = false;
+        options.SemanticCriticEnabled = false;
+        var initial = new[]
+        {
+            NavigationCard("INITIAL-1", null, 1, 1, card: false),
+            NavigationCard("INITIAL-2", null, 2, 1, card: false)
+        };
+        var gateway = new BalancedLocatorReadbackGateway(initial);
+
+        await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null)
+            .ExecuteAsync(BuildRequest(20, "named_item", "distinct_structured_layout", "documented_option"),
+                gateway, CancellationToken.None);
+
+        var reads = gateway.Requests.Where(r => r.Operation == "read_source").Skip(1).ToArray();
+        Assert.Equal(4, reads.Length);
+        Assert.Equal(new[] { initial[1].Reference.DocId, initial[0].Reference.DocId,
+            initial[1].Reference.DocId, initial[0].Reference.DocId }, reads.Select(r => r.DocId));
+        Assert.Equal(new int?[] { 80, 80, 81, 81 }, reads.Select(r => r.PageStart));
+    }
+
+    private sealed class BalancedLocatorReadbackGateway(
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence> initial) : IAdvancedAnalysisToolGateway
+    {
+        private readonly List<AdvancedAnalysisResolvedEvidence> _evidence = [];
+        public IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence => _evidence;
+        public List<AdvancedAnalysisSearchRequest> Requests { get; } = [];
+
+        public Task<AdvancedAnalysisSearchObservation> SearchAsync(
+            AdvancedAnalysisSearchRequest request, CancellationToken cancellationToken)
+        {
+            Requests.Add(request);
+            if (request.Operation == "list_source_titles")
+                return Task.FromResult(new AdvancedAnalysisSearchObservation(request.Query, [], [], 0, Requests.Count,
+                    SourceTitlePage: new(0, null, Enumerable.Range(80, 4).Select(page =>
+                        new AdvancedAnalysisSourceTitle("Checkpoint " + page, "title_anchor", null, page, page)).ToArray(), false)));
+            IReadOnlyList<AdvancedAnalysisResolvedEvidence> found = initial;
+            if (request.Operation == "read_source")
+            {
+                var source = request.DocId == initial[0].Reference.DocId ? 1 : 2;
+                found = [NavigationCard($"BODY-{source}-{request.PageStart}", null, source, request.PageStart!.Value, card: false)];
+            }
+            foreach (var item in found)
+                if (!_evidence.Contains(item)) _evidence.Add(item);
+            return Task.FromResult(new AdvancedAnalysisSearchObservation(request.Query, found, [], 0, Requests.Count));
+        }
+    }
+
     private sealed class LocatorReadbackGateway(
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> initial,
         AdvancedAnalysisResolvedEvidence explicitBody,
