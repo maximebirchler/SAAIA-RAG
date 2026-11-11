@@ -419,13 +419,37 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }
             if (_options.NativeResearchToolsEnabled)
                 userPrompt = AddOmittedEvidenceReadHandlesToPrompt(userPrompt, observations, context);
-            var completion = await CompleteJsonAsync(request.JobId,
-                nextPhase,
-                systemPrompt, userPrompt, maximumTokens, cancellationToken,
-                allowNativeResearch: true,
-                nativeToolTurnMessages: _options.NativeResearchToolsEnabled
-                    ? BuildNativeToolTurnMessages(context.NativeTurn, observations, UsesNativeResponses) : null,
-                canonicalProjection: observations).ConfigureAwait(false);
+            CompletionResult completion;
+            try
+            {
+                completion = await CompleteJsonAsync(request.JobId,
+                    nextPhase,
+                    systemPrompt, userPrompt, maximumTokens, cancellationToken,
+                    allowNativeResearch: true,
+                    nativeToolTurnMessages: _options.NativeResearchToolsEnabled
+                        ? BuildNativeToolTurnMessages(context.NativeTurn, observations, UsesNativeResponses) : null,
+                    canonicalProjection: observations).ConfigureAwait(false);
+            }
+            catch (AdvancedAnalysisProviderException error) when (
+                error.ErrorCode == "advanced_llm_output_limit" && criticPartialCandidate is not null)
+            {
+                // Keep only a previous complete partial answer. Never parse or
+                // publish the cut-off response, and revalidate against this turn.
+                var retained = ParseResult(JsonSerializer.Serialize(BuildCriticCandidate(criticPartialCandidate), JsonOptions),
+                    evidence, request);
+                EnsureVisibleClaimCitations(retained, observations.Where(item => item.EvidenceId is not null
+                        && GetVisibleEvidenceContents(item).Any(content => !string.IsNullOrWhiteSpace(content)))
+                    .Select(item => item.EvidenceId!).ToArray());
+                using var probe = BackendDiagnostics.Start("llm.partial_answer_fallback", _logger);
+                probe.Set("job_id", request.JobId);
+                probe.Set("role", nextPhase);
+                probe.Set("retained_claim_count", retained.Claims.Count);
+                probe.Set("failed_call_usage_known", error.ProviderUsage?.OutputTokens is not null);
+                probe.Complete("retained", "critic_review_output_limit");
+                return new SynthesisCompletion(new CompletionResult(string.Empty,
+                        error.ProviderUsage ?? new(null, null, null), error.EstimatedCostUsd),
+                    evidence, observations, InsufficiencyReviewed: true, BoundedResult: retained);
+            }
             if (!RequestsCorpusResearch(completion.Content))
             {
                 if (candidateExplorer)

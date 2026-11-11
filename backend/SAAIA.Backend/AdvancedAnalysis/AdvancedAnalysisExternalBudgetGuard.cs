@@ -186,7 +186,7 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
             elapsedMilliseconds,
             httpAttemptCount);
 
-    internal void Fail(
+    internal AdvancedAnalysisBudgetCharge Fail(
         Reservation reservation,
         string errorCode,
         AdvancedAnalysisLlmUsage usage,
@@ -194,7 +194,7 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
         int httpAttemptCount = 1)
     {
         var hasProviderUsage = usage.InputTokens is >= 0 && usage.OutputTokens is >= 0;
-        Close(
+        return Close(
             reservation,
             hasProviderUsage ? usage : new(reservation.EstimatedInputTokens, reservation.MaximumOutputTokens, 0),
             hasProviderUsage ? "provider_usage" : "reserved_upper_bound",

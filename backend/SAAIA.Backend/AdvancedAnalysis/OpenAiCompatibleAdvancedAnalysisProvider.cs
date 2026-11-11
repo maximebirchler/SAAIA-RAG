@@ -1086,9 +1086,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                             : hasAnswer && ReadString(choices[0], "finish_reason") == "content_filter"
                                 ? "advanced_llm_content_filtered"
                                 : normalizationError ?? "advanced_llm_content_missing";
+                        AdvancedAnalysisBudgetCharge? rejectedCharge = null;
                         if (reservation is not null)
                         {
-                            _budget!.Fail(
+                            rejectedCharge = _budget!.Fail(
                                 reservation,
                                 errorCode,
                                 usage,
@@ -1102,7 +1103,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                             nativeResponses ? completionOrigin : nativeCallsJson is not null
                                 ? "tool_calls.rejected" : "message.content.rejected", errorCode).ConfigureAwait(false);
                         throw new AdvancedAnalysisProviderException(
-                            errorCode);
+                            errorCode,
+                            providerUsage: rejectedCharge?.Usage ?? usage,
+                            estimatedCostUsd: rejectedCharge?.CostUsd);
                     }
                     AdvancedAnalysisBudgetCharge? charge = null;
                     if (reservation is not null)

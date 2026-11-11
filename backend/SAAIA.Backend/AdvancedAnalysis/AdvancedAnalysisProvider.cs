@@ -117,15 +117,23 @@ internal sealed class AdvancedAnalysisProviderException : Exception
 
     public AdvancedAnalysisResearchArgumentFeedback? ResearchArgumentFeedback { get; }
 
+    public AdvancedAnalysisLlmUsage? ProviderUsage { get; }
+
+    public decimal? EstimatedCostUsd { get; }
+
     public AdvancedAnalysisProviderException(
         string errorCode,
         bool isRetryable = false,
         long? retryAfterMilliseconds = null,
-        AdvancedAnalysisResearchArgumentFeedback? researchArgumentFeedback = null)
+        AdvancedAnalysisResearchArgumentFeedback? researchArgumentFeedback = null,
+        AdvancedAnalysisLlmUsage? providerUsage = null,
+        decimal? estimatedCostUsd = null)
         : base(errorCode)
     {
         ErrorCode = errorCode;
         ResearchArgumentFeedback = researchArgumentFeedback;
+        ProviderUsage = providerUsage;
+        EstimatedCostUsd = estimatedCostUsd;
         IsRetryable = isRetryable;
         RetryAfterMilliseconds = retryAfterMilliseconds is >= 0
             ? retryAfterMilliseconds
