@@ -32,6 +32,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             probe.Set("critic_call_reserved", reservedFinalCalls > 0);
             probe.Set("repair_scheduled", remainingCalls > 0);
             probe.Set("visible_evidence_count", promptEvidence.Count);
+            probe.Set("reference_issue_count", DiagnoseEvidenceReferences(writer.Content,
+                promptEvidence.Where(e => e.EvidenceId is not null).Select(e => e.EvidenceId!).ToArray()).TotalIssueCount);
             if (remainingCalls == 0)
             {
                 probe.Complete("not_scheduled", "model_budget_unavailable");

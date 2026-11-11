@@ -571,6 +571,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private static string BuildWriterRepairSystemPrompt()
         => """
            Repair one SAAIA Writer JSON object and return only the repaired JSON.
+           evidenceReferenceDiagnostics locates reference defects using zero-based
+           JSON paths. Resolve each reported defect against the current evidence;
+           changing the outcome alone does not repair an invalid reference.
            Preserve supported answer facts and valid evidence mappings. Replace
            any unknown evidence id only by an exact supplied evidenceId whose
            content supports the claim; never guess or approximately match an id.
@@ -830,6 +833,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             load = BuildPromptLoad(request.Handoff.Load),
             selectionContract = BuildResolvedSelectionContract(request.Handoff.Load),
             validationErrorCode,
+            evidenceReferenceDiagnostics = DiagnoseEvidenceReferences(originalWriterJson,
+                evidence.Where(e => e.EvidenceId is not null).Select(e => e.EvidenceId!).ToArray()),
             claimCoordinates = BuildStructuredClaimCoordinates(
                 request.Handoff.Load),
             allowedEvidenceIds = evidence
@@ -1101,6 +1106,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             validWriterCandidate = BuildCriticCandidate(validWriterCandidate),
             citationReview = BuildCriticCitationReview(validWriterCandidate, evidence),
             invalidCriticJson,
+            evidenceReferenceDiagnostics = DiagnoseEvidenceReferences(invalidCriticJson,
+                evidence.Where(e => e.EvidenceId is not null).Select(e => e.EvidenceId!).ToArray()),
             structuredTables = BuildStructuredTablesForPrompt(evidence),
             evidence
         }, JsonOptions);
