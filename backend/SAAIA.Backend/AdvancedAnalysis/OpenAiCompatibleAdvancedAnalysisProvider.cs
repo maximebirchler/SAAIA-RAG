@@ -358,7 +358,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                             0,
                             synthesisResearch,
                             completions,
-                            cancellationToken)
+                            cancellationToken,
+                            reviewCriticInsufficiency: parsed.Outcome == "answered" && !insufficiencyReviewed)
                         .ConfigureAwait(false);
                     var critic = criticRound.Completion;
                     insufficiencyReviewed |= criticRound.InsufficiencyReviewed;

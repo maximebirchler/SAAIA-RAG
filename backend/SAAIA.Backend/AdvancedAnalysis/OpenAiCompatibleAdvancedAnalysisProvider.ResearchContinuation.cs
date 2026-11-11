@@ -173,7 +173,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         SynthesisResearchContext context,
         List<CompletionResult> completions,
         CancellationToken cancellationToken,
-        bool candidateExplorer = false)
+        bool candidateExplorer = false,
+        bool reviewCriticInsufficiency = false)
     {
         var maximumCalls = Math.Clamp(_options.ExternalMaximumCallsPerJob, 1, 1_024);
         var followup = 0;
@@ -183,6 +184,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var insufficiencyReviewed = false;
         var partialReviewCount = 0;
         var writerRepairUsed = false;
+        AdvancedAnalysisProviderResult? criticPartialCandidate = null;
         var lastReviewedSupportedCount = 0;
         var lastReviewedSuccessfulOperations = 0;
         object? insufficiencyReview = null;
@@ -278,6 +280,22 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 || context.BootstrapInterruption is not null)
             {
                 var payload = JsonNode.Parse(userPrompt)!.AsObject();
+                if (phase == "critic" && criticPartialCandidate is not null)
+                {
+                    // Continue from the Critic's latest assessment, not from the
+                    // original complete Writer proposal it has just rejected.
+                    payload["candidate"] = JsonSerializer.SerializeToNode(
+                        BuildCriticCandidate(criticPartialCandidate), JsonOptions);
+                    payload["citationReview"] = JsonSerializer.SerializeToNode(
+                        BuildCriticCitationReview(criticPartialCandidate, observations, request.Handoff.Load), JsonOptions);
+                    using var probe = BackendDiagnostics.Start("llm.critic_partial_context", _logger);
+                    probe.Set("job_id", request.JobId);
+                    probe.Set("role", nextPhase);
+                    probe.Set("retained_claim_count", criticPartialCandidate.Claims.Count);
+                    probe.Set("visible_reference_count", criticPartialCandidate.Claims.SelectMany(c => c.EvidenceIds)
+                        .Distinct(StringComparer.Ordinal).Count(id => observations.Any(e => e.EvidenceId == id)));
+                    probe.Complete("retained", "latest_critic_partial_candidate");
+                }
                 if (_options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
                     payload["activeProposal"] = JsonSerializer.SerializeToNode(new
                     {
@@ -425,14 +443,29 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 if (_options.AdaptiveResearchEnabled && _options.NativeResearchToolsEnabled
                     && phase == "writer" && request.Handoff.Load.StructuredLayout)
                     RememberPartialDraft(completion.Content, evidence, request, context);
+                if (phase == "critic" && reviewCriticInsufficiency)
+                {
+                    criticPartialCandidate = null;
+                    try
+                    {
+                        var proposal = ParseResult(completion.Content, evidence, request);
+                        if (proposal.Outcome == "insufficient_documentation")
+                            criticPartialCandidate = proposal;
+                    }
+                    catch (AdvancedAnalysisProviderException)
+                    {
+                        // Protocol defects remain owned by the Critic repair path.
+                    }
+                }
                 if (!finalizeAfterNoProgress && _options.AdaptiveResearchEnabled && _options.NativeResearchToolsEnabled
-                    && phase == "writer" && request.Handoff.Load.StructuredLayout
+                    && (phase == "writer" || phase == "critic" && criticPartialCandidate is not null)
+                    && request.Handoff.Load.StructuredLayout
                     && string.Equals(request.Handoff.Load.AtomicEvidenceMode, "named_item", StringComparison.OrdinalIgnoreCase)
                     && IsInsufficientDocumentaryResult(completion.Content))
                 {
                     var remainingCalls = Math.Max(0, maximumCalls - completions.Count - 1 - reservedFinalCalls);
                     var pendingLocators = FindPendingTitleLocatorsForReview(request.Handoff.Load, observations, context);
-                    if (TryScheduleDiscoveryChallenge(discoveryChallenge, insufficiencyReviewed,
+                    if (phase == "writer" && TryScheduleDiscoveryChallenge(discoveryChallenge, insufficiencyReviewed,
                             completion.Content, request, context, evidence, observations,
                             remainingCalls, reservedFinalCalls, pendingLocators))
                     {
@@ -447,7 +480,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     // A growing supported selection is useful progress, not proof
                     // that all requested choices exist. Permit at most two further
                     // reviews after the initial one, within the unchanged budgets.
-                    var progressedAfterReview = insufficiencyReviewed && partialReviewCount < 3
+                    var progressedAfterReview = insufficiencyReviewed && phase == "writer" && partialReviewCount < 3
                         && distinctReview is not null
                         && distinctReview.PriorDraftSupportedDistinctNames > lastReviewedSupportedCount
                         && successfulOperations > lastReviewedSuccessfulOperations;
