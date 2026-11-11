@@ -662,7 +662,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
     private string BuildCriticSystemPrompt()
         => _options.SynthesisPromptStyle == "agent"
-            ? BuildResearchAgentSystemPrompt(true) + "\n" + BuildSynthesisResearchContract()
+            ? BuildResearchAgentSystemPrompt(true) + "\n" + CriticCitationReviewPolicy
+                + "\n" + BuildSynthesisResearchContract()
             : """
            You are the SAAIA advanced-analysis Critic. Independently audit the
            proposed Writer result against the user request and every supplied
@@ -765,7 +766,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            internal-source-* token in answerText, claim text or selectedItem. Do
            not add facts, preferences or evidence identifiers.
            Keep the requested language and format.
-           """ + "\n" + CandidateEvidenceUsePolicy
+           """ + "\n" + CandidateEvidenceUsePolicy + "\n" + CriticCitationReviewPolicy
            + "\n" + BuildSynthesisResearchContract();
 
     private static IEnumerable<object> BuildPriorSearchesForPrompt(
@@ -808,7 +809,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            precise insufficiency. Never invent a fact, title, evidence ID or
            source, and never expose internal evidence or source identifiers in
            user-visible text. Keep the requested language and format.
-           """ + "\n" + CandidateEvidenceUsePolicy;
+           """ + "\n" + CandidateEvidenceUsePolicy + "\n" + CriticCitationReviewPolicy;
 
     private string BuildWriterRepairUserPrompt(
         AdvancedAnalysisProviderRequest request,
@@ -1070,18 +1071,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             selectionContract = BuildResolvedSelectionContract(request.Handoff.Load),
             claimCoordinates = BuildStructuredClaimCoordinates(
                 request.Handoff.Load),
-            candidate = new
-            {
-                outcome = candidate.Outcome,
-                answerText = candidate.AnswerText,
-                claims = candidate.Claims.Select(static claim => new
-                {
-                    claimId = claim.ClaimId,
-                    selectedItem = claim.SelectedItem,
-                    text = claim.Text,
-                    evidenceIds = claim.EvidenceIds
-                }).ToArray()
-            },
+            candidate = BuildCriticCandidate(request, candidate),
+            citationReview = BuildCriticCitationReview(evidence),
             structuredTables = BuildStructuredTablesForPrompt(evidence),
             evidence
         }, JsonOptions);
@@ -1101,18 +1092,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             selectionContract = BuildResolvedSelectionContract(request.Handoff.Load),
             claimCoordinates = BuildStructuredClaimCoordinates(
                 request.Handoff.Load),
-            validWriterCandidate = new
-            {
-                outcome = validWriterCandidate.Outcome,
-                answerText = validWriterCandidate.AnswerText,
-                claims = validWriterCandidate.Claims.Select(static claim => new
-                {
-                    claimId = claim.ClaimId,
-                    selectedItem = claim.SelectedItem,
-                    text = claim.Text,
-                    evidenceIds = claim.EvidenceIds
-                }).ToArray()
-            },
+            validWriterCandidate = BuildCriticCandidate(request, validWriterCandidate),
+            citationReview = BuildCriticCitationReview(evidence),
             invalidCriticJson,
             structuredTables = BuildStructuredTablesForPrompt(evidence),
             evidence
