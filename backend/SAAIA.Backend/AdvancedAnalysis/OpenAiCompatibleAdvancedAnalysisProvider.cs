@@ -835,10 +835,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         }
         if (IsOpenAiDev)
         {
-            var effort = allowNativeResearch && !string.IsNullOrWhiteSpace(_options.SynthesisReasoningEffort)
+            // The independent final Critic still performs synthesis assessment,
+            // even though its fresh context deliberately grants no research tools.
+            var synthesisAssessment = allowNativeResearch || role == "critic-final-review";
+            var effort = synthesisAssessment && !string.IsNullOrWhiteSpace(_options.SynthesisReasoningEffort)
                 ? _options.SynthesisReasoningEffort : _options.ReasoningEffort;
             if (!string.IsNullOrWhiteSpace(effort))
+            {
                 payload["reasoning_effort"] = effort.Trim().ToLowerInvariant();
+                callProbe.Set("reasoning_effort", effort.Trim().ToLowerInvariant());
+            }
         }
         else
         {
