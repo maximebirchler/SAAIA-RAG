@@ -51,7 +51,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
 
         var writer = WorkspaceUser(factory.Requests[1].Body);
         var lexical = writer.GetProperty("researchTools").GetProperty("sourceTitleExploration");
-        Assert.Contains("cardBackedOnly=true", lexical.GetProperty("instruction").GetString());
+        Assert.Contains("cardBackedOnly=false", lexical.GetProperty("instruction").GetString());
         Assert.False(writer.GetProperty("researchTools").TryGetProperty("sourceTitleBodyRead", out _));
         for (var index = 2; index <= 3; index++)
         {

@@ -80,16 +80,18 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Theory]
-    [InlineData("chat-completions")]
-    [InlineData("responses")]
-    public async Task Source_title_navigation_is_linked_as_locator_only_then_a_separate_read_admits_body(string protocol)
+    [InlineData("chat-completions", false)]
+    [InlineData("responses", false)]
+    [InlineData("chat-completions", true)]
+    [InlineData("responses", true)]
+    public async Task Source_title_navigation_is_linked_as_locator_only_then_a_separate_read_admits_body(string protocol, bool cardBackedOnly)
     {
         const string key = "internal-source-1";
         const string locator = "Undiscovered inspection";
         const string body = "CANONICAL_BODY: Verify that the assembly is isolated.";
         var calls = new[]
         {
-            ("list_source_titles", JsonSerializer.Serialize(new { sourceKey = key, offset = 0, limit = 10, titleContains = (string?)null, pageStart = (int?)null, pageEnd = (int?)null, cardBackedOnly = false })),
+            ("list_source_titles", JsonSerializer.Serialize(new { sourceKey = key, offset = 0, limit = 10, titleContains = (string?)null, pageStart = (int?)null, pageEnd = (int?)null, cardBackedOnly })),
             ("read_source", JsonSerializer.Serialize(new { sourceKey = key, pageStart = 77, pageEnd = 77, topK = 12 }))
         };
         var replies = calls.Select(call => protocol == "responses"
@@ -117,6 +119,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.True(locatorOutput.GetProperty("navigationOnly").GetBoolean());
         Assert.Equal(key, locatorOutput.GetProperty("sourceKey").GetString());
         Assert.Equal("executed", locatorOutput.GetProperty("status").GetString());
+        Assert.Equal(cardBackedOnly, locatorOutput.GetProperty("cardBackedOnly").GetBoolean());
+        Assert.Equal(cardBackedOnly, gateway.Requests.Single(item => item.Operation == "list_source_titles").CardBackedTitlesOnly);
         var row = locatorOutput.GetProperty("page").GetProperty("items")[0];
         Assert.Equal(locator, row.GetProperty("title").GetString());
         Assert.Equal(77, row.GetProperty("physicalPageStart").GetInt32());

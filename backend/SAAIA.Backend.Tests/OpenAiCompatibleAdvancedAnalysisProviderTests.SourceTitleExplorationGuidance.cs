@@ -40,7 +40,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal(1, guidance.GetProperty("observedSourceCount").GetInt32());
         Assert.Equal(0, guidance.GetProperty("successfulTitleListings").GetInt32());
         Assert.False(guidance.GetProperty("documentaryEvidence").GetBoolean());
-        Assert.Contains("Consider list_source_titles", guidance.GetProperty("instruction").GetString());
+        Assert.Contains("list_source_titles", guidance.GetProperty("instruction").GetString());
     }
 
     [Fact]

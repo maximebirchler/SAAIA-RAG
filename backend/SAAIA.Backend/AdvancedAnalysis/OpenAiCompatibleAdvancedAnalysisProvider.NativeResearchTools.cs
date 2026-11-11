@@ -111,7 +111,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         {
             if (_options.NativeSourceTitleNavigationEnabled)
                 functions.Add(Function(AdvancedAnalysisSourceTitlePage.Operation,
-                    "Browse canonical contents and title anchors of an observed source. For additional named bodies, prefer cardBackedOnly=true: it prioritizes locating bodies by limiting results to titles corroborated by an indexed card at the same physical pages. Use false for broader contents coverage. Neither mode establishes suitability. Start at offset 0 and use nextOffset to continue the same filters. At most four title pages execute per batch, within the shared operation cap; a larger fully valid batch stops its executed prefix at that limit and defers the remaining calls without effect. The character cap can return fewer than limit. Titles and physical locations are navigation only. Read a located body with read_source or find_source_text before using it.", new()
+                    "Browse canonical contents and title anchors of an observed source. Use cardBackedOnly=false for discovery: indexed cards may cover only part of a source and include introductory or administrative headings. True is an optional restriction to card-linked titles, not a quality filter; it can exclude relevant documented bodies. Neither mode establishes suitability. Start at offset 0 and use nextOffset to continue the same filters. At most four title pages execute per batch, within the shared operation cap; a larger fully valid batch stops its executed prefix at that limit and defers the remaining calls without effect. The character cap can return fewer than limit. Titles and physical locations are navigation only. Read a promising located body with read_source or find_source_text before using it.", new()
                     {
                         ["sourceKey"] = Choice(sources),
                         ["offset"] = Count(0, AdvancedAnalysisSourceTitlePage.MaximumOffset),
@@ -568,9 +568,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     argumentFeedback = turn.Rejection,
                     resourceLimit = observation?.ResourceLimit,
                     sourceKey,
+                    cardBackedOnly = request?.CardBackedTitlesOnly,
                     page = sourceKey is null || reusedResult ? null : observation?.SourceTitlePage,
                     resultReusedWithinBatch = reusedResult ? true : (bool?)null,
-                    instruction = "Locators only. Read a physical page or find a literal title in the same source before citing evidence."
+                    instruction = "Locators only. Read a physical page or find a literal title in the same source before citing evidence. Card-linked titles may omit documented bodies. If these locators are irrelevant, continue pagination or broaden the filters instead of reading them by default."
                 }, JsonOptions);
                 messages.Add(responses ? new { type = "function_call_output", call_id = callId, output }
                     : (object)new { role = "tool", tool_call_id = callId, content = output });

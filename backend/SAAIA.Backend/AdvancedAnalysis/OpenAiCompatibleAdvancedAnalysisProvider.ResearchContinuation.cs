@@ -930,7 +930,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             observedSourceCount = projection.SourceCatalogue.Count,
             successfulTitleListings = completed.Count(search => search.Operation == AdvancedAnalysisSourceTitlePage.Operation),
             documentaryEvidence = false,
-            instruction = "If you still need additional named bodies, use the current source catalogue to choose a different documentary check. Consider list_source_titles with cardBackedOnly=true in an observed source to find headings linked to indexed physical pages, then read a promising page before judging the item. Use false for broader contents coverage or a focused lexical search to test a different documentary hypothesis. This is a summary of operations already run, not a count of items available or a decision about any source or placement."
+            instruction = "If you still need additional named bodies, choose a different documentary check in the current source catalogue. Use list_source_titles with cardBackedOnly=false to explore the full title index, then read a promising page or find its literal title. Card-linked titles may omit documented bodies and do not establish suitability. A focused lexical search can test a different hypothesis. This summarizes operations already run, not items available or suitability for a requested use."
         };
     }
 
@@ -950,7 +950,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             reasonCode = "located_titles_without_body_read",
             visiblePhysicalLocators = located.Count,
             documentaryEvidence = false,
-            instruction = "The latest tool results exposed physical title locations without a visible body from a direct read in that batch. If more bodies are needed, choose a few promising locators from these tool results and try read_source with the current sourceKey, the locator's physicalPageStart as pageStart, and pageCount=1, or find_source_text with an exact observed title. Prefer this body check before another navigation page or a conclusion of insufficient documentation. Use a different observed source or cardBackedOnly=true when these locators are irrelevant. A locator does not prove an item, suitability, or absence."
+            instruction = "The latest results exposed physical title locations without a visible body from a direct read in that batch. For promising locators, use read_source with the current sourceKey, physicalPageStart as pageStart and pageCount=1, or find_source_text with the observed title. If these titles are irrelevant, continue the observed nextOffset, broaden a restrictive filter with cardBackedOnly=false, or choose another source or search. Do not read irrelevant locations merely because they were returned. A locator does not prove an item, suitability, or absence."
         };
     }
 
