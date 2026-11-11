@@ -1071,8 +1071,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             selectionContract = BuildResolvedSelectionContract(request.Handoff.Load),
             claimCoordinates = BuildStructuredClaimCoordinates(
                 request.Handoff.Load),
-            candidate = BuildCriticCandidate(request, candidate),
-            citationReview = BuildCriticCitationReview(evidence),
+            candidate = BuildCriticCandidate(candidate),
+            citationReview = BuildCriticCitationReview(candidate, evidence),
             structuredTables = BuildStructuredTablesForPrompt(evidence),
             evidence
         }, JsonOptions);
@@ -1092,8 +1092,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             selectionContract = BuildResolvedSelectionContract(request.Handoff.Load),
             claimCoordinates = BuildStructuredClaimCoordinates(
                 request.Handoff.Load),
-            validWriterCandidate = BuildCriticCandidate(request, validWriterCandidate),
-            citationReview = BuildCriticCitationReview(evidence),
+            validWriterCandidate = BuildCriticCandidate(validWriterCandidate),
+            citationReview = BuildCriticCitationReview(validWriterCandidate, evidence),
             invalidCriticJson,
             structuredTables = BuildStructuredTablesForPrompt(evidence),
             evidence

@@ -6,8 +6,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 {
     private const string CriticCitationReviewPolicy = """
         Review the selection's requested purpose before enriching its description.
-        Each candidate claim's requestedCoordinate locates that exact claim, including
-        a non-contiguous partial answer. For a proposed placement, use claim text
+        claimCoordinates describes the requested complete answer. Its positional
+        claim IDs locate an answered candidate, but do not assign positions to a
+        partial list: partial claim IDs are citation labels, not grid placements.
+        For a partial candidate, assess only placements explicitly stated in its
+        text; never infer a placement by matching its ID to claimCoordinates.
+        citationReview is review context outside the candidate response schema;
+        do not copy review metadata into output claims. For a proposed placement, use claim text
         to explain briefly why the documented choice serves that requested unit,
         preserving any conditions. Ordinary suitability may be reasoned from the
         content; it need not be a source-prescribed relationship. An item name or
@@ -28,11 +33,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         """;
 
     private static object BuildCriticCandidate(
-        AdvancedAnalysisProviderRequest request,
         AdvancedAnalysisProviderResult candidate)
     {
-        var coordinates = BuildStructuredClaimCoordinates(request.Handoff.Load)
-            .ToDictionary(c => c.ClaimId, StringComparer.Ordinal);
         return new
         {
             outcome = candidate.Outcome,
@@ -42,16 +44,20 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 claimId = claim.ClaimId,
                 selectedItem = claim.SelectedItem,
                 text = claim.Text,
-                evidenceIds = claim.EvidenceIds,
-                requestedCoordinate = coordinates.GetValueOrDefault(claim.ClaimId)
+                evidenceIds = claim.EvidenceIds
             }).ToArray()
         };
     }
 
-    private static object BuildCriticCitationReview(IReadOnlyList<PromptEvidenceItem> evidence)
+    private static object BuildCriticCitationReview(
+        AdvancedAnalysisProviderResult candidate,
+        IReadOnlyList<PromptEvidenceItem> evidence)
         => new
         {
             status = "mechanical_context_only",
+            candidatePlacement = candidate.Outcome == "answered"
+                ? "answered_contract_positions"
+                : "not_inferred_for_partial_answer",
             // Compare complete current bodies only. Matching prefixes or separate
             // retained windows cannot establish equality of unread canonical text.
             identicalCompletePassages = evidence.Where(e => !string.IsNullOrWhiteSpace(e.EvidenceId)
