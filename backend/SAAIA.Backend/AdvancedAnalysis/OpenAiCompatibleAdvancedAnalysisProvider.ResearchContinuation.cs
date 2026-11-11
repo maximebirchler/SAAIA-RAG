@@ -36,6 +36,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         public CandidateExplorerDossier? CandidateExplorerDossier { get; set; }
         public IReadOnlyList<string> ActiveProposalEvidenceIds { get; set; } = [];
         public int ActiveProposalOmittedEvidenceCount { get; set; }
+        public AdvancedAnalysisProviderResult? PriorPartialDraft { get; set; }
         public AdvancedAnalysisResearchResourceLimit? ResourceLimit { get; set; }
         public BootstrapResearchInterruption? BootstrapInterruption { get; set; }
         public bool BootstrapInterruptionReported { get; set; }
@@ -370,6 +371,20 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     payload["candidateSupportCorrections"] = JsonSerializer.SerializeToNode(candidateSupportFeedback, JsonOptions);
                 if (insufficiencyReview is not null)
                     payload["insufficiencyReview"] = JsonSerializer.SerializeToNode(insufficiencyReview, JsonOptions);
+                if (phase == "writer" && context.PriorPartialDraft is { } priorDraft)
+                {
+                    var checkpoint = BuildPartialDraftForPrompt(priorDraft,
+                        observations.Select(e => e.EvidenceId).OfType<string>().ToHashSet(StringComparer.Ordinal));
+                    payload["priorPartialDraft"] = checkpoint;
+                    using var probe = BackendDiagnostics.Start("llm.partial_draft_context", _logger);
+                    probe.Set("job_id", request.JobId);
+                    probe.Set("role", nextPhase);
+                    probe.Set("retained_claim_count", checkpoint["claims"]!.AsArray().Count);
+                    probe.Set("omitted_claim_count", checkpoint["omittedClaimCount"]!.GetValue<int>());
+                    probe.Set("visible_reference_count", checkpoint["currentlyVisibleEvidenceIds"]!.AsArray().Count);
+                    probe.Set("prompt_characters", checkpoint.ToJsonString(JsonOptions).Length);
+                    probe.Complete("retained", "untrusted_partial_draft_continuity");
+                }
                 if (discoveryChallenge.Prompt is not null)
                     payload["discoveryChallenge"] = JsonSerializer.SerializeToNode(discoveryChallenge.Prompt, JsonOptions);
                 if (argumentFeedback is not null)
@@ -395,6 +410,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     return new SynthesisCompletion(completion, evidence, observations);
                 if (_options.NativeResearchToolsEnabled)
                     RememberPreviousCitedEvidence(completion.Content, evidence, observations, request, context);
+                if (_options.AdaptiveResearchEnabled && _options.NativeResearchToolsEnabled
+                    && phase == "writer" && request.Handoff.Load.StructuredLayout)
+                    RememberPartialDraft(completion.Content, evidence, request, context);
                 if (!finalizeAfterNoProgress && _options.AdaptiveResearchEnabled && _options.NativeResearchToolsEnabled
                     && phase == "writer" && request.Handoff.Load.StructuredLayout
                     && string.Equals(request.Handoff.Load.AtomicEvidenceMode, "named_item", StringComparison.OrdinalIgnoreCase)
