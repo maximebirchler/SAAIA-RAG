@@ -33,10 +33,12 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         final["answerText"] = completed
             ? final["answerText"]!.GetValue<string>().Replace("OptionA [C1]", "OptionE [C1]", StringComparison.Ordinal)
             : "OptionE documentée [C7]; les autres choix restent à vérifier.";
-        using var factory = new QueuedHttpClientFactory(Completion(RepeatablePlan),
+        var replies = new List<HttpResponseMessage> { Completion(RepeatablePlan),
             EarlyReply(protocol, RepeatableTwentyAnswer()), EarlyReply(protocol, CriticPartialChoice),
             PostResearchFunction(protocol, "find_source_text", """{"sourceKey":"internal-source-1","query":"OptionE","offset":0,"topK":3}"""),
-            EarlyReply(protocol, final.ToJsonString()));
+            EarlyReply(protocol, final.ToJsonString()) };
+        if (completed) replies.Add(EarlyReply(protocol, final.ToJsonString()));
+        using var factory = new QueuedHttpClientFactory(replies.ToArray());
         var options = EarlyOptions(protocol, 6);
         options.SemanticCriticEnabled = true; options.SynthesisPromptStyle = style;
         var logger = new DiagnosticRecordingLogger<OpenAiCompatibleAdvancedAnalysisProvider>();
@@ -45,7 +47,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             .ExecuteAsync(SynthesisPurposeRequest(false), gateway, CancellationToken.None);
 
         Assert.Equal(completed ? "answered" : "insufficient_documentation", result.Outcome);
-        Assert.Equal(5, result.ProviderCallCount);
+        Assert.Equal(completed ? 6 : 5, result.ProviderCallCount);
         Assert.Equal(2, gateway.Searches.Count);
         Assert.Equal("find_source_text", gateway.Searches[1].Operation);
         Assert.Equal("E5", Assert.Single(result.Claims[0].EvidenceIds));
@@ -63,6 +65,13 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             Assert.Empty(prompt.GetProperty("citationReview").GetProperty("answeredPlacements").EnumerateArray());
         }
         Assert.False(WorkspaceUser(factory.Requests[4].Body).TryGetProperty("insufficiencyReview", out _));
+        if (completed)
+        {
+            var finalReview = WorkspaceUser(factory.Requests[5].Body);
+            Assert.Equal("answered", finalReview.GetProperty("candidate").GetProperty("outcome").GetString());
+            Assert.True(finalReview.TryGetProperty("priorCriticReview", out _));
+            Assert.False(finalReview.TryGetProperty("researchTools", out _));
+        }
         Assert.Contains(logger.Events, e => e.Values.GetValueOrDefault("ReasonCode")?.ToString() == "latest_critic_partial_candidate");
         Assert.DoesNotContain(factory.Requests, call => PayloadAuditSystem(call.Body)
             .Contains("final SAAIA synthesis completer", StringComparison.Ordinal));

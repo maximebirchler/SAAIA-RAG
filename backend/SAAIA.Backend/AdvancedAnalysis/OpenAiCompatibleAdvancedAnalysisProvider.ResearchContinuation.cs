@@ -49,7 +49,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence,
         IReadOnlyList<PromptEvidenceItem> PromptEvidence,
         bool InsufficiencyReviewed = false,
-        AdvancedAnalysisProviderResult? BoundedResult = null);
+        AdvancedAnalysisProviderResult? BoundedResult = null,
+        AdvancedAnalysisProviderResult? PriorCriticPartial = null);
 
     private sealed record CandidateSupportCorrection(string ClaimId, string SelectedItem,
         IReadOnlyList<string> EvidenceIds, string Reason, string ReasonCode = "candidate_body_required");
@@ -185,6 +186,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var partialReviewCount = 0;
         var writerRepairUsed = false;
         AdvancedAnalysisProviderResult? criticPartialCandidate = null;
+        AdvancedAnalysisProviderResult? priorCriticPartial = null;
         var lastReviewedSupportedCount = 0;
         var lastReviewedSuccessfulOperations = 0;
         object? insufficiencyReview = null;
@@ -474,7 +476,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     {
                         var proposal = ParseResult(completion.Content, evidence, request);
                         if (proposal.Outcome == "insufficient_documentation")
+                        {
                             criticPartialCandidate = proposal;
+                            priorCriticPartial = proposal;
+                        }
                     }
                     catch (AdvancedAnalysisProviderException)
                     {
@@ -604,7 +609,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     context.CandidateInventory,
                     context.CandidateExplorerDossier is not null);
                 if (corrections.Count == 0)
-                    return new SynthesisCompletion(completion, evidence, observations, insufficiencyReviewed);
+                    return new SynthesisCompletion(completion, evidence, observations, insufficiencyReviewed,
+                        PriorCriticPartial: priorCriticPartial);
                 if (finalizeAfterNoProgress)
                     throw new AdvancedAnalysisProviderException(corrections.Any(c => c.ReasonCode == "candidate_evidence_not_visible")
                         ? "advanced_synthesis_candidate_evidence_not_visible"

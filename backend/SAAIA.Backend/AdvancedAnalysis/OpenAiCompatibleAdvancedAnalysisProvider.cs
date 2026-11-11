@@ -419,6 +419,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                         request,
                         parsed,
                         promptEvidence);
+                    parsed = await ReviewRecoveredCriticAnswerAsync(request, parsed, criticRound,
+                            completions, cancellationToken)
+                        .ConfigureAwait(false);
                 }
                 catch (AdvancedAnalysisProviderException error) when (
                     _options.CandidateBindingFeedbackEnabled
