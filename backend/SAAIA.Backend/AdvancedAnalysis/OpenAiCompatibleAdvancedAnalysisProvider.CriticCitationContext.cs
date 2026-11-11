@@ -25,11 +25,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         supporting added facts, or remove unnecessary details. Do not expand an
         adequate concise claim with unrequested factual detail. A title-bearing
         passage can identify the item while a separate cited passage supplies a
-        property; both IDs may be needed. Do not replace that property passage
-        with another copy of the introduction. citationReview identifies only
-        exact complete-text duplicates in the same source and physical pages;
-        it is not a semantic verdict, a merge of IDs or proof of independence
-        for unlisted passages. Identical passages add no different factual support.
+        property only when their association with that same item is established;
+        both IDs may be needed. Similar names, a search query or a shared topic
+        do not establish this association. Do not replace a property passage
+        with another copy of the introduction.
+        citationReview.namedItemSourceAssociations focuses attention on claims
+        citing multiple source versions or unassigned physical context. Its
+        visibleNameMentionEvidenceIds is a lexical observation of current text,
+        not proof that all properties describe the same item; an empty list is
+        not proof of a mismatch. Inspect the association in each source group,
+        research it if needed, or omit the unsupported detail while preserving
+        useful supported information. Multisource synthesis remains allowed.
+        citationReview.identicalCompletePassages identifies only exact complete
+        duplicates in the same source and physical pages. It is not a semantic
+        verdict, a merge of IDs or proof of independence for unlisted passages.
+        Identical passages add no different factual support.
         """;
 
     private static object BuildCriticCandidate(
@@ -58,6 +68,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             candidatePlacement = candidate.Outcome == "answered"
                 ? "answered_contract_positions"
                 : "not_inferred_for_partial_answer",
+            namedItemSourceAssociations = BuildNamedItemSourceAssociations(candidate, evidence),
             // Compare complete current bodies only. Matching prefixes or separate
             // retained windows cannot establish equality of unread canonical text.
             identicalCompletePassages = evidence.Where(e => !string.IsNullOrWhiteSpace(e.EvidenceId)
@@ -76,4 +87,36 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     g.Key.SourceKey, g.Key.PhysicalPageStart, g.Key.PhysicalPageEnd
                 }).ToArray()
         };
+
+    private static object[] BuildNamedItemSourceAssociations(
+        AdvancedAnalysisProviderResult candidate, IReadOnlyList<PromptEvidenceItem> evidence)
+    {
+        var reviews = new List<object>();
+        foreach (var claim in candidate.Claims.Where(c => !string.IsNullOrWhiteSpace(c.SelectedItem)))
+        {
+            var name = NormalizeClaimText(claim.SelectedItem!);
+            if (name.Length == 0) continue;
+            // Keep each source version separate. Neither retrieval metadata nor
+            // a name observed in another source can establish this association.
+            var groups = evidence.Where(e => e.EvidenceId is not null
+                    && claim.EvidenceIds.Contains(e.EvidenceId, StringComparer.Ordinal))
+                .GroupBy(e => new { e.SourceKey, e.SourceReference.DocId,
+                    e.SourceReference.RevisionId, e.SourceReference.SourceHash })
+                .Select(group => new
+                {
+                    group.Key.SourceKey,
+                    evidenceIds = group.Select(e => e.EvidenceId).ToArray(),
+                    visibleNameMentionEvidenceIds = group.Where(e => GetVisibleEvidenceContents(e)
+                            .Any(body => (" " + NormalizeClaimText(body) + " ")
+                                .Contains(" " + name + " ", StringComparison.Ordinal)))
+                        .Select(e => e.EvidenceId).ToArray(),
+                    unassignedPhysicalContextEvidenceIds = group
+                        .Where(e => e.SourceStructure?.SectionAssociation == "not_asserted")
+                        .Select(e => e.EvidenceId).ToArray()
+                }).ToArray();
+            if (groups.Length > 1 || groups.Any(g => g.unassignedPhysicalContextEvidenceIds.Length > 0))
+                reviews.Add(new { claim.ClaimId, multipleSourceVersions = groups.Length > 1, sourceGroups = groups });
+        }
+        return reviews.ToArray();
+    }
 }
