@@ -557,9 +557,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            Do not turn an optional synthesis choice into an insufficiency. Reserve
            insufficient_documentation for a missing documentary fact, item or
            mandatory source-defined relationship that prevents the deliverable.
-           Keep claim text concise. When selectedItem already identifies the
-           choice, do not repeat the table row, column or placement wording in
-           that claim.
+           Keep claim text concise. Avoid merely repeating the selected name or
+           coordinates, but retain the grounds and conditions for a proposed use.
            """
            + "\n" + CandidateEvidenceUsePolicy
            + "\n" + BuildSynthesisResearchContract()
@@ -664,8 +663,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            Every factual answer unit must
            have one claim, every claim must cite supplied evidenceIds, and every
            [claimId] must appear exactly once in answerText.
-           Keep each claim text concise. When selectedItem already identifies the
-           choice, do not repeat row, column or placement wording in that claim.
+           Keep each claim text concise. Avoid merely repeating the selected name
+           or coordinates, but retain the grounds and conditions for a proposed use.
            """ + "\n" + CandidateEvidenceUsePolicy;
 
     private string BuildCriticSystemPrompt()
@@ -1083,7 +1082,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             claimCoordinates = BuildStructuredClaimCoordinates(
                 request.Handoff.Load),
             candidate = BuildCriticCandidate(candidate),
-            citationReview = BuildCriticCitationReview(candidate, evidence),
+            citationReview = BuildCriticCitationReview(candidate, evidence, request.Handoff.Load),
             structuredTables = BuildStructuredTablesForPrompt(evidence),
             evidence
         }, JsonOptions);
@@ -1104,7 +1103,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             claimCoordinates = BuildStructuredClaimCoordinates(
                 request.Handoff.Load),
             validWriterCandidate = BuildCriticCandidate(validWriterCandidate),
-            citationReview = BuildCriticCitationReview(validWriterCandidate, evidence),
+            citationReview = BuildCriticCitationReview(validWriterCandidate, evidence, request.Handoff.Load),
             invalidCriticJson,
             evidenceReferenceDiagnostics = DiagnoseEvidenceReferences(invalidCriticJson,
                 evidence.Where(e => e.EvidenceId is not null).Select(e => e.EvidenceId!).ToArray()),

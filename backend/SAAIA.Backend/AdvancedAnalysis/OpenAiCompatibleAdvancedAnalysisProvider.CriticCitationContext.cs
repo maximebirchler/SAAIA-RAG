@@ -9,6 +9,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         claimCoordinates describes the requested complete answer. Its positional
         claim IDs locate an answered candidate, but do not assign positions to a
         partial list: partial claim IDs are citation labels, not grid placements.
+        citationReview.answeredPlacements joins each complete candidate choice
+        to that requested purpose by its claim ID, not by its array position.
+        This is a review checklist, not a judgment that any choice fits.
         For a partial candidate, assess only placements explicitly stated in its
         text; never infer a placement by matching its ID to claimCoordinates.
         citationReview is review context outside the candidate response schema;
@@ -18,6 +21,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         content; it need not be a source-prescribed relationship. An item name or
         a description of its composition alone does not establish that fit.
         Reassign or research weak choices instead of merely polishing their text.
+        When a proposal depends on an addition or prerequisite, retain that
+        condition in the visible answerText as well as its supporting claim.
+        selectedItem remains the exact item identity; explain the condition
+        alongside it rather than renaming the item or inventing an addition.
 
         Audit the final wording against the final evidenceIds of each claim.
         Reading a fact elsewhere in current evidence does not support a claim
@@ -61,13 +68,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
     private static object BuildCriticCitationReview(
         AdvancedAnalysisProviderResult candidate,
-        IReadOnlyList<PromptEvidenceItem> evidence)
+        IReadOnlyList<PromptEvidenceItem> evidence,
+        AdvancedAnalysisLoadDescriptor load)
         => new
         {
             status = "mechanical_context_only",
             candidatePlacement = candidate.Outcome == "answered"
                 ? "answered_contract_positions"
                 : "not_inferred_for_partial_answer",
+            answeredPlacements = BuildAnsweredPlacementReview(candidate, load),
             namedItemSourceAssociations = BuildNamedItemSourceAssociations(candidate, evidence),
             // Compare complete current bodies only. Matching prefixes or separate
             // retained windows cannot establish equality of unread canonical text.
@@ -87,6 +96,23 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     g.Key.SourceKey, g.Key.PhysicalPageStart, g.Key.PhysicalPageEnd
                 }).ToArray()
         };
+
+    private static object[] BuildAnsweredPlacementReview(
+        AdvancedAnalysisProviderResult candidate, AdvancedAnalysisLoadDescriptor load)
+    {
+        if (candidate.Outcome != "answered") return [];
+        // The parser checks a complete candidate's coordinate IDs. Its claim
+        // array may be reordered; partial citation IDs imply no placement.
+        return BuildStructuredClaimCoordinates(load)
+            .Join(candidate.Claims, coordinate => coordinate.ClaimId, claim => claim.ClaimId,
+                (coordinate, claim) => (object)new
+                {
+                    claim.ClaimId, claim.SelectedItem,
+                    requestedRow = coordinate.RowLabel,
+                    requestedColumn = coordinate.ColumnLabel
+                }, StringComparer.Ordinal)
+            .ToArray();
+    }
 
     private static object[] BuildNamedItemSourceAssociations(
         AdvancedAnalysisProviderResult candidate, IReadOnlyList<PromptEvidenceItem> evidence)

@@ -9,19 +9,32 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     private const string CitationContextPartial = """{"outcome":"insufficient_documentation","answerText":"La limite documentée est 17 bar [C2]. Les autres unités restent à établir.","claims":[{"claimId":"C2","text":"La limite est 17 bar.","evidenceIds":["E1","E2"]}]}""";
 
     [Theory]
-    [InlineData("responses")]
-    [InlineData("chat-completions")]
-    public async Task CriticCitationContext_complete_answer_keeps_requested_positions_outside_claims(string protocol)
+    [InlineData("responses", "agent", false)]
+    [InlineData("responses", "agent", true)]
+    [InlineData("responses", "contract", false)]
+    [InlineData("responses", "contract", true)]
+    [InlineData("chat-completions", "agent", false)]
+    [InlineData("chat-completions", "agent", true)]
+    [InlineData("chat-completions", "contract", false)]
+    [InlineData("chat-completions", "contract", true)]
+    public async Task CriticCitationContext_complete_answer_joins_reordered_claims_to_requested_positions_outside_schema(
+        string protocol, string style, bool repair)
     {
         var request = BuildFixedSubjectRequest(false);
         var answer = JsonSerializer.Serialize(new
         {
             outcome = "answered", answerText = "Dix faits documentés. " + string.Join(' ', Enumerable.Range(1, 10).Select(i => $"[C{i}]")),
-            claims = Enumerable.Range(1, 10).Select(i => new { claimId = $"C{i}", text = $"Le fait {i} décrit l'action documentée.", evidenceIds = new[] { "E1" } })
+            claims = Enumerable.Range(1, 10).Reverse().Select(i => new { claimId = $"C{i}", selectedItem = $"Action {i}", text = $"Le fait {i} décrit l'action documentée.", evidenceIds = new[] { "E1" } })
         });
-        using var factory = new QueuedHttpClientFactory(Completion("""{"selectionMode":"content_claims","selectionBasis":"fixed_subject_attributes","queries":[{"query":"control procedure steps","topK":12}]}"""),
-            EarlyReply(protocol, answer), EarlyReply(protocol, answer));
+        var replies = new List<HttpResponseMessage>
+        {
+            Completion("""{"selectionMode":"content_claims","selectionBasis":"fixed_subject_attributes","queries":[{"query":"control procedure steps","topK":12}]}"""),
+            EarlyReply(protocol, answer), EarlyReply(protocol, repair ? "invalid json" : answer)
+        };
+        if (repair) replies.Add(EarlyReply(protocol, answer));
+        using var factory = new QueuedHttpClientFactory(replies.ToArray());
         var options = WorkspaceOptions(protocol); options.SemanticCriticEnabled = true;
+        options.SynthesisPromptStyle = style;
         var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null)
             .ExecuteAsync(request, new RecordingToolGateway(BuildEvidence("E1", "Le technicien vérifie le seuil.")), CancellationToken.None);
 
@@ -34,6 +47,22 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal("answered_contract_positions", prompt.GetProperty("citationReview").GetProperty("candidatePlacement").GetString());
         Assert.Equal(new[] { "claimId", "selectedItem", "text", "evidenceIds" },
             prompt.GetProperty("candidate").GetProperty("claims")[0].EnumerateObject().Select(p => p.Name));
+        Assert.Equal("C10", prompt.GetProperty("candidate").GetProperty("claims")[0].GetProperty("claimId").GetString());
+        foreach (var index in repair ? new[] { 2, 3 } : new[] { 2 })
+        {
+            var review = WorkspaceUser(factory.Requests[index].Body);
+            var placements = review.GetProperty("citationReview").GetProperty("answeredPlacements");
+            Assert.Equal(10, placements.GetArrayLength());
+            foreach (var placement in placements.EnumerateArray())
+            {
+                var id = placement.GetProperty("claimId").GetString();
+                var requested = review.GetProperty("claimCoordinates").EnumerateArray()
+                    .Single(c => c.GetProperty("claimId").GetString() == id);
+                Assert.Equal(requested.GetProperty("rowLabel").GetString(), placement.GetProperty("requestedRow").GetString());
+                Assert.Equal(requested.GetProperty("columnLabel").GetString(), placement.GetProperty("requestedColumn").GetString());
+                Assert.Equal("Action " + id![1..], placement.GetProperty("selectedItem").GetString());
+            }
+        }
     }
 
     [Theory]
@@ -64,6 +93,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var audit = prompt.GetProperty("citationReview");
         Assert.Equal("not_inferred_for_partial_answer", audit.GetProperty("candidatePlacement").GetString());
         Assert.Equal("mechanical_context_only", audit.GetProperty("status").GetString());
+        Assert.Empty(audit.GetProperty("answeredPlacements").EnumerateArray());
         var group = Assert.Single(audit.GetProperty("identicalCompletePassages").EnumerateArray());
         Assert.Equal(new[] { "E1", "E2" }, group.GetProperty("evidenceIds").EnumerateArray().Select(x => x.GetString()));
         Assert.DoesNotContain(body, audit.GetRawText(), StringComparison.Ordinal);
@@ -90,6 +120,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
 
         var prompt = WorkspaceUser(factory.Requests[2].Body);
         Assert.Empty(prompt.GetProperty("citationReview").GetProperty("identicalCompletePassages").EnumerateArray());
+        Assert.Empty(prompt.GetProperty("citationReview").GetProperty("answeredPlacements").EnumerateArray());
         Assert.False(prompt.GetProperty("candidate").GetProperty("claims")[0].TryGetProperty("requestedCoordinate", out _));
         if (difference == "truncated")
             Assert.Contains(prompt.GetProperty("evidence").EnumerateArray(), e => e.GetProperty("contentTruncated").GetBoolean());
@@ -121,6 +152,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             candidate.GetProperty("claims")[0].EnumerateObject().Select(p => p.Name));
         Assert.Equal("not_inferred_for_partial_answer", followup.GetProperty("citationReview")
             .GetProperty("candidatePlacement").GetString());
+        Assert.Empty(followup.GetProperty("citationReview").GetProperty("answeredPlacements").EnumerateArray());
         var groups = followup.GetProperty("citationReview").GetProperty("identicalCompletePassages");
         if (repair) Assert.Single(groups.EnumerateArray());
         else
