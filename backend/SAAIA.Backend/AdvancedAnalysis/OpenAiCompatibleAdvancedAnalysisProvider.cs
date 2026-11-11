@@ -293,10 +293,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             evidence = writerRound.Evidence;
             promptEvidence = writerRound.PromptEvidence;
             completions.Add(writer);
-            var parsed = writerRound.BoundedResult ?? await ParseWriterWithRepairAsync(
-                    request, writer, evidence, promptEvidence, completions,
-                    runSemanticCritic, cancellationToken)
-                .ConfigureAwait(false);
+            var parsed = writerRound.BoundedResult ?? ParseResult(writer.Content, evidence, request);
             if (_options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
                 RememberActiveProposalEvidence(parsed, promptEvidence, synthesisResearch);
             parsed = CanonicalizeDistinctSelectedItems(

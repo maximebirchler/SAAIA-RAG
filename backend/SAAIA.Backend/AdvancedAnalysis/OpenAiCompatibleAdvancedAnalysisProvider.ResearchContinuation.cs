@@ -182,6 +182,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var argumentRecovery = 0;
         var insufficiencyReviewed = false;
         var partialReviewCount = 0;
+        var writerRepairUsed = false;
         var lastReviewedSupportedCount = 0;
         var lastReviewedSuccessfulOperations = 0;
         object? insufficiencyReview = null;
@@ -411,6 +412,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             {
                 if (candidateExplorer)
                     return new SynthesisCompletion(completion, evidence, observations);
+                if (phase == "writer")
+                {
+                    var repaired = await RepairWriterCompletionIfNeededAsync(
+                        request, completion, evidence, observations, completions,
+                        reservedFinalCalls, writerRepairUsed, cancellationToken).ConfigureAwait(false);
+                    writerRepairUsed |= !ReferenceEquals(repaired, completion);
+                    completion = repaired;
+                }
                 if (_options.NativeResearchToolsEnabled)
                     RememberPreviousCitedEvidence(completion.Content, evidence, observations, request, context);
                 if (_options.AdaptiveResearchEnabled && _options.NativeResearchToolsEnabled

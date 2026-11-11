@@ -575,9 +575,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            any unknown evidence id only by an exact supplied evidenceId whose
            content supports the claim; never guess or approximately match an id.
            The example E1 is a schema placeholder, not an available id unless it
-           occurs in the supplied evidence array. Restore the required claim count
-           from load.answerUnitCount while preserving every requested row and column.
-           If evidence cannot support a required fact, return a precise insufficiency.
+           occurs in the supplied evidence array. First reconcile outcome with
+           the actually supported deliverable. A protocol error does not establish
+           that missing choices exist. The required count and coordinates apply
+           only to a complete answered result. If the draft has unresolved gaps,
+           preserve its useful supported findings in an explicitly partial
+           insufficient_documentation result; remove unsupported placeholders.
+           Do not fill a gap merely to restore a count or conceal a suitability
+           problem. An answered result must support every requested row and column.
            Remove any internal sourceKey or evidenceId label from answerText, claim
            text and selectedItem, including internal-source-* and advanced-evidence-*;
            do not replace it with an invented source name. Do not invent a fact or
@@ -586,8 +591,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            semantically suitable candidate. Copy a non-empty candidateTitle
            verbatim, or use an exact concrete name explicitly present in a
            source_chunk. Never create a replacement from unsupported words. If
-           the evidence cannot support every required unit, return the smallest
-           precise insufficiency. For an answered outcome, append each
+           the evidence cannot support every required unit, retain the supported
+           claims and explain the precise remaining gap. For an answered outcome, append each
            [claimId] directly to its factual unit in answerText and use every
            claimId exactly once. Preserve selectedItem for every structured claim.
            If the original object is malformed or truncated,
@@ -821,6 +826,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             request = request.Handoff.RequestText,
             conversationContext = BuildConversationPromptContext(request.Handoff.ConversationContext),
             language = request.Handoff.Language,
+            allowsPartialAnswer = true,
             load = BuildPromptLoad(request.Handoff.Load),
             selectionContract = BuildResolvedSelectionContract(request.Handoff.Load),
             validationErrorCode,
