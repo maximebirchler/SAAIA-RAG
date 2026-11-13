@@ -81,6 +81,8 @@ internal static partial class DoclingCanonicalRetrievalProjector
             return Array.Empty<ProjectedRetrievalChunk>();
 
         var projected = new List<ProjectedRetrievalChunk>();
+        using var contextProbe = SAAIA.Backend.BackendDiagnostics.Start("ingestion.canonical_heading_context");
+        var skippedPageContextResetCount = 0;
         var activeHeadings = new List<SourceAtom>();
         var pagesContainingHeadings = atoms
             .Where(static atom => atom.IsHeading)
@@ -138,11 +140,15 @@ internal static partial class DoclingCanonicalRetrievalProjector
             if (currentPageNumber != atom.PageNumber)
             {
                 Flush();
+                var skippedPhysicalPage = currentPageNumber.HasValue
+                    && atom.PageNumber > currentPageNumber.Value + 1;
+                if (skippedPhysicalPage && activeHeadings.Count > 0)
+                    skippedPageContextResetCount++;
                 currentPageNumber = atom.PageNumber;
                 // A page with its own headings starts a new local reading
-                // context. A headingless page may inherit only a section that
-                // the canonical tree proves continues onto that page.
-                if (pagesContainingHeadings.Contains(atom.PageNumber)
+                // context. The section tree gives inferred bounds, not proof
+                // that text beyond an unobserved page belongs to that heading.
+                if (skippedPhysicalPage || pagesContainingHeadings.Contains(atom.PageNumber)
                     || pagesWithUncertainLayoutAssociations.Contains(atom.PageNumber))
                 {
                     activeHeadings.Clear();
@@ -226,6 +232,9 @@ internal static partial class DoclingCanonicalRetrievalProjector
         Flush();
         MergeSmallAdjacentChunks(projected, maxWords, minWords);
         RetainUncoveredObservedHeadings(atoms, projected, maxWords);
+        contextProbe.Set("skipped_page_context_reset_count", skippedPageContextResetCount);
+        contextProbe.Set("projected_chunk_count", projected.Count);
+        contextProbe.Complete();
         return projected
             .Select((chunk, index) => chunk with
             {

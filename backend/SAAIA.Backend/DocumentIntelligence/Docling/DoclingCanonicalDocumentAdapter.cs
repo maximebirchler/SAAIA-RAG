@@ -87,6 +87,7 @@ internal static class DoclingCanonicalDocumentAdapter
             ManifestSha256 = context.ManifestSha256
         };
 
+        CanonicalFigureTextAssociationPolicy.Apply(document, cancellationToken);
         DoclingCanonicalVisualAssetProjector.Apply(document, source);
         DoclingTableRegionObservationBuilder.Apply(document, source);
         CanonicalContractValidator.ValidateOrThrow(document);
