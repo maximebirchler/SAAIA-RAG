@@ -67,7 +67,8 @@ internal static class DoclingCanonicalDocumentAdapter
         var relations = new List<CanonicalRelation>();
         ProjectTables(context, source, pages, blockIdsBySourceRef, relations, cancellationToken);
         ProjectFigures(context, source, pages, blockIdsBySourceRef, relations);
-        var sections = BuildSections(context.SourceSha256, blocks);
+        var boundaries = DoclingCanonicalContextBoundaries.Find(pages.Values, sourceItems, cancellationToken);
+        var sections = BuildSections(context.SourceSha256, blocks, boundaries);
 
         var document = new CanonicalDocument
         {
@@ -358,15 +359,21 @@ internal static class DoclingCanonicalDocumentAdapter
 
     private static List<CanonicalSectionNode> BuildSections(
         string sourceSha256,
-        IReadOnlyList<BlockProjection> blocks)
+        IReadOnlyList<BlockProjection> blocks,
+        IReadOnlySet<int> contextBoundaryPages)
     {
         var states = new List<(CanonicalSectionNode Node, int Level)>();
         var active = new Stack<(CanonicalSectionNode Node, int Level)>();
+        int? previousBlockPage = null;
         foreach (var projection in blocks
                      .OrderBy(static item => item.PageNumber)
                      .ThenBy(static item => item.GlobalOrder)
                      .ThenBy(static item => item.Block.ReadingOrder))
         {
+            if (previousBlockPage.HasValue && contextBoundaryPages.Any(page =>
+                    page > previousBlockPage.Value && page <= projection.PageNumber))
+                active.Clear();
+            previousBlockPage = projection.PageNumber;
             if (CanonicalSourceAssociationPolicy.IsUnassignedPhysicalContext(projection.Block))
                 continue;
             if (string.Equals(projection.Label, "section_header", StringComparison.Ordinal))

@@ -83,7 +83,13 @@ internal static partial class DoclingCanonicalRetrievalProjector
         var projected = new List<ProjectedRetrievalChunk>();
         using var contextProbe = SAAIA.Backend.BackendDiagnostics.Start("ingestion.canonical_heading_context");
         var skippedPageContextResetCount = 0;
+        var navigationBoundaryContextResetCount = 0;
         var activeHeadings = new List<SourceAtom>();
+        var navigationOnlyContentPages = atoms
+            .Where(static atom => !atom.IsHeading)
+            .GroupBy(static atom => atom.PageNumber)
+            .Where(static page => page.All(static atom => atom.IsNavigation))
+            .Select(static page => page.Key).ToHashSet();
         var pagesContainingHeadings = atoms
             .Where(static atom => atom.IsHeading)
             .Select(static atom => atom.PageNumber)
@@ -142,13 +148,19 @@ internal static partial class DoclingCanonicalRetrievalProjector
                 Flush();
                 var skippedPhysicalPage = currentPageNumber.HasValue
                     && atom.PageNumber > currentPageNumber.Value + 1;
+                var leavingNavigationPages = currentPageNumber.HasValue
+                    && navigationOnlyContentPages.Contains(currentPageNumber.Value)
+                    && !navigationOnlyContentPages.Contains(atom.PageNumber);
                 if (skippedPhysicalPage && activeHeadings.Count > 0)
                     skippedPageContextResetCount++;
+                if (leavingNavigationPages && activeHeadings.Count > 0)
+                    navigationBoundaryContextResetCount++;
                 currentPageNumber = atom.PageNumber;
                 // A page with its own headings starts a new local reading
                 // context. The section tree gives inferred bounds, not proof
-                // that text beyond an unobserved page belongs to that heading.
-                if (skippedPhysicalPage || pagesContainingHeadings.Contains(atom.PageNumber)
+                // that text beyond unobserved or navigation-only pages belongs
+                // to that heading. Mixed body/navigation pages keep their context.
+                if (skippedPhysicalPage || leavingNavigationPages || pagesContainingHeadings.Contains(atom.PageNumber)
                     || pagesWithUncertainLayoutAssociations.Contains(atom.PageNumber))
                 {
                     activeHeadings.Clear();
@@ -233,6 +245,7 @@ internal static partial class DoclingCanonicalRetrievalProjector
         MergeSmallAdjacentChunks(projected, maxWords, minWords);
         RetainUncoveredObservedHeadings(atoms, projected, maxWords);
         contextProbe.Set("skipped_page_context_reset_count", skippedPageContextResetCount);
+        contextProbe.Set("navigation_boundary_context_reset_count", navigationBoundaryContextResetCount);
         contextProbe.Set("projected_chunk_count", projected.Count);
         contextProbe.Complete();
         return projected
@@ -267,7 +280,7 @@ internal static partial class DoclingCanonicalRetrievalProjector
             var observations = CanonicalObservationSelector.SelectPage(page);
             foreach (var block in observations.Blocks)
             {
-                if (IsProvenPageCounter(block, page.PageNumber)
+                if (CanonicalSourceAssociationPolicy.IsProvenPageCounter(block, page.PageNumber)
                     || string.IsNullOrWhiteSpace(block.Text.Retrieval))
                     continue;
                 if (IsNativeSupplementalBlock(block))
@@ -298,7 +311,7 @@ internal static partial class DoclingCanonicalRetrievalProjector
                 var provenanceIndex = ResolveProvenanceIndex(block.Provenance);
                 var item = RequireItem(itemMap, sourceRef);
                 var unassigned = CanonicalSourceAssociationPolicy.IsUnassignedPhysicalContext(block);
-                var navigation = !unassigned && IsNavigationItem(item, itemMap);
+                var navigation = !unassigned && DoclingDocumentTraversal.IsNavigationItem(item, itemMap);
                 var heading = !unassigned && IsHeadingBlock(block.BlockType);
                 atoms.Add(new(
                     observations.ResolveOrder(block.BlockId, DoclingDocumentTraversal.ResolveOrder(
@@ -331,7 +344,7 @@ internal static partial class DoclingCanonicalRetrievalProjector
                 var sourceRef = RequireSourceRef(table.Provenance);
                 var provenanceIndex = ResolveProvenanceIndex(table.Provenance);
                 var item = RequireItem(itemMap, sourceRef);
-                var navigation = IsNavigationItem(item, itemMap);
+                var navigation = DoclingDocumentTraversal.IsNavigationItem(item, itemMap);
                 atoms.AddRange(BuildTableAtoms(table, page, navigation,
                     observations.ResolveOrder(table.TableId,
                         DoclingDocumentTraversal.ResolveOrder(orderByRef, sourceRef, provenanceIndex))));
@@ -426,13 +439,6 @@ internal static partial class DoclingCanonicalRetrievalProjector
                    block.Provenance.Method,
                    "native_layout_reading_order_reconciliation",
                    StringComparison.Ordinal));
-
-    private static bool IsProvenPageCounter(CanonicalBlock block, int physicalPage)
-        => (block.IsRepeatedFurniture
-                || string.Equals(block.BlockType, "page_header", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(block.BlockType, "page_footer", StringComparison.OrdinalIgnoreCase))
-           && string.Equals(block.Text.Retrieval.Trim(), physicalPage.ToString(
-               System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
 
     private static IEnumerable<SourceAtom> SplitOversizedAtom(
         SourceAtom atom,
@@ -727,48 +733,6 @@ internal static partial class DoclingCanonicalRetrievalProjector
         => item is DoclingTextItem text
             ? Math.Clamp(text.Level ?? 1, 1, 16)
             : 1;
-
-    private static bool IsNavigationItem(
-        DoclingContentItem item,
-        IReadOnlyDictionary<string, DoclingContentItem> itemMap)
-    {
-        var visited = new HashSet<string>(StringComparer.Ordinal);
-        for (var current = item; current is not null;)
-        {
-            if (!visited.Add(current.SelfRef))
-                throw new InvalidDataException(
-                    $"Docling parent tree contains a cycle at '{current.SelfRef}'.");
-            if (IsNavigationLabel(current.Label)
-                || current is DoclingGroup group
-                && (IsNavigationLabel(group.Name)
-                    || IsNavigationLabel(group.Label)))
-            {
-                return true;
-            }
-
-            if (current.Parent is null)
-                break;
-            var parentRef = current.Parent.Ref;
-            if (string.Equals(
-                    parentRef,
-                    "#/body",
-                    StringComparison.Ordinal))
-            {
-                break;
-            }
-            if (!itemMap.TryGetValue(parentRef, out current))
-                throw new InvalidDataException(
-                    $"Docling parent reference '{parentRef}' cannot be resolved.");
-        }
-
-        return false;
-    }
-
-    private static bool IsNavigationLabel(string? value)
-        => string.Equals(
-               value,
-               "document_index",
-               StringComparison.OrdinalIgnoreCase);
 
     private static string RequireSourceRef(
         CanonicalExtractionProvenance provenance)

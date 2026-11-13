@@ -81,4 +81,47 @@ internal static class DoclingDocumentTraversal
             : (int.MaxValue / 100) - 1;
         return checked((order * 100) + Math.Clamp(provenanceIndex, 0, 99));
     }
+    internal static bool IsNavigationItem(
+        DoclingContentItem item,
+        IReadOnlyDictionary<string, DoclingContentItem> itemMap)
+    {
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        for (var current = item; current is not null;)
+        {
+            if (!visited.Add(current.SelfRef))
+                throw new InvalidDataException(
+                    $"Docling parent tree contains a cycle at '{current.SelfRef}'.");
+            if (IsNavigationLabel(current.Label)
+                || current is DoclingGroup group
+                && (IsNavigationLabel(group.Name)
+                    || IsNavigationLabel(group.Label)))
+            {
+                return true;
+            }
+
+            if (current.Parent is null)
+                break;
+            var parentRef = current.Parent.Ref;
+            if (string.Equals(
+                    parentRef,
+                    "#/body",
+                    StringComparison.Ordinal))
+            {
+                break;
+            }
+            if (!itemMap.TryGetValue(parentRef, out current))
+                throw new InvalidDataException(
+                    $"Docling parent reference '{parentRef}' cannot be resolved.");
+        }
+
+        return false;
+    }
+
+    private static bool IsNavigationLabel(string? value)
+        => string.Equals(
+               value,
+               "document_index",
+               StringComparison.OrdinalIgnoreCase);
+
+
 }

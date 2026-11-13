@@ -78,6 +78,7 @@ public sealed partial class DoclingCanonicalDocumentAdapterTests
         Assert.Null(chunk.SectionOrdinal);
         Assert.Empty(chunk.CanonicalContextBlockIds!);
         Assert.Null(Assert.Single(CanonicalProfileInputProjector.Project([chunk])).SectionOrdinal);
+        Assert.Null(Assert.Single(CanonicalExtractionViewProjector.ProjectUnits(canonical, source), unit => unit.PageStart == 3).SectionOrdinal);
     }
 
     private static DoclingDocument PictureTextDocument()

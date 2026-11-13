@@ -5,6 +5,13 @@ internal static class CanonicalSourceAssociationPolicy
 {
     internal const string LayoutAssociationUncertainFlag = "canonical_layout_section_association_not_asserted";
 
+    internal static bool IsProvenPageCounter(CanonicalBlock block, int physicalPage)
+        => (block.IsRepeatedFurniture
+                || string.Equals(block.BlockType, "page_header", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(block.BlockType, "page_footer", StringComparison.OrdinalIgnoreCase))
+           && string.Equals(block.Text.Retrieval.Trim(), physicalPage.ToString(
+               System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
+
     internal static bool IsUnassignedPhysicalContext(CanonicalBlock block)
         => block.IsRepeatedFurniture
            || block.QualityFlags.Contains(CanonicalRepeatedPageFurnitureClassifier.InferredQualityFlag, StringComparer.Ordinal)
