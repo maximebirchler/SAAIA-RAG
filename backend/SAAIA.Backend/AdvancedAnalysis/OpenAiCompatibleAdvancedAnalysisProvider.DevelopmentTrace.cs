@@ -6,6 +6,30 @@ namespace SAAIA.Backend.AdvancedAnalysis;
 
 internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 {
+    private async Task WriteDevelopmentTransportFailureAsync(Guid jobId, string role,
+        string requestJson, string errorCode, string phase, int attempts, long elapsed)
+    {
+        if (string.IsNullOrWhiteSpace(_options.DevelopmentTraceDirectory)) return;
+        // The provider token is already cancelled. Finish this local, opt-in
+        // capture under its own small deadline, after conservative settlement.
+        // This records the prepared request, not proof of provider receipt.
+        using var captureDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var absentResponse = JsonDocument.Parse("null");
+        try
+        {
+            await WriteDevelopmentTraceAsync(jobId, role, requestJson, absentResponse.RootElement,
+                string.Empty, null, null, attempts, elapsed, captureDeadline.Token,
+                "transport.failure", errorCode, phase).ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is AdvancedAnalysisProviderException or OperationCanceledException
+            or IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            // Collector failure must remain observable without replacing the
+            // original transport failure or changing its budget settlement.
+            _runtimeState.CaptureFailed("advanced_development_transport_trace_incomplete");
+        }
+    }
+
     private async Task WriteDevelopmentHttpRejectionAsync(Guid jobId, string role,
         string serializedPayload, HttpResponseMessage response, string errorCode,
         int attempts, long elapsed, CancellationToken cancellationToken, CancellationToken requestCancellationToken,
@@ -111,7 +135,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         string requestJson, JsonElement responseEnvelope,
         string completionJson, string? observedModelId, decimal? chargedCostUsd,
         int httpAttemptCount, long elapsedMilliseconds, CancellationToken cancellationToken,
-        string completionOrigin = "message.content", string? normalizationError = null)
+        string completionOrigin = "message.content", string? normalizationError = null,
+        string? transportPhase = null)
     {
         if (string.IsNullOrWhiteSpace(_options.DevelopmentTraceDirectory)) return;
         if (!Path.IsPathFullyQualified(_options.DevelopmentTraceDirectory))
@@ -134,7 +159,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 httpAttemptCount, elapsedMilliseconds, chargedCostUsd,
                 requestSha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(requestJson))),
                 requestJson, responseEnvelopeJson = responseEnvelope.GetRawText(), completionJson,
-                completionOrigin, normalizationError
+                completionOrigin, normalizationError, transportPhase
             }, JsonOptions);
             if (traceJson.Length > Math.Clamp(_options.DevelopmentTraceMaximumCharacters, 1_024, 16_000_000))
             {

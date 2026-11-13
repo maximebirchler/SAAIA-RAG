@@ -52,7 +52,7 @@ internal static partial class DocumentProfileProjector
             preferStructuredSources);
         return BuildProfile(
             profileVersion: preferStructuredSources
-                ? "deterministic_canonical_v5"
+                ? "deterministic_canonical_v6"
                 : "deterministic_v1",
             language,
             summaryText: summary,

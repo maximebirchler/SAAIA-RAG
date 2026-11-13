@@ -82,7 +82,7 @@ internal static partial class DocumentProfileProjector
                 new(
                     title,
                     section.PageStart,
-                    section.PageStart,
+                    contextUnit.PageEnd,
                     CanonicalSectionAnchorKind,
                     signals,
                     evidence,
@@ -128,8 +128,11 @@ internal static partial class DocumentProfileProjector
             return null;
         }
 
-        return sectionUnits.FirstOrDefault(static unit =>
-            !string.IsNullOrWhiteSpace(unit.Text));
+        return sectionUnits.FirstOrDefault(unit =>
+            !string.IsNullOrWhiteSpace(unit.Text)
+            && unit.PageStart >= section.PageStart
+            && unit.PageEnd >= unit.PageStart
+            && unit.PageEnd <= section.PageEnd);
     }
 
     private static DocumentProfileCardEvidence BuildCanonicalSectionEvidence(

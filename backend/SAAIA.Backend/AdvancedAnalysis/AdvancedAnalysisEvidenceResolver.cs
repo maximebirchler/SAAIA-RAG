@@ -240,6 +240,14 @@ internal sealed partial class AdvancedAnalysisEvidenceResolver
                 using var document = JsonDocument.Parse(evidenceJson);
                 if (document.RootElement.ValueKind == JsonValueKind.Object)
                 {
+                    // A canonical card's body must come from the joined source
+                    // chunk. Old or inconsistent cards remain title locators;
+                    // metadata excerpts cannot replace failed source revalidation.
+                    if (document.RootElement.TryGetProperty("schemaVersion", out var schema)
+                        && schema.ValueKind == JsonValueKind.String
+                        && schema.GetString() == "canonical_section_anchor_evidence_v1")
+                        return string.Join("\n\n", parts);
+
                     foreach (var name in new[] { "facts", "quantityFacts" })
                     {
                         if (!document.RootElement.TryGetProperty(name, out var facts)

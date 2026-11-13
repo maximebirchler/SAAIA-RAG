@@ -897,6 +897,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         AdvancedAnalysisRateLimitTelemetry? responseRateLimit = null;
         var stopwatch = Stopwatch.StartNew();
         var httpAttemptCount = 0;
+        var transportPhase = "awaiting_response_headers";
+        string? incompleteTransportError = null;
         try
         {
             var captureFailure = await ProbeStrictDevelopmentTraceSinkAsync(jobId, role, cancellationToken).ConfigureAwait(false);
@@ -946,9 +948,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                             timeout.Token)
                         .ConfigureAwait(false);
                 }
-                catch (OperationCanceledException) when (
+                catch (OperationCanceledException ex) when (
                     !cancellationToken.IsCancellationRequested)
                 {
+                    AnnotateTransportFailure(callProbe, ex, transportPhase);
                     throw new AdvancedAnalysisProviderException(
                         "advanced_llm_timeout");
                 }
@@ -989,6 +992,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     "advanced_llm_transport_error");
             using (response)
             {
+                transportPhase = "response_processing";
                 responseRateLimit = ReadRateLimitTelemetry(response);
                 callProbe.Set("http_status", (int)response.StatusCode);
                 callProbe.Set("provider_request_id", responseRateLimit.ProviderRequestId);
@@ -1162,9 +1166,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 }
             }
         }
-        catch (OperationCanceledException) when (
+        catch (OperationCanceledException ex) when (
             !cancellationToken.IsCancellationRequested)
         {
+            incompleteTransportError = "advanced_llm_timeout";
+            AnnotateTransportFailure(callProbe, ex, transportPhase);
             callProbe.Complete("failed", "advanced_llm_timeout");
             if (reservation is not null)
             {
@@ -1177,9 +1183,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             throw new AdvancedAnalysisProviderException(
                 "advanced_llm_timeout");
         }
-        catch (OperationCanceledException) when (
+        catch (OperationCanceledException ex) when (
             cancellationToken.IsCancellationRequested)
         {
+            incompleteTransportError = "advanced_llm_canceled";
+            AnnotateTransportFailure(callProbe, ex, transportPhase);
             callProbe.Complete("cancelled", "advanced_llm_canceled");
             if (reservation is not null)
             {
@@ -1193,6 +1201,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         }
         catch (Exception ex) when (ex is HttpRequestException or IOException)
         {
+            incompleteTransportError = "advanced_llm_transport_error";
             AnnotateTransportFailure(callProbe, ex, "response_processing");
             callProbe.Fail(ex, "advanced_llm_transport_error");
             if (reservation is not null)
@@ -1208,6 +1217,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         }
         catch (AdvancedAnalysisProviderException ex)
         {
+            if (ex.ErrorCode is "advanced_llm_timeout" or "advanced_llm_transport_error")
+                incompleteTransportError = ex.ErrorCode;
             AnnotateRejectedBudget(callProbe, ex);
             callProbe.Fail(ex, ex.ErrorCode);
             if (reservation is not null)
@@ -1244,6 +1255,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         finally
         {
             callProbe.Set("http_attempt_count", httpAttemptCount);
+            if (incompleteTransportError is not null && httpAttemptCount > 0)
+                await WriteDevelopmentTransportFailureAsync(jobId, role, serializedPayload,
+                    incompleteTransportError, transportPhase, httpAttemptCount,
+                    stopwatch.ElapsedMilliseconds).ConfigureAwait(false);
         }
     }
 

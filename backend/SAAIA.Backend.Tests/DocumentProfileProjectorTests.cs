@@ -89,7 +89,7 @@ public sealed class DocumentProfileProjectorTests
             exactMatchEntries: [],
             preferStructuredSources: true);
 
-        Assert.Equal("deterministic_canonical_v5", profile.ProfileVersion);
+        Assert.Equal("deterministic_canonical_v6", profile.ProfileVersion);
         Assert.Contains(
             profile.ContentCards,
             static card => string.Equals(
