@@ -71,10 +71,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         || !Guid.TryParse(locatorSource.DocId, out _) || !Guid.TryParse(locatorSource.RevisionId, out _)
                         || string.IsNullOrWhiteSpace(locatorSource.DocPath) || string.IsNullOrWhiteSpace(locatorSource.SourceHash))
                         throw new JsonException();
-                    var titleFilter = literal.GetString()?.Trim();
-                    if (titleFilter is { Length: < 2 or > AdvancedAnalysisSourceTitlePage.MaximumTitleFilterCharacters }
-                        || titleFilter?.Any(char.IsControl) == true)
-                        throw new JsonException();
+                    var titleFilter = ParseSourceTitleFilter(item);
                     var locatorRequest = new AdvancedAnalysisSearchRequest(AdvancedAnalysisSourceTitlePage.Query,
                         TopK: locatorCount, DocId: locatorSource.DocId, DocPath: locatorSource.DocPath,
                         Operation: operation, RevisionId: locatorSource.RevisionId, Offset: firstLocator,

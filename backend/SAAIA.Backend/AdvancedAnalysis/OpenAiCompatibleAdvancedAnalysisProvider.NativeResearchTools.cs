@@ -116,7 +116,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         ["sourceKey"] = Choice(sources),
                         ["offset"] = Count(0, AdvancedAnalysisSourceTitlePage.MaximumOffset),
                         ["limit"] = Count(1, AdvancedAnalysisSourceTitlePage.MaximumLimit),
-                        ["titleContains"] = new { type = new[] { "string", "null" }, description = "Optional case-insensitive literal substring of the title (2–128 characters), or null." },
+                        ["titleContains"] = new
+                        {
+                            type = new[] { "string", "null" }, minLength = 2,
+                            maxLength = AdvancedAnalysisSourceTitlePage.MaximumTitleFilterCharacters,
+                            description = "Optional case-insensitive literal substring of the title (2–128 characters after trimming, no control characters), or null for no title filter."
+                        },
                         ["pageStart"] = OptionalCount(1, int.MaxValue),
                         ["pageEnd"] = OptionalCount(1, int.MaxValue),
                         ["cardBackedOnly"] = new { type = "boolean" }
@@ -336,6 +341,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private static JsonObject BuildNormalizedNativeQuery(JsonElement arguments, string operation)
     {
         var query = JsonNode.Parse(arguments.GetRawText())!.AsObject();
+        if (operation == AdvancedAnalysisSourceTitlePage.Operation)
+            _ = ParseSourceTitleFilter(arguments);
         if (operation == "read_source" && arguments.TryGetProperty("pageCount", out var count))
         {
             int? firstPage = arguments.TryGetProperty("pageStart", out var start)
@@ -351,6 +358,20 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         }
         query["operation"] = operation;
         return query;
+    }
+
+    private static string? ParseSourceTitleFilter(JsonElement arguments)
+    {
+        if (!arguments.TryGetProperty("titleContains", out var literal)
+            || literal.ValueKind is not (JsonValueKind.String or JsonValueKind.Null))
+            throw new JsonException();
+        var filter = literal.GetString()?.Trim();
+        if (filter is { Length: < 2 or > AdvancedAnalysisSourceTitlePage.MaximumTitleFilterCharacters }
+            || filter?.Any(char.IsControl) == true)
+            throw new AdvancedAnalysisProviderException("advanced_research_arguments_invalid",
+                researchArgumentFeedback: new("list_source_titles_filter_invalid",
+                    AdvancedAnalysisSourceTitlePage.Operation, string.Empty, null, null, MaximumNativeSourceReadPages));
+        return filter;
     }
 
     private NativeCallBindings BuildNativeCallRequestBindings(
@@ -448,6 +469,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     visibleEvidenceIds = Array.Empty<string>(),
                     instruction = turn.Rejection.ReasonCode is "advanced_native_read_source_page_count_invalid" or "read_source_page_window_invalid"
                         ? "No call in this batch executed. Correct the complete batch. For each read_source, use its observed physical pageStart and a pageCount from 1 to 4. Do not send pageEnd. Use separate calls for additional windows."
+                        : turn.Rejection.ReasonCode == "list_source_titles_filter_invalid"
+                            ? "No call in this batch executed and no state or evidence window changed. Correct the complete batch. For list_source_titles, titleContains must be null for no title filter, or a literal substring of 2–128 characters after trimming, without control characters. Do not replace an invalid filter silently or invent a source handle."
                         : turn.Rejection.ReasonCode == "read_evidence_conflicting_windows"
                             ? "No call in this batch executed and no evidence window changed. Request at most one distinct offset/length window per evidenceId in the corrected batch. Request other windows in later turns if still needed. Identical repeated windows are allowed."
                             : "No call in this batch executed and no state or evidence window changed. Correct the complete batch using the currently declared function schemas and current visible evidence."
