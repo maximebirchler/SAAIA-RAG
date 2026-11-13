@@ -33,7 +33,7 @@ def environment_limit(rows):
     require(len(values) <= 1, "docling_transport_environment_duplicate")
     if not values:
         return DEFAULT_BYTES
-    require(re.fullmatch(r"[0-9]{1,10}", values[0]) is not None,
+    require(re.fullmatch(r"[1-9][0-9]{0,9}", values[0]) is not None,
             "docling_transport_environment_value_invalid")
     value = int(values[0])
     require(MIN_BYTES <= value <= MAX_BYTES, "docling_transport_environment_value_invalid")

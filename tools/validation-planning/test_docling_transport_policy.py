@@ -29,7 +29,7 @@ class DoclingTransportTests(unittest.TestCase):
         for value in (True, None, "671088640", 671088640.0, 0, 2 * 1024**3 + 1):
             with self.subTest(value=value), self.assertRaisesRegex(ValueError, "signed_limit_invalid"):
                 policy.signed_limit({"DocumentIntelligence": {"MaxResponseBytes": value}})
-        for value in ("", " 671088640", "+671088640", "671088640.0", "٠١٢٣", "0", "2147483649"):
+        for value in ("", " 671088640", "+671088640", "671088640.0", "٠١٢٣", "0", "0671088640", "2147483649"):
             with self.subTest(value=value), self.assertRaisesRegex(ValueError, "environment_value_invalid"):
                 policy.environment_limit([policy.ENVIRONMENT_NAME + "=" + value])
         with self.assertRaisesRegex(ValueError, "environment_duplicate"):

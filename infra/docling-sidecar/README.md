@@ -175,6 +175,10 @@ chaîne décimale entière explicite comprise entre **1048576 octets (1 Mio)** e
 les valeurs hors intervalle refusent le démarrage ; elles ne sont pas arrondies
 ou silencieusement limitées. Il faut aligner ce réglage avec
 `DocumentIntelligence.MaxResponseBytes` du backend. Le plafond de transport est
+transmis aux deux services par la même variable dans Compose Production. Si une
+configuration backend signée est utilisée, sa valeur prend priorité sur
+l'environnement : elle doit donc également correspondre à cette variable.
+Le plafond de transport est
 indépendant du profil CPU et mémoire ; chaque valeur doit être qualifiée avec
 le backend. Le plafond configurable de deux Gio ne prouve pas que ce serveur
 peut traiter une réponse de cette taille.
