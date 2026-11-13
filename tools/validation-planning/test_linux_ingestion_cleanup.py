@@ -39,13 +39,15 @@ class LinuxIngestionCleanupTests(unittest.TestCase):
         self.args.embedding_profile.write_text(json.dumps(self.profile), encoding="utf-8")
         self.owner = {"root": str(self.root), "runId": str(uuid.uuid4()), "documentsRoot": str(self.root / "documents"),
             "configurationPath": str(config_path), "qdrantCollection": "synthetic-owned-collection",
-            "containers": [{"role": "backend", "id": "4" * 64}, {"role": "tei", "id": "5" * 64}],
+            "containers": [{"role": "backend", "id": "4" * 64}, {"role": "tei", "id": "5" * 64},
+                           {"role": "docling", "id": "7" * 64, "imageId": "sha256:" + "8" * 64}],
             "endpoints": {role: f"http://127.0.0.1:{22521+i}" for i, role in enumerate(("backend", "docling", "tei", "qdrant"))},
             "bootstrapPreparation": {"files": {"deploy/deployment.config.json": ingestion.digest(config_path)},
                                      "backendSourceRevision": self.args.backend_source_revision}, "backendResourcePolicy": {}}
         self.backend = {"Id": "4" * 64, "Image": self.args.backend_image}
         self.docker = Mock()
-        self.docker.inspect_all.return_value = ([], [self.backend, {"Id": "5" * 64, "Image": "sha256:" + "6" * 64, "Config": {"Cmd": []}}])
+        self.docling = {"Id": "7" * 64, "Image": "sha256:" + "8" * 64, "Config": {"Env": []}}
+        self.docker.inspect_all.return_value = ([], [self.backend, {"Id": "5" * 64, "Image": "sha256:" + "6" * 64, "Config": {"Cmd": []}}, self.docling])
         self.docker.command.return_value = self.args.backend_sha256 + " /app/SAAIA.Backend.dll"
         self.docker.sql.return_value = json.dumps({name: 0 for name in ("documents", "jobs", "advancedJobs", "revisions", "chunks", "bundles")})
         self.docker.stop.return_value = {"ownedContainersStopped": True, "containerCount": 5, "volumesDeleted": False, "imagesDeleted": False}

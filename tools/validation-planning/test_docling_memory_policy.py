@@ -193,12 +193,13 @@ class DoclingMemoryRunnerAdmissionTests(unittest.TestCase):
         origin = case.root / "evidence/planning-bootstrap-origin.json"
         origin.write_text(json.dumps({memory.POLICY_KEY: case.owner[memory.POLICY_KEY]}), encoding="utf-8")
         row = {"role": "docling", "id": "7" * 64, "imageId": "sha256:" + "8" * 64}
-        case.owner["containers"].append(row)
         actual = {"Id": row["id"], "Image": row["imageId"],
                   "HostConfig": {"NanoCpus": 3_000_000_000, "Memory": 7 * 1024**3},
                   "Config": {"Env": [name + "=" + value for name, value in
                                      {**memory.BASELINE_EXECUTION_ENVIRONMENT, **memory.BOUNDED_ENVIRONMENT}.items()]}}
-        case.docker.inspect_all.return_value[1].append(actual)
+        case.docling.clear()
+        case.docling.update(actual)
+        actual = case.docling
         return case, actual
 
     def test_policy_mismatch_fails_before_synthetic_key_read_or_first_http(self):

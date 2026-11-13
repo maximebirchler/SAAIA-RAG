@@ -23,6 +23,7 @@ from linux_owned_runtime import OwnedDocker, assert_owned_path, mounted_source, 
 from verify_worker_corpus import evaluate, validate_vectors, write_new
 import linux_planning_contracts as helpers
 import docling_memory_policy as docling_memory
+import docling_transport_policy as docling_transport
 from export_worker_publication import capture_owned_publication
 
 
@@ -87,6 +88,8 @@ def run(args, owner, profile, manifest):
         current_backend = next(row for row in observed if row["Id"] == next(r["id"] for r in owner["containers"] if r["role"] == "backend"))
         helpers.validate_backend_resources(owner, current_backend)
         docling_memory.validate_phase(owner, origin, getattr(args, "docling_memory_profile", "legacy"))
+        current_docling = next(row for row in observed if row["Id"] == next(r["id"] for r in owner["containers"] if r["role"] == "docling"))
+        docling_transport.validate_observed(config, current_docling)
         if docling_memory.POLICY_KEY in owner:
             current_docling = next(row for row in observed if row["Id"] == next(r["id"] for r in owner["containers"] if r["role"] == "docling"))
             docling_memory.validate_observed(owner, current_docling)
@@ -112,6 +115,8 @@ def run(args, owner, profile, manifest):
         origin = read(root / "evidence/planning-bootstrap-origin.json")
         helpers.validate_backend_resource_phase(owner, origin, owner.get("backendResourcePolicy", {}))
         docling_memory.validate_phase(owner, origin, getattr(args, "docling_memory_profile", "legacy"))
+        docling_container = next(row for row in actual if row["Id"] == next(r["id"] for r in owner["containers"] if r["role"] == "docling"))
+        record["doclingTransportObserved"] = docling_transport.validate_observed(config, docling_container)
         if docling_memory.POLICY_KEY in owner:
             docling_container = next(row for row in actual if row["Id"] == next(r["id"] for r in owner["containers"] if r["role"] == "docling"))
             docling_observation = docling_memory.validate_observed(owner, docling_container)

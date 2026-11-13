@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "validation-ingesti
 from linux_owned_runtime import OwnedDocker, assert_owned_path, validate_owner
 import linux_planning_contracts as helpers
 import docling_memory_policy as docling_memory
+import docling_transport_policy as docling_transport
 
 PARENT = Path("/home/maxime/saaia-ingestion-qualification")
 
@@ -202,6 +203,7 @@ def execute(args, source, source_bytes):
     resource_policy = configure_backend_resources(bootstrap, args.backend_memory_gib)
     memory_profile = getattr(args, "docling_memory_profile", "legacy")
     docling_policy = docling_memory.configure_bootstrap(bootstrap, memory_profile)
+    docling_transport.configure_bootstrap(bootstrap)
     require(bootstrap.LIMITS["docling"] == ("3", "7g") and bootstrap.REGIONAL_CONFIG["NumThreads"] == 3
             and bootstrap.REGIONAL_CONFIG["RegionalTextRepairEnabled"] is True, "pinned_cpu28_profile_required")
     root = args.root
