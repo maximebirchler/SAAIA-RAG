@@ -952,8 +952,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     throw new AdvancedAnalysisProviderException(
                         "advanced_llm_timeout");
                 }
-                catch (HttpRequestException)
+                catch (HttpRequestException ex)
                 {
+                    AnnotateTransportFailure(callProbe, ex, "awaiting_response_headers");
                     throw new AdvancedAnalysisProviderException(
                         "advanced_llm_transport_error");
                 }
@@ -1192,6 +1193,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         }
         catch (Exception ex) when (ex is HttpRequestException or IOException)
         {
+            AnnotateTransportFailure(callProbe, ex, "response_processing");
             callProbe.Fail(ex, "advanced_llm_transport_error");
             if (reservation is not null)
             {
