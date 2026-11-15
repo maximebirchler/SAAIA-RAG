@@ -288,6 +288,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     // original complete Writer proposal it has just rejected.
                     payload["candidate"] = JsonSerializer.SerializeToNode(
                         BuildCriticCandidate(criticPartialCandidate), JsonOptions);
+                    payload["selectionProgress"] = JsonSerializer.SerializeToNode(
+                        DescribeSelectionProgress(request.Handoff.Load, criticPartialCandidate.Claims), JsonOptions);
                     payload["citationReview"] = JsonSerializer.SerializeToNode(
                         BuildCriticCitationReview(criticPartialCandidate, observations, request.Handoff.Load), JsonOptions);
                     using var probe = BackendDiagnostics.Start("llm.critic_partial_context", _logger);

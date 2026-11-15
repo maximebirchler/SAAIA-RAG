@@ -62,6 +62,12 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             var claim = Assert.Single(candidate.GetProperty("claims").EnumerateArray());
             Assert.Equal("C7", claim.GetProperty("claimId").GetString());
             Assert.Equal("OptionB", claim.GetProperty("selectedItem").GetString());
+            var counts = prompt.GetProperty("selectionProgress");
+            Assert.Equal(1, counts.GetProperty("claimCount").GetInt32());
+            Assert.Equal(1, counts.GetProperty("namedClaimCount").GetInt32());
+            Assert.Equal(1, counts.GetProperty("distinctNamedItemCount").GetInt32());
+            Assert.Equal(19, counts.GetProperty("remainingSelectionCount").GetInt32());
+            Assert.False(counts.GetProperty("suitabilityVerified").GetBoolean());
             Assert.Empty(prompt.GetProperty("citationReview").GetProperty("answeredPlacements").EnumerateArray());
         }
         Assert.False(WorkspaceUser(factory.Requests[4].Body).TryGetProperty("insufficiencyReview", out _));
@@ -69,6 +75,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         {
             var finalReview = WorkspaceUser(factory.Requests[5].Body);
             Assert.Equal("answered", finalReview.GetProperty("candidate").GetProperty("outcome").GetString());
+            Assert.Equal(20, finalReview.GetProperty("selectionProgress").GetProperty("namedClaimCount").GetInt32());
+            Assert.Equal(0, finalReview.GetProperty("selectionProgress").GetProperty("remainingSelectionCount").GetInt32());
             Assert.True(finalReview.TryGetProperty("priorCriticReview", out _));
             Assert.False(finalReview.TryGetProperty("researchTools", out _));
         }
