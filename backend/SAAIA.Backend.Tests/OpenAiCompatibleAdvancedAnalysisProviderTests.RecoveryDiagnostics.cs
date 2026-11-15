@@ -8,10 +8,13 @@ namespace SAAIA.Backend.Tests;
 public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Recovery_identifies_interrupted_name_and_preserves_repaired_or_partial_findings(bool partial)
+    [InlineData("repaired")]
+    [InlineData("partial")]
+    [InlineData("unrepaired")]
+    [InlineData("call_limit")]
+    public async Task Recovery_identifies_interrupted_name_and_preserves_repaired_or_partial_findings(string recoveryMode)
     {
+        var partial = recoveryMode != "repaired";
         const string interrupted = "INSPECTION\n25min\n1,5€\n4\nDE LA VANNE PRINCIPALE";
         const string combined = "INSPECTION DE LA VANNE PRINCIPALE";
         var names = new[] { "METHOD ALPHA", "METHOD BETA", "METHOD GAMMA", combined };
@@ -28,14 +31,17 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             })
         });
         var prior = Answer(names, "answered");
-        var repaired = Answer(partial ? names[..3] : [.. names[..3], "METHOD DELTA"],
-            partial ? "insufficient_documentation" : "answered");
+        var repaired = recoveryMode is "unrepaired" or "call_limit" ? prior
+            : Answer(partial ? names[..3] : [.. names[..3], "METHOD DELTA"],
+                partial ? "insufficient_documentation" : "answered");
         using var factory = new QueuedHttpClientFactory(
             Completion("""{"selectionMode":"distinct_named_items","queries":[{"query":"inspection methods","topK":20}]}"""),
             Completion("""{"decision":"ready","queries":[]}"""), Completion(prior), Completion(repaired));
         var options = CreateOptions();
         options.AdaptiveResearchEnabled = true;
         options.CandidateBindingFeedbackEnabled = false;
+        if (recoveryMode == "call_limit")
+            options.ExternalMaximumCallsPerJob = 3;
         var request = new AdvancedAnalysisProviderRequest(Guid.NewGuid(), Guid.NewGuid(), "test-user",
             new AdvancedAnalysisHandoffEnvelope
             {
@@ -60,7 +66,19 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal(partial ? "insufficient_documentation" : "answered", result.Outcome);
         Assert.Equal(partial ? 3 : 4, result.Claims.Count);
         Assert.Equal(names[..3], result.Claims.Take(3).Select(c => c.SelectedItem));
-        Assert.Equal(4, factory.Requests.Count);
+        Assert.Equal(recoveryMode == "call_limit" ? 3 : 4, factory.Requests.Count);
+        if (recoveryMode is "unrepaired" or "call_limit")
+        {
+            Assert.StartsWith("Réponse partielle", result.AnswerText);
+            Assert.Contains("sources : 3", result.AnswerText);
+            Assert.Contains("Il reste 1 choix", result.AnswerText);
+            Assert.Contains("S1 / C : METHOD GAMMA [C3]", result.AnswerText);
+            Assert.DoesNotContain("[C4]", result.AnswerText);
+            Assert.DoesNotContain(combined, result.AnswerText);
+            Assert.Equal(new[] { "E1", "E2", "E3" }, result.Claims.SelectMany(c => c.EvidenceIds));
+        }
+        if (recoveryMode == "call_limit")
+            return;
         var prompt = WorkspaceUser(factory.Requests[3].Body);
         Assert.Equal("answered", prompt.GetProperty("priorCandidate").GetProperty("outcome").GetString());
         var diagnostic = prompt.GetProperty("selectionValidation");

@@ -474,6 +474,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             return result;
         }
 
+        var partial = PreserveSupportedDistinctSelections(request, result, evidence);
+        if (partial is not null)
+            return partial;
+
         var detail = BuildDistinctSelectionFailureDetail(
             request.Handoff.Language,
             validation,

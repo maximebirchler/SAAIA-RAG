@@ -2057,7 +2057,10 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
 
         Assert.Equal("insufficient_documentation", result.Outcome);
         Assert.Equal(4, result.ProviderCallCount);
-        Assert.Empty(result.Claims);
+        Assert.Equal(new[] { "C1", "C2", "C4" }, result.Claims.Select(c => c.ClaimId));
+        Assert.DoesNotContain("[C3]", result.AnswerText);
+        Assert.DoesNotContain("Mousse yaourt et fruits rouges", result.AnswerText);
+        Assert.StartsWith("Réponse partielle", result.AnswerText);
     }
 
     [Fact]

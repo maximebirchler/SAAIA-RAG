@@ -9,13 +9,16 @@ public sealed class AdvancedAnalysisSourceMaterialTests
     [InlineData("Options\nOption alpha I page 65", "Options", true)]
     [InlineData("Options\nAn option is a documented choice.\nOption alpha I page 65", "Options", true)]
     [InlineData("Option alpha", "Option alpha", true)]
+    [InlineData("Option alpha", null, true)]
+    [InlineData("  OPTION ALPHA  ", null, true)]
+    [InlineData("Option alpha uses a threshold of 17 bar.", null, false)]
     [InlineData("Option alpha\n[Index: ]\nMCRC01072842_BO_identifier-013\nFor 4 units", "Option alpha", true)]
     [InlineData("Options\nOption alpha I page 65\nOption alpha uses a threshold of 17 bar.", "Options", false)]
     [InlineData("Option alpha uses a threshold of 17 bar.", "Option alpha", false)]
     [InlineData("INGRÉDIENTS\nOption alpha\n500 ml (2 tasses) de rhubarbe\n375 ml (1.5 tasses) de fraises\n15-30 ml (1-2 c. à soupe) de sucre\n5-8 feuilles de menthe fraiche, émincées", "Option alpha", false)]
     [InlineData("Option alpha\n125 g de yaourt\nPréchauffez le four à 180°C.\n2 pots de farine\n2 pots de sucre\n3 œufs\n11 g de levure\n1\n2 Mélangez les ingrédients.\n3 Enfournez pour 30 min.\n4 Servez.", "Option alpha", false)]
     [InlineData("Option alpha\n[Index: ]\nMCRC01072842_BO_identifier-013\nFor 4 units\n500 ml liquid\n125 g material\nHold for 3 min.", "Option alpha", false)]
-    public void Selected_item_needs_body_beyond_identity_or_a_page_locator(string text, string title, bool expected)
+    public void Selected_item_needs_body_beyond_identity_or_a_page_locator(string text, string? title, bool expected)
         => Assert.Equal(expected, RetrievalContentClassifier.IsIdentityOnlyCandidateEvidence(text, title, "Option alpha"));
 
     [Fact]

@@ -93,6 +93,11 @@ internal static partial class RetrievalContentClassifier
 
     internal static bool IsIdentityOnlyCandidateEvidence(string text, string? exactTitle, string selectedItem)
     {
+        // A missing heading annotation does not turn the selected name alone
+        // into a substantive description of the selected item.
+        if (!string.IsNullOrWhiteSpace(selectedItem)
+            && string.Equals(text.Trim(), selectedItem.Trim(), StringComparison.OrdinalIgnoreCase))
+            return true;
         if (AnalyzeEvidenceContent(text, exactTitle).ContentRole == NavigationRole)
             return true;
         if (NamedPageLocatorLineRegex().Matches(text).Count == 0)
