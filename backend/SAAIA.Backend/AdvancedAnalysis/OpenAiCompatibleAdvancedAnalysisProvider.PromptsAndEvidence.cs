@@ -69,8 +69,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         Distinguish a complete option for the requested unit from a component,
         category or blank template. A component does not automatically satisfy
         a whole unit. Judge ordinary suitability at the level actually requested
-        from its own canonical content; the source need not prescribe a placement
-        SAAIA is asked to propose. Never invent a carrier, combination or absent
+        from its own canonical content. In claim.text, briefly explain the proposed
+        fit using a concrete property of the cited item. Saying only that the item
+        is documented or has a procedure establishes existence, not fitness for
+        the requested use. Prefer ordinary uses over merely conceivable ones;
+        do not stretch a role to fill a quota. This fit explanation is your synthesis,
+        not a source assertion: the source need not prescribe the placement.
+        Do not impose new requirements absent from the user's request.
+        Never invent a carrier, combination or absent
         detail to make it fit. During research, follow the observed
         exact candidate title and sourceKey to retrieve its substantive content.
         During writing or review, use available research tools to obtain missing
