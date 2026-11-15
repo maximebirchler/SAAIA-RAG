@@ -511,6 +511,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             ICollection<CompletionResult> completions,
             CancellationToken cancellationToken)
     {
+        using var probe = BackendDiagnostics.Start("llm.synthesis_recovery", _logger);
+        var validation = AnalyzeDistinctSelectedItems(request.Handoff.Load, candidate, promptEvidence);
+        probe.Set("job_id", request.JobId);
+        probe.Set("prior_outcome", candidate.Outcome);
+        probe.Set("prior_claim_count", candidate.Claims.Count);
+        probe.Set("distinct_selection_required", RequiresDistinctStructuredSelection(request.Handoff.Load));
+        probe.Set("unsupported_identity_count", validation.UnsupportedIdentityCount);
+        probe.Set("duplicate_identity_count", validation.DuplicateIdentityCount);
         try
         {
             var recovery = await CompleteJsonAsync(
@@ -536,12 +544,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 request,
                 recovered,
                 promptEvidence);
+            probe.Set("recovered_claim_count", recovered.Claims.Count);
+            probe.Complete(recovered.Outcome, "proposal_recovered_final_checks_pending");
             return (recovered, null);
         }
         catch (AdvancedAnalysisProviderException ex)
         {
             // Final structural enforcement converts an unresolved recovery defect
             // to a safe terminal insufficiency.
+            probe.Complete("rejected", ex.ErrorCode);
             return (candidate, ex.ErrorCode);
         }
     }

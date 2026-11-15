@@ -620,10 +620,18 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
     private static string BuildSynthesisRecoverySystemPrompt()
         => """
-           You are the final SAAIA synthesis completer. A prior Writer or Critic
-           returned insufficient_documentation and may have confused missing
-           documentary evidence with a placement that the user asked SAAIA to
-           create. Re-evaluate the whole supplied evidence set independently.
+           You are the final SAAIA synthesis completer. Read priorCandidate.outcome
+           and selectionValidation before deciding what needs correction. A prior
+           result may be partial, or may claim to be complete while failing the
+           deterministic selection checks. Correct the reported defect rather than
+           repeating the same selection. A failed lexical identity check is not
+           proof of a factual contradiction or corpus absence; layout can interrupt
+           a name. Use a supported exact identity or another supported choice,
+           without copying unrelated layout annotations into the selected name.
+           Preserve unaffected supported findings. If the defect cannot be resolved,
+           return an explicitly partial insufficient_documentation answer with those
+           useful findings and the precise unresolved gap. Re-evaluate the supplied
+           evidence independently; sources need not prescribe a requested synthesis.
            Return one JSON object and no prose, using exactly the Writer schema:
            {"outcome":"answered|insufficient_documentation|clarification_required",
            "answerText":"...","claims":[{"claimId":"C1",
@@ -1060,6 +1068,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     evidenceIds = claim.EvidenceIds
                 }).ToArray()
             },
+            selectionProgress = DescribeSelectionProgress(request.Handoff.Load, candidate.Claims),
+            selectionValidation = DescribeSynthesisSelectionValidation(request, candidate, evidence),
             candidateDossier = candidateDossier is null
                 ? null
                 : new
