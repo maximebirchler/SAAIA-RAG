@@ -82,7 +82,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         do not create placeholder claims for unsupported coordinates and do not
         cite unrelated examples as proof of absence. Preserve useful supported
         findings as a clearly labeled partial answer with their own claims and
-        current evidenceIds. Explain what is established, what remains unresolved
+        current evidenceIds. In a named-item selection, identify each actual
+        choice in selectedItem, including in a partial answer. Supported
+        contextual facts may omit selectedItem and do not count as choices. Put
+        missing choices and overall limitations in prose, not in fabricated
+        claims citing unrelated examples. Count actual selected items, not
+        claims describing gaps. selectionProgress, when supplied, counts the
+        current proposal only; it does not certify suitability or corpus coverage.
+        Preserve an explicit proposed placement when revising a partial grid
+        unless the evidence or requested purpose justifies changing it. Partial
+        claim IDs are citation labels, not positions in claimCoordinates.
+        Explain what is established, what remains unresolved
         and why. claims may be empty only when no useful supported finding can
         be reported. A partial answer uses insufficient_documentation, or
         clarification_required when user input is needed; answered means the
@@ -1082,6 +1092,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             claimCoordinates = BuildStructuredClaimCoordinates(
                 request.Handoff.Load),
             candidate = BuildCriticCandidate(candidate),
+            selectionProgress = DescribeSelectionProgress(request.Handoff.Load, candidate.Claims),
             citationReview = BuildCriticCitationReview(candidate, evidence, request.Handoff.Load),
             structuredTables = BuildStructuredTablesForPrompt(evidence),
             evidence
@@ -1091,7 +1102,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         AdvancedAnalysisProviderRequest request,
         AdvancedAnalysisProviderResult validWriterCandidate,
         string invalidCriticJson,
-        IReadOnlyList<PromptEvidenceItem> evidence)
+        IReadOnlyList<PromptEvidenceItem> evidence,
+        string validationErrorCode)
         => JsonSerializer.Serialize(new
         {
             request = request.Handoff.RequestText,
@@ -1103,6 +1115,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             claimCoordinates = BuildStructuredClaimCoordinates(
                 request.Handoff.Load),
             validWriterCandidate = BuildCriticCandidate(validWriterCandidate),
+            validationErrorCode,
+            selectionProgress = DescribeSelectionProgress(request.Handoff.Load, validWriterCandidate.Claims),
             citationReview = BuildCriticCitationReview(validWriterCandidate, evidence, request.Handoff.Load),
             invalidCriticJson,
             evidenceReferenceDiagnostics = DiagnoseEvidenceReferences(invalidCriticJson,

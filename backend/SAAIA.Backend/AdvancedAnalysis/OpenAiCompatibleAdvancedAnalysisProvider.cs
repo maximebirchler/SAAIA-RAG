@@ -370,7 +370,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     {
                         parsed = criticRound.BoundedResult ?? ParseResult(critic.Content, evidence, request);
                     }
-                    catch (AdvancedAnalysisProviderException) when (
+                    catch (AdvancedAnalysisProviderException validationError) when (
                         completions.Count < Math.Clamp(
                             _options.ExternalMaximumCallsPerJob,
                             1,
@@ -384,7 +384,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                                     request,
                                     parsed,
                                     critic.Content,
-                                    promptEvidence),
+                                    promptEvidence,
+                                    validationError.ErrorCode),
                                 Math.Clamp(
                                     _options.CriticMaxTokens,
                                     512,
@@ -477,6 +478,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 if (!UsesRepeatableGridIdentityCorrection(request.Handoff.Load))
                     throw new AdvancedAnalysisProviderException("advanced_synthesis_candidate_identity_not_supported");
                 parsed = BuildUnverifiedSelectionIdentityResult(request);
+            }
+            if (DescribeSelectionProgress(request.Handoff.Load, parsed.Claims) is { } selectionProgress)
+            {
+                using var selectionProbe = BackendDiagnostics.Start("llm.selection_result", _logger);
+                selectionProbe.Set("job_id", request.JobId);
+                selectionProbe.Set("claim_count", selectionProgress.ClaimCount);
+                selectionProbe.Set("named_claim_count", selectionProgress.NamedClaimCount);
+                selectionProbe.Set("distinct_named_item_count", selectionProgress.DistinctNamedItemCount);
+                selectionProbe.Set("claims_without_selected_item", selectionProgress.ClaimsWithoutSelectedItem);
+                selectionProbe.Set("remaining_selection_count", selectionProgress.RemainingSelectionCount);
+                selectionProbe.Complete(parsed.Outcome, "proposal_counts_not_semantic_approval");
             }
             return WithMetrics(
                 parsed,

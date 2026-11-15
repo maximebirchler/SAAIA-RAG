@@ -11,6 +11,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         concept or an exact observed title per query. Put variants in separate
         complementary queries within the existing limits. Quoted text requests
         a phrase; do not append every requested fact or layout label to it.
+        Use the language of the observed source wording. Before source wording
+        is available, start in the user's request language; English tool
+        instructions do not imply English corpus queries. Preserve observed
+        literal titles in their original language. When another language is
+        justified, use a complementary query rather than replacing all initial
+        queries with an unverified translation.
         Preserve the complete user goal and every mandatory qualifier in the
         handoff and final evidence checks; shorter retrieval wording does not
         relax them or change document and category scopes.
