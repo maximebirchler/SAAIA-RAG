@@ -1,11 +1,20 @@
 #requires -Version 7.4
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$OutputDirectory)
+param(
+    [Parameter(Mandatory)][string]$OutputDirectory,
+    [string]$ClientPublishDirectory = 'artifacts/presentation-laptop-20261116/publish-client-v2',
+    [string]$Version = '20261116d'
+)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 if (Test-Path -LiteralPath $output) { throw "Sortie déjà présente : $output" }
-$publish = Join-Path $repo 'artifacts/presentation-laptop-20261116/publish-client-v2'
+$publish = [IO.Path]::GetFullPath((Join-Path $repo $ClientPublishDirectory))
+$repoResolved = [IO.Path]::GetFullPath($repo)
+if (-not $publish.StartsWith($repoResolved + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Le client publié doit rester dans le dépôt.'
+}
+if ($Version -notmatch '^20[0-9]{6}[a-z]$') { throw 'Version de présentation invalide.' }
 $launcher = Join-Path $repo 'artifacts/presentation-laptop-20261116/publish-launcher-v2/SAAIA.Presentation.Launcher.exe'
 $cpuZip = Join-Path $repo 'artifacts/presentation-laptop-20261116/llama-b10098-bin-win-cpu-x64.zip'
 $vulkanZip = Join-Path $repo 'artifacts/presentation-laptop-20261116/llama-b10098-bin-win-vulkan-x64.zip'
@@ -21,7 +30,6 @@ if ((Get-FileHash -LiteralPath $vulkanZip -Algorithm SHA256).Hash -ine 'CCF80A54
     throw 'Le moteur Vulkan ne correspond pas à la somme SHA-256 publiée par ggml-org.'
 }
 $outResolved = [IO.Path]::GetFullPath($output)
-$repoResolved = [IO.Path]::GetFullPath($repo)
 if (-not $outResolved.StartsWith($repoResolved + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
     throw 'La construction doit rester dans le dépôt.'
 }
@@ -66,7 +74,7 @@ $entries = foreach ($file in $allFiles) {
 }
 $manifest = [ordered]@{
     schemaVersion = 'saaia-presentation-client.v1'
-    version = '20261116d'
+    version = $Version
     createdAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
     sourceCommit = (git -C $repo rev-parse HEAD).Trim()
     productStatus = 'VERSION_DE_PRESENTATION_TESTE_NON_APPROUVE'

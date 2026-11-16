@@ -5,6 +5,15 @@ namespace SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag;
 
 public static class SourceBackedTerminalAnswer
 {
+    public static string BuildUnanchoredAcronymDefinition(string language, string acronym)
+        => Pick(language,
+            $"Je n'ai pas trouvé de passage fiable définissant « {acronym} » dans les résultats consultés. Je ne peux pas en déduire que ce sigle est absent de tous les documents. Si tu as un document ou un domaine précis, indique-le pour relancer la recherche.",
+            $"I did not find a reliable passage defining “{acronym}” in the retrieved results. This does not establish that the abbreviation is absent from every document. If you have a specific document or field, provide it so I can search again.",
+            $"No encontré un pasaje fiable que defina «{acronym}» en los resultados consultados. Esto no demuestra que la sigla falte en todos los documentos. Indica un documento o ámbito concreto para repetir la búsqueda.",
+            $"Não encontrei uma passagem fiável que defina «{acronym}» nos resultados consultados. Isto não prova que a sigla esteja ausente de todos os documentos. Indica um documento ou domínio específico para repetir a pesquisa.",
+            $"In den abgerufenen Ergebnissen habe ich keine verlässliche Definition von „{acronym}“ gefunden. Daraus folgt nicht, dass die Abkürzung in allen Dokumenten fehlt. Nenne ein bestimmtes Dokument oder Fachgebiet für eine erneute Suche.",
+            $"Non ho trovato un passaggio affidabile che definisca «{acronym}» nei risultati consultati. Questo non dimostra che la sigla sia assente da tutti i documenti. Indica un documento o un ambito preciso per ripetere la ricerca.");
+
     public static string Build(SourceBackedPipelineResult result)
     {
         var language = NormalizeLanguage(result.Intake.Language);

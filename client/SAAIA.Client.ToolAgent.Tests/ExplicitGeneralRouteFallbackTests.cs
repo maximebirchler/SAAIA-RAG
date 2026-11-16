@@ -100,12 +100,43 @@ public sealed class ExplicitGeneralRouteFallbackTests(ITestOutputHelper output)
         output.WriteLine("Documentary route reached retrieval: {0}", string.Join(",", handler.Requests));
     }
 
+    [Fact]
+    public async Task Direct_acronym_definition_without_a_literal_source_stops_before_the_research_loop()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var handler = new RecordingApiHandler(searchResponse: """
+            {
+              "query": "PTS",
+              "items": [{"docName":"Unrelated.pdf","text":"A nearby technical passage.","score":0.9}],
+              "metrics": {"exactMatchReturned":0,"sparseReturned":0,"degradedRetrievers":[]}
+            }
+            """);
+        using var http = new HttpClient(handler);
+        var api = new ApiClient(http);
+        api.Configure("http://127.0.0.1:1", "synthetic-acronym-key", "synthetic-user");
+        var llm = new RoutedLlm(documentary: true);
+        var memory = WarmMemory();
+        var agent = new ToolAgentOrchestrator(api, llm, memory, new AppSettings { ActiveMode = "strict" });
+
+        var result = await agent.RunAsync([], "Qu'est-ce qu'une PTS ?", timeout.Token);
+
+        Assert.Equal(2, llm.NativeCalls);
+        Assert.Single(handler.Requests, request => request.Contains("/rag/search", StringComparison.Ordinal));
+        Assert.Contains("PTS", result.finalAnswer, StringComparison.Ordinal);
+        Assert.Contains("pas trouvé de passage fiable", result.finalAnswer, StringComparison.Ordinal);
+        Assert.Null(result.sourcesPayload);
+        Assert.Null(agent.LastAdvancedAnalysisHandoff);
+        Assert.Contains("rag.search", memory.LastToolNames);
+    }
+
     private static ToolMemory WarmMemory() => new()
     {
         CatalogSnapshotCache = new ToolMemory.RuntimeCatalogSnapshot { LoadedAtUtc = DateTimeOffset.UtcNow }
     };
 
-    private sealed class RecordingApiHandler(CancellationTokenSource? stopAfterSearch = null) : HttpMessageHandler
+    private sealed class RecordingApiHandler(
+        CancellationTokenSource? stopAfterSearch = null,
+        string? searchResponse = null) : HttpMessageHandler
     {
         internal List<string> Requests { get; } = [];
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
@@ -118,6 +149,13 @@ public sealed class ExplicitGeneralRouteFallbackTests(ITestOutputHelper output)
                 // quality of a generated answer. Stop at the real HTTP boundary.
                 stopAfterSearch.Cancel();
                 throw new OperationCanceledException(stopAfterSearch.Token);
+            }
+            if (searchResponse is not null && path.Equals("/rag/search", StringComparison.Ordinal))
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(searchResponse, Encoding.UTF8, "application/json")
+                });
             }
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {

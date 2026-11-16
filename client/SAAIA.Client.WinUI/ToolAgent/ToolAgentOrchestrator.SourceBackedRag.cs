@@ -118,6 +118,16 @@ public sealed partial class ToolAgentOrchestrator
         onPhase?.Invoke(DeterministicAgentText.PhaseTools(routerPlan.Language));
         onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(routerPlan.Language));
 
+        var acronymDefinition = await TryHandleUnanchoredAcronymDefinitionAsync(
+            displayUserMessage,
+            routerPlan.Language,
+            swTotalPipeline,
+            ct,
+            onDelta,
+            onProgress).ConfigureAwait(false);
+        if (acronymDefinition.handled)
+            return acronymDefinition;
+
         var catalogContextSw = Stopwatch.StartNew();
         try
         {
