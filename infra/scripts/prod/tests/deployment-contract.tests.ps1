@@ -85,6 +85,14 @@ Case 'embedding_runtime_cannot_silently_truncate_source_vectors' {
   $embeddingService=($prod -split '(?m)^  tei-rerank:')[0]
   Check ($embeddingService -notmatch '--auto-truncate' -and $dev -notmatch '--auto-truncate') 'embedding_runtime_still_silently_truncates_inputs'
 }
+Case 'docling_text_repair_admission_matches_backend' {
+  $prod=Get-Content -LiteralPath (Join-Path $repo 'infra/docker-compose.prod.yml') -Raw
+  $docling=($prod -split '(?m)^  docling:')[1] -split '(?m)^  backend:' | Select-Object -First 1
+  $backend=($prod -split '(?m)^  backend:')[1]
+  $setting='${SAAIA_DOCLING_REGIONAL_TEXT_REPAIR_ENABLED:-false}'
+  Check ($docling.Contains('SAAIA_DOCLING_TEXT_REPAIR_ENABLED: '+$setting) -and
+    $backend.Contains('DocumentIntelligence__RegionalTextRepairEnabled: '+$setting)) 'docling_and_backend_text_repair_settings_diverge'
+}
 Case 'signed_runtime_revisions_follow_effective_images' {
   $tei='sha256:'+('a'*64); $qd='sha256:'+('b'*64)
   $c=Config @{ TEI_IMAGE="registry.invalid/tei@$tei"; QDRANT_IMAGE="registry.invalid/qdrant@$qd"; TEI_RUNTIME_REVISION=$tei; QDRANT_RUNTIME_REVISION=$qd }
