@@ -305,6 +305,7 @@ function New-SignedConfig {
   if ($rerankEnabledBool) { $rerankEnabled = 'true' } else { $rerankEnabled = 'false' }
 
   $scannerEnabled = if (Parse-Bool (Get-EffectiveDeploymentValue $env 'SAAIA_INGESTION_SCANNER_ENABLED') $true) { 'true' } else { 'false' }
+  $reindexIfQdrantEmpty = if (Parse-Bool (Get-EffectiveDeploymentValue $env 'SAAIA_INGESTION_REINDEX_IF_QDRANT_EMPTY') $true) { 'true' } else { 'false' }
   $watcherEnabled = if (Parse-Bool (Get-EffectiveDeploymentValue $env 'SAAIA_INGESTION_WATCHER_ENABLED') $true) { 'true' } else { 'false' }
   $capabilityBAutoEnqueue = if (Parse-Bool (Get-EffectiveDeploymentValue $env 'SAAIA_CAPABILITY_B_AUTO_ENQUEUE_IDLE') $true) { 'true' } else { 'false' }
 
@@ -359,6 +360,7 @@ function New-SignedConfig {
   $content = $content.Replace('__QDRANT_RUNTIME_REVISION__', (Escape-JsonString $qdrantRuntimeRevision))
   $content = $content.Replace('__RERANK_ENABLED__', $rerankEnabled)
   $content = $content.Replace('__INGESTION_SCANNER_ENABLED__', $scannerEnabled)
+  $content = $content.Replace('__INGESTION_REINDEX_IF_QDRANT_EMPTY__', $reindexIfQdrantEmpty)
   $content = $content.Replace('__INGESTION_WATCHER_ENABLED__', $watcherEnabled)
   $content = $content.Replace('__CAPABILITY_B_AUTO_ENQUEUE_IDLE__', $capabilityBAutoEnqueue)
   $content = $content.Replace('__RERANK_MODEL_ID__', (Escape-JsonString $rerankModel))

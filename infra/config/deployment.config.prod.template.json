@@ -38,6 +38,7 @@
   "Ingestion": {
     "DocumentsRoot": "/app/documents",
     "ScannerEnabled": __INGESTION_SCANNER_ENABLED__,
+    "ReindexIfQdrantEmpty": __INGESTION_REINDEX_IF_QDRANT_EMPTY__,
     "ScanIntervalSeconds": 10,
     "WatcherEnabled": __INGESTION_WATCHER_ENABLED__,
     "WatcherDebounceMs": 800,
