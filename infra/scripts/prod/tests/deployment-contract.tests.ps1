@@ -75,6 +75,16 @@ Case 'signed_default_chunking_matches_compose_200_0_25' {
   $c = Config
   Check ($c.Ingestion.ChunkMaxWords -eq 200 -and $c.Ingestion.ChunkOverlapWords -eq 0 -and $c.Ingestion.ChunkMinWords -eq 25) 'signed_chunking_differs_from_compose'
 }
+Case 'signed_ingestion_admission_controls_match_requested_profile' {
+  $c = Config @{ SAAIA_INGESTION_SCANNER_ENABLED='false'; SAAIA_INGESTION_WATCHER_ENABLED='false'; SAAIA_CAPABILITY_B_AUTO_ENQUEUE_IDLE='false' }
+  Check (-not $c.Ingestion.ScannerEnabled -and -not $c.Ingestion.WatcherEnabled -and -not $c.RuntimeGovernance.CapabilityBAutoEnqueueWhenIngestionIdleEnabled) 'signed_config_reenabled_unrequested_jobs'
+}
+Case 'embedding_runtime_cannot_silently_truncate_source_vectors' {
+  $prod=Get-Content -LiteralPath (Join-Path $repo 'infra/docker-compose.prod.yml') -Raw
+  $dev=Get-Content -LiteralPath (Join-Path $repo 'infra/docker-compose.yml') -Raw
+  $embeddingService=($prod -split '(?m)^  tei-rerank:')[0]
+  Check ($embeddingService -notmatch '--auto-truncate' -and $dev -notmatch '--auto-truncate') 'embedding_runtime_still_silently_truncates_inputs'
+}
 Case 'signed_runtime_revisions_follow_effective_images' {
   $tei='sha256:'+('a'*64); $qd='sha256:'+('b'*64)
   $c=Config @{ TEI_IMAGE="registry.invalid/tei@$tei"; QDRANT_IMAGE="registry.invalid/qdrant@$qd"; TEI_RUNTIME_REVISION=$tei; QDRANT_RUNTIME_REVISION=$qd }

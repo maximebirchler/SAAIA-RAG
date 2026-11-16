@@ -42,7 +42,6 @@ services:
     command:
       - --model-id
       - ${TEI_MODEL_ID}
-      - --auto-truncate
     # Port exposé uniquement sur localhost (pas public)
     ports:
       - "127.0.0.1:${TEI_HOST_PORT:-8081}:80"

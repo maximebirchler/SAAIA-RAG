@@ -38,8 +38,8 @@ services:
   tei:
     image: ${TEI_IMAGE:-ghcr.io/huggingface/text-embeddings-inference:cpu-1.6@sha256:66db77d7856c9319bbfaf2c5b80a6d0e0ac9ff128ade09eaca1d9c20213617a4}
     restart: unless-stopped
-    # auto-truncate avoids 413 when a chunk slightly exceeds model token limit
-    command: ["--model-id", "${TEI_MODEL_ID:-intfloat/multilingual-e5-base}", "--revision", "${TEI_MODEL_REVISION:-d128750597153bb5987e10b1c3493a34e5a4502a}", "--json-output", "--auto-truncate"]
+    # The backend admits complete inputs against /info and /tokenize; silent truncation invalidates source vectors.
+    command: ["--model-id", "${TEI_MODEL_ID:-intfloat/multilingual-e5-base}", "--revision", "${TEI_MODEL_REVISION:-d128750597153bb5987e10b1c3493a34e5a4502a}", "--json-output"]
     ports:
       - "${SAAIA_INTERNAL_BIND_ADDR:-127.0.0.1}:${TEI_HOST_PORT:-8081}:80"
     environment:
@@ -169,6 +169,7 @@ services:
       Ingestion__WorkerEmptyDelayMs: ${SAAIA_INGESTION_WORKER_EMPTY_DELAY_MS:-500}
       Ingestion__StaleRunningMinutes: ${SAAIA_INGESTION_STALE_RUNNING_MINUTES:-60}
       Ingestion__ScannerEnabled: ${SAAIA_INGESTION_SCANNER_ENABLED:-true}
+      Ingestion__WatcherEnabled: ${SAAIA_INGESTION_WATCHER_ENABLED:-true}
       Ingestion__ScanIntervalSeconds: ${SAAIA_INGESTION_SCAN_INTERVAL_SECONDS:-10}
       Ingestion__MinFileAgeSeconds: ${SAAIA_INGESTION_MIN_FILE_AGE_SECONDS:-2}
       Ingestion__MaxFilesPerScan: ${SAAIA_INGESTION_MAX_FILES_PER_SCAN:-5000}
@@ -213,8 +214,8 @@ services:
       DocumentIntelligence__TableMode: ${SAAIA_DOCLING_TABLE_MODE:-accurate}
       DocumentIntelligence__TableCellMatching: ${SAAIA_DOCLING_TABLE_CELL_MATCHING:-true}
       DocumentIntelligence__DoTableStructure: ${SAAIA_DOCLING_TABLE_STRUCTURE_ENABLED:-true}
-      DocumentIntelligence__IncludeImages: "false"
-      DocumentIntelligence__IncludePageImages: "false"
+      DocumentIntelligence__IncludeImages: ${SAAIA_DOCLING_INCLUDE_IMAGES:-false}
+      DocumentIntelligence__IncludePageImages: ${SAAIA_DOCLING_INCLUDE_PAGE_IMAGES:-false}
       DocumentIntelligence__HeadingHierarchyEnabled: ${SAAIA_DOCLING_HEADING_HIERARCHY_ENABLED:-true}
       DocumentIntelligence__HeadingHierarchyUseBookmarks: ${SAAIA_DOCLING_HEADING_HIERARCHY_USE_BOOKMARKS:-true}
       DocumentIntelligence__HeadingHierarchyUseNumbering: ${SAAIA_DOCLING_HEADING_HIERARCHY_USE_NUMBERING:-true}
@@ -225,12 +226,16 @@ services:
       DocumentIntelligence__NumThreads: ${SAAIA_DOCLING_NUM_THREADS:-8}
       DocumentIntelligence__ServiceWorkerConcurrency: ${SAAIA_DOCLING_WORKERS:-1}
       DocumentIntelligence__RegionalTableRepairEnabled: ${SAAIA_DOCLING_TABLE_REPAIR_ENABLED:-true}
+      DocumentIntelligence__RegionalTableAlternativeReadingsEnabled: ${SAAIA_DOCLING_TABLE_ALTERNATIVE_READINGS_ENABLED:-false}
       DocumentIntelligence__RegionalTableRepairScale: ${SAAIA_DOCLING_TABLE_REPAIR_SCALE:-2.5}
       DocumentIntelligence__RegionalTableRepairPaddingPoints: ${SAAIA_DOCLING_TABLE_REPAIR_PADDING_POINTS:-12}
       DocumentIntelligence__RegionalTableRepairMinimumScore: ${SAAIA_DOCLING_TABLE_REPAIR_MINIMUM_SCORE:-0.5}
       DocumentIntelligence__NativeTextCoverageReconciliationEnabled: ${SAAIA_DOCLING_NATIVE_TEXT_RECONCILIATION_ENABLED:-true}
       DocumentIntelligence__NativeTextCoverageMinimumLineCoverage: ${SAAIA_DOCLING_NATIVE_TEXT_MINIMUM_LINE_COVERAGE:-0.90}
       DocumentIntelligence__NativePdfImageInventoryEnabled: ${SAAIA_DOCLING_NATIVE_PDF_IMAGE_INVENTORY_ENABLED:-true}
+      DocumentIntelligence__RegionalTextRepairEnabled: ${SAAIA_DOCLING_REGIONAL_TEXT_REPAIR_ENABLED:-false}
+      DocumentIntelligence__NativeTypographyObservationsEnabled: ${SAAIA_DOCLING_NATIVE_TYPOGRAPHY_OBSERVATIONS_ENABLED:-false}
+      DocumentIntelligence__DoclingInputGeometryCaptureEnabled: ${SAAIA_DOCLING_INPUT_GEOMETRY_CAPTURE_ENABLED:-false}
       DocumentIntelligence__EngineVersion: docling-serve-1.27.0_docling-slim-2.113.0_saaia-structure-2
       DocumentIntelligence__ParseEngineVersion: docling-parse-7.8.1
       DocumentIntelligence__ModelPackageVersion: docling-ibm-models-3.13.3

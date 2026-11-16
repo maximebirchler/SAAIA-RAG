@@ -37,9 +37,9 @@
   },
   "Ingestion": {
     "DocumentsRoot": "/app/documents",
-    "ScannerEnabled": true,
+    "ScannerEnabled": __INGESTION_SCANNER_ENABLED__,
     "ScanIntervalSeconds": 10,
-    "WatcherEnabled": true,
+    "WatcherEnabled": __INGESTION_WATCHER_ENABLED__,
     "WatcherDebounceMs": 800,
     "MissingGraceSeconds": 120,
     "ChunkMaxWords": __INGESTION_CHUNK_MAX_WORDS__,
@@ -64,6 +64,9 @@
   "License": {
     "Seats": __LICENSE_SEATS__,
     "AdvancedAnalysisEnabled": __ADVANCED_ANALYSIS_ENABLED__
+  },
+  "RuntimeGovernance": {
+    "CapabilityBAutoEnqueueWhenIngestionIdleEnabled": __CAPABILITY_B_AUTO_ENQUEUE_IDLE__
   },
   "AdvancedAnalysis": {
     "Provider": "__ADVANCED_ANALYSIS_PROVIDER__",
