@@ -1,0 +1,14 @@
+SAAIA — VERSION DE PRÉSENTATION POUR LAPTOP WINDOWS x64
+
+1. Extraire complètement l'archive ZIP sur le laptop (environ 3 Go).
+2. Vérifier que Tailscale est connecté au même réseau privé que saaia-server.
+3. Double-cliquer Installer-SAAIA.cmd. L'installation vérifie les fichiers, copie le client et le petit modèle local, puis détecte une carte graphique compatible Vulkan. Elle choisit automatiquement le moteur graphique si celui-ci est disponible, sinon le moteur CPU. Elle crée un raccourci sur le Bureau et dans le menu Démarrer.
+4. Ouvrir le raccourci « SAAIA - Présentation ». Au premier lancement, saisir la clé API du backend dans l'assistant puis tester la connexion. La clé est protégée localement par Windows ; elle n'est pas incluse dans l'archive.
+
+Le client exécute Qwen3-4B localement pour les questions simples et lit les documents du serveur privé. Le moteur graphique utilise automatiquement la mémoire disponible ; avec 4 Go de VRAM, une partie du modèle peut rester en RAM. Le moteur CPU fonctionne sans GPU compatible mais sera nettement plus lent. Le laptop de test dispose de 32 Go de RAM. L'archive inclut Windows App Runtime 1.8 x64, installé uniquement si nécessaire.
+
+Le raccourci utilise un profil de présentation séparé : les anciennes discussions et les anciens réglages du laptop restent à leur place. Le serveur doit être joignable pendant les questions. Cette version sert aux démonstrations ; elle ne valide pas encore le planning de repas ni la qualité de toutes les questions de base.
+
+En cas de blocage, conserver le message affiché et les journaux sous %LOCALAPPDATA%\SAAIA\presentation\profile\logs. Ne pas envoyer de clé ou de document sensible dans le chat.
+
+Composants tiers : le moteur llama.cpp b10098 (MIT) et le modèle Qwen3-4B-Instruct-2507 Q5_K_M (Apache 2.0, quantification bartowski). Leurs licences sont dans le dossier Licences. Sources : https://github.com/ggml-org/llama.cpp/releases/tag/b10098 et https://huggingface.co/bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF.

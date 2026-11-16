@@ -207,6 +207,17 @@ internal sealed class AdvancedAnalysisClientService
                 SourcesPayload: null,
                 Job: null);
         }
+        catch (AdvancedAnalysisApiException exception) when (
+            exception.StatusCode == HttpStatusCode.NotFound && job is null)
+        {
+            ClientLog.Warn("Advanced analysis endpoint is unavailable on the connected server.");
+            return new AdvancedAnalysisClientExecutionResult(
+                Handled: false,
+                Outcome: "server_capability_unavailable",
+                FinalAnswer: null,
+                SourcesPayload: null,
+                Job: null);
+        }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             if (job is not null && !IsAdvancedAnalysisTerminal(job.Status))

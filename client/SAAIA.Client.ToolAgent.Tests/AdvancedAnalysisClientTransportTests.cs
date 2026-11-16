@@ -526,6 +526,21 @@ public sealed class AdvancedAnalysisClientTransportTests
     }
 
     [Fact]
+    public async Task Missing_advanced_endpoint_preserves_the_local_capability_boundary()
+    {
+        var handler = new SequenceHandler((_, _, _) => Task.FromResult(Json(
+            HttpStatusCode.NotFound,
+            new { error = "not_found", answerText = "untrusted server body" })));
+
+        var result = await ExecuteAsync(handler);
+
+        Assert.False(result.Handled);
+        Assert.Equal("server_capability_unavailable", result.Outcome);
+        Assert.Null(result.FinalAnswer);
+        Assert.Null(result.SourcesPayload);
+    }
+
+    [Fact]
     public async Task Local_cancellation_requests_server_cancellation_after_creation()
     {
         var cancellationCalls = 0;
